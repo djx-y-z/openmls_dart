@@ -1,0 +1,6 @@
+include: package:lints/recommended.yaml
+
+linter:
+  rules:
+    # Disable 'avoid_print' for CLI example - print is the primary output method
+    avoid_print: false

@@ -1,0 +1,65 @@
+name: Setup Make
+description: Install GNU Make on Windows (no-op on Unix)
+
+inputs:
+  version:
+    description: 'Version of gnumake to install (from dcvdh/make-for-windows releases)'
+    required: false
+    default: '4.4.1'
+
+runs:
+  using: composite
+  steps:
+    - name: Install Make (Windows)
+      if: runner.os == 'Windows'
+      run: |
+        $ErrorActionPreference = "Stop"
+        $makeVersion = "${{ inputs.version }}"
+        $makeUrl = "https://github.com/dcvdh/make-for-windows/releases/download/$makeVersion/gnumake.exe"
+        $makeDir = "$env:RUNNER_TEMP\make"
+        $makeExe = "$makeDir\make.exe"
+
+        try {
+          # Create directory
+          New-Item -ItemType Directory -Force -Path $makeDir | Out-Null
+
+          # Download with retry
+          $maxRetries = 3
+          $retryDelay = 5
+          for ($i = 1; $i -le $maxRetries; $i++) {
+            try {
+              Write-Host "Downloading GNU Make $makeVersion (attempt $i/$maxRetries)..."
+              Invoke-WebRequest -Uri $makeUrl -OutFile $makeExe -UseBasicParsing -TimeoutSec 60
+              break
+            } catch {
+              if ($i -eq $maxRetries) {
+                throw "Failed to download GNU Make after $maxRetries attempts: $_"
+              }
+              Write-Host "Download failed, retrying in $retryDelay seconds..."
+              Start-Sleep -Seconds $retryDelay
+            }
+          }
+
+          # Verify download
+          if (-not (Test-Path $makeExe)) {
+            throw "Download succeeded but file not found at $makeExe"
+          }
+
+          $fileSize = (Get-Item $makeExe).Length
+          if ($fileSize -lt 1000) {
+            throw "Downloaded file is too small ($fileSize bytes), likely corrupted"
+          }
+
+          # Add to PATH
+          echo $makeDir | Out-File -FilePath $env:GITHUB_PATH -Append
+          Write-Host "GNU Make $makeVersion installed successfully to $makeExe"
+        } catch {
+          Write-Host "::error::Failed to install GNU Make: $_"
+          exit 1
+        }
+      shell: pwsh
+
+    - name: Verify Make installation (Windows)
+      if: runner.os == 'Windows'
+      run: make --version
+      shell: pwsh

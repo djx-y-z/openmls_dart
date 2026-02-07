@@ -1,0 +1,7 @@
+# This directory contains the package source code:
+#
+# - openmls.dart   - Core initialization class
+# - platform/                  - Platform-specific implementations
+# - rust/                      - FRB-generated bindings (after codegen)
+#
+# Add your custom Dart wrappers here as needed.

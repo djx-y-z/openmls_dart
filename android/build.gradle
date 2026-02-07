@@ -1,0 +1,42 @@
+// openmls - Android FFI Plugin with pre-built native libraries
+// Uses pre-built libopenmls_frb.so from src/main/jniLibs/ (standard location)
+
+group = "org.openmls.openmls"
+version = "1.0"
+
+buildscript {
+    repositories {
+        google()
+        mavenCentral()
+    }
+
+    dependencies {
+        classpath("com.android.tools.build:gradle:8.11.1")
+    }
+}
+
+rootProject.allprojects {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
+apply plugin: "com.android.library"
+
+android {
+    namespace = "org.openmls.openmls"
+    compileSdk = 36
+
+    // NDK version for Rust cross-compilation
+    ndkVersion = "26.3.11579264"
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+
+    defaultConfig {
+        minSdk = 24
+    }
+}

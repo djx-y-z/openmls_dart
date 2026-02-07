@@ -1,0 +1,14 @@
+name: openmls_example_cli
+description: CLI example demonstrating openmls library usage
+publish_to: 'none'
+version: 1.0.0
+
+environment:
+  sdk: ^3.10.0
+
+dependencies:
+  openmls:
+    path: ../
+
+dev_dependencies:
+  lints: ^6.0.0

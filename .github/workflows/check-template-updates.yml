@@ -1,0 +1,138 @@
+# Check for new copier template versions and create notification PR
+#
+# This workflow:
+# 1. Runs daily (or manually) to check for new template releases
+# 2. Compares with current template version in .copier-answers.yml
+# 3. If newer version found, creates a notification PR with:
+#    - Version comparison
+#    - Changelog between versions
+#    - Step-by-step update instructions
+
+name: Check Template Updates
+
+on:
+  schedule:
+    # Run daily at 10:00 UTC (1 hour after upstream check at 09:00)
+    - cron: '0 10 * * *'
+  workflow_dispatch:
+    inputs:
+      target_version:
+        description: 'Specific version to check against (leave empty for latest)'
+        required: false
+        default: ''
+        type: string
+
+jobs:
+  check-template:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Generate GitHub App Token
+        id: app-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+
+      - name: Setup FVM and Flutter
+        uses: ./.github/actions/setup-fvm
+
+      - name: Check for template updates
+        id: check
+        run: |
+          # Build arguments
+          ARGS="--ci-output $GITHUB_OUTPUT"
+
+          if [ -n "${{ inputs.target_version }}" ]; then
+            ARGS="$ARGS --version ${{ inputs.target_version }}"
+          fi
+
+          echo "Running: make check-template-updates ARGS=\"$ARGS\""
+          make check-template-updates ARGS="$ARGS" || true
+
+          echo "Check completed. Outputs:"
+          cat $GITHUB_OUTPUT || true
+
+      - name: Create Notification PR
+        if: steps.check.outputs.needs_update == 'true'
+        uses: peter-evans/create-pull-request@v8
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          sign-commits: true
+          commit-message: |
+            chore: template update available (${{ steps.check.outputs.latest_version }})
+          title: "Template update available: ${{ steps.check.outputs.latest_version }}"
+          body: |
+            ## Template Update Available
+
+            A new version of the [copier-dart-frb-wrapper](https://github.com/${{ steps.check.outputs.template_repo }}) template is available.
+
+            ### Version Change
+
+            | Component | Current | Latest |
+            |-----------|---------|--------|
+            | Template  | ${{ steps.check.outputs.current_version }} | ${{ steps.check.outputs.latest_version }} |
+
+            ${{ steps.check.outputs.changelog != '' && '### What Changed' || '' }}
+
+            ${{ steps.check.outputs.changelog }}
+
+            ### How to Update
+
+            1. **Install/update copier:**
+               ```bash
+               pip install copier jinja2-strcase
+               ```
+
+            2. **Run copier update:**
+               ```bash
+               copier update --trust --vcs-ref=${{ steps.check.outputs.latest_version }}
+               ```
+
+            3. **Review changes** — resolve any conflicts, check generated files
+
+            4. **Run quality checks:**
+               ```bash
+               make analyze
+               make test
+               ```
+
+            5. **Commit the changes**
+
+            ### Links
+
+            - [Full comparison](${{ steps.check.outputs.compare_url }})
+            - [Release notes](${{ steps.check.outputs.release_url }})
+
+            ---
+            *This PR was created automatically by the template update checker.*
+          branch: update-template-${{ steps.check.outputs.latest_version }}
+          delete-branch: true
+          labels: |
+            template
+            automated
+
+      - name: Summary
+        run: |
+          if [ "${{ steps.check.outputs.needs_update }}" = "true" ]; then
+            echo "## Template Update Available" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "| Property | Value |" >> $GITHUB_STEP_SUMMARY
+            echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
+            echo "| Template | ${{ steps.check.outputs.template_repo }} |" >> $GITHUB_STEP_SUMMARY
+            echo "| Current | ${{ steps.check.outputs.current_version }} |" >> $GITHUB_STEP_SUMMARY
+            echo "| Latest | ${{ steps.check.outputs.latest_version }} |" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "A notification PR has been created." >> $GITHUB_STEP_SUMMARY
+          else
+            echo "## Template Up to Date" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Current template version **${{ steps.check.outputs.current_version }}** is the latest." >> $GITHUB_STEP_SUMMARY
+          fi

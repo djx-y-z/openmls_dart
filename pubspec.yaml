@@ -1,0 +1,42 @@
+name: openmls
+description: Dart wrapper for OpenMLS — a Rust implementation of the Messaging Layer Security (MLS) protocol (RFC 9420)
+
+version: 1.0.0
+license: MIT
+repository: https://github.com/djx-y-z/openmls_dart
+homepage: https://github.com/djx-y-z/openmls_dart
+issue_tracker: https://github.com/djx-y-z/openmls_dart/issues
+
+environment:
+  sdk: ^3.10.0
+  flutter: ">=3.38.0"
+
+dependencies:
+  flutter_rust_bridge: ^2.11.1
+  # SHA256 verification for native library downloads
+  crypto: ^3.0.7
+  # Build hooks for automatic native library download
+  hooks: ^1.0.0
+  code_assets: ^1.0.0
+
+dev_dependencies:
+  lints: ^6.0.0
+  test: ^1.24.0
+  coverage: ^1.15.0
+  # Required by flutter_rust_bridge_codegen
+  ffigen: ^20.0.0
+
+platforms:
+  android:
+  ios:
+  linux:
+  macos:
+  windows:
+  web:
+
+topics:
+  - mls
+  - encryption
+  - messaging
+  - e2ee
+  - rust

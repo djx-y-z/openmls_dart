@@ -1,0 +1,8 @@
+# This directory contains Flutter Rust Bridge generated code.
+# Run `make codegen` to generate the Dart bindings.
+#
+# After codegen, this directory will contain:
+# - frb_generated.dart
+# - frb_generated.io.dart
+# - frb_generated.web.dart (if web enabled)
+# - api/*.dart (generated API modules)

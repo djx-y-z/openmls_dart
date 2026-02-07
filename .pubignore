@@ -1,0 +1,65 @@
+# Development files
+TODO.md
+Makefile
+.fvmrc
+.skip_openmls_hook
+
+# CI/CD
+.github/
+
+# Build scripts (only needed for development)
+scripts/
+
+# Rust build artifacts
+rust/target/
+
+# IDE and editor files
+.vscode/
+.idea/
+.claude/*
+!.claude/skills/
+.metadata
+*.iml
+
+# Coverage
+coverage/
+
+# Documentation
+doc/
+docs/
+
+# Build artifacts
+build/
+example/build/
+example/.dart_tool/
+example/.flutter-plugins
+example/.flutter-plugins-dependencies
+example/ios/Podfile.lock
+example/macos/Podfile.lock
+example/.idea/
+example/android/.gradle/
+example/ios/Pods/
+example/macos/Pods/
+
+# Xcode workspace files
+example/ios/Runner.xcworkspace/
+example/macos/Runner.xcworkspace/
+
+# CLI example (not part of the Flutter plugin example)
+example_cli/
+
+# Downloaded WASM files (auto-downloaded by hook/build.dart)
+example/web/pkg/
+
+# FVM
+.fvm/
+
+# Hook build cache
+hook/.dart_tool/
+
+# Generated plugin files (not needed for plugin distribution)
+android/app/
+ios/Flutter/ephemeral/
+ios/Runner/
+macos/Flutter/ephemeral/
+linux/flutter/generated_*

@@ -1,0 +1,44 @@
+[package]
+name = "openmls_frb"
+version = "1.0.0"
+edition = "2024"
+rust-version = "1.88"
+description = "Dart wrapper for OpenMLS — a Rust implementation of the Messaging Layer Security (MLS) protocol (RFC 9420)"
+repository = "https://github.com/djx-y-z/openmls_dart"
+license = "MIT"
+publish = false
+
+[lib]
+name = "openmls_frb"
+crate-type = ["cdylib", "staticlib"]
+
+[dependencies]
+flutter_rust_bridge = "=2.11.1"
+thiserror = "2.0"
+log = "0.4"
+openmls = { git = "https://github.com/openmls/openmls", tag = "openmls-v0.8.0" }
+openmls_rust_crypto = { git = "https://github.com/openmls/openmls", tag = "openmls-v0.8.0" }
+openmls_basic_credential = { git = "https://github.com/openmls/openmls", tag = "openmls-v0.8.0" }
+openmls_traits = { git = "https://github.com/openmls/openmls", tag = "openmls-v0.8.0" }
+openmls_memory_storage = { git = "https://github.com/openmls/openmls", tag = "openmls-v0.8.0" }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+# Diamond dependency: some upstream crates use getrandom 0.2, some use 0.3
+# Both need to be configured for WASM to work correctly
+getrandom_02 = { package = "getrandom", version = "0.2", features = ["js"] }
+getrandom = { version = "0.3", features = ["wasm_js"] }
+wasm-bindgen = "0.2"
+wasm-bindgen-futures = "0.4"
+js-sys = "0.3"
+web-sys = { version = "0.3", features = ["console", "Window", "Performance"] }
+
+[profile.release]
+lto = true
+opt-level = "z"
+strip = true
+
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = ["-O4", "--enable-bulk-memory", "--enable-nontrapping-float-to-int"]
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ["cfg(frb_expand)"] }

@@ -1,0 +1,214 @@
+# Publish package to pub.dev
+#
+# This workflow publishes the package to pub.dev and creates a GitHub Release.
+#
+# Flow:
+# 1. Create and push a version tag: git tag vX.Y.Z && git push origin vX.Y.Z
+# 2. Workflow automatically triggers on tag push
+# 3. Validate version tag matches pubspec.yaml
+# 4. Run tests and analysis
+# 5. Publish to pub.dev via OIDC (no tokens needed)
+# 6. Create GitHub Release with changelog
+#
+# Prerequisites:
+# - Enable "Automated publishing" in pub.dev publisher settings
+# - Add this repository to allowed repositories
+# - Configure to allow publishing from tags
+# - See: https://dart.dev/tools/pub/automated-publishing
+
+name: Publish to pub.dev
+
+on:
+  push:
+    tags:
+      - 'v*'  # Triggers on tags like v1.0.0, v1.0.1, etc.
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        description: 'Dry run (validate without publishing)'
+        required: false
+        type: boolean
+        default: true
+
+# Required for OIDC authentication with pub.dev
+permissions:
+  contents: write      # Create tags and releases
+  id-token: write      # OIDC token for pub.dev
+
+jobs:
+  # ============================================
+  # Validate and prepare
+  # ============================================
+  validate:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      changelog: ${{ steps.changelog.outputs.changelog }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Get version from tag and validate
+        id: version
+        run: |
+          PUBSPEC_VERSION=$(grep '^version:' pubspec.yaml | sed 's/version: //' | tr -d '[:space:]')
+
+          # Get version from tag (remove 'v' prefix)
+          if [ "${{ github.ref_type }}" = "tag" ]; then
+            TAG_VERSION="${GITHUB_REF#refs/tags/v}"
+
+            if [ "$TAG_VERSION" != "$PUBSPEC_VERSION" ]; then
+              echo "::error::Version mismatch! Tag: $TAG_VERSION, pubspec.yaml: $PUBSPEC_VERSION"
+              echo "Please ensure the tag matches the version in pubspec.yaml."
+              exit 1
+            fi
+            echo "Tag version matches pubspec.yaml: $TAG_VERSION"
+          else
+            echo "Running from branch (dry-run mode)"
+          fi
+
+          echo "version=$PUBSPEC_VERSION" >> $GITHUB_OUTPUT
+          echo "Publishing version: $PUBSPEC_VERSION"
+
+      - name: Check if version already published
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          PACKAGE_NAME=$(grep '^name:' pubspec.yaml | sed 's/name: //' | tr -d '[:space:]')
+
+          # Check pub.dev API
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "https://pub.dev/api/packages/$PACKAGE_NAME/versions/$VERSION")
+
+          if [ "$HTTP_CODE" = "200" ]; then
+            echo "::error::Version $VERSION is already published on pub.dev"
+            exit 1
+          fi
+
+          echo "Version $VERSION is not yet published. Proceeding..."
+
+      - name: Verify tag exists (when triggered by tag)
+        if: github.ref_type == 'tag'
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          echo "Publishing from tag v$VERSION"
+
+      - name: Extract changelog for this version
+        id: changelog
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+
+          # Extract changelog section for this version
+          # Looks for ## X.Y.Z or ## [X.Y.Z] and captures until next ## or EOF
+          CHANGELOG=$(awk -v ver="$VERSION" '
+            /^## \[?[0-9]+\.[0-9]+\.[0-9]+\]?/ {
+              if (found) exit
+              if (index($0, ver)) found=1
+              next
+            }
+            found { print }
+          ' CHANGELOG.md)
+
+          if [ -z "$CHANGELOG" ]; then
+            echo "::warning::No changelog entry found for version $VERSION"
+            CHANGELOG="Release version $VERSION"
+          fi
+
+          # Use heredoc for multiline output (no escaping needed)
+          {
+            echo "changelog<<EOF"
+            echo "$CHANGELOG"
+            echo "EOF"
+          } >> $GITHUB_OUTPUT
+
+      - name: Validate CHANGELOG.md has entry for this version
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          if ! grep -q "## \[*$VERSION\]*" CHANGELOG.md; then
+            echo "::warning::CHANGELOG.md does not have an entry for version $VERSION"
+            echo "Consider adding a changelog entry before publishing."
+          fi
+
+  # ============================================
+  # Run tests (multi-platform)
+  # ============================================
+  test:
+    needs: validate
+    uses: ./.github/workflows/test-reusable.yml
+    with:
+      run-coverage: false
+      update-badge: false
+
+  # ============================================
+  # Validate package
+  # ============================================
+  validate-package:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup FVM and Flutter
+        uses: ./.github/actions/setup-fvm
+
+      - name: Install dependencies
+        run: make get
+        shell: bash
+
+      - name: Validate package
+        run: make publish-dry-run
+        shell: bash
+
+  # ============================================
+  # Publish to pub.dev
+  # ============================================
+  publish:
+    needs: [validate, test, validate-package]
+    runs-on: ubuntu-latest
+    environment: pub.dev
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup FVM and Flutter
+        uses: ./.github/actions/setup-fvm
+
+      - name: Install dependencies
+        run: make get
+        shell: bash
+
+      - name: Publish to pub.dev (dry run)
+        if: github.ref_type != 'tag' || inputs.dry-run
+        run: |
+          echo "DRY RUN - would publish version ${{ needs.validate.outputs.version }}"
+          make publish-dry-run
+        shell: bash
+
+      - name: Publish to pub.dev
+        if: github.ref_type == 'tag' && !inputs.dry-run
+        run: make publish ARGS="--force"
+        shell: bash
+
+  # ============================================
+  # Create GitHub Release
+  # ============================================
+  release:
+    needs: [validate, publish]
+    if: github.ref_type == 'tag' && !inputs.dry-run
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "v${{ needs.validate.outputs.version }}" \
+            --title "v${{ needs.validate.outputs.version }}" \
+            --notes "$(cat <<'EOF'
+          ## Changes
+
+          ${{ needs.validate.outputs.changelog }}
+
+          ---
+
+          **pub.dev:** https://pub.dev/packages/openmls/versions/${{ needs.validate.outputs.version }}
+          EOF
+          )"
+        shell: bash

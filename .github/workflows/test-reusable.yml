@@ -1,0 +1,150 @@
+# Reusable test workflow for multi-platform testing
+#
+# Called by:
+# - test.yml (on push/PR)
+# - publish.yml (before publishing)
+#
+# Runs tests in parallel on: Linux x86_64, Linux ARM64, macOS ARM64, Windows x86_64
+# Coverage: Only collected on Linux x86_64
+# Badge: Updated only after ALL platform tests pass
+#
+# Note: Since we use `dart test` (not `flutter test`), we need to manually
+# build the Rust library before running tests. FRB loads the library from
+# rust/target/release/ directory automatically.
+
+name: Test (Reusable)
+
+on:
+  workflow_call:
+    inputs:
+      run-coverage:
+        description: 'Run coverage analysis (Linux x86_64 only)'
+        type: boolean
+        default: true
+      update-badge:
+        description: 'Update coverage badge (requires GIST_TOKEN secret)'
+        type: boolean
+        default: false
+    secrets:
+      GIST_TOKEN:
+        required: false
+    outputs:
+      coverage-percentage:
+        description: 'Coverage percentage (from Linux x86_64 run)'
+        value: ${{ jobs.test.outputs.coverage }}
+
+jobs:
+  # ============================================
+  # Security Audit (Rust dependencies)
+  # ============================================
+  audit:
+    name: Security Audit (Rust)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Rust tools
+        run: make setup-rust-tools
+
+      - name: Run cargo audit
+        run: make rust-audit
+
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            name: Linux x86_64
+            coverage: true
+          - os: ubuntu-24.04-arm
+            name: Linux ARM64
+            coverage: false
+          - os: macos-latest
+            name: macOS ARM64
+            coverage: false
+          - os: windows-latest
+            name: Windows x86_64
+            coverage: false
+
+    name: Test (${{ matrix.name }})
+    runs-on: ${{ matrix.os }}
+    outputs:
+      coverage: ${{ steps.coverage.outputs.percentage }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Install make (Windows only, pre-installed on Linux/macOS)
+      - name: Setup Make
+        if: runner.os == 'Windows'
+        uses: ./.github/actions/setup-make
+
+      # Setup Rust toolchain for building native library
+      - name: Setup Rust
+        uses: ./.github/actions/setup-rust
+
+      - name: Setup FVM and Flutter
+        uses: ./.github/actions/setup-fvm
+
+      - name: Get dependencies
+        run: make get
+        shell: bash
+
+      # Build Rust library - FRB loads from rust/target/release/ automatically
+      - name: Build Rust library
+        run: make build
+        shell: bash
+
+      - name: Analyze
+        run: make analyze ARGS="--fatal-infos"
+        shell: bash
+
+      - name: Check formatting
+        run: make format-check
+        shell: bash
+
+      # Run tests without coverage (non-Linux or coverage disabled)
+      - name: Run tests
+        if: matrix.coverage == false || !inputs.run-coverage
+        run: make test
+        shell: bash
+
+      # Coverage only on Linux x86_64 when enabled
+      - name: Install lcov
+        if: matrix.coverage == true && inputs.run-coverage
+        run: sudo apt-get install -y lcov
+
+      - name: Run tests with coverage
+        if: matrix.coverage == true && inputs.run-coverage
+        run: make coverage
+
+      - name: Calculate coverage percentage
+        if: matrix.coverage == true && inputs.run-coverage
+        id: coverage
+        run: |
+          COVERAGE=$(lcov --summary coverage/lcov.info 2>&1 | grep 'lines' | sed 's/.*: //' | sed 's/%.*//')
+          echo "percentage=$COVERAGE" >> $GITHUB_OUTPUT
+          echo "Coverage: $COVERAGE%"
+        shell: bash
+
+  # ============================================
+  # Update coverage badge (after ALL tests pass)
+  # ============================================
+  update-badge:
+    name: Update Coverage Badge
+    needs: test
+    if: inputs.update-badge && inputs.run-coverage
+    runs-on: ubuntu-latest
+    steps:
+      - name: Update coverage badge
+        uses: schneegans/dynamic-badges-action@v1.7.0
+        with:
+          auth: ${{ secrets.GIST_TOKEN }}
+          gistID: ${{ vars.COVERAGE_GIST_ID }}
+          filename: coverage.json
+          label: coverage
+          message: ${{ needs.test.outputs.coverage }}%
+          valColorRange: ${{ needs.test.outputs.coverage }}
+          minColorRange: 50
+          maxColorRange: 90

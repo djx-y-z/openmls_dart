@@ -1,0 +1,64 @@
+name: Setup FVM and Flutter
+description: Setup Dart SDK, FVM, and install Flutter version from .fvmrc
+
+runs:
+  using: composite
+  steps:
+    - name: Setup Dart SDK
+      uses: dart-lang/setup-dart@v1
+      with:
+        sdk: stable
+
+    - name: Install FVM (Unix)
+      if: runner.os != 'Windows'
+      run: |
+        dart pub global activate fvm
+        echo "$HOME/.pub-cache/bin" >> $GITHUB_PATH
+      shell: bash
+
+    - name: Install FVM (Windows)
+      if: runner.os == 'Windows'
+      run: |
+        dart pub global activate fvm
+        # Determine pub-cache bin path (use PUB_CACHE if set, otherwise default)
+        $pubCacheBin = if ($env:PUB_CACHE) { "$env:PUB_CACHE\bin" } else { "$env:USERPROFILE\.pub-cache\bin" }
+        # Add pub-cache bin to PATH
+        echo $pubCacheBin | Out-File -FilePath $env:GITHUB_PATH -Append
+        # Create a shell script wrapper for fvm so it works in Git Bash
+        # Git Bash cannot execute .bat files directly, but can run shell scripts
+        $wrapperPath = "$pubCacheBin\fvm"
+        $wrapperContent = "#!/bin/sh`nexec cmd //c fvm.bat `"`$@`""
+        [System.IO.File]::WriteAllText($wrapperPath, $wrapperContent)
+      shell: pwsh
+
+    - name: Cache FVM (Unix)
+      if: runner.os != 'Windows'
+      uses: actions/cache@v4
+      with:
+        path: ~/.fvm
+        key: fvm-${{ runner.os }}-${{ hashFiles('.fvmrc') }}
+        restore-keys: |
+          fvm-${{ runner.os }}-
+
+    - name: Cache FVM (Windows)
+      if: runner.os == 'Windows'
+      uses: actions/cache@v4
+      with:
+        path: ~\.fvm
+        key: fvm-${{ runner.os }}-${{ hashFiles('.fvmrc') }}
+        restore-keys: |
+          fvm-${{ runner.os }}-
+
+    - name: Install Flutter via FVM (Unix)
+      if: runner.os != 'Windows'
+      run: fvm install
+      shell: bash
+
+    - name: Install Flutter via FVM (Windows)
+      if: runner.os == 'Windows'
+      run: fvm install
+      shell: pwsh
+
+    - name: Discard FVM config changes
+      run: git checkout -- .fvmrc .vscode/settings.json 2>/dev/null || true
+      shell: bash

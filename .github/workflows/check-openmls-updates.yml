@@ -1,0 +1,251 @@
+# Automatically check for new openmls releases and create PR with all updates
+#
+# This workflow:
+# 1. Runs daily (or manually) to check for new openmls releases
+# 2. Compares with current upstream dependency tag in rust/Cargo.toml
+# 3. If newer version found:
+#    - Updates rust/Cargo.toml with new openmls tag
+#    - Runs cargo update to update Cargo.lock
+#    - Regenerates FRB bindings (make codegen)
+#    - Updates CHANGELOG.md with AI-generated entry (GitHub Models)
+#    - Creates a PR with all changes
+
+name: Check openmls Updates
+
+on:
+  schedule:
+    # Run daily at 09:00 UTC
+    - cron: '0 9 * * *'
+  workflow_dispatch:
+    inputs:
+      force_update:
+        description: 'Force update even if version is the same'
+        required: false
+        default: false
+        type: boolean
+      target_version:
+        description: 'Specific version to update to (leave empty for latest)'
+        required: false
+        default: ''
+        type: string
+
+jobs:
+  check-updates:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Generate GitHub App Token
+        id: app-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+
+      - name: Setup FVM and Flutter
+        uses: ./.github/actions/setup-fvm
+
+      - name: Check for updates
+        id: check
+        run: |
+          # Build arguments
+          ARGS="--ci"
+
+          if [ -n "${{ inputs.target_version }}" ]; then
+            ARGS="$ARGS --version ${{ inputs.target_version }}"
+          fi
+
+          if [ "${{ inputs.force_update }}" = "true" ]; then
+            ARGS="$ARGS --force"
+          fi
+
+          echo "Running: make check-new-openmls-version ARGS=\"$ARGS\""
+          make check-new-openmls-version ARGS="$ARGS" || true
+
+          echo "Check completed. Outputs:"
+          cat $GITHUB_OUTPUT || true
+
+      - name: Update rust/Cargo.toml
+        id: cargo-toml
+        if: steps.check.outputs.needs_update == 'true'
+        run: |
+          # Build arguments for update
+          ARGS="--update --ci"
+
+          if [ -n "${{ inputs.target_version }}" ]; then
+            ARGS="$ARGS --version ${{ inputs.target_version }}"
+          fi
+
+          if [ "${{ inputs.force_update }}" = "true" ]; then
+            ARGS="$ARGS --force"
+          fi
+
+          echo "Running: make check-new-openmls-version ARGS=\"$ARGS\""
+          if make check-new-openmls-version ARGS="$ARGS"; then
+            echo "success=true" >> $GITHUB_OUTPUT
+          else
+            echo "success=false" >> $GITHUB_OUTPUT
+            echo "::error::Failed to update rust/Cargo.toml"
+          fi
+
+      - name: Setup Rust
+        id: setup-rust
+        if: steps.check.outputs.needs_update == 'true'
+        continue-on-error: true
+        uses: ./.github/actions/setup-rust
+
+      - name: Update Cargo.lock
+        id: cargo-lock
+        if: steps.check.outputs.needs_update == 'true'
+        run: |
+          if make rust-update; then
+            echo "success=true" >> $GITHUB_OUTPUT
+          else
+            echo "success=false" >> $GITHUB_OUTPUT
+            echo "::warning::Failed to update Cargo.lock"
+          fi
+
+      - name: Regenerate FRB bindings
+        id: codegen
+        if: steps.check.outputs.needs_update == 'true'
+        run: |
+          if make codegen; then
+            echo "success=true" >> $GITHUB_OUTPUT
+          else
+            echo "success=false" >> $GITHUB_OUTPUT
+            echo "::warning::FRB codegen failed. openmls API may have changed."
+          fi
+
+      - name: Update CHANGELOG.md
+        id: changelog
+        if: steps.check.outputs.needs_update == 'true'
+        env:
+          AI_MODELS_TOKEN: ${{ secrets.AI_MODELS_TOKEN }}
+        run: |
+          if make update-changelog ARGS="--version ${{ steps.check.outputs.latest_version }} --ci"; then
+            echo "success=true" >> $GITHUB_OUTPUT
+          else
+            echo "success=false" >> $GITHUB_OUTPUT
+            echo "::warning::AI changelog update failed. Please update CHANGELOG.md manually."
+          fi
+
+      - name: Create Pull Request
+        if: steps.check.outputs.needs_update == 'true'
+        uses: peter-evans/create-pull-request@v8
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          sign-commits: true
+          commit-message: |
+            chore(deps): update openmls to ${{ steps.check.outputs.latest_version }}
+          title: "Update openmls to ${{ steps.check.outputs.latest_version }}"
+          body: |
+            ## Automated openmls Update
+
+            This PR updates the openmls dependency version.
+
+            ### Version Change
+
+            | Component | Old | New |
+            |-----------|-----|-----|
+            | openmls | ${{ steps.check.outputs.current_version }} | ${{ steps.check.outputs.latest_version }} |
+
+            ${{ steps.check.outputs.is_prerelease == 'true' && '> **Pre-release**: This is a release candidate. Consider waiting for stable release unless you need specific features.' || '' }}
+
+            ${{ steps.cargo-toml.outputs.success == 'false' && '> **Critical**: Failed to update rust/Cargo.toml. Manual update required.' || '' }}
+
+            ${{ steps.cargo-lock.outputs.success == 'false' && '> **Warning**: Failed to update Cargo.lock. Run `make rust-update` manually.' || '' }}
+
+            ${{ steps.codegen.outputs.success == 'false' && '> **Error**: FRB codegen failed. openmls API may have changed. Manual intervention required.' || '' }}
+
+            ${{ steps.changelog.outputs.success == 'false' && '> **Warning**: AI changelog update failed. Please update CHANGELOG.md manually.' || '' }}
+
+            ### Files Updated Automatically
+
+            - `rust/Cargo.toml` — ${{ steps.cargo-toml.outputs.success == 'true' && 'openmls dependency tags' || '**NOT UPDATED** (update failed)' }}
+            - `rust/Cargo.lock` — ${{ steps.cargo-lock.outputs.success == 'true' && 'updated dependencies' || '**NOT UPDATED** (cargo update failed)' }}
+            - `lib/src/rust/` — ${{ steps.codegen.outputs.success == 'true' && 'regenerated FRB bindings' || '**NOT UPDATED** (codegen failed, manual update required)' }}
+            - `CHANGELOG.md` — ${{ steps.changelog.outputs.success == 'true' && 'AI-generated entry (GitHub Models)' || '**NOT UPDATED** (AI failed, manual update required)' }}
+            - `README.md` — ${{ steps.cargo-toml.outputs.success == 'true' && 'version badge' || '**NOT UPDATED**' }}
+            - `.copier-answers.yml` — ${{ steps.cargo-toml.outputs.success == 'true' && 'upstream_version updated' || '**NOT UPDATED**' }}
+            - `CLAUDE.md` — ${{ steps.cargo-toml.outputs.success == 'true' && 'example in documentation' || '**NOT UPDATED**' }}
+
+            ### Release Notes
+
+            See [openmls ${{ steps.check.outputs.latest_version }} release notes](${{ steps.check.outputs.release_url }})
+
+            ### Before Merge
+
+            ${{ steps.cargo-toml.outputs.success == 'false' && '1. **UPDATE rust/Cargo.toml** — automatic update failed, update manually' || '' }}
+            ${{ steps.cargo-lock.outputs.success == 'false' && '1. **RUN `make rust-update`** — Cargo.lock update failed' || '' }}
+            1. ${{ steps.codegen.outputs.success == 'false' && '**FIX FRB BINDINGS** — codegen failed, check openmls API changes' || 'Review FRB bindings — check if API changes require Dart code updates' }}
+            2. **Review CHANGELOG.md** — ${{ steps.changelog.outputs.success == 'true' && 'verify AI-generated entry is accurate' || '**ADD CHANGELOG ENTRY MANUALLY**' }}
+            3. **Bump `rust/Cargo.toml` version** — update `openmls_frb` version if Rust code changed
+            4. **Run `make rust-check`** — sync `Cargo.lock` with new version
+
+            ### After Merge
+
+            1. **Run tests locally** (optional, CI will run them):
+               ```bash
+               make test
+               ```
+
+            2. **Bump Dart package version** (if releasing to pub.dev):
+               - Update `version` in `pubspec.yaml`
+               - Move CHANGELOG `[Unreleased]` to version number
+
+            ---
+            *This PR was created automatically by the openmls update checker.*
+          branch: update-openmls-${{ steps.check.outputs.latest_version }}
+          delete-branch: true
+          labels: |
+            dependencies
+            automated
+            ${{ steps.check.outputs.is_prerelease == 'true' && 'pre-release' || '' }}
+            ${{ steps.cargo-toml.outputs.success == 'false' && 'cargo-toml-failed' || '' }}
+            ${{ steps.cargo-lock.outputs.success == 'false' && 'cargo-lock-failed' || '' }}
+            ${{ steps.codegen.outputs.success == 'false' && 'codegen-failed' || '' }}
+            ${{ steps.changelog.outputs.success == 'false' && 'changelog-needed' || '' }}
+
+      - name: Summary
+        run: |
+          if [ "${{ steps.check.outputs.needs_update }}" = "true" ]; then
+            echo "## Update Available" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "| Property | Value |" >> $GITHUB_STEP_SUMMARY
+            echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
+            echo "| Current openmls | ${{ steps.check.outputs.current_version }} |" >> $GITHUB_STEP_SUMMARY
+            echo "| New openmls | ${{ steps.check.outputs.latest_version }} |" >> $GITHUB_STEP_SUMMARY
+            echo "| Pre-release | ${{ steps.check.outputs.is_prerelease }} |" >> $GITHUB_STEP_SUMMARY
+            echo "| Cargo.toml | ${{ steps.cargo-toml.outputs.success }} |" >> $GITHUB_STEP_SUMMARY
+            echo "| Cargo.lock | ${{ steps.cargo-lock.outputs.success }} |" >> $GITHUB_STEP_SUMMARY
+            echo "| FRB Codegen | ${{ steps.codegen.outputs.success }} |" >> $GITHUB_STEP_SUMMARY
+            echo "| AI Changelog | ${{ steps.changelog.outputs.success }} |" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "A pull request has been created for review." >> $GITHUB_STEP_SUMMARY
+            if [ "${{ steps.cargo-toml.outputs.success }}" = "false" ]; then
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "> **Critical**: Failed to update rust/Cargo.toml. Manual update required." >> $GITHUB_STEP_SUMMARY
+            fi
+            if [ "${{ steps.cargo-lock.outputs.success }}" = "false" ]; then
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "> **Warning**: Failed to update Cargo.lock. Run \`make rust-update\` manually." >> $GITHUB_STEP_SUMMARY
+            fi
+            if [ "${{ steps.codegen.outputs.success }}" = "false" ]; then
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "> **Error**: FRB codegen failed. openmls API may have changed. Manual intervention required." >> $GITHUB_STEP_SUMMARY
+            fi
+            if [ "${{ steps.changelog.outputs.success }}" = "false" ]; then
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "> **Warning**: AI changelog update failed. Please update CHANGELOG.md manually." >> $GITHUB_STEP_SUMMARY
+            fi
+          else
+            echo "## Up to Date" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Current version **${{ steps.check.outputs.current_version }}** is the latest." >> $GITHUB_STEP_SUMMARY
+          fi

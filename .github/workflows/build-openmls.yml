@@ -1,0 +1,422 @@
+# Build openmls FRB native libraries for all platforms
+#
+# This workflow builds Rust code using cargo and creates GitHub Releases
+# with pre-built native libraries for all supported platforms.
+#
+# Platforms:
+# - Linux x86_64, arm64 (dynamic .so)
+# - macOS arm64, x86_64 (dynamic .dylib)
+# - iOS device arm64, simulator arm64/x86_64 (dynamic .dylib)
+# - Android arm64-v8a, armeabi-v7a, x86_64 (dynamic .so)
+# - Windows x86_64 (dynamic .dll)
+# - Web (WASM)
+#
+# Trigger:
+# - Manual dispatch (workflow_dispatch) - for first run or force rebuild
+# - Push to main when rust/Cargo.toml changes (contains version)
+#
+# After successful build, creates/updates GitHub Release with native library archives.
+
+name: Build openmls FRB Libraries
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'rust/Cargo.toml'
+      - 'rust/src/**'
+
+concurrency:
+  group: build-openmls_frb-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  # ============================================
+  # Check if release already exists (uses scripts/check_exists_frb_release.dart)
+  # ============================================
+  check-release:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.check.outputs.version }}
+      openmls_version: ${{ steps.check.outputs.openmls_version }}
+      skip: ${{ steps.check.outputs.skip }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup FVM and Flutter
+        uses: ./.github/actions/setup-fvm
+
+      - name: Check if release exists
+        id: check
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: make check-exists-openmls-frb-release ARGS="--ci"
+
+  # ============================================
+  # Linux (x86_64 + arm64 on separate runners)
+  # ============================================
+  build-linux:
+    needs: check-release
+    if: needs.check-release.outputs.skip != 'true'
+    strategy:
+      matrix:
+        include:
+          - arch: x86_64
+            runner: ubuntu-latest
+            rust_target: x86_64-unknown-linux-gnu
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+            rust_target: aarch64-unknown-linux-gnu
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: ./.github/actions/setup-rust
+        with:
+          targets: ${{ matrix.rust_target }}
+
+      - name: Build for Linux ${{ matrix.arch }}
+        run: |
+          cd rust
+          cargo build --release --target ${{ matrix.rust_target }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: openmls-linux-${{ matrix.arch }}
+          path: rust/target/${{ matrix.rust_target }}/release/libopenmls_frb.so
+
+  # ============================================
+  # macOS (arm64 + x86_64 on separate runners)
+  # ============================================
+  build-macos:
+    needs: check-release
+    if: needs.check-release.outputs.skip != 'true'
+    strategy:
+      matrix:
+        include:
+          - arch: arm64
+            runner: macos-latest
+            rust_target: aarch64-apple-darwin
+          - arch: x86_64
+            runner: macos-latest
+            rust_target: x86_64-apple-darwin
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: ./.github/actions/setup-rust
+        with:
+          targets: ${{ matrix.rust_target }}
+
+      - name: Build for macOS ${{ matrix.arch }}
+        run: |
+          cd rust
+          cargo build --release --target ${{ matrix.rust_target }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: openmls-macos-${{ matrix.arch }}
+          path: rust/target/${{ matrix.rust_target }}/release/libopenmls_frb.dylib
+
+  # ============================================
+  # iOS (dynamic .dylib)
+  # ============================================
+  build-ios:
+    needs: check-release
+    if: needs.check-release.outputs.skip != 'true'
+    strategy:
+      matrix:
+        include:
+          - target: device
+            arch: arm64
+            runner: macos-latest
+            rust_target: aarch64-apple-ios
+          - target: simulator
+            arch: arm64
+            runner: macos-latest
+            rust_target: aarch64-apple-ios-sim
+          - target: simulator
+            arch: x86_64
+            runner: macos-latest
+            rust_target: x86_64-apple-ios
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: ./.github/actions/setup-rust
+        with:
+          targets: ${{ matrix.rust_target }}
+
+      - name: Build for iOS ${{ matrix.target }} ${{ matrix.arch }}
+        run: |
+          cd rust
+          cargo build --release --target ${{ matrix.rust_target }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: openmls-ios-${{ matrix.target }}-${{ matrix.arch }}
+          path: rust/target/${{ matrix.rust_target }}/release/libopenmls_frb.dylib
+
+  # ============================================
+  # Android (all architectures)
+  # ============================================
+  build-android:
+    needs: check-release
+    if: needs.check-release.outputs.skip != 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - abi: arm64-v8a
+            rust_target: aarch64-linux-android
+          - abi: armeabi-v7a
+            rust_target: armv7-linux-androideabi
+          - abi: x86_64
+            rust_target: x86_64-linux-android
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: ./.github/actions/setup-rust
+        with:
+          targets: ${{ matrix.rust_target }}
+
+      - name: Setup Android NDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install NDK
+        run: |
+          sdkmanager --install "ndk;26.3.11579264"
+          echo "ANDROID_NDK_HOME=$ANDROID_SDK_ROOT/ndk/26.3.11579264" >> $GITHUB_ENV
+
+      - name: Setup cargo-ndk
+        run: cargo install cargo-ndk
+
+      - name: Build for Android ${{ matrix.abi }}
+        run: |
+          cd rust
+          cargo ndk -t ${{ matrix.rust_target }} build --release
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: openmls-android-${{ matrix.abi }}
+          path: rust/target/${{ matrix.rust_target }}/release/libopenmls_frb.so
+
+  # ============================================
+  # Windows x86_64
+  # ============================================
+  build-windows:
+    needs: check-release
+    if: needs.check-release.outputs.skip != 'true'
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: ./.github/actions/setup-rust
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - name: Setup MSVC
+        uses: ilammy/msvc-dev-cmd@v1.13.0
+
+      - name: Build for Windows
+        shell: pwsh
+        run: |
+          # Temporarily rename Git's link.exe to prevent it from shadowing MSVC's link.exe
+          $gitLink = "C:\Program Files\Git\usr\bin\link.exe"
+          $gitLinkBak = "$gitLink.bak"
+          if (Test-Path $gitLink) {
+            Rename-Item $gitLink $gitLinkBak
+          }
+          try {
+            cargo build --release `
+              --manifest-path rust/Cargo.toml `
+              --target x86_64-pc-windows-msvc
+          } finally {
+            if (Test-Path $gitLinkBak) {
+              Rename-Item $gitLinkBak $gitLink
+            }
+          }
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: openmls-windows-x86_64
+          path: rust/target/x86_64-pc-windows-msvc/release/openmls_frb.dll
+
+  # ============================================
+  # WebAssembly (wasm32)
+  # ============================================
+  build-wasm:
+    needs: check-release
+    if: needs.check-release.outputs.skip != 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: ./.github/actions/setup-rust
+        with:
+          targets: wasm32-unknown-unknown
+
+      - name: Install wasm-pack
+        run: cargo install wasm-pack
+
+      - name: Build for WASM
+        run: make build-web
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: openmls-wasm32
+          path: |
+            rust/target/wasm32/openmls_frb.js
+            rust/target/wasm32/openmls_frb_bg.wasm
+
+  # ============================================
+  # Create GitHub Release
+  # ============================================
+  create-release:
+    needs:
+      - check-release
+      - build-linux
+      - build-macos
+      - build-ios
+      - build-android
+      - build-windows
+      - build-wasm
+    if: needs.check-release.outputs.skip != 'true'
+    runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ needs.check-release.outputs.version }}
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create release archives
+        run: |
+          VERSION=${{ env.VERSION }}
+          mkdir -p release-archives
+
+          # Linux x86_64
+          tar -czvf release-archives/openmls_frb-${VERSION}-linux-x86_64.tar.gz \
+            -C artifacts/openmls-linux-x86_64 libopenmls_frb.so
+
+          # Linux arm64
+          tar -czvf release-archives/openmls_frb-${VERSION}-linux-arm64.tar.gz \
+            -C artifacts/openmls-linux-arm64 libopenmls_frb.so
+
+          # macOS arm64
+          tar -czvf release-archives/openmls_frb-${VERSION}-macos-arm64.tar.gz \
+            -C artifacts/openmls-macos-arm64 libopenmls_frb.dylib
+
+          # macOS x86_64
+          tar -czvf release-archives/openmls_frb-${VERSION}-macos-x86_64.tar.gz \
+            -C artifacts/openmls-macos-x86_64 libopenmls_frb.dylib
+
+          # Windows x86_64
+          tar -czvf release-archives/openmls_frb-${VERSION}-windows-x86_64.tar.gz \
+            -C artifacts/openmls-windows-x86_64 openmls_frb.dll
+
+          # Android ABIs
+          for abi in arm64-v8a armeabi-v7a x86_64; do
+            tar -czvf release-archives/openmls_frb-${VERSION}-android-${abi}.tar.gz \
+              -C artifacts/openmls-android-${abi} libopenmls_frb.so
+          done
+
+          # iOS device arm64
+          tar -czvf release-archives/openmls_frb-${VERSION}-ios-device-arm64.tar.gz \
+            -C artifacts/openmls-ios-device-arm64 libopenmls_frb.dylib
+
+          # iOS simulator arm64
+          tar -czvf release-archives/openmls_frb-${VERSION}-ios-simulator-arm64.tar.gz \
+            -C artifacts/openmls-ios-simulator-arm64 libopenmls_frb.dylib
+
+          # iOS simulator x86_64
+          tar -czvf release-archives/openmls_frb-${VERSION}-ios-simulator-x86_64.tar.gz \
+            -C artifacts/openmls-ios-simulator-x86_64 libopenmls_frb.dylib
+
+          # WebAssembly
+          tar -czvf release-archives/openmls_frb-${VERSION}-wasm32.tar.gz \
+            -C artifacts/openmls-wasm32 openmls_frb.js openmls_frb_bg.wasm
+
+          # Generate SHA256 checksums
+          cd release-archives
+          sha256sum openmls_frb-${VERSION}-*.tar.gz > openmls_frb-${VERSION}-checksums.sha256
+          cd ..
+
+          ls -lh release-archives/
+
+      - name: Create Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION=${{ env.VERSION }}
+          TAG="openmls_frb-${VERSION}"
+          TITLE="openmls_frb ${VERSION} - Native Libraries"
+
+          # Delete existing release if it exists (for rebuild scenarios)
+          gh release delete "$TAG" --yes 2>/dev/null || true
+
+          # Create release with all assets
+          gh release create "$TAG" \
+            --title "$TITLE" \
+            --latest \
+            --notes "$(cat <<'EOF'
+          ## openmls_frb ${VERSION} Native Libraries
+
+          Pre-built Flutter Rust Bridge native libraries for all supported platforms.
+          **These archives are downloaded automatically by \`hook/build.dart\` during Dart/Flutter builds.**
+
+          ### Platforms
+
+          | Platform | Architecture | Archive |
+          |----------|--------------|---------|
+          | Linux | x86_64 | \`openmls_frb-${VERSION}-linux-x86_64.tar.gz\` |
+          | Linux | arm64 | \`openmls_frb-${VERSION}-linux-arm64.tar.gz\` |
+          | macOS | arm64 | \`openmls_frb-${VERSION}-macos-arm64.tar.gz\` |
+          | macOS | x86_64 | \`openmls_frb-${VERSION}-macos-x86_64.tar.gz\` |
+          | Windows | x86_64 | \`openmls_frb-${VERSION}-windows-x86_64.tar.gz\` |
+          | Android | arm64-v8a | \`openmls_frb-${VERSION}-android-arm64-v8a.tar.gz\` |
+          | Android | armeabi-v7a | \`openmls_frb-${VERSION}-android-armeabi-v7a.tar.gz\` |
+          | Android | x86_64 | \`openmls_frb-${VERSION}-android-x86_64.tar.gz\` |
+          | iOS | device (arm64) | \`openmls_frb-${VERSION}-ios-device-arm64.tar.gz\` |
+          | iOS | simulator (arm64) | \`openmls_frb-${VERSION}-ios-simulator-arm64.tar.gz\` |
+          | iOS | simulator (x86_64) | \`openmls_frb-${VERSION}-ios-simulator-x86_64.tar.gz\` |
+          | Web | wasm32 | \`openmls_frb-${VERSION}-wasm32.tar.gz\` |
+
+          ### Checksums
+          SHA256 checksums are available in \`openmls_frb-${VERSION}-checksums.sha256\`
+          EOF
+          )" \
+            release-archives/openmls_frb-${VERSION}-linux-x86_64.tar.gz \
+            release-archives/openmls_frb-${VERSION}-linux-arm64.tar.gz \
+            release-archives/openmls_frb-${VERSION}-macos-arm64.tar.gz \
+            release-archives/openmls_frb-${VERSION}-macos-x86_64.tar.gz \
+            release-archives/openmls_frb-${VERSION}-windows-x86_64.tar.gz \
+            release-archives/openmls_frb-${VERSION}-android-arm64-v8a.tar.gz \
+            release-archives/openmls_frb-${VERSION}-android-armeabi-v7a.tar.gz \
+            release-archives/openmls_frb-${VERSION}-android-x86_64.tar.gz \
+            release-archives/openmls_frb-${VERSION}-ios-device-arm64.tar.gz \
+            release-archives/openmls_frb-${VERSION}-ios-simulator-arm64.tar.gz \
+            release-archives/openmls_frb-${VERSION}-ios-simulator-x86_64.tar.gz \
+            release-archives/openmls_frb-${VERSION}-wasm32.tar.gz \
+            release-archives/openmls_frb-${VERSION}-checksums.sha256

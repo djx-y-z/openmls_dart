@@ -1,0 +1,11 @@
+# Protocol Buffers support is disabled (enable_protoc=false)
+# This action is a no-op placeholder
+name: Setup Protoc (disabled)
+description: Protocol Buffers support is disabled for this project
+
+runs:
+  using: composite
+  steps:
+    - name: Protoc not required
+      run: echo "Protocol Buffers support is disabled for this project"
+      shell: bash
