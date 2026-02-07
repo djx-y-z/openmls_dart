@@ -16,8 +16,7 @@ rust_edition: "2024"
 rust_version: "1.88"
 frb_version: "^2.11.1"
 
-# Multiple upstream crates (git-based)
-upstream_crate: ""
+# Upstream crates (git-based)
 upstream_crates: "openmls,openmls_rust_crypto,openmls_basic_credential,openmls_traits,openmls_memory_storage"
 upstream_version: "openmls-v0.8.0"
 version_tag_prefix: "openmls-v"
