@@ -193,7 +193,7 @@ Future<List<String>> updateVersionFiles({
 }) async {
   final packageDir = getPackageDir();
   final updatedFiles = <String>[];
-  // 1. Update rust/Cargo.toml (all upstream dependency tags)
+  // 1. Update rust/Cargo.toml (upstream dependency tags)
   if (!silent) logStep('Updating rust/Cargo.toml...');
   final cargoFile = File('${packageDir.path}/rust/Cargo.toml');
   if (!cargoFile.existsSync()) {

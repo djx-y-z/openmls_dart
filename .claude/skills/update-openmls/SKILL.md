@@ -128,7 +128,7 @@ This will:
 Check `rust/Cargo.toml`:
 ```toml
 [dependencies]
-# upstream crates with tags
+openmls = { git = "https://github.com/openmls/openmls", tag = "openmls-v0.8.0" }
 ```
 
 ### Step 2: Update Version

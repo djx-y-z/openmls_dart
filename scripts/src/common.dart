@@ -159,7 +159,6 @@ String getCrateVersion() {
 
 /// Gets the upstream version (git tag) from rust/Cargo.toml.
 ///
-/// Supports multiple upstream crates from the same git repo.
 /// Parses the tag from the first crate: openmls = { git = "...", tag = "vX.Y.Z" }
 String getUpstreamVersion() {
   final packageDir = getPackageDir();

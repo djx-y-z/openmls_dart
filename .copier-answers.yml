@@ -1,43 +1,29 @@
-# Copier answers file for openmls
-# Template: https://github.com/djx-y-z/copier-dart-frb-wrapper
-_commit: v1.9.0
+# Changes here will be overwritten by Copier; NEVER EDIT MANUALLY
+_commit: v2.0.0
 _src_path: https://github.com/djx-y-z/copier-dart-frb-wrapper.git
-
-# Required
-package_name: openmls
-description: "Dart wrapper for OpenMLS — a Rust implementation of the Messaging Layer Security (MLS) protocol (RFC 9420)"
-native_library_name: openmls
-github_repo: djx-y-z/openmls_dart
-native_repo: openmls/openmls
-
-# Rust configuration
+android_compile_sdk: '36'
+android_gradle_version: 8.11.1
+android_java_version: '17'
+android_min_sdk: '24'
+android_ndk_version: 26.3.11579264
 crate_name: openmls_frb
-rust_edition: "2024"
-rust_version: "1.88"
-frb_version: "^2.11.1"
-
-# Upstream crates (git-based)
-upstream_crates: "openmls,openmls_rust_crypto,openmls_basic_credential,openmls_traits,openmls_memory_storage"
-upstream_version: "openmls-v0.8.0"
-version_tag_prefix: "openmls-v"
-
-# Features
-enable_web: true
-enable_protoc: false
+dart_sdk_version: ^3.10.0
+description: Dart wrapper for OpenMLS — a Rust implementation of the Messaging Layer
+    Security (MLS) protocol (RFC 9420)
 enable_claude: true
-
-# Flutter/Dart
-flutter_version: "3.38.4"
-dart_sdk_version: "^3.10.0"
-flutter_sdk_version: ">=3.38.0"
-
-# Android
-android_min_sdk: "24"
-android_compile_sdk: "36"
-android_ndk_version: "26.3.11579264"
-android_gradle_version: "8.11.1"
-android_java_version: "17"
-
-# Package
+enable_protoc: false
+enable_web: true
+flutter_sdk_version: '>=3.38.0'
+flutter_version: 3.38.4
+frb_version: ^2.11.1
+github_repo: djx-y-z/openmls_dart
 license: MIT
-topics: "mls,encryption,messaging,e2ee,rust"
+native_library_name: openmls
+native_repo: openmls/openmls
+package_name: openmls
+rust_edition: '2024'
+rust_version: '1.88'
+topics: mls,encryption,messaging,e2ee,rust
+upstream_crates: openmls,openmls_rust_crypto,openmls_basic_credential,openmls_traits,openmls_memory_storage
+upstream_version: openmls-v0.8.0
+version_tag_prefix: openmls-v
