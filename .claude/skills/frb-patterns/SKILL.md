@@ -3,7 +3,7 @@ name: frb-patterns
 description: Flutter Rust Bridge patterns and best practices for this project. Use when writing Rust API code, adding new bindings, implementing DartFn callbacks, or troubleshooting FRB issues.
 ---
 
-# FRB Patterns for openmls_dart
+# FRB Patterns for openmls
 
 Patterns and templates for writing correct Flutter Rust Bridge code in this project.
 

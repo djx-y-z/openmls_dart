@@ -301,6 +301,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       VERSION: ${{ needs.check-release.outputs.version }}
+      NATIVE_VERSION: ${{ needs.check-release.outputs.openmls_version }}
     permissions:
       contents: write
     steps:
@@ -380,11 +381,12 @@ jobs:
           gh release create "$TAG" \
             --title "$TITLE" \
             --latest \
-            --notes "$(cat <<'EOF'
+            --notes "$(cat <<EOF
           ## openmls_frb ${VERSION} Native Libraries
 
           Pre-built Flutter Rust Bridge native libraries for all supported platforms.
           **These archives are downloaded automatically by \`hook/build.dart\` during Dart/Flutter builds.**
+          **Based on [openmls ${NATIVE_VERSION}](https://github.com/openmls/openmls/releases/tag/${NATIVE_VERSION})**
 
           ### Platforms
 

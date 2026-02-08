@@ -16,8 +16,7 @@ rust/target/
 # IDE and editor files
 .vscode/
 .idea/
-.claude/*
-!.claude/skills/
+.claude/settings.local.json
 .metadata
 *.iml
 

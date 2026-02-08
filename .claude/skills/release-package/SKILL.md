@@ -44,9 +44,9 @@ Use [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATCH`
 | Bug fixes | PATCH | Bug fixes, dependency updates, documentation |
 
 **Pre-1.0.0 convention:**
-- `0.Y.Z` - initial development, anything may change
-- `0.1.0` -> `0.2.0` - breaking changes during initial development
-- `0.1.0` -> `0.1.1` - bug fixes during initial development
+- `0.Y.Z` — initial development, anything may change
+- `0.1.0` → `0.2.0` — breaking changes during initial development
+- `0.1.0` → `0.1.1` — bug fixes during initial development
 
 ## CHANGELOG.md Format
 
@@ -72,10 +72,10 @@ Follow [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 
 ### CHANGELOG Rules
 
-1. **Keep `[Unreleased]` at the top** - all in-progress changes go here
+1. **Keep `[Unreleased]` at the top** — all in-progress changes go here
 2. **Use today's date** when releasing (format: `YYYY-MM-DD`)
 3. **Only include sections that have entries** (don't add empty sections)
-4. **Released versions are immutable** - never edit entries for versions that already have a git tag
+4. **Released versions are immutable** — never edit entries for versions that already have a git tag
 
 ### Comparison Links
 
@@ -117,9 +117,9 @@ This checks:
 ### 3. Verify Versions Match
 
 Ensure consistency across:
-- `pubspec.yaml` - `version:` field
-- `CHANGELOG.md` - latest version entry
-- Git tag - `vX.Y.Z` (created after commit)
+- `pubspec.yaml` — `version:` field
+- `CHANGELOG.md` — latest version entry
+- Git tag — `vX.Y.Z` (created after commit)
 
 ## Publishing Flow
 

@@ -12,7 +12,7 @@ Native libraries are bundled automatically via Flutter's native assets system.
   s.source           = { :path => '.' }
 
   s.dependency 'FlutterMacOS'
-  s.platform = :osx, '10.14'
+  s.platform = :osx, '10.15'
   s.swift_version = '5.0'
 
   s.pod_target_xcconfig = {

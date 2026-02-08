@@ -1,4 +1,4 @@
-_commit: v2.0.1
+_commit: v2.3.1
 _src_path: https://github.com/djx-y-z/copier-dart-frb-wrapper.git
 android_compile_sdk: '36'
 android_gradle_version: 8.11.1
@@ -16,7 +16,9 @@ flutter_sdk_version: '>=3.38.0'
 flutter_version: 3.38.4
 frb_version: ^2.11.1
 github_repo: djx-y-z/openmls_dart
+ios_min_version: '13.0'
 license: MIT
+macos_min_version: '10.15'
 native_library_name: openmls
 native_repo: openmls/openmls
 package_name: openmls

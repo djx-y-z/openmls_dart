@@ -276,7 +276,17 @@ make format-check
 # 4. Dry run
 make publish-dry-run
 
-# 5. Create tag and push (CI will publish)
-git tag vX.Y.Z
+# 5. Create annotated tag and push (CI will publish)
+git tag -a vX.Y.Z -m "Release vX.Y.Z"
+git push origin main
 git push origin vX.Y.Z
 ```
+
+## Claude Skills
+
+Claude Code skills available in this project (invoke with `/<skill>` or used automatically by Claude):
+
+| Skill | Description |
+|-------|-------------|
+| `release-package` | Prepare a new version for publication to pub.dev |
+| `update-template` | Update copier template to latest version |

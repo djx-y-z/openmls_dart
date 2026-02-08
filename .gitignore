@@ -21,9 +21,8 @@ pubspec.lock
 *.iws
 # .vscode/ is committed for FVM settings
 
-# Claude Code (except skills folder)
-.claude/*
-!.claude/skills/
+# Claude Code
+.claude/settings.local.json
 
 # Development files
 TODO.md
