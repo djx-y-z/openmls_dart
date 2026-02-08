@@ -1109,9 +1109,7 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
     MlsLeafNodeInfo apiObj,
     wire_cst_mls_leaf_node_info wireObj,
   ) {
-    wireObj.credential_identity = cst_encode_list_prim_u_8_strict(
-      apiObj.credentialIdentity,
-    );
+    wireObj.credential = cst_encode_list_prim_u_8_strict(apiObj.credential);
     wireObj.signature_key = cst_encode_list_prim_u_8_strict(
       apiObj.signatureKey,
     );
@@ -1131,9 +1129,7 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
     wire_cst_mls_member_info wireObj,
   ) {
     wireObj.index = cst_encode_u_32(apiObj.index);
-    wireObj.credential_identity = cst_encode_list_prim_u_8_strict(
-      apiObj.credentialIdentity,
-    );
+    wireObj.credential = cst_encode_list_prim_u_8_strict(apiObj.credential);
     wireObj.signature_key = cst_encode_list_prim_u_8_strict(
       apiObj.signatureKey,
     );
@@ -1204,8 +1200,8 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
     StagedCommitInfo apiObj,
     wire_cst_staged_commit_info wireObj,
   ) {
-    wireObj.add_credential_identities = cst_encode_list_list_prim_u_8_strict(
-      apiObj.addCredentialIdentities,
+    wireObj.add_credentials = cst_encode_list_list_prim_u_8_strict(
+      apiObj.addCredentials,
     );
     wireObj.remove_indices = cst_encode_list_prim_u_32_strict(
       apiObj.removeIndices,
@@ -3167,7 +3163,7 @@ class RustLibWire implements BaseWire {
   void wire__crate__api__provider__group_member_leaf_index(
     int port_,
     ffi.Pointer<wire_cst_list_prim_u_8_loose> group_id_bytes,
-    ffi.Pointer<wire_cst_list_prim_u_8_loose> credential_identity,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> credential_bytes,
     ffi.Pointer<ffi.Void> storage_read,
     ffi.Pointer<ffi.Void> storage_write,
     ffi.Pointer<ffi.Void> storage_delete,
@@ -3175,7 +3171,7 @@ class RustLibWire implements BaseWire {
     return _wire__crate__api__provider__group_member_leaf_index(
       port_,
       group_id_bytes,
-      credential_identity,
+      credential_bytes,
       storage_read,
       storage_write,
       storage_delete,
@@ -4249,7 +4245,7 @@ class RustLibWire implements BaseWire {
     int port_,
     ffi.Pointer<wire_cst_list_prim_u_8_loose> group_id_bytes,
     ffi.Pointer<wire_cst_list_prim_u_8_loose> signer_bytes,
-    ffi.Pointer<wire_cst_list_prim_u_8_loose> credential_identity,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> credential_bytes,
     ffi.Pointer<ffi.Void> storage_read,
     ffi.Pointer<ffi.Void> storage_write,
     ffi.Pointer<ffi.Void> storage_delete,
@@ -4258,7 +4254,7 @@ class RustLibWire implements BaseWire {
       port_,
       group_id_bytes,
       signer_bytes,
-      credential_identity,
+      credential_bytes,
       storage_read,
       storage_write,
       storage_delete,
@@ -5170,14 +5166,13 @@ final class wire_cst_mls_member_info extends ffi.Struct {
   @ffi.Uint32()
   external int index;
 
-  external ffi.Pointer<wire_cst_list_prim_u_8_strict> credential_identity;
+  external ffi.Pointer<wire_cst_list_prim_u_8_strict> credential;
 
   external ffi.Pointer<wire_cst_list_prim_u_8_strict> signature_key;
 }
 
 final class wire_cst_staged_commit_info extends ffi.Struct {
-  external ffi.Pointer<wire_cst_list_list_prim_u_8_strict>
-  add_credential_identities;
+  external ffi.Pointer<wire_cst_list_list_prim_u_8_strict> add_credentials;
 
   external ffi.Pointer<wire_cst_list_prim_u_32_strict> remove_indices;
 
@@ -5280,7 +5275,7 @@ final class wire_cst_mls_group_context_info extends ffi.Struct {
 }
 
 final class wire_cst_mls_leaf_node_info extends ffi.Struct {
-  external ffi.Pointer<wire_cst_list_prim_u_8_strict> credential_identity;
+  external ffi.Pointer<wire_cst_list_prim_u_8_strict> credential;
 
   external ffi.Pointer<wire_cst_list_prim_u_8_strict> signature_key;
 

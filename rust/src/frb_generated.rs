@@ -844,14 +844,14 @@ fn wire__crate__api__provider__group_member_at_impl(
 fn wire__crate__api__provider__group_member_leaf_index_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     group_id_bytes: impl CstDecode<Vec<u8>>,
-    credential_identity: impl CstDecode<Vec<u8>>,
+    credential_bytes: impl CstDecode<Vec<u8>>,
     storage_read: impl CstDecode<flutter_rust_bridge::DartOpaque>,
     storage_write: impl CstDecode<flutter_rust_bridge::DartOpaque>,
     storage_delete: impl CstDecode<flutter_rust_bridge::DartOpaque>,
 ) {
-    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::DcoCodec,_,_,_>(flutter_rust_bridge::for_generated::TaskInfo{ debug_name: "group_member_leaf_index", port: Some(port_), mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal }, move || { let api_group_id_bytes = group_id_bytes.cst_decode();let api_credential_identity = credential_identity.cst_decode();let api_storage_read = decode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(storage_read.cst_decode());let api_storage_write = decode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(storage_write.cst_decode());let api_storage_delete = decode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(storage_delete.cst_decode()); move |context| async move {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::DcoCodec,_,_,_>(flutter_rust_bridge::for_generated::TaskInfo{ debug_name: "group_member_leaf_index", port: Some(port_), mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal }, move || { let api_group_id_bytes = group_id_bytes.cst_decode();let api_credential_bytes = credential_bytes.cst_decode();let api_storage_read = decode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(storage_read.cst_decode());let api_storage_write = decode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(storage_write.cst_decode());let api_storage_delete = decode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(storage_delete.cst_decode()); move |context| async move {
                     transform_result_dco::<_, _, String>((move || async move {
-                         let output_ok = crate::api::provider::group_member_leaf_index(api_group_id_bytes, api_credential_identity, api_storage_read, api_storage_write, api_storage_delete).await?;   Ok(output_ok)
+                         let output_ok = crate::api::provider::group_member_leaf_index(api_group_id_bytes, api_credential_bytes, api_storage_read, api_storage_write, api_storage_delete).await?;   Ok(output_ok)
                     })().await)
                 } })
 }
@@ -1251,14 +1251,14 @@ fn wire__crate__api__provider__propose_remove_member_by_credential_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     group_id_bytes: impl CstDecode<Vec<u8>>,
     signer_bytes: impl CstDecode<Vec<u8>>,
-    credential_identity: impl CstDecode<Vec<u8>>,
+    credential_bytes: impl CstDecode<Vec<u8>>,
     storage_read: impl CstDecode<flutter_rust_bridge::DartOpaque>,
     storage_write: impl CstDecode<flutter_rust_bridge::DartOpaque>,
     storage_delete: impl CstDecode<flutter_rust_bridge::DartOpaque>,
 ) {
-    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::DcoCodec,_,_,_>(flutter_rust_bridge::for_generated::TaskInfo{ debug_name: "propose_remove_member_by_credential", port: Some(port_), mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal }, move || { let api_group_id_bytes = group_id_bytes.cst_decode();let api_signer_bytes = signer_bytes.cst_decode();let api_credential_identity = credential_identity.cst_decode();let api_storage_read = decode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(storage_read.cst_decode());let api_storage_write = decode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(storage_write.cst_decode());let api_storage_delete = decode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(storage_delete.cst_decode()); move |context| async move {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::DcoCodec,_,_,_>(flutter_rust_bridge::for_generated::TaskInfo{ debug_name: "propose_remove_member_by_credential", port: Some(port_), mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal }, move || { let api_group_id_bytes = group_id_bytes.cst_decode();let api_signer_bytes = signer_bytes.cst_decode();let api_credential_bytes = credential_bytes.cst_decode();let api_storage_read = decode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(storage_read.cst_decode());let api_storage_write = decode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(storage_write.cst_decode());let api_storage_delete = decode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(storage_delete.cst_decode()); move |context| async move {
                     transform_result_dco::<_, _, String>((move || async move {
-                         let output_ok = crate::api::provider::propose_remove_member_by_credential(api_group_id_bytes, api_signer_bytes, api_credential_identity, api_storage_read, api_storage_write, api_storage_delete).await?;   Ok(output_ok)
+                         let output_ok = crate::api::provider::propose_remove_member_by_credential(api_group_id_bytes, api_signer_bytes, api_credential_bytes, api_storage_read, api_storage_write, api_storage_delete).await?;   Ok(output_ok)
                     })().await)
                 } })
 }
@@ -2029,13 +2029,13 @@ impl SseDecode for crate::api::types::MlsGroupContextInfo {
 impl SseDecode for crate::api::types::MlsLeafNodeInfo {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        let mut var_credentialIdentity = <Vec<u8>>::sse_decode(deserializer);
+        let mut var_credential = <Vec<u8>>::sse_decode(deserializer);
         let mut var_signatureKey = <Vec<u8>>::sse_decode(deserializer);
         let mut var_encryptionKey = <Vec<u8>>::sse_decode(deserializer);
         let mut var_capabilities = <crate::api::types::MlsCapabilities>::sse_decode(deserializer);
         let mut var_extensions = <Vec<crate::api::types::MlsExtension>>::sse_decode(deserializer);
         return crate::api::types::MlsLeafNodeInfo {
-            credential_identity: var_credentialIdentity,
+            credential: var_credential,
             signature_key: var_signatureKey,
             encryption_key: var_encryptionKey,
             capabilities: var_capabilities,
@@ -2048,11 +2048,11 @@ impl SseDecode for crate::api::types::MlsMemberInfo {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
         let mut var_index = <u32>::sse_decode(deserializer);
-        let mut var_credentialIdentity = <Vec<u8>>::sse_decode(deserializer);
+        let mut var_credential = <Vec<u8>>::sse_decode(deserializer);
         let mut var_signatureKey = <Vec<u8>>::sse_decode(deserializer);
         return crate::api::types::MlsMemberInfo {
             index: var_index,
-            credential_identity: var_credentialIdentity,
+            credential: var_credential,
             signature_key: var_signatureKey,
         };
     }
@@ -2269,13 +2269,13 @@ impl SseDecode for crate::api::provider::ProposalProviderResult {
 impl SseDecode for crate::api::types::StagedCommitInfo {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        let mut var_addCredentialIdentities = <Vec<Vec<u8>>>::sse_decode(deserializer);
+        let mut var_addCredentials = <Vec<Vec<u8>>>::sse_decode(deserializer);
         let mut var_removeIndices = <Vec<u32>>::sse_decode(deserializer);
         let mut var_hasUpdate = <bool>::sse_decode(deserializer);
         let mut var_selfRemoved = <bool>::sse_decode(deserializer);
         let mut var_pskCount = <u32>::sse_decode(deserializer);
         return crate::api::types::StagedCommitInfo {
-            add_credential_identities: var_addCredentialIdentities,
+            add_credentials: var_addCredentials,
             remove_indices: var_removeIndices,
             has_update: var_hasUpdate,
             self_removed: var_selfRemoved,
@@ -2729,7 +2729,7 @@ impl flutter_rust_bridge::IntoIntoDart<crate::api::types::MlsGroupContextInfo>
 impl flutter_rust_bridge::IntoDart for crate::api::types::MlsLeafNodeInfo {
     fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
         [
-            self.credential_identity.into_into_dart().into_dart(),
+            self.credential.into_into_dart().into_dart(),
             self.signature_key.into_into_dart().into_dart(),
             self.encryption_key.into_into_dart().into_dart(),
             self.capabilities.into_into_dart().into_dart(),
@@ -2754,7 +2754,7 @@ impl flutter_rust_bridge::IntoDart for crate::api::types::MlsMemberInfo {
     fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
         [
             self.index.into_into_dart().into_dart(),
-            self.credential_identity.into_into_dart().into_dart(),
+            self.credential.into_into_dart().into_dart(),
             self.signature_key.into_into_dart().into_dart(),
         ]
         .into_dart()
@@ -2934,7 +2934,7 @@ impl flutter_rust_bridge::IntoIntoDart<crate::api::provider::ProposalProviderRes
 impl flutter_rust_bridge::IntoDart for crate::api::types::StagedCommitInfo {
     fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
         [
-            self.add_credential_identities.into_into_dart().into_dart(),
+            self.add_credentials.into_into_dart().into_dart(),
             self.remove_indices.into_into_dart().into_dart(),
             self.has_update.into_into_dart().into_dart(),
             self.self_removed.into_into_dart().into_dart(),
@@ -3293,7 +3293,7 @@ impl SseEncode for crate::api::types::MlsGroupContextInfo {
 impl SseEncode for crate::api::types::MlsLeafNodeInfo {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        <Vec<u8>>::sse_encode(self.credential_identity, serializer);
+        <Vec<u8>>::sse_encode(self.credential, serializer);
         <Vec<u8>>::sse_encode(self.signature_key, serializer);
         <Vec<u8>>::sse_encode(self.encryption_key, serializer);
         <crate::api::types::MlsCapabilities>::sse_encode(self.capabilities, serializer);
@@ -3305,7 +3305,7 @@ impl SseEncode for crate::api::types::MlsMemberInfo {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
         <u32>::sse_encode(self.index, serializer);
-        <Vec<u8>>::sse_encode(self.credential_identity, serializer);
+        <Vec<u8>>::sse_encode(self.credential, serializer);
         <Vec<u8>>::sse_encode(self.signature_key, serializer);
     }
 }
@@ -3491,7 +3491,7 @@ impl SseEncode for crate::api::provider::ProposalProviderResult {
 impl SseEncode for crate::api::types::StagedCommitInfo {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        <Vec<Vec<u8>>>::sse_encode(self.add_credential_identities, serializer);
+        <Vec<Vec<u8>>>::sse_encode(self.add_credentials, serializer);
         <Vec<u32>>::sse_encode(self.remove_indices, serializer);
         <bool>::sse_encode(self.has_update, serializer);
         <bool>::sse_encode(self.self_removed, serializer);
@@ -3972,7 +3972,7 @@ mod io {
         // Codec=Cst (C-struct based), see doc to use other codecs
         fn cst_decode(self) -> crate::api::types::MlsLeafNodeInfo {
             crate::api::types::MlsLeafNodeInfo {
-                credential_identity: self.credential_identity.cst_decode(),
+                credential: self.credential.cst_decode(),
                 signature_key: self.signature_key.cst_decode(),
                 encryption_key: self.encryption_key.cst_decode(),
                 capabilities: self.capabilities.cst_decode(),
@@ -3985,7 +3985,7 @@ mod io {
         fn cst_decode(self) -> crate::api::types::MlsMemberInfo {
             crate::api::types::MlsMemberInfo {
                 index: self.index.cst_decode(),
-                credential_identity: self.credential_identity.cst_decode(),
+                credential: self.credential.cst_decode(),
                 signature_key: self.signature_key.cst_decode(),
             }
         }
@@ -4042,7 +4042,7 @@ mod io {
         // Codec=Cst (C-struct based), see doc to use other codecs
         fn cst_decode(self) -> crate::api::types::StagedCommitInfo {
             crate::api::types::StagedCommitInfo {
-                add_credential_identities: self.add_credential_identities.cst_decode(),
+                add_credentials: self.add_credentials.cst_decode(),
                 remove_indices: self.remove_indices.cst_decode(),
                 has_update: self.has_update.cst_decode(),
                 self_removed: self.self_removed.cst_decode(),
@@ -4266,7 +4266,7 @@ mod io {
     impl NewWithNullPtr for wire_cst_mls_leaf_node_info {
         fn new_with_null_ptr() -> Self {
             Self {
-                credential_identity: core::ptr::null_mut(),
+                credential: core::ptr::null_mut(),
                 signature_key: core::ptr::null_mut(),
                 encryption_key: core::ptr::null_mut(),
                 capabilities: Default::default(),
@@ -4283,7 +4283,7 @@ mod io {
         fn new_with_null_ptr() -> Self {
             Self {
                 index: Default::default(),
-                credential_identity: core::ptr::null_mut(),
+                credential: core::ptr::null_mut(),
                 signature_key: core::ptr::null_mut(),
             }
         }
@@ -4356,7 +4356,7 @@ mod io {
     impl NewWithNullPtr for wire_cst_staged_commit_info {
         fn new_with_null_ptr() -> Self {
             Self {
-                add_credential_identities: core::ptr::null_mut(),
+                add_credentials: core::ptr::null_mut(),
                 remove_indices: core::ptr::null_mut(),
                 has_update: Default::default(),
                 self_removed: Default::default(),
@@ -4995,7 +4995,7 @@ mod io {
     pub extern "C" fn frbgen_openmls_wire__crate__api__provider__group_member_leaf_index(
         port_: i64,
         group_id_bytes: *mut wire_cst_list_prim_u_8_loose,
-        credential_identity: *mut wire_cst_list_prim_u_8_loose,
+        credential_bytes: *mut wire_cst_list_prim_u_8_loose,
         storage_read: *const std::ffi::c_void,
         storage_write: *const std::ffi::c_void,
         storage_delete: *const std::ffi::c_void,
@@ -5003,7 +5003,7 @@ mod io {
         wire__crate__api__provider__group_member_leaf_index_impl(
             port_,
             group_id_bytes,
-            credential_identity,
+            credential_bytes,
             storage_read,
             storage_write,
             storage_delete,
@@ -5451,7 +5451,7 @@ mod io {
         port_: i64,
         group_id_bytes: *mut wire_cst_list_prim_u_8_loose,
         signer_bytes: *mut wire_cst_list_prim_u_8_loose,
-        credential_identity: *mut wire_cst_list_prim_u_8_loose,
+        credential_bytes: *mut wire_cst_list_prim_u_8_loose,
         storage_read: *const std::ffi::c_void,
         storage_write: *const std::ffi::c_void,
         storage_delete: *const std::ffi::c_void,
@@ -5460,7 +5460,7 @@ mod io {
             port_,
             group_id_bytes,
             signer_bytes,
-            credential_identity,
+            credential_bytes,
             storage_read,
             storage_write,
             storage_delete,
@@ -6017,7 +6017,7 @@ mod io {
     #[repr(C)]
     #[derive(Clone, Copy)]
     pub struct wire_cst_mls_leaf_node_info {
-        credential_identity: *mut wire_cst_list_prim_u_8_strict,
+        credential: *mut wire_cst_list_prim_u_8_strict,
         signature_key: *mut wire_cst_list_prim_u_8_strict,
         encryption_key: *mut wire_cst_list_prim_u_8_strict,
         capabilities: wire_cst_mls_capabilities,
@@ -6027,7 +6027,7 @@ mod io {
     #[derive(Clone, Copy)]
     pub struct wire_cst_mls_member_info {
         index: u32,
-        credential_identity: *mut wire_cst_list_prim_u_8_strict,
+        credential: *mut wire_cst_list_prim_u_8_strict,
         signature_key: *mut wire_cst_list_prim_u_8_strict,
     }
     #[repr(C)]
@@ -6065,7 +6065,7 @@ mod io {
     #[repr(C)]
     #[derive(Clone, Copy)]
     pub struct wire_cst_staged_commit_info {
-        add_credential_identities: *mut wire_cst_list_list_prim_u_8_strict,
+        add_credentials: *mut wire_cst_list_list_prim_u_8_strict,
         remove_indices: *mut wire_cst_list_prim_u_32_strict,
         has_update: bool,
         self_removed: bool,
@@ -6519,7 +6519,7 @@ mod web {
                 self_.length()
             );
             crate::api::types::MlsLeafNodeInfo {
-                credential_identity: self_.get(0).cst_decode(),
+                credential: self_.get(0).cst_decode(),
                 signature_key: self_.get(1).cst_decode(),
                 encryption_key: self_.get(2).cst_decode(),
                 capabilities: self_.get(3).cst_decode(),
@@ -6543,7 +6543,7 @@ mod web {
             );
             crate::api::types::MlsMemberInfo {
                 index: self_.get(0).cst_decode(),
-                credential_identity: self_.get(1).cst_decode(),
+                credential: self_.get(1).cst_decode(),
                 signature_key: self_.get(2).cst_decode(),
             }
         }
@@ -6657,7 +6657,7 @@ mod web {
                 self_.length()
             );
             crate::api::types::StagedCommitInfo {
-                add_credential_identities: self_.get(0).cst_decode(),
+                add_credentials: self_.get(0).cst_decode(),
                 remove_indices: self_.get(1).cst_decode(),
                 has_update: self_.get(2).cst_decode(),
                 self_removed: self_.get(3).cst_decode(),
@@ -7477,7 +7477,7 @@ mod web {
     pub fn wire__crate__api__provider__group_member_leaf_index(
         port_: flutter_rust_bridge::for_generated::MessagePort,
         group_id_bytes: Box<[u8]>,
-        credential_identity: Box<[u8]>,
+        credential_bytes: Box<[u8]>,
         storage_read: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
         storage_write: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
         storage_delete: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
@@ -7485,7 +7485,7 @@ mod web {
         wire__crate__api__provider__group_member_leaf_index_impl(
             port_,
             group_id_bytes,
-            credential_identity,
+            credential_bytes,
             storage_read,
             storage_write,
             storage_delete,
@@ -7933,7 +7933,7 @@ mod web {
         port_: flutter_rust_bridge::for_generated::MessagePort,
         group_id_bytes: Box<[u8]>,
         signer_bytes: Box<[u8]>,
-        credential_identity: Box<[u8]>,
+        credential_bytes: Box<[u8]>,
         storage_read: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
         storage_write: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
         storage_delete: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
@@ -7942,7 +7942,7 @@ mod web {
             port_,
             group_id_bytes,
             signer_bytes,
-            credential_identity,
+            credential_bytes,
             storage_read,
             storage_write,
             storage_delete,

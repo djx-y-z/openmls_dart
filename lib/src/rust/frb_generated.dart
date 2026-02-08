@@ -354,7 +354,7 @@ abstract class RustLibApi extends BaseApi {
 
   Future<int?> crateApiProviderGroupMemberLeafIndex({
     required List<int> groupIdBytes,
-    required List<int> credentialIdentity,
+    required List<int> credentialBytes,
     required FutureOr<Uint8List?> Function(Uint8List) storageRead,
     required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
     required FutureOr<void> Function(Uint8List) storageDelete,
@@ -555,7 +555,7 @@ abstract class RustLibApi extends BaseApi {
   crateApiProviderProposeRemoveMemberByCredential({
     required List<int> groupIdBytes,
     required List<int> signerBytes,
-    required List<int> credentialIdentity,
+    required List<int> credentialBytes,
     required FutureOr<Uint8List?> Function(Uint8List) storageRead,
     required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
     required FutureOr<void> Function(Uint8List) storageDelete,
@@ -2691,7 +2691,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   @override
   Future<int?> crateApiProviderGroupMemberLeafIndex({
     required List<int> groupIdBytes,
-    required List<int> credentialIdentity,
+    required List<int> credentialBytes,
     required FutureOr<Uint8List?> Function(Uint8List) storageRead,
     required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
     required FutureOr<void> Function(Uint8List) storageDelete,
@@ -2700,7 +2700,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       NormalTask(
         callFfi: (port_) {
           var arg0 = cst_encode_list_prim_u_8_loose(groupIdBytes);
-          var arg1 = cst_encode_list_prim_u_8_loose(credentialIdentity);
+          var arg1 = cst_encode_list_prim_u_8_loose(credentialBytes);
           var arg2 =
               cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
                 storageRead,
@@ -2729,7 +2729,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         constMeta: kCrateApiProviderGroupMemberLeafIndexConstMeta,
         argValues: [
           groupIdBytes,
-          credentialIdentity,
+          credentialBytes,
           storageRead,
           storageWrite,
           storageDelete,
@@ -2744,7 +2744,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         debugName: "group_member_leaf_index",
         argNames: [
           "groupIdBytes",
-          "credentialIdentity",
+          "credentialBytes",
           "storageRead",
           "storageWrite",
           "storageDelete",
@@ -4175,7 +4175,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   crateApiProviderProposeRemoveMemberByCredential({
     required List<int> groupIdBytes,
     required List<int> signerBytes,
-    required List<int> credentialIdentity,
+    required List<int> credentialBytes,
     required FutureOr<Uint8List?> Function(Uint8List) storageRead,
     required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
     required FutureOr<void> Function(Uint8List) storageDelete,
@@ -4185,7 +4185,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         callFfi: (port_) {
           var arg0 = cst_encode_list_prim_u_8_loose(groupIdBytes);
           var arg1 = cst_encode_list_prim_u_8_loose(signerBytes);
-          var arg2 = cst_encode_list_prim_u_8_loose(credentialIdentity);
+          var arg2 = cst_encode_list_prim_u_8_loose(credentialBytes);
           var arg3 =
               cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
                 storageRead,
@@ -4217,7 +4217,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         argValues: [
           groupIdBytes,
           signerBytes,
-          credentialIdentity,
+          credentialBytes,
           storageRead,
           storageWrite,
           storageDelete,
@@ -4233,7 +4233,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         argNames: [
           "groupIdBytes",
           "signerBytes",
-          "credentialIdentity",
+          "credentialBytes",
           "storageRead",
           "storageWrite",
           "storageDelete",
@@ -5338,7 +5338,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     if (arr.length != 5)
       throw Exception('unexpected arr length: expect 5 but see ${arr.length}');
     return MlsLeafNodeInfo(
-      credentialIdentity: dco_decode_list_prim_u_8_strict(arr[0]),
+      credential: dco_decode_list_prim_u_8_strict(arr[0]),
       signatureKey: dco_decode_list_prim_u_8_strict(arr[1]),
       encryptionKey: dco_decode_list_prim_u_8_strict(arr[2]),
       capabilities: dco_decode_mls_capabilities(arr[3]),
@@ -5354,7 +5354,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       throw Exception('unexpected arr length: expect 3 but see ${arr.length}');
     return MlsMemberInfo(
       index: dco_decode_u_32(arr[0]),
-      credentialIdentity: dco_decode_list_prim_u_8_strict(arr[1]),
+      credential: dco_decode_list_prim_u_8_strict(arr[1]),
       signatureKey: dco_decode_list_prim_u_8_strict(arr[2]),
     );
   }
@@ -5491,7 +5491,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     if (arr.length != 5)
       throw Exception('unexpected arr length: expect 5 but see ${arr.length}');
     return StagedCommitInfo(
-      addCredentialIdentities: dco_decode_list_list_prim_u_8_strict(arr[0]),
+      addCredentials: dco_decode_list_list_prim_u_8_strict(arr[0]),
       removeIndices: dco_decode_list_prim_u_32_strict(arr[1]),
       hasUpdate: dco_decode_bool(arr[2]),
       selfRemoved: dco_decode_bool(arr[3]),
@@ -6056,13 +6056,13 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   @protected
   MlsLeafNodeInfo sse_decode_mls_leaf_node_info(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    var var_credentialIdentity = sse_decode_list_prim_u_8_strict(deserializer);
+    var var_credential = sse_decode_list_prim_u_8_strict(deserializer);
     var var_signatureKey = sse_decode_list_prim_u_8_strict(deserializer);
     var var_encryptionKey = sse_decode_list_prim_u_8_strict(deserializer);
     var var_capabilities = sse_decode_mls_capabilities(deserializer);
     var var_extensions = sse_decode_list_mls_extension(deserializer);
     return MlsLeafNodeInfo(
-      credentialIdentity: var_credentialIdentity,
+      credential: var_credential,
       signatureKey: var_signatureKey,
       encryptionKey: var_encryptionKey,
       capabilities: var_capabilities,
@@ -6074,11 +6074,11 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   MlsMemberInfo sse_decode_mls_member_info(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var var_index = sse_decode_u_32(deserializer);
-    var var_credentialIdentity = sse_decode_list_prim_u_8_strict(deserializer);
+    var var_credential = sse_decode_list_prim_u_8_strict(deserializer);
     var var_signatureKey = sse_decode_list_prim_u_8_strict(deserializer);
     return MlsMemberInfo(
       index: var_index,
-      credentialIdentity: var_credentialIdentity,
+      credential: var_credential,
       signatureKey: var_signatureKey,
     );
   }
@@ -6286,15 +6286,13 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   @protected
   StagedCommitInfo sse_decode_staged_commit_info(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    var var_addCredentialIdentities = sse_decode_list_list_prim_u_8_strict(
-      deserializer,
-    );
+    var var_addCredentials = sse_decode_list_list_prim_u_8_strict(deserializer);
     var var_removeIndices = sse_decode_list_prim_u_32_strict(deserializer);
     var var_hasUpdate = sse_decode_bool(deserializer);
     var var_selfRemoved = sse_decode_bool(deserializer);
     var var_pskCount = sse_decode_u_32(deserializer);
     return StagedCommitInfo(
-      addCredentialIdentities: var_addCredentialIdentities,
+      addCredentials: var_addCredentials,
       removeIndices: var_removeIndices,
       hasUpdate: var_hasUpdate,
       selfRemoved: var_selfRemoved,
@@ -7055,7 +7053,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     SseSerializer serializer,
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_list_prim_u_8_strict(self.credentialIdentity, serializer);
+    sse_encode_list_prim_u_8_strict(self.credential, serializer);
     sse_encode_list_prim_u_8_strict(self.signatureKey, serializer);
     sse_encode_list_prim_u_8_strict(self.encryptionKey, serializer);
     sse_encode_mls_capabilities(self.capabilities, serializer);
@@ -7069,7 +7067,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_u_32(self.index, serializer);
-    sse_encode_list_prim_u_8_strict(self.credentialIdentity, serializer);
+    sse_encode_list_prim_u_8_strict(self.credential, serializer);
     sse_encode_list_prim_u_8_strict(self.signatureKey, serializer);
   }
 
@@ -7255,10 +7253,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     SseSerializer serializer,
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_list_list_prim_u_8_strict(
-      self.addCredentialIdentities,
-      serializer,
-    );
+    sse_encode_list_list_prim_u_8_strict(self.addCredentials, serializer);
     sse_encode_list_prim_u_32_strict(self.removeIndices, serializer);
     sse_encode_bool(self.hasUpdate, serializer);
     sse_encode_bool(self.selfRemoved, serializer);

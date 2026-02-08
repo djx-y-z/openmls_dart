@@ -37,7 +37,8 @@ pub enum MlsProposalType {
 /// Information about a group member.
 pub struct MlsMemberInfo {
     pub index: u32,
-    pub credential_identity: Vec<u8>,
+    /// TLS-serialized Credential. Deserialize with `MlsCredential.deserialize()`.
+    pub credential: Vec<u8>,
     pub signature_key: Vec<u8>,
 }
 
@@ -100,7 +101,8 @@ pub struct WelcomeInspectResult {
 
 /// Full information about the own leaf node.
 pub struct MlsLeafNodeInfo {
-    pub credential_identity: Vec<u8>,
+    /// TLS-serialized Credential. Deserialize with `MlsCredential.deserialize()`.
+    pub credential: Vec<u8>,
     pub signature_key: Vec<u8>,
     pub encryption_key: Vec<u8>,
     pub capabilities: MlsCapabilities,
@@ -119,8 +121,8 @@ pub struct MlsGroupContextInfo {
 
 /// Information about a staged commit before merging.
 pub struct StagedCommitInfo {
-    /// Leaf indices of members being added.
-    pub add_credential_identities: Vec<Vec<u8>>,
+    /// TLS-serialized Credentials of members being added.
+    pub add_credentials: Vec<Vec<u8>>,
     /// Leaf indices of members being removed.
     pub remove_indices: Vec<u32>,
     /// Whether a self-update is included.

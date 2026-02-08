@@ -4,6 +4,12 @@ import 'dart:typed_data';
 import 'package:openmls/openmls.dart';
 import 'package:test/test.dart';
 
+/// Extract identity bytes from a TLS-serialized Credential.
+Uint8List identityFromCredential(List<int> credentialBytes) =>
+    MlsCredential.deserialize(
+      bytes: Uint8List.fromList(credentialBytes),
+    ).identity();
+
 /// Helper to create a test identity (key pair + credential + signer bytes).
 class TestIdentity {
   TestIdentity._({
@@ -36,6 +42,10 @@ class TestIdentity {
   final Uint8List signerBytes;
   final Uint8List publicKey;
   final Uint8List credentialIdentity;
+
+  /// TLS-serialized credential for use with APIs that accept serialized credentials.
+  Uint8List get serializedCredential =>
+      MlsCredential.basic(identity: credentialIdentity).serialize();
 }
 
 void main() {
@@ -139,7 +149,7 @@ void main() {
         final members = await alice.groupMembers(groupIdBytes: groupIdBytes);
         expect(members, hasLength(1));
         expect(
-          members.first.credentialIdentity,
+          identityFromCredential(members.first.credential),
           equals(aliceId.credentialIdentity),
         );
       });
@@ -154,9 +164,14 @@ void main() {
         expect(idx, equals(0));
       });
 
-      test('group credential returns creator identity', () async {
+      test('group credential returns serialized credential', () async {
         final cred = await alice.groupCredential(groupIdBytes: groupIdBytes);
         expect(cred, isNotEmpty);
+        // Verify it's a valid TLS-serialized Credential that can be deserialized
+        final parsed = MlsCredential.deserialize(
+          bytes: Uint8List.fromList(cred),
+        );
+        expect(parsed.identity(), equals(aliceId.credentialIdentity));
       });
 
       test('no pending proposals initially', () async {
@@ -169,7 +184,10 @@ void main() {
       test('own leaf node info', () async {
         final leaf = await alice.groupOwnLeafNode(groupIdBytes: groupIdBytes);
         expect(leaf.signatureKey, isNotEmpty);
-        expect(leaf.credentialIdentity, equals(aliceId.credentialIdentity));
+        expect(
+          identityFromCredential(leaf.credential),
+          equals(aliceId.credentialIdentity),
+        );
       });
     });
 
@@ -373,7 +391,7 @@ void main() {
 
         final bobMember = members.firstWhere(
           (m) =>
-              utf8.decode(m.credentialIdentity) ==
+              utf8.decode(identityFromCredential(m.credential)) ==
               utf8.decode(bobId.credentialIdentity),
         );
 
@@ -427,6 +445,8 @@ void main() {
         expect(ctx.groupId, equals(groupIdBytes));
         expect(ctx.epoch, equals(BigInt.zero));
         expect(ctx.ciphersuite, equals(ciphersuite));
+        expect(ctx.treeHash, isNotEmpty);
+        // confirmed_transcript_hash is empty at epoch 0 (initialized from first commit)
       });
 
       test('confirmation tag', () async {
@@ -728,7 +748,10 @@ void main() {
           leafIndex: 0,
         );
         expect(member, isNotNull);
-        expect(member!.credentialIdentity, equals(aliceId.credentialIdentity));
+        expect(
+          identityFromCredential(member!.credential),
+          equals(aliceId.credentialIdentity),
+        );
       });
 
       test('member_at returns null for invalid index', () async {
@@ -742,7 +765,7 @@ void main() {
       test('member_leaf_index finds member by credential', () async {
         final idx = await alice.groupMemberLeafIndex(
           groupIdBytes: groupIdBytes,
-          credentialIdentity: aliceId.credentialIdentity,
+          credentialBytes: aliceId.serializedCredential,
         );
         expect(idx, equals(0));
       });
@@ -796,7 +819,7 @@ void main() {
         // Credential should now be the new identity
         final members = await alice.groupMembers(groupIdBytes: groupIdBytes);
         expect(
-          members.first.credentialIdentity,
+          identityFromCredential(members.first.credential),
           equals(newId.credentialIdentity),
         );
       });
@@ -866,7 +889,7 @@ void main() {
       test('propose remove member', () async {
         final bobIdx = await alice.groupMemberLeafIndex(
           groupIdBytes: groupIdBytes,
-          credentialIdentity: bobId.credentialIdentity,
+          credentialBytes: bobId.serializedCredential,
         );
 
         final proposal = await alice.proposeRemove(
@@ -881,7 +904,7 @@ void main() {
         final proposal = await alice.proposeRemoveMemberByCredential(
           groupIdBytes: groupIdBytes,
           signerBytes: aliceId.signerBytes,
-          credentialIdentity: bobId.credentialIdentity,
+          credentialBytes: bobId.serializedCredential,
         );
         expect(proposal.proposalMessage, isNotEmpty);
       });
@@ -1087,7 +1110,7 @@ void main() {
         // Swap Bob for Charlie
         final bobIdx = await alice.groupMemberLeafIndex(
           groupIdBytes: groupIdBytes,
-          credentialIdentity: bobId.credentialIdentity,
+          credentialBytes: bobId.serializedCredential,
         );
 
         final swapResult = await alice.swapMembers(
@@ -1105,7 +1128,7 @@ void main() {
         final members = await alice.groupMembers(groupIdBytes: groupIdBytes);
         expect(members, hasLength(2));
         final names = members
-            .map((m) => utf8.decode(m.credentialIdentity))
+            .map((m) => utf8.decode(identityFromCredential(m.credential)))
             .toSet();
         expect(names, contains('alice'));
         expect(names, contains('charlie'));

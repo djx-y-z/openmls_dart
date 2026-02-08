@@ -236,14 +236,15 @@ class MlsGroupContextInfo {
 
 /// Full information about the own leaf node.
 class MlsLeafNodeInfo {
-  final Uint8List credentialIdentity;
+  /// TLS-serialized Credential. Deserialize with `MlsCredential.deserialize()`.
+  final Uint8List credential;
   final Uint8List signatureKey;
   final Uint8List encryptionKey;
   final MlsCapabilities capabilities;
   final List<MlsExtension> extensions;
 
   const MlsLeafNodeInfo({
-    required this.credentialIdentity,
+    required this.credential,
     required this.signatureKey,
     required this.encryptionKey,
     required this.capabilities,
@@ -252,7 +253,7 @@ class MlsLeafNodeInfo {
 
   @override
   int get hashCode =>
-      credentialIdentity.hashCode ^
+      credential.hashCode ^
       signatureKey.hashCode ^
       encryptionKey.hashCode ^
       capabilities.hashCode ^
@@ -263,7 +264,7 @@ class MlsLeafNodeInfo {
       identical(this, other) ||
       other is MlsLeafNodeInfo &&
           runtimeType == other.runtimeType &&
-          credentialIdentity == other.credentialIdentity &&
+          credential == other.credential &&
           signatureKey == other.signatureKey &&
           encryptionKey == other.encryptionKey &&
           capabilities == other.capabilities &&
@@ -273,18 +274,20 @@ class MlsLeafNodeInfo {
 /// Information about a group member.
 class MlsMemberInfo {
   final int index;
-  final Uint8List credentialIdentity;
+
+  /// TLS-serialized Credential. Deserialize with `MlsCredential.deserialize()`.
+  final Uint8List credential;
   final Uint8List signatureKey;
 
   const MlsMemberInfo({
     required this.index,
-    required this.credentialIdentity,
+    required this.credential,
     required this.signatureKey,
   });
 
   @override
   int get hashCode =>
-      index.hashCode ^ credentialIdentity.hashCode ^ signatureKey.hashCode;
+      index.hashCode ^ credential.hashCode ^ signatureKey.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -292,7 +295,7 @@ class MlsMemberInfo {
       other is MlsMemberInfo &&
           runtimeType == other.runtimeType &&
           index == other.index &&
-          credentialIdentity == other.credentialIdentity &&
+          credential == other.credential &&
           signatureKey == other.signatureKey;
 }
 
@@ -338,8 +341,8 @@ enum ProcessedMessageType { application, proposal, stagedCommit }
 
 /// Information about a staged commit before merging.
 class StagedCommitInfo {
-  /// Leaf indices of members being added.
-  final List<Uint8List> addCredentialIdentities;
+  /// TLS-serialized Credentials of members being added.
+  final List<Uint8List> addCredentials;
 
   /// Leaf indices of members being removed.
   final Uint32List removeIndices;
@@ -354,7 +357,7 @@ class StagedCommitInfo {
   final int pskCount;
 
   const StagedCommitInfo({
-    required this.addCredentialIdentities,
+    required this.addCredentials,
     required this.removeIndices,
     required this.hasUpdate,
     required this.selfRemoved,
@@ -363,7 +366,7 @@ class StagedCommitInfo {
 
   @override
   int get hashCode =>
-      addCredentialIdentities.hashCode ^
+      addCredentials.hashCode ^
       removeIndices.hashCode ^
       hasUpdate.hashCode ^
       selfRemoved.hashCode ^
@@ -374,7 +377,7 @@ class StagedCommitInfo {
       identical(this, other) ||
       other is StagedCommitInfo &&
           runtimeType == other.runtimeType &&
-          addCredentialIdentities == other.addCredentialIdentities &&
+          addCredentials == other.addCredentials &&
           removeIndices == other.removeIndices &&
           hasUpdate == other.hasUpdate &&
           selfRemoved == other.selfRemoved &&

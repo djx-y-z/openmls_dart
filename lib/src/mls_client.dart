@@ -268,6 +268,10 @@ class MlsClient {
         storageDelete: storage.delete,
       );
 
+  /// Returns the TLS-serialized `Credential` of the own member.
+  ///
+  /// Deserialize with `MlsCredential.deserialize(bytes: result)` to inspect
+  /// the credential type and identity.
   Future<Uint8List> groupCredential({required List<int> groupIdBytes}) =>
       provider.groupCredential(
         groupIdBytes: groupIdBytes,
@@ -312,12 +316,16 @@ class MlsClient {
     storageDelete: storage.delete,
   );
 
+  /// Find a member's leaf index by their TLS-serialized credential.
+  ///
+  /// The [credentialBytes] should be a TLS-serialized `Credential`, e.g. from
+  /// `MlsCredential.serialize()` or from `MlsMemberInfo.credential`.
   Future<int?> groupMemberLeafIndex({
     required List<int> groupIdBytes,
-    required List<int> credentialIdentity,
+    required List<int> credentialBytes,
   }) => provider.groupMemberLeafIndex(
     groupIdBytes: groupIdBytes,
-    credentialIdentity: credentialIdentity,
+    credentialBytes: credentialBytes,
     storageRead: storage.read,
     storageWrite: storage.write,
     storageDelete: storage.delete,
@@ -589,14 +597,18 @@ class MlsClient {
     storageDelete: storage.delete,
   );
 
+  /// Propose removing a member by their TLS-serialized credential.
+  ///
+  /// The [credentialBytes] should be a TLS-serialized `Credential`, e.g. from
+  /// `MlsCredential.serialize()` or from `MlsMemberInfo.credential`.
   Future<provider.ProposalProviderResult> proposeRemoveMemberByCredential({
     required List<int> groupIdBytes,
     required List<int> signerBytes,
-    required List<int> credentialIdentity,
+    required List<int> credentialBytes,
   }) => provider.proposeRemoveMemberByCredential(
     groupIdBytes: groupIdBytes,
     signerBytes: signerBytes,
-    credentialIdentity: credentialIdentity,
+    credentialBytes: credentialBytes,
     storageRead: storage.read,
     storageWrite: storage.write,
     storageDelete: storage.delete,

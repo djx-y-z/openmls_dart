@@ -8,7 +8,7 @@
 
 use flutter_rust_bridge::DartFnFuture;
 use openmls::prelude::*;
-use openmls::prelude::tls_codec::Serialize as TlsSerialize;
+use openmls::prelude::tls_codec::{DeserializeBytes as TlsDeserializeBytes, Serialize as TlsSerialize};
 use openmls::schedule::PreSharedKeyId;
 use openmls_traits::OpenMlsProvider;
 
@@ -623,11 +623,12 @@ pub async fn group_members(
     let group = load_group(&group_id_bytes, &provider)?;
     let mut members = Vec::new();
     for member in group.members() {
-        let basic = BasicCredential::try_from(member.credential.clone())
-            .map_err(|e| format!("Failed to extract member credential: {}", e))?;
+        let cred_bytes = member.credential
+            .tls_serialize_detached()
+            .map_err(|e| format!("Failed to serialize member credential: {}", e))?;
         members.push(MlsMemberInfo {
             index: member.index.u32(),
-            credential_identity: basic.identity().to_vec(),
+            credential: cred_bytes,
             signature_key: member.signature_key.clone(),
         });
     }
@@ -665,9 +666,9 @@ pub async fn group_credential(
     let provider = make_provider(storage_read, storage_write, storage_delete);
     let group = load_group(&group_id_bytes, &provider)?;
     let credential = group.credential().map_err(|e| format!("Failed to get credential: {}", e))?;
-    let basic = BasicCredential::try_from(credential.clone())
-        .map_err(|e| format!("Failed to extract credential identity: {}", e))?;
-    Ok(basic.identity().to_vec())
+    credential
+        .tls_serialize_detached()
+        .map_err(|e| format!("Failed to serialize credential: {}", e))
 }
 
 pub async fn group_extensions(
@@ -735,11 +736,12 @@ pub async fn group_member_at(
     let group = load_group(&group_id_bytes, &provider)?;
     match group.member_at(LeafNodeIndex::new(leaf_index)) {
         Some(member) => {
-            let basic = BasicCredential::try_from(member.credential.clone())
-                .map_err(|e| format!("Failed to extract member credential: {}", e))?;
+            let cred_bytes = member.credential
+                .tls_serialize_detached()
+                .map_err(|e| format!("Failed to serialize member credential: {}", e))?;
             Ok(Some(MlsMemberInfo {
                 index: member.index.u32(),
-                credential_identity: basic.identity().to_vec(),
+                credential: cred_bytes,
                 signature_key: member.signature_key.clone(),
             }))
         }
@@ -749,15 +751,15 @@ pub async fn group_member_at(
 
 pub async fn group_member_leaf_index(
     group_id_bytes: Vec<u8>,
-    credential_identity: Vec<u8>,
+    credential_bytes: Vec<u8>,
     storage_read: impl Fn(Vec<u8>) -> DartFnFuture<Option<Vec<u8>>> + Send + Sync + 'static,
     storage_write: impl Fn(Vec<u8>, Vec<u8>) -> DartFnFuture<()> + Send + Sync + 'static,
     storage_delete: impl Fn(Vec<u8>) -> DartFnFuture<()> + Send + Sync + 'static,
 ) -> Result<Option<u32>, String> {
     let provider = make_provider(storage_read, storage_write, storage_delete);
     let group = load_group(&group_id_bytes, &provider)?;
-    let basic = BasicCredential::new(credential_identity);
-    let credential: Credential = basic.into();
+    let credential = Credential::tls_deserialize_exact_bytes(&credential_bytes)
+        .map_err(|e| format!("Failed to deserialize credential: {}", e))?;
     Ok(group.member_leaf_index(&credential).map(|idx| idx.u32()))
 }
 
@@ -822,7 +824,8 @@ pub async fn export_group_context(
     let provider = make_provider(storage_read, storage_write, storage_delete);
     let group = load_group(&group_id_bytes, &provider)?;
     let cs = native_to_ciphersuite(group.ciphersuite())?;
-    let ext_bytes = group
+    let ctx = group.export_group_context();
+    let ext_bytes = ctx
         .extensions()
         .tls_serialize_detached()
         .map_err(|e| format!("Failed to serialize extensions: {}", e))?;
@@ -830,8 +833,8 @@ pub async fn export_group_context(
         group_id: group.group_id().as_slice().to_vec(),
         epoch: group.epoch().as_u64(),
         ciphersuite: cs,
-        tree_hash: Vec::new(),
-        confirmed_transcript_hash: Vec::new(),
+        tree_hash: ctx.tree_hash().to_vec(),
+        confirmed_transcript_hash: ctx.confirmed_transcript_hash().to_vec(),
         extensions: ext_bytes,
     })
 }
@@ -862,8 +865,9 @@ pub async fn group_own_leaf_node(
         .own_leaf_node()
         .ok_or_else(|| "No own leaf node (group not active?)".to_string())?;
 
-    let basic = BasicCredential::try_from(leaf.credential().clone())
-        .map_err(|e| format!("Failed to extract credential: {}", e))?;
+    let cred_bytes = leaf.credential()
+        .tls_serialize_detached()
+        .map_err(|e| format!("Failed to serialize credential: {}", e))?;
 
     let caps = leaf.capabilities();
     let capabilities = MlsCapabilities {
@@ -893,7 +897,7 @@ pub async fn group_own_leaf_node(
         .map_err(|e| format!("Failed to serialize encryption key: {}", e))?;
 
     Ok(MlsLeafNodeInfo {
-        credential_identity: basic.identity().to_vec(),
+        credential: cred_bytes,
         signature_key: leaf.signature_key().as_slice().to_vec(),
         encryption_key: encryption_key_bytes,
         capabilities,
@@ -1275,7 +1279,7 @@ pub async fn propose_custom_proposal(
 pub async fn propose_remove_member_by_credential(
     group_id_bytes: Vec<u8>,
     signer_bytes: Vec<u8>,
-    credential_identity: Vec<u8>,
+    credential_bytes: Vec<u8>,
     storage_read: impl Fn(Vec<u8>) -> DartFnFuture<Option<Vec<u8>>> + Send + Sync + 'static,
     storage_write: impl Fn(Vec<u8>, Vec<u8>) -> DartFnFuture<()> + Send + Sync + 'static,
     storage_delete: impl Fn(Vec<u8>) -> DartFnFuture<()> + Send + Sync + 'static,
@@ -1284,8 +1288,8 @@ pub async fn propose_remove_member_by_credential(
     let provider = make_provider(storage_read, storage_write, storage_delete);
     let mut group = load_group(&group_id_bytes, &provider)?;
 
-    let basic = BasicCredential::new(credential_identity);
-    let credential: Credential = basic.into();
+    let credential = Credential::tls_deserialize_exact_bytes(&credential_bytes)
+        .map_err(|e| format!("Failed to deserialize credential: {}", e))?;
     let (proposal_out, _) = group.propose_remove_member_by_credential(&provider, &signer, &credential)
         .map_err(|e| format!("Failed to propose remove by credential: {}", e))?;
     let msg_bytes = proposal_out.tls_serialize_detached().map_err(|e| format!("Failed to serialize proposal: {}", e))?;
@@ -1564,18 +1568,19 @@ pub async fn process_message_with_inspect(
                 (ProcessedMessageType::Application, Some(app_msg.into_bytes()), None, None)
             }
             ProcessedMessageContent::StagedCommitMessage(staged_commit) => {
-                let mut add_identities = Vec::new();
+                let mut add_credentials = Vec::new();
                 for add in staged_commit.add_proposals() {
                     let kp = add.add_proposal().key_package();
-                    if let Ok(basic) = BasicCredential::try_from(kp.leaf_node().credential().clone()) {
-                        add_identities.push(basic.identity().to_vec());
-                    }
+                    let cred_bytes = kp.leaf_node().credential()
+                        .tls_serialize_detached()
+                        .map_err(|e| format!("Failed to serialize add credential: {}", e))?;
+                    add_credentials.push(cred_bytes);
                 }
                 let remove_indices: Vec<u32> = staged_commit.remove_proposals().map(|r| r.remove_proposal().removed().u32()).collect();
                 let has_update = staged_commit.update_proposals().next().is_some();
                 let self_removed = staged_commit.self_removed();
                 let psk_count = staged_commit.psk_proposals().count() as u32;
-                let info = StagedCommitInfo { add_credential_identities: add_identities, remove_indices, has_update, self_removed, psk_count };
+                let info = StagedCommitInfo { add_credentials, remove_indices, has_update, self_removed, psk_count };
 
                 group.merge_staged_commit(&provider, *staged_commit)
                     .map_err(|e| format!("Failed to merge staged commit: {}", e))?;

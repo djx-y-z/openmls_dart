@@ -877,7 +877,7 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   JSAny cst_encode_mls_leaf_node_info(MlsLeafNodeInfo raw) {
     // Codec=Cst (C-struct based), see doc to use other codecs
     return [
-      cst_encode_list_prim_u_8_strict(raw.credentialIdentity),
+      cst_encode_list_prim_u_8_strict(raw.credential),
       cst_encode_list_prim_u_8_strict(raw.signatureKey),
       cst_encode_list_prim_u_8_strict(raw.encryptionKey),
       cst_encode_mls_capabilities(raw.capabilities),
@@ -890,7 +890,7 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
     // Codec=Cst (C-struct based), see doc to use other codecs
     return [
       cst_encode_u_32(raw.index),
-      cst_encode_list_prim_u_8_strict(raw.credentialIdentity),
+      cst_encode_list_prim_u_8_strict(raw.credential),
       cst_encode_list_prim_u_8_strict(raw.signatureKey),
     ].jsify()!;
   }
@@ -993,7 +993,7 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   JSAny cst_encode_staged_commit_info(StagedCommitInfo raw) {
     // Codec=Cst (C-struct based), see doc to use other codecs
     return [
-      cst_encode_list_list_prim_u_8_strict(raw.addCredentialIdentities),
+      cst_encode_list_list_prim_u_8_strict(raw.addCredentials),
       cst_encode_list_prim_u_32_strict(raw.removeIndices),
       cst_encode_bool(raw.hasUpdate),
       cst_encode_bool(raw.selfRemoved),
@@ -2018,14 +2018,14 @@ class RustLibWire implements BaseWire {
   void wire__crate__api__provider__group_member_leaf_index(
     NativePortType port_,
     JSAny group_id_bytes,
-    JSAny credential_identity,
+    JSAny credential_bytes,
     PlatformPointer storage_read,
     PlatformPointer storage_write,
     PlatformPointer storage_delete,
   ) => wasmModule.wire__crate__api__provider__group_member_leaf_index(
     port_,
     group_id_bytes,
-    credential_identity,
+    credential_bytes,
     storage_read,
     storage_write,
     storage_delete,
@@ -2407,7 +2407,7 @@ class RustLibWire implements BaseWire {
     NativePortType port_,
     JSAny group_id_bytes,
     JSAny signer_bytes,
-    JSAny credential_identity,
+    JSAny credential_bytes,
     PlatformPointer storage_read,
     PlatformPointer storage_write,
     PlatformPointer storage_delete,
@@ -2416,7 +2416,7 @@ class RustLibWire implements BaseWire {
         port_,
         group_id_bytes,
         signer_bytes,
-        credential_identity,
+        credential_bytes,
         storage_read,
         storage_write,
         storage_delete,
@@ -2889,7 +2889,7 @@ extension type RustLibWasmModule._(JSObject _) implements JSObject {
   external void wire__crate__api__provider__group_member_leaf_index(
     NativePortType port_,
     JSAny group_id_bytes,
-    JSAny credential_identity,
+    JSAny credential_bytes,
     PlatformPointer storage_read,
     PlatformPointer storage_write,
     PlatformPointer storage_delete,
@@ -3106,7 +3106,7 @@ extension type RustLibWasmModule._(JSObject _) implements JSObject {
     NativePortType port_,
     JSAny group_id_bytes,
     JSAny signer_bytes,
-    JSAny credential_identity,
+    JSAny credential_bytes,
     PlatformPointer storage_read,
     PlatformPointer storage_write,
     PlatformPointer storage_delete,

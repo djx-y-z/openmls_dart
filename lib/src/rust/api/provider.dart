@@ -332,13 +332,13 @@ Future<MlsMemberInfo?> groupMemberAt({
 
 Future<int?> groupMemberLeafIndex({
   required List<int> groupIdBytes,
-  required List<int> credentialIdentity,
+  required List<int> credentialBytes,
   required FutureOr<Uint8List?> Function(Uint8List) storageRead,
   required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
   required FutureOr<void> Function(Uint8List) storageDelete,
 }) => RustLib.instance.api.crateApiProviderGroupMemberLeafIndex(
   groupIdBytes: groupIdBytes,
-  credentialIdentity: credentialIdentity,
+  credentialBytes: credentialBytes,
   storageRead: storageRead,
   storageWrite: storageWrite,
   storageDelete: storageDelete,
@@ -667,14 +667,14 @@ Future<ProposalProviderResult> proposeCustomProposal({
 Future<ProposalProviderResult> proposeRemoveMemberByCredential({
   required List<int> groupIdBytes,
   required List<int> signerBytes,
-  required List<int> credentialIdentity,
+  required List<int> credentialBytes,
   required FutureOr<Uint8List?> Function(Uint8List) storageRead,
   required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
   required FutureOr<void> Function(Uint8List) storageDelete,
 }) => RustLib.instance.api.crateApiProviderProposeRemoveMemberByCredential(
   groupIdBytes: groupIdBytes,
   signerBytes: signerBytes,
-  credentialIdentity: credentialIdentity,
+  credentialBytes: credentialBytes,
   storageRead: storageRead,
   storageWrite: storageWrite,
   storageDelete: storageDelete,
