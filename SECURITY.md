@@ -156,6 +156,12 @@ try {
 
 3. **No `unsafe` code:** The wrapper layer contains no `unsafe` Rust code. All `unsafe` usage is in upstream OpenMLS and RustCrypto crates, which are well-audited.
 
+4. **Storage callback timeout:** The `block_on()` bridge from Rust's synchronous `StorageProvider` trait to Dart's async callbacks has no built-in timeout. Storage backends must complete promptly to avoid blocking the Rust thread pool.
+
+5. **Concurrency:** There is no internal synchronization for concurrent access to the same MLS group. Callers must serialize operations on the same group (e.g., process messages in order from a single async task).
+
+6. **Storage atomicity:** Storage operations are not transactional. If the app crashes mid-operation, storage may be left in an inconsistent state. Production backends should use transactions or write-ahead logging.
+
 ## Code Review Security Checklist
 
 When reviewing code changes, verify:

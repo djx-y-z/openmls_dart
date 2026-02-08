@@ -29,5 +29,8 @@
 - All cryptographic operations run in Rust (OpenMLS with RustCrypto backend)
 - Memory safety via Rust's ownership model
 - No `unsafe` code in the wrapper layer
+- `SerializableSigner` now derives `ZeroizeOnDrop` — private key bytes zeroed on drop
+- Eliminated clone-then-zeroize pattern in `from_raw()` and `serialize_signer()` — private keys moved, not copied
+- Documented known limitations: storage callback timeout, concurrency, storage atomicity
 
 [1.0.0]: https://github.com/djx-y-z/openmls_dart/releases/tag/v1.0.0

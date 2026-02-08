@@ -35,16 +35,15 @@ impl MlsSignatureKeyPair {
     /// Reconstruct a key pair from raw private and public key bytes.
     ///
     /// # Security
-    /// `private_key` is zeroized after construction.
+    /// `private_key` is moved (not copied) into the key pair.
     #[flutter_rust_bridge::frb(sync)]
     pub fn from_raw(
         ciphersuite: MlsCiphersuite,
-        mut private_key: Vec<u8>,
+        private_key: Vec<u8>,
         public_key: Vec<u8>,
     ) -> Result<MlsSignatureKeyPair, String> {
         let cs = ciphersuite_to_native(&ciphersuite);
-        let kp = SignatureKeyPair::from_raw(cs.signature_algorithm(), private_key.clone(), public_key);
-        private_key.zeroize(); // SECURITY: Zeroize private key input
+        let kp = SignatureKeyPair::from_raw(cs.signature_algorithm(), private_key, public_key);
         Ok(MlsSignatureKeyPair { inner: kp })
     }
 
@@ -115,7 +114,7 @@ struct SerializableKeyPair {
 }
 
 /// Serializable signer data (private + public + scheme).
-#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(serde::Serialize, serde::Deserialize, zeroize::Zeroize, zeroize::ZeroizeOnDrop)]
 pub(crate) struct SerializableSigner {
     pub private: Vec<u8>,
     pub public: Vec<u8>,
@@ -129,27 +128,32 @@ pub(crate) struct SerializableSigner {
 #[flutter_rust_bridge::frb(sync)]
 pub fn serialize_signer(
     ciphersuite: MlsCiphersuite,
-    mut private_key: Vec<u8>,
+    private_key: Vec<u8>,
     public_key: Vec<u8>,
 ) -> Result<Vec<u8>, String> {
     let cs = ciphersuite_to_native(&ciphersuite);
-    let result = serde_json::to_vec(&SerializableSigner {
-        private: private_key.clone(),
+    let signer = SerializableSigner {
+        private: private_key,
         public: public_key,
         scheme: cs.signature_algorithm() as u16,
-    })
-    .map_err(|e| format!("Failed to serialize signer: {}", e));
-    private_key.zeroize(); // SECURITY: Zeroize private key input
+    };
+    let result = serde_json::to_vec(&signer)
+        .map_err(|e| format!("Failed to serialize signer: {}", e));
+    drop(signer);
     result
 }
 
 /// Reconstruct a `SignatureKeyPair` from raw signer bytes (JSON-serialized).
 /// Zeroizes the input bytes.
 pub(crate) fn signer_from_bytes(mut signer_bytes: Vec<u8>) -> Result<SignatureKeyPair, String> {
-    let skp: SerializableSigner =
+    let mut skp: SerializableSigner =
         serde_json::from_slice(&signer_bytes).map_err(|e| format!("Failed to deserialize signer: {}", e))?;
-    signer_bytes.zeroize(); // SECURITY: Zeroize input bytes
+    signer_bytes.zeroize();
     let scheme = SignatureScheme::try_from(skp.scheme)
         .map_err(|_| format!("Invalid signature scheme: {}", skp.scheme))?;
-    Ok(SignatureKeyPair::from_raw(scheme, skp.private, skp.public))
+    Ok(SignatureKeyPair::from_raw(
+        scheme,
+        std::mem::take(&mut skp.private),
+        std::mem::take(&mut skp.public),
+    ))
 }

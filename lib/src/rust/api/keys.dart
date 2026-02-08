@@ -9,6 +9,7 @@ import 'types.dart';
 
 // These functions are ignored because they are not marked as `pub`: `from_native`, `native`, `signer_from_bytes`
 // These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `SerializableKeyPair`, `SerializableSigner`
+// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `drop`, `zeroize`
 
 /// Serialize a `SignatureKeyPair` to JSON bytes including private key.
 ///
@@ -38,7 +39,7 @@ abstract class MlsSignatureKeyPair implements RustOpaqueInterface {
   /// Reconstruct a key pair from raw private and public key bytes.
   ///
   /// # Security
-  /// `private_key` is zeroized after construction.
+  /// `private_key` is moved (not copied) into the key pair.
   static MlsSignatureKeyPair fromRaw({
     required MlsCiphersuite ciphersuite,
     required List<int> privateKey,

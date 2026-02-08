@@ -46,5 +46,8 @@ class InMemoryMlsStorage implements MlsStorage {
   bool get isNotEmpty => _store.isNotEmpty;
 
   /// Removes all entries from the storage.
+  ///
+  /// Note: values are not explicitly zeroed before removal. For production use,
+  /// implement [MlsStorage] with a backend that zeroizes sensitive data.
   void clear() => _store.clear();
 }
