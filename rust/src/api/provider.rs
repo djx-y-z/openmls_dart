@@ -9,8 +9,10 @@
 use flutter_rust_bridge::DartFnFuture;
 use openmls::prelude::*;
 use openmls::prelude::tls_codec::{DeserializeBytes as TlsDeserializeBytes, Serialize as TlsSerialize};
+use openmls::ciphersuite::hash_ref::ProposalRef;
 use openmls::schedule::PreSharedKeyId;
 use openmls_traits::OpenMlsProvider;
+use openmls_traits::storage::StorageProvider;
 
 use super::config::MlsGroupConfig;
 use super::keys::signer_from_bytes;
@@ -18,7 +20,7 @@ use super::types::{
     ciphersuite_to_native, native_to_ciphersuite, capabilities_to_native, extensions_from_mls,
     FlexibleCommitOptions, KeyPackageOptions, MlsCapabilities, MlsCiphersuite, MlsExtension,
     MlsGroupContextInfo, MlsLeafNodeInfo, MlsMemberInfo, MlsPendingProposalInfo, MlsProposalType,
-    ProcessedMessageType, StagedCommitInfo, WelcomeInspectResult,
+    MlsWireFormatPolicy, ProcessedMessageType, StagedCommitInfo, WelcomeInspectResult,
 };
 use crate::dart_storage::{DartOpenMlsProvider, DartStorageProvider};
 
@@ -33,6 +35,24 @@ fn make_provider(
     storage_delete: impl Fn(Vec<u8>) -> DartFnFuture<()> + Send + Sync + 'static,
 ) -> DartOpenMlsProvider {
     DartOpenMlsProvider::new(DartStorageProvider::new(storage_read, storage_write, storage_delete))
+}
+
+/// Build a `CredentialWithKey` either from a TLS-serialized `Credential` (for X.509 or custom
+/// credential types) or by creating a `BasicCredential` from the identity bytes.
+fn build_credential_with_key(
+    credential_identity: &[u8],
+    signer_public_key: &[u8],
+    credential_bytes: Option<&[u8]>,
+) -> Result<CredentialWithKey, String> {
+    let credential = match credential_bytes {
+        Some(bytes) => Credential::tls_deserialize_exact_bytes(bytes)
+            .map_err(|e| format!("Failed to deserialize credential: {e}"))?,
+        None => BasicCredential::new(credential_identity.to_vec()).into(),
+    };
+    Ok(CredentialWithKey {
+        credential,
+        signature_key: SignaturePublicKey::from(signer_public_key.to_vec()),
+    })
 }
 
 /// Load an MlsGroup from the provider's storage.
@@ -108,6 +128,14 @@ pub struct LeaveGroupProviderResult {
     pub message: Vec<u8>,
 }
 
+pub struct GroupConfigurationResult {
+    pub ciphersuite: MlsCiphersuite,
+    pub wire_format_policy: MlsWireFormatPolicy,
+    pub padding_size: u32,
+    pub sender_ratchet_max_out_of_order: u32,
+    pub sender_ratchet_max_forward_distance: u32,
+}
+
 // ═══════════════════════════════════════════════════════════════
 // KEY PACKAGES
 // ═══════════════════════════════════════════════════════════════
@@ -117,17 +145,16 @@ pub async fn create_key_package(
     signer_bytes: Vec<u8>,
     credential_identity: Vec<u8>,
     signer_public_key: Vec<u8>,
+    credential_bytes: Option<Vec<u8>>,
     storage_read: impl Fn(Vec<u8>) -> DartFnFuture<Option<Vec<u8>>> + Send + Sync + 'static,
     storage_write: impl Fn(Vec<u8>, Vec<u8>) -> DartFnFuture<()> + Send + Sync + 'static,
     storage_delete: impl Fn(Vec<u8>) -> DartFnFuture<()> + Send + Sync + 'static,
 ) -> Result<KeyPackageProviderResult, String> {
     let cs = ciphersuite_to_native(&ciphersuite);
     let signer = signer_from_bytes(signer_bytes)?;
-    let credential = BasicCredential::new(credential_identity);
-    let credential_with_key = CredentialWithKey {
-        credential: credential.into(),
-        signature_key: SignaturePublicKey::from(signer_public_key),
-    };
+    let credential_with_key = build_credential_with_key(
+        &credential_identity, &signer_public_key, credential_bytes.as_deref(),
+    )?;
 
     let provider = make_provider(storage_read, storage_write, storage_delete);
 
@@ -151,17 +178,16 @@ pub async fn create_key_package_with_options(
     credential_identity: Vec<u8>,
     signer_public_key: Vec<u8>,
     options: KeyPackageOptions,
+    credential_bytes: Option<Vec<u8>>,
     storage_read: impl Fn(Vec<u8>) -> DartFnFuture<Option<Vec<u8>>> + Send + Sync + 'static,
     storage_write: impl Fn(Vec<u8>, Vec<u8>) -> DartFnFuture<()> + Send + Sync + 'static,
     storage_delete: impl Fn(Vec<u8>) -> DartFnFuture<()> + Send + Sync + 'static,
 ) -> Result<KeyPackageProviderResult, String> {
     let cs = ciphersuite_to_native(&ciphersuite);
     let signer = signer_from_bytes(signer_bytes)?;
-    let credential = BasicCredential::new(credential_identity);
-    let credential_with_key = CredentialWithKey {
-        credential: credential.into(),
-        signature_key: SignaturePublicKey::from(signer_public_key),
-    };
+    let credential_with_key = build_credential_with_key(
+        &credential_identity, &signer_public_key, credential_bytes.as_deref(),
+    )?;
 
     let provider = make_provider(storage_read, storage_write, storage_delete);
     let mut builder = KeyPackage::builder();
@@ -210,16 +236,15 @@ pub async fn create_group(
     credential_identity: Vec<u8>,
     signer_public_key: Vec<u8>,
     group_id: Option<Vec<u8>>,
+    credential_bytes: Option<Vec<u8>>,
     storage_read: impl Fn(Vec<u8>) -> DartFnFuture<Option<Vec<u8>>> + Send + Sync + 'static,
     storage_write: impl Fn(Vec<u8>, Vec<u8>) -> DartFnFuture<()> + Send + Sync + 'static,
     storage_delete: impl Fn(Vec<u8>) -> DartFnFuture<()> + Send + Sync + 'static,
 ) -> Result<CreateGroupProviderResult, String> {
     let signer = signer_from_bytes(signer_bytes)?;
-    let credential = BasicCredential::new(credential_identity);
-    let credential_with_key = CredentialWithKey {
-        credential: credential.into(),
-        signature_key: SignaturePublicKey::from(signer_public_key),
-    };
+    let credential_with_key = build_credential_with_key(
+        &credential_identity, &signer_public_key, credential_bytes.as_deref(),
+    )?;
 
     let provider = make_provider(storage_read, storage_write, storage_delete);
     let create_config = config.to_create_config();
@@ -256,16 +281,15 @@ pub async fn create_group_with_builder(
     group_context_extensions: Option<Vec<MlsExtension>>,
     leaf_node_extensions: Option<Vec<MlsExtension>>,
     capabilities: Option<MlsCapabilities>,
+    credential_bytes: Option<Vec<u8>>,
     storage_read: impl Fn(Vec<u8>) -> DartFnFuture<Option<Vec<u8>>> + Send + Sync + 'static,
     storage_write: impl Fn(Vec<u8>, Vec<u8>) -> DartFnFuture<()> + Send + Sync + 'static,
     storage_delete: impl Fn(Vec<u8>) -> DartFnFuture<()> + Send + Sync + 'static,
 ) -> Result<CreateGroupProviderResult, String> {
     let signer = signer_from_bytes(signer_bytes)?;
-    let credential = BasicCredential::new(credential_identity);
-    let credential_with_key = CredentialWithKey {
-        credential: credential.into(),
-        signature_key: SignaturePublicKey::from(signer_public_key),
-    };
+    let credential_with_key = build_credential_with_key(
+        &credential_identity, &signer_public_key, credential_bytes.as_deref(),
+    )?;
 
     let provider = make_provider(storage_read, storage_write, storage_delete);
 
@@ -448,16 +472,15 @@ pub async fn join_group_external_commit(
     signer_bytes: Vec<u8>,
     credential_identity: Vec<u8>,
     signer_public_key: Vec<u8>,
+    credential_bytes: Option<Vec<u8>>,
     storage_read: impl Fn(Vec<u8>) -> DartFnFuture<Option<Vec<u8>>> + Send + Sync + 'static,
     storage_write: impl Fn(Vec<u8>, Vec<u8>) -> DartFnFuture<()> + Send + Sync + 'static,
     storage_delete: impl Fn(Vec<u8>) -> DartFnFuture<()> + Send + Sync + 'static,
 ) -> Result<ExternalJoinProviderResult, String> {
     let signer = signer_from_bytes(signer_bytes)?;
-    let credential = BasicCredential::new(credential_identity);
-    let credential_with_key = CredentialWithKey {
-        credential: credential.into(),
-        signature_key: SignaturePublicKey::from(signer_public_key),
-    };
+    let credential_with_key = build_credential_with_key(
+        &credential_identity, &signer_public_key, credential_bytes.as_deref(),
+    )?;
 
     let provider = make_provider(storage_read, storage_write, storage_delete);
     signer
@@ -509,16 +532,15 @@ pub async fn join_group_external_commit_v2(
     signer_public_key: Vec<u8>,
     aad: Option<Vec<u8>>,
     skip_lifetime_validation: bool,
+    credential_bytes: Option<Vec<u8>>,
     storage_read: impl Fn(Vec<u8>) -> DartFnFuture<Option<Vec<u8>>> + Send + Sync + 'static,
     storage_write: impl Fn(Vec<u8>, Vec<u8>) -> DartFnFuture<()> + Send + Sync + 'static,
     storage_delete: impl Fn(Vec<u8>) -> DartFnFuture<()> + Send + Sync + 'static,
 ) -> Result<ExternalJoinProviderResult, String> {
     let signer = signer_from_bytes(signer_bytes)?;
-    let credential = BasicCredential::new(credential_identity);
-    let credential_with_key = CredentialWithKey {
-        credential: credential.into(),
-        signature_key: SignaturePublicKey::from(signer_public_key),
-    };
+    let credential_with_key = build_credential_with_key(
+        &credential_identity, &signer_public_key, credential_bytes.as_deref(),
+    )?;
 
     let provider = make_provider(storage_read, storage_write, storage_delete);
     signer
@@ -1048,6 +1070,7 @@ pub async fn self_update_with_new_signer(
     new_signer_bytes: Vec<u8>,
     new_credential_identity: Vec<u8>,
     new_signer_public_key: Vec<u8>,
+    new_credential_bytes: Option<Vec<u8>>,
     storage_read: impl Fn(Vec<u8>) -> DartFnFuture<Option<Vec<u8>>> + Send + Sync + 'static,
     storage_write: impl Fn(Vec<u8>, Vec<u8>) -> DartFnFuture<()> + Send + Sync + 'static,
     storage_delete: impl Fn(Vec<u8>) -> DartFnFuture<()> + Send + Sync + 'static,
@@ -1059,11 +1082,9 @@ pub async fn self_update_with_new_signer(
 
     new_signer.store(provider.storage()).map_err(|e| format!("Failed to store new signer: {}", e))?;
 
-    let credential = BasicCredential::new(new_credential_identity);
-    let credential_with_key = CredentialWithKey {
-        credential: credential.into(),
-        signature_key: SignaturePublicKey::from(new_signer_public_key),
-    };
+    let credential_with_key = build_credential_with_key(
+        &new_credential_identity, &new_signer_public_key, new_credential_bytes.as_deref(),
+    )?;
     let new_signer_bundle = NewSignerBundle { signer: &new_signer, credential_with_key };
 
     let bundle = group
@@ -1197,6 +1218,8 @@ pub async fn propose_remove(
 pub async fn propose_self_update(
     group_id_bytes: Vec<u8>,
     signer_bytes: Vec<u8>,
+    leaf_node_capabilities: Option<MlsCapabilities>,
+    leaf_node_extensions: Option<Vec<MlsExtension>>,
     storage_read: impl Fn(Vec<u8>) -> DartFnFuture<Option<Vec<u8>>> + Send + Sync + 'static,
     storage_write: impl Fn(Vec<u8>, Vec<u8>) -> DartFnFuture<()> + Send + Sync + 'static,
     storage_delete: impl Fn(Vec<u8>) -> DartFnFuture<()> + Send + Sync + 'static,
@@ -1205,7 +1228,18 @@ pub async fn propose_self_update(
     let provider = make_provider(storage_read, storage_write, storage_delete);
     let mut group = load_group(&group_id_bytes, &provider)?;
 
-    let (proposal_out, _) = group.propose_self_update(&provider, &signer, LeafNodeParameters::default())
+    let mut ln_builder = LeafNodeParameters::builder();
+    if let Some(ref caps) = leaf_node_capabilities {
+        ln_builder = ln_builder.with_capabilities(capabilities_to_native(caps)?);
+    }
+    if let Some(ref exts) = leaf_node_extensions {
+        let extensions = Extensions::from_vec(extensions_from_mls(exts))
+            .map_err(|e| format!("Failed to create leaf node extensions: {}", e))?;
+        ln_builder = ln_builder.with_extensions(extensions);
+    }
+    let leaf_node_params = ln_builder.build();
+
+    let (proposal_out, _) = group.propose_self_update(&provider, &signer, leaf_node_params)
         .map_err(|e| format!("Failed to propose self-update: {}", e))?;
     let msg_bytes = proposal_out.tls_serialize_detached().map_err(|e| format!("Failed to serialize proposal: {}", e))?;
 
@@ -1606,6 +1640,89 @@ pub async fn process_message_with_inspect(
 
     Ok(ProcessedMessageInspectProviderResult {
         message_type, sender_index, epoch, application_message, staged_commit_info, proposal_type,
+    })
+}
+
+// ═══════════════════════════════════════════════════════════════
+// STORAGE CLEANUP
+// ═══════════════════════════════════════════════════════════════
+
+pub async fn delete_group(
+    group_id_bytes: Vec<u8>,
+    storage_read: impl Fn(Vec<u8>) -> DartFnFuture<Option<Vec<u8>>> + Send + Sync + 'static,
+    storage_write: impl Fn(Vec<u8>, Vec<u8>) -> DartFnFuture<()> + Send + Sync + 'static,
+    storage_delete: impl Fn(Vec<u8>) -> DartFnFuture<()> + Send + Sync + 'static,
+) -> Result<(), String> {
+    let provider = make_provider(storage_read, storage_write, storage_delete);
+    let mut group = load_group(&group_id_bytes, &provider)?;
+    group.delete(provider.storage()).map_err(|e| format!("Failed to delete group: {}", e))
+}
+
+pub async fn delete_key_package(
+    key_package_ref_bytes: Vec<u8>,
+    storage_read: impl Fn(Vec<u8>) -> DartFnFuture<Option<Vec<u8>>> + Send + Sync + 'static,
+    storage_write: impl Fn(Vec<u8>, Vec<u8>) -> DartFnFuture<()> + Send + Sync + 'static,
+    storage_delete: impl Fn(Vec<u8>) -> DartFnFuture<()> + Send + Sync + 'static,
+) -> Result<(), String> {
+    let provider = make_provider(storage_read, storage_write, storage_delete);
+    let hash_ref = openmls::ciphersuite::hash_ref::KeyPackageRef::tls_deserialize_exact_bytes(&key_package_ref_bytes)
+        .map_err(|e| format!("Failed to deserialize key package ref: {}", e))?;
+    provider.storage().delete_key_package(&hash_ref)
+        .map_err(|e| format!("Failed to delete key package: {}", e))
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ADDITIONAL STATE QUERIES
+// ═══════════════════════════════════════════════════════════════
+
+pub async fn remove_pending_proposal(
+    group_id_bytes: Vec<u8>,
+    proposal_ref_bytes: Vec<u8>,
+    storage_read: impl Fn(Vec<u8>) -> DartFnFuture<Option<Vec<u8>>> + Send + Sync + 'static,
+    storage_write: impl Fn(Vec<u8>, Vec<u8>) -> DartFnFuture<()> + Send + Sync + 'static,
+    storage_delete: impl Fn(Vec<u8>) -> DartFnFuture<()> + Send + Sync + 'static,
+) -> Result<(), String> {
+    let provider = make_provider(storage_read, storage_write, storage_delete);
+    let mut group = load_group(&group_id_bytes, &provider)?;
+    let proposal_ref = ProposalRef::tls_deserialize_exact_bytes(&proposal_ref_bytes)
+        .map_err(|e| format!("Failed to deserialize proposal ref: {}", e))?;
+    group.remove_pending_proposal(provider.storage(), &proposal_ref)
+        .map_err(|e| format!("Failed to remove pending proposal: {}", e))
+}
+
+pub async fn group_epoch_authenticator(
+    group_id_bytes: Vec<u8>,
+    storage_read: impl Fn(Vec<u8>) -> DartFnFuture<Option<Vec<u8>>> + Send + Sync + 'static,
+    storage_write: impl Fn(Vec<u8>, Vec<u8>) -> DartFnFuture<()> + Send + Sync + 'static,
+    storage_delete: impl Fn(Vec<u8>) -> DartFnFuture<()> + Send + Sync + 'static,
+) -> Result<Vec<u8>, String> {
+    let provider = make_provider(storage_read, storage_write, storage_delete);
+    let group = load_group(&group_id_bytes, &provider)?;
+    Ok(group.epoch_authenticator().as_slice().to_vec())
+}
+
+pub async fn group_configuration(
+    group_id_bytes: Vec<u8>,
+    storage_read: impl Fn(Vec<u8>) -> DartFnFuture<Option<Vec<u8>>> + Send + Sync + 'static,
+    storage_write: impl Fn(Vec<u8>, Vec<u8>) -> DartFnFuture<()> + Send + Sync + 'static,
+    storage_delete: impl Fn(Vec<u8>) -> DartFnFuture<()> + Send + Sync + 'static,
+) -> Result<GroupConfigurationResult, String> {
+    let provider = make_provider(storage_read, storage_write, storage_delete);
+    let group = load_group(&group_id_bytes, &provider)?;
+    let join_config = group.configuration();
+    let cs = native_to_ciphersuite(group.ciphersuite())?;
+    let wf = if join_config.wire_format_policy() == PURE_PLAINTEXT_WIRE_FORMAT_POLICY {
+        super::types::MlsWireFormatPolicy::Plaintext
+    } else {
+        super::types::MlsWireFormatPolicy::Ciphertext
+    };
+    let sr_config = join_config.sender_ratchet_configuration();
+    Ok(GroupConfigurationResult {
+        ciphersuite: cs,
+        wire_format_policy: wf,
+        padding_size: join_config.padding_size() as u32,
+        sender_ratchet_max_out_of_order: sr_config.out_of_order_tolerance(),
+        sender_ratchet_max_forward_distance: sr_config.maximum_forward_distance(),
     })
 }
 

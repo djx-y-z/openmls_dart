@@ -3,15 +3,16 @@
 ### Added
 
 - **MLS Protocol (RFC 9420)**: Full group key agreement with forward secrecy and post-compromise security
-- **56 API functions** covering complete MLS group lifecycle:
+- **61 API functions** covering complete MLS group lifecycle:
   - Group creation, join (Welcome, external commit), leave
   - Member management (add, remove, swap)
   - Encrypted messaging with additional authenticated data (AAD)
-  - Proposals (add, remove, self-update, PSK, custom, group context extensions)
+  - Proposals (add, remove, self-update with custom leaf node parameters, PSK, custom, group context extensions)
   - Commit handling (pending, flexible, merge/clear)
-  - State queries (members, epoch, extensions, ratchet tree, group info, secrets)
+  - State queries (members, epoch, extensions, configuration, epoch authenticator, ratchet tree, group info, secrets)
   - Key package creation with options (lifetime, last-resort)
-  - Basic and X.509 credential support
+  - Storage cleanup (delete group, delete key package, remove pending proposal)
+  - Basic and X.509 credential support (optional credential bytes on all creation functions)
   - Message inspection utilities (extract group ID, epoch, content type)
 - **MlsClient**: Convenience wrapper injecting storage callbacks into every API call
 - **MlsStorage**: Abstract key-value interface for pluggable persistence (SQLite, Hive, etc.)

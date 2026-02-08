@@ -69,7 +69,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.11.1';
 
   @override
-  int get rustContentHash => -739348474;
+  int get rustContentHash => -1503167156;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -188,6 +188,7 @@ abstract class RustLibApi extends BaseApi {
     required List<int> credentialIdentity,
     required List<int> signerPublicKey,
     Uint8List? groupId,
+    Uint8List? credentialBytes,
     required FutureOr<Uint8List?> Function(Uint8List) storageRead,
     required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
     required FutureOr<void> Function(Uint8List) storageDelete,
@@ -203,6 +204,7 @@ abstract class RustLibApi extends BaseApi {
     List<MlsExtension>? groupContextExtensions,
     List<MlsExtension>? leafNodeExtensions,
     MlsCapabilities? capabilities,
+    Uint8List? credentialBytes,
     required FutureOr<Uint8List?> Function(Uint8List) storageRead,
     required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
     required FutureOr<void> Function(Uint8List) storageDelete,
@@ -213,6 +215,7 @@ abstract class RustLibApi extends BaseApi {
     required List<int> signerBytes,
     required List<int> credentialIdentity,
     required List<int> signerPublicKey,
+    Uint8List? credentialBytes,
     required FutureOr<Uint8List?> Function(Uint8List) storageRead,
     required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
     required FutureOr<void> Function(Uint8List) storageDelete,
@@ -224,6 +227,7 @@ abstract class RustLibApi extends BaseApi {
     required List<int> credentialIdentity,
     required List<int> signerPublicKey,
     required KeyPackageOptions options,
+    Uint8List? credentialBytes,
     required FutureOr<Uint8List?> Function(Uint8List) storageRead,
     required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
     required FutureOr<void> Function(Uint8List) storageDelete,
@@ -234,6 +238,20 @@ abstract class RustLibApi extends BaseApi {
     required List<int> signerBytes,
     required List<int> message,
     Uint8List? aad,
+    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+    required FutureOr<void> Function(Uint8List) storageDelete,
+  });
+
+  Future<void> crateApiProviderDeleteGroup({
+    required List<int> groupIdBytes,
+    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+    required FutureOr<void> Function(Uint8List) storageDelete,
+  });
+
+  Future<void> crateApiProviderDeleteKeyPackage({
+    required List<int> keyPackageRefBytes,
     required FutureOr<Uint8List?> Function(Uint8List) storageRead,
     required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
     required FutureOr<void> Function(Uint8List) storageDelete,
@@ -295,6 +313,13 @@ abstract class RustLibApi extends BaseApi {
     required FutureOr<void> Function(Uint8List) storageDelete,
   });
 
+  Future<GroupConfigurationResult> crateApiProviderGroupConfiguration({
+    required List<int> groupIdBytes,
+    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+    required FutureOr<void> Function(Uint8List) storageDelete,
+  });
+
   Future<Uint8List> crateApiProviderGroupConfirmationTag({
     required List<int> groupIdBytes,
     required FutureOr<Uint8List?> Function(Uint8List) storageRead,
@@ -310,6 +335,13 @@ abstract class RustLibApi extends BaseApi {
   });
 
   Future<BigInt> crateApiProviderGroupEpoch({
+    required List<int> groupIdBytes,
+    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+    required FutureOr<void> Function(Uint8List) storageDelete,
+  });
+
+  Future<Uint8List> crateApiProviderGroupEpochAuthenticator({
     required List<int> groupIdBytes,
     required FutureOr<Uint8List?> Function(Uint8List) storageRead,
     required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
@@ -407,6 +439,7 @@ abstract class RustLibApi extends BaseApi {
     required List<int> signerBytes,
     required List<int> credentialIdentity,
     required List<int> signerPublicKey,
+    Uint8List? credentialBytes,
     required FutureOr<Uint8List?> Function(Uint8List) storageRead,
     required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
     required FutureOr<void> Function(Uint8List) storageDelete,
@@ -421,6 +454,7 @@ abstract class RustLibApi extends BaseApi {
     required List<int> signerPublicKey,
     Uint8List? aad,
     required bool skipLifetimeValidation,
+    Uint8List? credentialBytes,
     required FutureOr<Uint8List?> Function(Uint8List) storageRead,
     required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
     required FutureOr<void> Function(Uint8List) storageDelete,
@@ -564,6 +598,8 @@ abstract class RustLibApi extends BaseApi {
   Future<ProposalProviderResult> crateApiProviderProposeSelfUpdate({
     required List<int> groupIdBytes,
     required List<int> signerBytes,
+    MlsCapabilities? leafNodeCapabilities,
+    List<MlsExtension>? leafNodeExtensions,
     required FutureOr<Uint8List?> Function(Uint8List) storageRead,
     required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
     required FutureOr<void> Function(Uint8List) storageDelete,
@@ -573,6 +609,14 @@ abstract class RustLibApi extends BaseApi {
     required List<int> groupIdBytes,
     required List<int> signerBytes,
     required List<int> memberIndices,
+    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+    required FutureOr<void> Function(Uint8List) storageDelete,
+  });
+
+  Future<void> crateApiProviderRemovePendingProposal({
+    required List<int> groupIdBytes,
+    required List<int> proposalRefBytes,
     required FutureOr<Uint8List?> Function(Uint8List) storageRead,
     required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
     required FutureOr<void> Function(Uint8List) storageDelete,
@@ -592,6 +636,7 @@ abstract class RustLibApi extends BaseApi {
     required List<int> newSignerBytes,
     required List<int> newCredentialIdentity,
     required List<int> newSignerPublicKey,
+    Uint8List? newCredentialBytes,
     required FutureOr<Uint8List?> Function(Uint8List) storageRead,
     required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
     required FutureOr<void> Function(Uint8List) storageDelete,
@@ -1446,6 +1491,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     required List<int> credentialIdentity,
     required List<int> signerPublicKey,
     Uint8List? groupId,
+    Uint8List? credentialBytes,
     required FutureOr<Uint8List?> Function(Uint8List) storageRead,
     required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
     required FutureOr<void> Function(Uint8List) storageDelete,
@@ -1458,15 +1504,16 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           var arg2 = cst_encode_list_prim_u_8_loose(credentialIdentity);
           var arg3 = cst_encode_list_prim_u_8_loose(signerPublicKey);
           var arg4 = cst_encode_opt_list_prim_u_8_strict(groupId);
-          var arg5 =
+          var arg5 = cst_encode_opt_list_prim_u_8_strict(credentialBytes);
+          var arg6 =
               cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
                 storageRead,
               );
-          var arg6 =
+          var arg7 =
               cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
                 storageWrite,
               );
-          var arg7 =
+          var arg8 =
               cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
                 storageDelete,
               );
@@ -1480,6 +1527,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             arg5,
             arg6,
             arg7,
+            arg8,
           );
         },
         codec: DcoCodec(
@@ -1493,6 +1541,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           credentialIdentity,
           signerPublicKey,
           groupId,
+          credentialBytes,
           storageRead,
           storageWrite,
           storageDelete,
@@ -1511,6 +1560,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           "credentialIdentity",
           "signerPublicKey",
           "groupId",
+          "credentialBytes",
           "storageRead",
           "storageWrite",
           "storageDelete",
@@ -1528,6 +1578,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     List<MlsExtension>? groupContextExtensions,
     List<MlsExtension>? leafNodeExtensions,
     MlsCapabilities? capabilities,
+    Uint8List? credentialBytes,
     required FutureOr<Uint8List?> Function(Uint8List) storageRead,
     required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
     required FutureOr<void> Function(Uint8List) storageDelete,
@@ -1544,15 +1595,16 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           var arg6 = cst_encode_opt_list_mls_extension(groupContextExtensions);
           var arg7 = cst_encode_opt_list_mls_extension(leafNodeExtensions);
           var arg8 = cst_encode_opt_box_autoadd_mls_capabilities(capabilities);
-          var arg9 =
+          var arg9 = cst_encode_opt_list_prim_u_8_strict(credentialBytes);
+          var arg10 =
               cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
                 storageRead,
               );
-          var arg10 =
+          var arg11 =
               cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
                 storageWrite,
               );
-          var arg11 =
+          var arg12 =
               cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
                 storageDelete,
               );
@@ -1570,6 +1622,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             arg9,
             arg10,
             arg11,
+            arg12,
           );
         },
         codec: DcoCodec(
@@ -1587,6 +1640,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           groupContextExtensions,
           leafNodeExtensions,
           capabilities,
+          credentialBytes,
           storageRead,
           storageWrite,
           storageDelete,
@@ -1609,6 +1663,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           "groupContextExtensions",
           "leafNodeExtensions",
           "capabilities",
+          "credentialBytes",
           "storageRead",
           "storageWrite",
           "storageDelete",
@@ -1621,6 +1676,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     required List<int> signerBytes,
     required List<int> credentialIdentity,
     required List<int> signerPublicKey,
+    Uint8List? credentialBytes,
     required FutureOr<Uint8List?> Function(Uint8List) storageRead,
     required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
     required FutureOr<void> Function(Uint8List) storageDelete,
@@ -1632,15 +1688,16 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           var arg1 = cst_encode_list_prim_u_8_loose(signerBytes);
           var arg2 = cst_encode_list_prim_u_8_loose(credentialIdentity);
           var arg3 = cst_encode_list_prim_u_8_loose(signerPublicKey);
-          var arg4 =
+          var arg4 = cst_encode_opt_list_prim_u_8_strict(credentialBytes);
+          var arg5 =
               cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
                 storageRead,
               );
-          var arg5 =
+          var arg6 =
               cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
                 storageWrite,
               );
-          var arg6 =
+          var arg7 =
               cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
                 storageDelete,
               );
@@ -1653,6 +1710,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             arg4,
             arg5,
             arg6,
+            arg7,
           );
         },
         codec: DcoCodec(
@@ -1665,6 +1723,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           signerBytes,
           credentialIdentity,
           signerPublicKey,
+          credentialBytes,
           storageRead,
           storageWrite,
           storageDelete,
@@ -1682,6 +1741,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           "signerBytes",
           "credentialIdentity",
           "signerPublicKey",
+          "credentialBytes",
           "storageRead",
           "storageWrite",
           "storageDelete",
@@ -1695,6 +1755,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     required List<int> credentialIdentity,
     required List<int> signerPublicKey,
     required KeyPackageOptions options,
+    Uint8List? credentialBytes,
     required FutureOr<Uint8List?> Function(Uint8List) storageRead,
     required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
     required FutureOr<void> Function(Uint8List) storageDelete,
@@ -1707,15 +1768,16 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           var arg2 = cst_encode_list_prim_u_8_loose(credentialIdentity);
           var arg3 = cst_encode_list_prim_u_8_loose(signerPublicKey);
           var arg4 = cst_encode_box_autoadd_key_package_options(options);
-          var arg5 =
+          var arg5 = cst_encode_opt_list_prim_u_8_strict(credentialBytes);
+          var arg6 =
               cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
                 storageRead,
               );
-          var arg6 =
+          var arg7 =
               cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
                 storageWrite,
               );
-          var arg7 =
+          var arg8 =
               cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
                 storageDelete,
               );
@@ -1730,6 +1792,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
                 arg5,
                 arg6,
                 arg7,
+                arg8,
               );
         },
         codec: DcoCodec(
@@ -1743,6 +1806,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           credentialIdentity,
           signerPublicKey,
           options,
+          credentialBytes,
           storageRead,
           storageWrite,
           storageDelete,
@@ -1761,6 +1825,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           "credentialIdentity",
           "signerPublicKey",
           "options",
+          "credentialBytes",
           "storageRead",
           "storageWrite",
           "storageDelete",
@@ -1834,6 +1899,117 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           "signerBytes",
           "message",
           "aad",
+          "storageRead",
+          "storageWrite",
+          "storageDelete",
+        ],
+      );
+
+  @override
+  Future<void> crateApiProviderDeleteGroup({
+    required List<int> groupIdBytes,
+    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+    required FutureOr<void> Function(Uint8List) storageDelete,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 = cst_encode_list_prim_u_8_loose(groupIdBytes);
+          var arg1 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
+                storageRead,
+              );
+          var arg2 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
+                storageWrite,
+              );
+          var arg3 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
+                storageDelete,
+              );
+          return wire.wire__crate__api__provider__delete_group(
+            port_,
+            arg0,
+            arg1,
+            arg2,
+            arg3,
+          );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_unit,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiProviderDeleteGroupConstMeta,
+        argValues: [groupIdBytes, storageRead, storageWrite, storageDelete],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiProviderDeleteGroupConstMeta =>
+      const TaskConstMeta(
+        debugName: "delete_group",
+        argNames: [
+          "groupIdBytes",
+          "storageRead",
+          "storageWrite",
+          "storageDelete",
+        ],
+      );
+
+  @override
+  Future<void> crateApiProviderDeleteKeyPackage({
+    required List<int> keyPackageRefBytes,
+    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+    required FutureOr<void> Function(Uint8List) storageDelete,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 = cst_encode_list_prim_u_8_loose(keyPackageRefBytes);
+          var arg1 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
+                storageRead,
+              );
+          var arg2 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
+                storageWrite,
+              );
+          var arg3 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
+                storageDelete,
+              );
+          return wire.wire__crate__api__provider__delete_key_package(
+            port_,
+            arg0,
+            arg1,
+            arg2,
+            arg3,
+          );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_unit,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiProviderDeleteKeyPackageConstMeta,
+        argValues: [
+          keyPackageRefBytes,
+          storageRead,
+          storageWrite,
+          storageDelete,
+        ],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiProviderDeleteKeyPackageConstMeta =>
+      const TaskConstMeta(
+        debugName: "delete_key_package",
+        argNames: [
+          "keyPackageRefBytes",
           "storageRead",
           "storageWrite",
           "storageDelete",
@@ -2267,6 +2443,59 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
+  Future<GroupConfigurationResult> crateApiProviderGroupConfiguration({
+    required List<int> groupIdBytes,
+    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+    required FutureOr<void> Function(Uint8List) storageDelete,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 = cst_encode_list_prim_u_8_loose(groupIdBytes);
+          var arg1 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
+                storageRead,
+              );
+          var arg2 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
+                storageWrite,
+              );
+          var arg3 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
+                storageDelete,
+              );
+          return wire.wire__crate__api__provider__group_configuration(
+            port_,
+            arg0,
+            arg1,
+            arg2,
+            arg3,
+          );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_group_configuration_result,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiProviderGroupConfigurationConstMeta,
+        argValues: [groupIdBytes, storageRead, storageWrite, storageDelete],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiProviderGroupConfigurationConstMeta =>
+      const TaskConstMeta(
+        debugName: "group_configuration",
+        argNames: [
+          "groupIdBytes",
+          "storageRead",
+          "storageWrite",
+          "storageDelete",
+        ],
+      );
+
+  @override
   Future<Uint8List> crateApiProviderGroupConfirmationTag({
     required List<int> groupIdBytes,
     required FutureOr<Uint8List?> Function(Uint8List) storageRead,
@@ -2418,6 +2647,59 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     debugName: "group_epoch",
     argNames: ["groupIdBytes", "storageRead", "storageWrite", "storageDelete"],
   );
+
+  @override
+  Future<Uint8List> crateApiProviderGroupEpochAuthenticator({
+    required List<int> groupIdBytes,
+    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+    required FutureOr<void> Function(Uint8List) storageDelete,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 = cst_encode_list_prim_u_8_loose(groupIdBytes);
+          var arg1 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
+                storageRead,
+              );
+          var arg2 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
+                storageWrite,
+              );
+          var arg3 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
+                storageDelete,
+              );
+          return wire.wire__crate__api__provider__group_epoch_authenticator(
+            port_,
+            arg0,
+            arg1,
+            arg2,
+            arg3,
+          );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_list_prim_u_8_strict,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiProviderGroupEpochAuthenticatorConstMeta,
+        argValues: [groupIdBytes, storageRead, storageWrite, storageDelete],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiProviderGroupEpochAuthenticatorConstMeta =>
+      const TaskConstMeta(
+        debugName: "group_epoch_authenticator",
+        argNames: [
+          "groupIdBytes",
+          "storageRead",
+          "storageWrite",
+          "storageDelete",
+        ],
+      );
 
   @override
   Future<Uint8List> crateApiProviderGroupExtensions({
@@ -3077,6 +3359,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     required List<int> signerBytes,
     required List<int> credentialIdentity,
     required List<int> signerPublicKey,
+    Uint8List? credentialBytes,
     required FutureOr<Uint8List?> Function(Uint8List) storageRead,
     required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
     required FutureOr<void> Function(Uint8List) storageDelete,
@@ -3090,15 +3373,16 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           var arg3 = cst_encode_list_prim_u_8_loose(signerBytes);
           var arg4 = cst_encode_list_prim_u_8_loose(credentialIdentity);
           var arg5 = cst_encode_list_prim_u_8_loose(signerPublicKey);
-          var arg6 =
+          var arg6 = cst_encode_opt_list_prim_u_8_strict(credentialBytes);
+          var arg7 =
               cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
                 storageRead,
               );
-          var arg7 =
+          var arg8 =
               cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
                 storageWrite,
               );
-          var arg8 =
+          var arg9 =
               cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
                 storageDelete,
               );
@@ -3113,6 +3397,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             arg6,
             arg7,
             arg8,
+            arg9,
           );
         },
         codec: DcoCodec(
@@ -3127,6 +3412,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           signerBytes,
           credentialIdentity,
           signerPublicKey,
+          credentialBytes,
           storageRead,
           storageWrite,
           storageDelete,
@@ -3146,6 +3432,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           "signerBytes",
           "credentialIdentity",
           "signerPublicKey",
+          "credentialBytes",
           "storageRead",
           "storageWrite",
           "storageDelete",
@@ -3162,6 +3449,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     required List<int> signerPublicKey,
     Uint8List? aad,
     required bool skipLifetimeValidation,
+    Uint8List? credentialBytes,
     required FutureOr<Uint8List?> Function(Uint8List) storageRead,
     required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
     required FutureOr<void> Function(Uint8List) storageDelete,
@@ -3177,15 +3465,16 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           var arg5 = cst_encode_list_prim_u_8_loose(signerPublicKey);
           var arg6 = cst_encode_opt_list_prim_u_8_strict(aad);
           var arg7 = cst_encode_bool(skipLifetimeValidation);
-          var arg8 =
+          var arg8 = cst_encode_opt_list_prim_u_8_strict(credentialBytes);
+          var arg9 =
               cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
                 storageRead,
               );
-          var arg9 =
+          var arg10 =
               cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
                 storageWrite,
               );
-          var arg10 =
+          var arg11 =
               cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
                 storageDelete,
               );
@@ -3202,6 +3491,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             arg8,
             arg9,
             arg10,
+            arg11,
           );
         },
         codec: DcoCodec(
@@ -3218,6 +3508,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           signerPublicKey,
           aad,
           skipLifetimeValidation,
+          credentialBytes,
           storageRead,
           storageWrite,
           storageDelete,
@@ -3239,6 +3530,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           "signerPublicKey",
           "aad",
           "skipLifetimeValidation",
+          "credentialBytes",
           "storageRead",
           "storageWrite",
           "storageDelete",
@@ -4244,6 +4536,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   Future<ProposalProviderResult> crateApiProviderProposeSelfUpdate({
     required List<int> groupIdBytes,
     required List<int> signerBytes,
+    MlsCapabilities? leafNodeCapabilities,
+    List<MlsExtension>? leafNodeExtensions,
     required FutureOr<Uint8List?> Function(Uint8List) storageRead,
     required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
     required FutureOr<void> Function(Uint8List) storageDelete,
@@ -4253,15 +4547,19 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         callFfi: (port_) {
           var arg0 = cst_encode_list_prim_u_8_loose(groupIdBytes);
           var arg1 = cst_encode_list_prim_u_8_loose(signerBytes);
-          var arg2 =
+          var arg2 = cst_encode_opt_box_autoadd_mls_capabilities(
+            leafNodeCapabilities,
+          );
+          var arg3 = cst_encode_opt_list_mls_extension(leafNodeExtensions);
+          var arg4 =
               cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
                 storageRead,
               );
-          var arg3 =
+          var arg5 =
               cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
                 storageWrite,
               );
-          var arg4 =
+          var arg6 =
               cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
                 storageDelete,
               );
@@ -4272,6 +4570,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             arg2,
             arg3,
             arg4,
+            arg5,
+            arg6,
           );
         },
         codec: DcoCodec(
@@ -4282,6 +4582,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         argValues: [
           groupIdBytes,
           signerBytes,
+          leafNodeCapabilities,
+          leafNodeExtensions,
           storageRead,
           storageWrite,
           storageDelete,
@@ -4297,6 +4599,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         argNames: [
           "groupIdBytes",
           "signerBytes",
+          "leafNodeCapabilities",
+          "leafNodeExtensions",
           "storageRead",
           "storageWrite",
           "storageDelete",
@@ -4372,6 +4676,69 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
+  Future<void> crateApiProviderRemovePendingProposal({
+    required List<int> groupIdBytes,
+    required List<int> proposalRefBytes,
+    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+    required FutureOr<void> Function(Uint8List) storageDelete,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 = cst_encode_list_prim_u_8_loose(groupIdBytes);
+          var arg1 = cst_encode_list_prim_u_8_loose(proposalRefBytes);
+          var arg2 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
+                storageRead,
+              );
+          var arg3 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
+                storageWrite,
+              );
+          var arg4 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
+                storageDelete,
+              );
+          return wire.wire__crate__api__provider__remove_pending_proposal(
+            port_,
+            arg0,
+            arg1,
+            arg2,
+            arg3,
+            arg4,
+          );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_unit,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiProviderRemovePendingProposalConstMeta,
+        argValues: [
+          groupIdBytes,
+          proposalRefBytes,
+          storageRead,
+          storageWrite,
+          storageDelete,
+        ],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiProviderRemovePendingProposalConstMeta =>
+      const TaskConstMeta(
+        debugName: "remove_pending_proposal",
+        argNames: [
+          "groupIdBytes",
+          "proposalRefBytes",
+          "storageRead",
+          "storageWrite",
+          "storageDelete",
+        ],
+      );
+
+  @override
   Future<CommitProviderResult> crateApiProviderSelfUpdate({
     required List<int> groupIdBytes,
     required List<int> signerBytes,
@@ -4440,6 +4807,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     required List<int> newSignerBytes,
     required List<int> newCredentialIdentity,
     required List<int> newSignerPublicKey,
+    Uint8List? newCredentialBytes,
     required FutureOr<Uint8List?> Function(Uint8List) storageRead,
     required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
     required FutureOr<void> Function(Uint8List) storageDelete,
@@ -4452,15 +4820,16 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           var arg2 = cst_encode_list_prim_u_8_loose(newSignerBytes);
           var arg3 = cst_encode_list_prim_u_8_loose(newCredentialIdentity);
           var arg4 = cst_encode_list_prim_u_8_loose(newSignerPublicKey);
-          var arg5 =
+          var arg5 = cst_encode_opt_list_prim_u_8_strict(newCredentialBytes);
+          var arg6 =
               cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
                 storageRead,
               );
-          var arg6 =
+          var arg7 =
               cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
                 storageWrite,
               );
-          var arg7 =
+          var arg8 =
               cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
                 storageDelete,
               );
@@ -4474,6 +4843,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             arg5,
             arg6,
             arg7,
+            arg8,
           );
         },
         codec: DcoCodec(
@@ -4487,6 +4857,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           newSignerBytes,
           newCredentialIdentity,
           newSignerPublicKey,
+          newCredentialBytes,
           storageRead,
           storageWrite,
           storageDelete,
@@ -4505,6 +4876,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           "newSignerBytes",
           "newCredentialIdentity",
           "newSignerPublicKey",
+          "newCredentialBytes",
           "storageRead",
           "storageWrite",
           "storageDelete",
@@ -5137,6 +5509,21 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       aad: dco_decode_opt_list_prim_u_8_strict(arr[5]),
       createGroupInfo: dco_decode_bool(arr[6]),
       useRatchetTreeExtension: dco_decode_bool(arr[7]),
+    );
+  }
+
+  @protected
+  GroupConfigurationResult dco_decode_group_configuration_result(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 5)
+      throw Exception('unexpected arr length: expect 5 but see ${arr.length}');
+    return GroupConfigurationResult(
+      ciphersuite: dco_decode_mls_ciphersuite(arr[0]),
+      wireFormatPolicy: dco_decode_mls_wire_format_policy(arr[1]),
+      paddingSize: dco_decode_u_32(arr[2]),
+      senderRatchetMaxOutOfOrder: dco_decode_u_32(arr[3]),
+      senderRatchetMaxForwardDistance: dco_decode_u_32(arr[4]),
     );
   }
 
@@ -5803,6 +6190,25 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       aad: var_aad,
       createGroupInfo: var_createGroupInfo,
       useRatchetTreeExtension: var_useRatchetTreeExtension,
+    );
+  }
+
+  @protected
+  GroupConfigurationResult sse_decode_group_configuration_result(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_ciphersuite = sse_decode_mls_ciphersuite(deserializer);
+    var var_wireFormatPolicy = sse_decode_mls_wire_format_policy(deserializer);
+    var var_paddingSize = sse_decode_u_32(deserializer);
+    var var_senderRatchetMaxOutOfOrder = sse_decode_u_32(deserializer);
+    var var_senderRatchetMaxForwardDistance = sse_decode_u_32(deserializer);
+    return GroupConfigurationResult(
+      ciphersuite: var_ciphersuite,
+      wireFormatPolicy: var_wireFormatPolicy,
+      paddingSize: var_paddingSize,
+      senderRatchetMaxOutOfOrder: var_senderRatchetMaxOutOfOrder,
+      senderRatchetMaxForwardDistance: var_senderRatchetMaxForwardDistance,
     );
   }
 
@@ -6820,6 +7226,19 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_opt_list_prim_u_8_strict(self.aad, serializer);
     sse_encode_bool(self.createGroupInfo, serializer);
     sse_encode_bool(self.useRatchetTreeExtension, serializer);
+  }
+
+  @protected
+  void sse_encode_group_configuration_result(
+    GroupConfigurationResult self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_mls_ciphersuite(self.ciphersuite, serializer);
+    sse_encode_mls_wire_format_policy(self.wireFormatPolicy, serializer);
+    sse_encode_u_32(self.paddingSize, serializer);
+    sse_encode_u_32(self.senderRatchetMaxOutOfOrder, serializer);
+    sse_encode_u_32(self.senderRatchetMaxForwardDistance, serializer);
   }
 
   @protected

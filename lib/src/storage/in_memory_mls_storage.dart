@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
-import 'mls_client.dart';
+import 'mls_storage.dart';
 
 /// In-memory implementation of [MlsStorage] backed by a [Map].
 ///

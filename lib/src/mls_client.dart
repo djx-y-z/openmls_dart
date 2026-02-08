@@ -1,27 +1,9 @@
-import 'dart:async';
 import 'dart:typed_data';
 
 import 'rust/api/config.dart';
 import 'rust/api/provider.dart' as provider;
 import 'rust/api/types.dart';
-
-/// Abstract key-value storage interface for MLS state persistence.
-///
-/// Implement this with any backend (SQLite, Hive, shared preferences, etc.)
-/// to provide persistent storage for MLS groups, key packages, and secrets.
-///
-/// Keys and values are opaque byte arrays. The key format is internal to
-/// OpenMLS and should not be interpreted by the implementation.
-abstract class MlsStorage {
-  /// Read a value by key. Returns `null` if not found.
-  FutureOr<Uint8List?> read(Uint8List key);
-
-  /// Write a key-value pair. Overwrites if key already exists.
-  FutureOr<void> write(Uint8List key, Uint8List value);
-
-  /// Delete a key-value pair. No-op if key does not exist.
-  FutureOr<void> delete(Uint8List key);
-}
+import 'storage/mls_storage.dart';
 
 /// Convenience wrapper that injects [MlsStorage] callbacks into every
 /// provider-based API call.
@@ -54,11 +36,13 @@ class MlsClient {
     required List<int> signerBytes,
     required List<int> credentialIdentity,
     required List<int> signerPublicKey,
+    Uint8List? credentialBytes,
   }) => provider.createKeyPackage(
     ciphersuite: ciphersuite,
     signerBytes: signerBytes,
     credentialIdentity: credentialIdentity,
     signerPublicKey: signerPublicKey,
+    credentialBytes: credentialBytes,
     storageRead: storage.read,
     storageWrite: storage.write,
     storageDelete: storage.delete,
@@ -70,12 +54,14 @@ class MlsClient {
     required List<int> credentialIdentity,
     required List<int> signerPublicKey,
     required KeyPackageOptions options,
+    Uint8List? credentialBytes,
   }) => provider.createKeyPackageWithOptions(
     ciphersuite: ciphersuite,
     signerBytes: signerBytes,
     credentialIdentity: credentialIdentity,
     signerPublicKey: signerPublicKey,
     options: options,
+    credentialBytes: credentialBytes,
     storageRead: storage.read,
     storageWrite: storage.write,
     storageDelete: storage.delete,
@@ -91,12 +77,14 @@ class MlsClient {
     required List<int> credentialIdentity,
     required List<int> signerPublicKey,
     Uint8List? groupId,
+    Uint8List? credentialBytes,
   }) => provider.createGroup(
     config: config,
     signerBytes: signerBytes,
     credentialIdentity: credentialIdentity,
     signerPublicKey: signerPublicKey,
     groupId: groupId,
+    credentialBytes: credentialBytes,
     storageRead: storage.read,
     storageWrite: storage.write,
     storageDelete: storage.delete,
@@ -112,6 +100,7 @@ class MlsClient {
     List<MlsExtension>? groupContextExtensions,
     List<MlsExtension>? leafNodeExtensions,
     MlsCapabilities? capabilities,
+    Uint8List? credentialBytes,
   }) => provider.createGroupWithBuilder(
     config: config,
     signerBytes: signerBytes,
@@ -122,6 +111,7 @@ class MlsClient {
     groupContextExtensions: groupContextExtensions,
     leafNodeExtensions: leafNodeExtensions,
     capabilities: capabilities,
+    credentialBytes: credentialBytes,
     storageRead: storage.read,
     storageWrite: storage.write,
     storageDelete: storage.delete,
@@ -181,6 +171,7 @@ class MlsClient {
     required List<int> signerBytes,
     required List<int> credentialIdentity,
     required List<int> signerPublicKey,
+    Uint8List? credentialBytes,
   }) => provider.joinGroupExternalCommit(
     config: config,
     groupInfoBytes: groupInfoBytes,
@@ -188,6 +179,7 @@ class MlsClient {
     signerBytes: signerBytes,
     credentialIdentity: credentialIdentity,
     signerPublicKey: signerPublicKey,
+    credentialBytes: credentialBytes,
     storageRead: storage.read,
     storageWrite: storage.write,
     storageDelete: storage.delete,
@@ -202,6 +194,7 @@ class MlsClient {
     required List<int> signerPublicKey,
     Uint8List? aad,
     required bool skipLifetimeValidation,
+    Uint8List? credentialBytes,
   }) => provider.joinGroupExternalCommitV2(
     config: config,
     groupInfoBytes: groupInfoBytes,
@@ -211,6 +204,7 @@ class MlsClient {
     signerPublicKey: signerPublicKey,
     aad: aad,
     skipLifetimeValidation: skipLifetimeValidation,
+    credentialBytes: credentialBytes,
     storageRead: storage.read,
     storageWrite: storage.write,
     storageDelete: storage.delete,
@@ -326,6 +320,24 @@ class MlsClient {
   }) => provider.groupMemberLeafIndex(
     groupIdBytes: groupIdBytes,
     credentialBytes: credentialBytes,
+    storageRead: storage.read,
+    storageWrite: storage.write,
+    storageDelete: storage.delete,
+  );
+
+  Future<Uint8List> groupEpochAuthenticator({
+    required List<int> groupIdBytes,
+  }) => provider.groupEpochAuthenticator(
+    groupIdBytes: groupIdBytes,
+    storageRead: storage.read,
+    storageWrite: storage.write,
+    storageDelete: storage.delete,
+  );
+
+  Future<provider.GroupConfigurationResult> groupConfiguration({
+    required List<int> groupIdBytes,
+  }) => provider.groupConfiguration(
+    groupIdBytes: groupIdBytes,
     storageRead: storage.read,
     storageWrite: storage.write,
     storageDelete: storage.delete,
@@ -465,12 +477,14 @@ class MlsClient {
     required List<int> newSignerBytes,
     required List<int> newCredentialIdentity,
     required List<int> newSignerPublicKey,
+    Uint8List? newCredentialBytes,
   }) => provider.selfUpdateWithNewSigner(
     groupIdBytes: groupIdBytes,
     oldSignerBytes: oldSignerBytes,
     newSignerBytes: newSignerBytes,
     newCredentialIdentity: newCredentialIdentity,
     newSignerPublicKey: newSignerPublicKey,
+    newCredentialBytes: newCredentialBytes,
     storageRead: storage.read,
     storageWrite: storage.write,
     storageDelete: storage.delete,
@@ -546,9 +560,13 @@ class MlsClient {
   Future<provider.ProposalProviderResult> proposeSelfUpdate({
     required List<int> groupIdBytes,
     required List<int> signerBytes,
+    MlsCapabilities? leafNodeCapabilities,
+    List<MlsExtension>? leafNodeExtensions,
   }) => provider.proposeSelfUpdate(
     groupIdBytes: groupIdBytes,
     signerBytes: signerBytes,
+    leafNodeCapabilities: leafNodeCapabilities,
+    leafNodeExtensions: leafNodeExtensions,
     storageRead: storage.read,
     storageWrite: storage.write,
     storageDelete: storage.delete,
@@ -727,6 +745,37 @@ class MlsClient {
   }) => provider.processMessageWithInspect(
     groupIdBytes: groupIdBytes,
     messageBytes: messageBytes,
+    storageRead: storage.read,
+    storageWrite: storage.write,
+    storageDelete: storage.delete,
+  );
+
+  // ---------------------------------------------------------------------------
+  // Storage Cleanup
+  // ---------------------------------------------------------------------------
+
+  Future<void> deleteGroup({required List<int> groupIdBytes}) =>
+      provider.deleteGroup(
+        groupIdBytes: groupIdBytes,
+        storageRead: storage.read,
+        storageWrite: storage.write,
+        storageDelete: storage.delete,
+      );
+
+  Future<void> deleteKeyPackage({required List<int> keyPackageRefBytes}) =>
+      provider.deleteKeyPackage(
+        keyPackageRefBytes: keyPackageRefBytes,
+        storageRead: storage.read,
+        storageWrite: storage.write,
+        storageDelete: storage.delete,
+      );
+
+  Future<void> removePendingProposal({
+    required List<int> groupIdBytes,
+    required List<int> proposalRefBytes,
+  }) => provider.removePendingProposal(
+    groupIdBytes: groupIdBytes,
+    proposalRefBytes: proposalRefBytes,
     storageRead: storage.read,
     storageWrite: storage.write,
     storageDelete: storage.delete,

@@ -151,6 +151,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   FlexibleCommitOptions dco_decode_flexible_commit_options(dynamic raw);
 
   @protected
+  GroupConfigurationResult dco_decode_group_configuration_result(dynamic raw);
+
+  @protected
   int dco_decode_i_32(dynamic raw);
 
   @protected
@@ -409,6 +412,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   FlexibleCommitOptions sse_decode_flexible_commit_options(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  GroupConfigurationResult sse_decode_group_configuration_result(
     SseDeserializer deserializer,
   );
 
@@ -996,6 +1004,24 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   }
 
   @protected
+  void cst_api_fill_to_wire_group_configuration_result(
+    GroupConfigurationResult apiObj,
+    wire_cst_group_configuration_result wireObj,
+  ) {
+    wireObj.ciphersuite = cst_encode_mls_ciphersuite(apiObj.ciphersuite);
+    wireObj.wire_format_policy = cst_encode_mls_wire_format_policy(
+      apiObj.wireFormatPolicy,
+    );
+    wireObj.padding_size = cst_encode_u_32(apiObj.paddingSize);
+    wireObj.sender_ratchet_max_out_of_order = cst_encode_u_32(
+      apiObj.senderRatchetMaxOutOfOrder,
+    );
+    wireObj.sender_ratchet_max_forward_distance = cst_encode_u_32(
+      apiObj.senderRatchetMaxForwardDistance,
+    );
+  }
+
+  @protected
   void cst_api_fill_to_wire_join_group_provider_result(
     JoinGroupProviderResult apiObj,
     wire_cst_join_group_provider_result wireObj,
@@ -1468,6 +1494,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_flexible_commit_options(
     FlexibleCommitOptions self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_group_configuration_result(
+    GroupConfigurationResult self,
     SseSerializer serializer,
   );
 
@@ -2243,6 +2275,7 @@ class RustLibWire implements BaseWire {
     ffi.Pointer<wire_cst_list_prim_u_8_loose> credential_identity,
     ffi.Pointer<wire_cst_list_prim_u_8_loose> signer_public_key,
     ffi.Pointer<wire_cst_list_prim_u_8_strict> group_id,
+    ffi.Pointer<wire_cst_list_prim_u_8_strict> credential_bytes,
     ffi.Pointer<ffi.Void> storage_read,
     ffi.Pointer<ffi.Void> storage_write,
     ffi.Pointer<ffi.Void> storage_delete,
@@ -2254,6 +2287,7 @@ class RustLibWire implements BaseWire {
       credential_identity,
       signer_public_key,
       group_id,
+      credential_bytes,
       storage_read,
       storage_write,
       storage_delete,
@@ -2270,6 +2304,7 @@ class RustLibWire implements BaseWire {
             ffi.Pointer<wire_cst_list_prim_u_8_loose>,
             ffi.Pointer<wire_cst_list_prim_u_8_loose>,
             ffi.Pointer<wire_cst_list_prim_u_8_strict>,
+            ffi.Pointer<wire_cst_list_prim_u_8_strict>,
             ffi.Pointer<ffi.Void>,
             ffi.Pointer<ffi.Void>,
             ffi.Pointer<ffi.Void>,
@@ -2285,6 +2320,7 @@ class RustLibWire implements BaseWire {
               ffi.Pointer<wire_cst_list_prim_u_8_loose>,
               ffi.Pointer<wire_cst_list_prim_u_8_loose>,
               ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              ffi.Pointer<wire_cst_list_prim_u_8_strict>,
               ffi.Pointer<wire_cst_list_prim_u_8_strict>,
               ffi.Pointer<ffi.Void>,
               ffi.Pointer<ffi.Void>,
@@ -2303,6 +2339,7 @@ class RustLibWire implements BaseWire {
     ffi.Pointer<wire_cst_list_mls_extension> group_context_extensions,
     ffi.Pointer<wire_cst_list_mls_extension> leaf_node_extensions,
     ffi.Pointer<wire_cst_mls_capabilities> capabilities,
+    ffi.Pointer<wire_cst_list_prim_u_8_strict> credential_bytes,
     ffi.Pointer<ffi.Void> storage_read,
     ffi.Pointer<ffi.Void> storage_write,
     ffi.Pointer<ffi.Void> storage_delete,
@@ -2318,6 +2355,7 @@ class RustLibWire implements BaseWire {
       group_context_extensions,
       leaf_node_extensions,
       capabilities,
+      credential_bytes,
       storage_read,
       storage_write,
       storage_delete,
@@ -2338,6 +2376,7 @@ class RustLibWire implements BaseWire {
             ffi.Pointer<wire_cst_list_mls_extension>,
             ffi.Pointer<wire_cst_list_mls_extension>,
             ffi.Pointer<wire_cst_mls_capabilities>,
+            ffi.Pointer<wire_cst_list_prim_u_8_strict>,
             ffi.Pointer<ffi.Void>,
             ffi.Pointer<ffi.Void>,
             ffi.Pointer<ffi.Void>,
@@ -2358,6 +2397,7 @@ class RustLibWire implements BaseWire {
               ffi.Pointer<wire_cst_list_mls_extension>,
               ffi.Pointer<wire_cst_list_mls_extension>,
               ffi.Pointer<wire_cst_mls_capabilities>,
+              ffi.Pointer<wire_cst_list_prim_u_8_strict>,
               ffi.Pointer<ffi.Void>,
               ffi.Pointer<ffi.Void>,
               ffi.Pointer<ffi.Void>,
@@ -2370,6 +2410,7 @@ class RustLibWire implements BaseWire {
     ffi.Pointer<wire_cst_list_prim_u_8_loose> signer_bytes,
     ffi.Pointer<wire_cst_list_prim_u_8_loose> credential_identity,
     ffi.Pointer<wire_cst_list_prim_u_8_loose> signer_public_key,
+    ffi.Pointer<wire_cst_list_prim_u_8_strict> credential_bytes,
     ffi.Pointer<ffi.Void> storage_read,
     ffi.Pointer<ffi.Void> storage_write,
     ffi.Pointer<ffi.Void> storage_delete,
@@ -2380,6 +2421,7 @@ class RustLibWire implements BaseWire {
       signer_bytes,
       credential_identity,
       signer_public_key,
+      credential_bytes,
       storage_read,
       storage_write,
       storage_delete,
@@ -2395,6 +2437,7 @@ class RustLibWire implements BaseWire {
             ffi.Pointer<wire_cst_list_prim_u_8_loose>,
             ffi.Pointer<wire_cst_list_prim_u_8_loose>,
             ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Pointer<wire_cst_list_prim_u_8_strict>,
             ffi.Pointer<ffi.Void>,
             ffi.Pointer<ffi.Void>,
             ffi.Pointer<ffi.Void>,
@@ -2410,6 +2453,7 @@ class RustLibWire implements BaseWire {
               ffi.Pointer<wire_cst_list_prim_u_8_loose>,
               ffi.Pointer<wire_cst_list_prim_u_8_loose>,
               ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              ffi.Pointer<wire_cst_list_prim_u_8_strict>,
               ffi.Pointer<ffi.Void>,
               ffi.Pointer<ffi.Void>,
               ffi.Pointer<ffi.Void>,
@@ -2423,6 +2467,7 @@ class RustLibWire implements BaseWire {
     ffi.Pointer<wire_cst_list_prim_u_8_loose> credential_identity,
     ffi.Pointer<wire_cst_list_prim_u_8_loose> signer_public_key,
     ffi.Pointer<wire_cst_key_package_options> options,
+    ffi.Pointer<wire_cst_list_prim_u_8_strict> credential_bytes,
     ffi.Pointer<ffi.Void> storage_read,
     ffi.Pointer<ffi.Void> storage_write,
     ffi.Pointer<ffi.Void> storage_delete,
@@ -2434,6 +2479,7 @@ class RustLibWire implements BaseWire {
       credential_identity,
       signer_public_key,
       options,
+      credential_bytes,
       storage_read,
       storage_write,
       storage_delete,
@@ -2450,6 +2496,7 @@ class RustLibWire implements BaseWire {
             ffi.Pointer<wire_cst_list_prim_u_8_loose>,
             ffi.Pointer<wire_cst_list_prim_u_8_loose>,
             ffi.Pointer<wire_cst_key_package_options>,
+            ffi.Pointer<wire_cst_list_prim_u_8_strict>,
             ffi.Pointer<ffi.Void>,
             ffi.Pointer<ffi.Void>,
             ffi.Pointer<ffi.Void>,
@@ -2468,6 +2515,7 @@ class RustLibWire implements BaseWire {
               ffi.Pointer<wire_cst_list_prim_u_8_loose>,
               ffi.Pointer<wire_cst_list_prim_u_8_loose>,
               ffi.Pointer<wire_cst_key_package_options>,
+              ffi.Pointer<wire_cst_list_prim_u_8_strict>,
               ffi.Pointer<ffi.Void>,
               ffi.Pointer<ffi.Void>,
               ffi.Pointer<ffi.Void>,
@@ -2520,6 +2568,86 @@ class RustLibWire implements BaseWire {
               ffi.Pointer<wire_cst_list_prim_u_8_loose>,
               ffi.Pointer<wire_cst_list_prim_u_8_loose>,
               ffi.Pointer<wire_cst_list_prim_u_8_strict>,
+              ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Void>,
+            )
+          >();
+
+  void wire__crate__api__provider__delete_group(
+    int port_,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> group_id_bytes,
+    ffi.Pointer<ffi.Void> storage_read,
+    ffi.Pointer<ffi.Void> storage_write,
+    ffi.Pointer<ffi.Void> storage_delete,
+  ) {
+    return _wire__crate__api__provider__delete_group(
+      port_,
+      group_id_bytes,
+      storage_read,
+      storage_write,
+      storage_delete,
+    );
+  }
+
+  late final _wire__crate__api__provider__delete_groupPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Int64,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Void>,
+          )
+        >
+      >('frbgen_openmls_wire__crate__api__provider__delete_group');
+  late final _wire__crate__api__provider__delete_group =
+      _wire__crate__api__provider__delete_groupPtr
+          .asFunction<
+            void Function(
+              int,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Void>,
+            )
+          >();
+
+  void wire__crate__api__provider__delete_key_package(
+    int port_,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> key_package_ref_bytes,
+    ffi.Pointer<ffi.Void> storage_read,
+    ffi.Pointer<ffi.Void> storage_write,
+    ffi.Pointer<ffi.Void> storage_delete,
+  ) {
+    return _wire__crate__api__provider__delete_key_package(
+      port_,
+      key_package_ref_bytes,
+      storage_read,
+      storage_write,
+      storage_delete,
+    );
+  }
+
+  late final _wire__crate__api__provider__delete_key_packagePtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Int64,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Void>,
+          )
+        >
+      >('frbgen_openmls_wire__crate__api__provider__delete_key_package');
+  late final _wire__crate__api__provider__delete_key_package =
+      _wire__crate__api__provider__delete_key_packagePtr
+          .asFunction<
+            void Function(
+              int,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
               ffi.Pointer<ffi.Void>,
               ffi.Pointer<ffi.Void>,
               ffi.Pointer<ffi.Void>,
@@ -2834,6 +2962,46 @@ class RustLibWire implements BaseWire {
             )
           >();
 
+  void wire__crate__api__provider__group_configuration(
+    int port_,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> group_id_bytes,
+    ffi.Pointer<ffi.Void> storage_read,
+    ffi.Pointer<ffi.Void> storage_write,
+    ffi.Pointer<ffi.Void> storage_delete,
+  ) {
+    return _wire__crate__api__provider__group_configuration(
+      port_,
+      group_id_bytes,
+      storage_read,
+      storage_write,
+      storage_delete,
+    );
+  }
+
+  late final _wire__crate__api__provider__group_configurationPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Int64,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Void>,
+          )
+        >
+      >('frbgen_openmls_wire__crate__api__provider__group_configuration');
+  late final _wire__crate__api__provider__group_configuration =
+      _wire__crate__api__provider__group_configurationPtr
+          .asFunction<
+            void Function(
+              int,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Void>,
+            )
+          >();
+
   void wire__crate__api__provider__group_confirmation_tag(
     int port_,
     ffi.Pointer<wire_cst_list_prim_u_8_loose> group_id_bytes,
@@ -2944,6 +3112,46 @@ class RustLibWire implements BaseWire {
       >('frbgen_openmls_wire__crate__api__provider__group_epoch');
   late final _wire__crate__api__provider__group_epoch =
       _wire__crate__api__provider__group_epochPtr
+          .asFunction<
+            void Function(
+              int,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Void>,
+            )
+          >();
+
+  void wire__crate__api__provider__group_epoch_authenticator(
+    int port_,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> group_id_bytes,
+    ffi.Pointer<ffi.Void> storage_read,
+    ffi.Pointer<ffi.Void> storage_write,
+    ffi.Pointer<ffi.Void> storage_delete,
+  ) {
+    return _wire__crate__api__provider__group_epoch_authenticator(
+      port_,
+      group_id_bytes,
+      storage_read,
+      storage_write,
+      storage_delete,
+    );
+  }
+
+  late final _wire__crate__api__provider__group_epoch_authenticatorPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Int64,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Void>,
+          )
+        >
+      >('frbgen_openmls_wire__crate__api__provider__group_epoch_authenticator');
+  late final _wire__crate__api__provider__group_epoch_authenticator =
+      _wire__crate__api__provider__group_epoch_authenticatorPtr
           .asFunction<
             void Function(
               int,
@@ -3450,6 +3658,7 @@ class RustLibWire implements BaseWire {
     ffi.Pointer<wire_cst_list_prim_u_8_loose> signer_bytes,
     ffi.Pointer<wire_cst_list_prim_u_8_loose> credential_identity,
     ffi.Pointer<wire_cst_list_prim_u_8_loose> signer_public_key,
+    ffi.Pointer<wire_cst_list_prim_u_8_strict> credential_bytes,
     ffi.Pointer<ffi.Void> storage_read,
     ffi.Pointer<ffi.Void> storage_write,
     ffi.Pointer<ffi.Void> storage_delete,
@@ -3462,6 +3671,7 @@ class RustLibWire implements BaseWire {
       signer_bytes,
       credential_identity,
       signer_public_key,
+      credential_bytes,
       storage_read,
       storage_write,
       storage_delete,
@@ -3479,6 +3689,7 @@ class RustLibWire implements BaseWire {
             ffi.Pointer<wire_cst_list_prim_u_8_loose>,
             ffi.Pointer<wire_cst_list_prim_u_8_loose>,
             ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Pointer<wire_cst_list_prim_u_8_strict>,
             ffi.Pointer<ffi.Void>,
             ffi.Pointer<ffi.Void>,
             ffi.Pointer<ffi.Void>,
@@ -3498,6 +3709,7 @@ class RustLibWire implements BaseWire {
               ffi.Pointer<wire_cst_list_prim_u_8_loose>,
               ffi.Pointer<wire_cst_list_prim_u_8_loose>,
               ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              ffi.Pointer<wire_cst_list_prim_u_8_strict>,
               ffi.Pointer<ffi.Void>,
               ffi.Pointer<ffi.Void>,
               ffi.Pointer<ffi.Void>,
@@ -3514,6 +3726,7 @@ class RustLibWire implements BaseWire {
     ffi.Pointer<wire_cst_list_prim_u_8_loose> signer_public_key,
     ffi.Pointer<wire_cst_list_prim_u_8_strict> aad,
     bool skip_lifetime_validation,
+    ffi.Pointer<wire_cst_list_prim_u_8_strict> credential_bytes,
     ffi.Pointer<ffi.Void> storage_read,
     ffi.Pointer<ffi.Void> storage_write,
     ffi.Pointer<ffi.Void> storage_delete,
@@ -3528,6 +3741,7 @@ class RustLibWire implements BaseWire {
       signer_public_key,
       aad,
       skip_lifetime_validation,
+      credential_bytes,
       storage_read,
       storage_write,
       storage_delete,
@@ -3547,6 +3761,7 @@ class RustLibWire implements BaseWire {
             ffi.Pointer<wire_cst_list_prim_u_8_loose>,
             ffi.Pointer<wire_cst_list_prim_u_8_strict>,
             ffi.Bool,
+            ffi.Pointer<wire_cst_list_prim_u_8_strict>,
             ffi.Pointer<ffi.Void>,
             ffi.Pointer<ffi.Void>,
             ffi.Pointer<ffi.Void>,
@@ -3568,6 +3783,7 @@ class RustLibWire implements BaseWire {
               ffi.Pointer<wire_cst_list_prim_u_8_loose>,
               ffi.Pointer<wire_cst_list_prim_u_8_strict>,
               bool,
+              ffi.Pointer<wire_cst_list_prim_u_8_strict>,
               ffi.Pointer<ffi.Void>,
               ffi.Pointer<ffi.Void>,
               ffi.Pointer<ffi.Void>,
@@ -4295,6 +4511,8 @@ class RustLibWire implements BaseWire {
     int port_,
     ffi.Pointer<wire_cst_list_prim_u_8_loose> group_id_bytes,
     ffi.Pointer<wire_cst_list_prim_u_8_loose> signer_bytes,
+    ffi.Pointer<wire_cst_mls_capabilities> leaf_node_capabilities,
+    ffi.Pointer<wire_cst_list_mls_extension> leaf_node_extensions,
     ffi.Pointer<ffi.Void> storage_read,
     ffi.Pointer<ffi.Void> storage_write,
     ffi.Pointer<ffi.Void> storage_delete,
@@ -4303,6 +4521,8 @@ class RustLibWire implements BaseWire {
       port_,
       group_id_bytes,
       signer_bytes,
+      leaf_node_capabilities,
+      leaf_node_extensions,
       storage_read,
       storage_write,
       storage_delete,
@@ -4316,6 +4536,8 @@ class RustLibWire implements BaseWire {
             ffi.Int64,
             ffi.Pointer<wire_cst_list_prim_u_8_loose>,
             ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Pointer<wire_cst_mls_capabilities>,
+            ffi.Pointer<wire_cst_list_mls_extension>,
             ffi.Pointer<ffi.Void>,
             ffi.Pointer<ffi.Void>,
             ffi.Pointer<ffi.Void>,
@@ -4329,6 +4551,8 @@ class RustLibWire implements BaseWire {
               int,
               ffi.Pointer<wire_cst_list_prim_u_8_loose>,
               ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              ffi.Pointer<wire_cst_mls_capabilities>,
+              ffi.Pointer<wire_cst_list_mls_extension>,
               ffi.Pointer<ffi.Void>,
               ffi.Pointer<ffi.Void>,
               ffi.Pointer<ffi.Void>,
@@ -4377,6 +4601,50 @@ class RustLibWire implements BaseWire {
               ffi.Pointer<wire_cst_list_prim_u_8_loose>,
               ffi.Pointer<wire_cst_list_prim_u_8_loose>,
               ffi.Pointer<wire_cst_list_prim_u_32_loose>,
+              ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Void>,
+            )
+          >();
+
+  void wire__crate__api__provider__remove_pending_proposal(
+    int port_,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> group_id_bytes,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> proposal_ref_bytes,
+    ffi.Pointer<ffi.Void> storage_read,
+    ffi.Pointer<ffi.Void> storage_write,
+    ffi.Pointer<ffi.Void> storage_delete,
+  ) {
+    return _wire__crate__api__provider__remove_pending_proposal(
+      port_,
+      group_id_bytes,
+      proposal_ref_bytes,
+      storage_read,
+      storage_write,
+      storage_delete,
+    );
+  }
+
+  late final _wire__crate__api__provider__remove_pending_proposalPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Int64,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Void>,
+          )
+        >
+      >('frbgen_openmls_wire__crate__api__provider__remove_pending_proposal');
+  late final _wire__crate__api__provider__remove_pending_proposal =
+      _wire__crate__api__provider__remove_pending_proposalPtr
+          .asFunction<
+            void Function(
+              int,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
               ffi.Pointer<ffi.Void>,
               ffi.Pointer<ffi.Void>,
               ffi.Pointer<ffi.Void>,
@@ -4434,6 +4702,7 @@ class RustLibWire implements BaseWire {
     ffi.Pointer<wire_cst_list_prim_u_8_loose> new_signer_bytes,
     ffi.Pointer<wire_cst_list_prim_u_8_loose> new_credential_identity,
     ffi.Pointer<wire_cst_list_prim_u_8_loose> new_signer_public_key,
+    ffi.Pointer<wire_cst_list_prim_u_8_strict> new_credential_bytes,
     ffi.Pointer<ffi.Void> storage_read,
     ffi.Pointer<ffi.Void> storage_write,
     ffi.Pointer<ffi.Void> storage_delete,
@@ -4445,6 +4714,7 @@ class RustLibWire implements BaseWire {
       new_signer_bytes,
       new_credential_identity,
       new_signer_public_key,
+      new_credential_bytes,
       storage_read,
       storage_write,
       storage_delete,
@@ -4461,6 +4731,7 @@ class RustLibWire implements BaseWire {
             ffi.Pointer<wire_cst_list_prim_u_8_loose>,
             ffi.Pointer<wire_cst_list_prim_u_8_loose>,
             ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Pointer<wire_cst_list_prim_u_8_strict>,
             ffi.Pointer<ffi.Void>,
             ffi.Pointer<ffi.Void>,
             ffi.Pointer<ffi.Void>,
@@ -4479,6 +4750,7 @@ class RustLibWire implements BaseWire {
               ffi.Pointer<wire_cst_list_prim_u_8_loose>,
               ffi.Pointer<wire_cst_list_prim_u_8_loose>,
               ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              ffi.Pointer<wire_cst_list_prim_u_8_strict>,
               ffi.Pointer<ffi.Void>,
               ffi.Pointer<ffi.Void>,
               ffi.Pointer<ffi.Void>,
@@ -5244,6 +5516,23 @@ final class wire_cst_external_join_provider_result extends ffi.Struct {
   external ffi.Pointer<wire_cst_list_prim_u_8_strict> commit;
 
   external ffi.Pointer<wire_cst_list_prim_u_8_strict> group_info;
+}
+
+final class wire_cst_group_configuration_result extends ffi.Struct {
+  @ffi.Int32()
+  external int ciphersuite;
+
+  @ffi.Int32()
+  external int wire_format_policy;
+
+  @ffi.Uint32()
+  external int padding_size;
+
+  @ffi.Uint32()
+  external int sender_ratchet_max_out_of_order;
+
+  @ffi.Uint32()
+  external int sender_ratchet_max_forward_distance;
 }
 
 final class wire_cst_join_group_provider_result extends ffi.Struct {

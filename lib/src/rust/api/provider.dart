@@ -8,13 +8,14 @@ import 'config.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 import 'types.dart';
 
-// These functions are ignored because they are not marked as `pub`: `load_group`, `make_provider`
+// These functions are ignored because they are not marked as `pub`: `build_credential_with_key`, `load_group`, `make_provider`
 
 Future<KeyPackageProviderResult> createKeyPackage({
   required MlsCiphersuite ciphersuite,
   required List<int> signerBytes,
   required List<int> credentialIdentity,
   required List<int> signerPublicKey,
+  Uint8List? credentialBytes,
   required FutureOr<Uint8List?> Function(Uint8List) storageRead,
   required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
   required FutureOr<void> Function(Uint8List) storageDelete,
@@ -23,6 +24,7 @@ Future<KeyPackageProviderResult> createKeyPackage({
   signerBytes: signerBytes,
   credentialIdentity: credentialIdentity,
   signerPublicKey: signerPublicKey,
+  credentialBytes: credentialBytes,
   storageRead: storageRead,
   storageWrite: storageWrite,
   storageDelete: storageDelete,
@@ -34,6 +36,7 @@ Future<KeyPackageProviderResult> createKeyPackageWithOptions({
   required List<int> credentialIdentity,
   required List<int> signerPublicKey,
   required KeyPackageOptions options,
+  Uint8List? credentialBytes,
   required FutureOr<Uint8List?> Function(Uint8List) storageRead,
   required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
   required FutureOr<void> Function(Uint8List) storageDelete,
@@ -43,6 +46,7 @@ Future<KeyPackageProviderResult> createKeyPackageWithOptions({
   credentialIdentity: credentialIdentity,
   signerPublicKey: signerPublicKey,
   options: options,
+  credentialBytes: credentialBytes,
   storageRead: storageRead,
   storageWrite: storageWrite,
   storageDelete: storageDelete,
@@ -54,6 +58,7 @@ Future<CreateGroupProviderResult> createGroup({
   required List<int> credentialIdentity,
   required List<int> signerPublicKey,
   Uint8List? groupId,
+  Uint8List? credentialBytes,
   required FutureOr<Uint8List?> Function(Uint8List) storageRead,
   required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
   required FutureOr<void> Function(Uint8List) storageDelete,
@@ -63,6 +68,7 @@ Future<CreateGroupProviderResult> createGroup({
   credentialIdentity: credentialIdentity,
   signerPublicKey: signerPublicKey,
   groupId: groupId,
+  credentialBytes: credentialBytes,
   storageRead: storageRead,
   storageWrite: storageWrite,
   storageDelete: storageDelete,
@@ -78,6 +84,7 @@ Future<CreateGroupProviderResult> createGroupWithBuilder({
   List<MlsExtension>? groupContextExtensions,
   List<MlsExtension>? leafNodeExtensions,
   MlsCapabilities? capabilities,
+  Uint8List? credentialBytes,
   required FutureOr<Uint8List?> Function(Uint8List) storageRead,
   required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
   required FutureOr<void> Function(Uint8List) storageDelete,
@@ -91,6 +98,7 @@ Future<CreateGroupProviderResult> createGroupWithBuilder({
   groupContextExtensions: groupContextExtensions,
   leafNodeExtensions: leafNodeExtensions,
   capabilities: capabilities,
+  credentialBytes: credentialBytes,
   storageRead: storageRead,
   storageWrite: storageWrite,
   storageDelete: storageDelete,
@@ -155,6 +163,7 @@ Future<ExternalJoinProviderResult> joinGroupExternalCommit({
   required List<int> signerBytes,
   required List<int> credentialIdentity,
   required List<int> signerPublicKey,
+  Uint8List? credentialBytes,
   required FutureOr<Uint8List?> Function(Uint8List) storageRead,
   required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
   required FutureOr<void> Function(Uint8List) storageDelete,
@@ -165,6 +174,7 @@ Future<ExternalJoinProviderResult> joinGroupExternalCommit({
   signerBytes: signerBytes,
   credentialIdentity: credentialIdentity,
   signerPublicKey: signerPublicKey,
+  credentialBytes: credentialBytes,
   storageRead: storageRead,
   storageWrite: storageWrite,
   storageDelete: storageDelete,
@@ -179,6 +189,7 @@ Future<ExternalJoinProviderResult> joinGroupExternalCommitV2({
   required List<int> signerPublicKey,
   Uint8List? aad,
   required bool skipLifetimeValidation,
+  Uint8List? credentialBytes,
   required FutureOr<Uint8List?> Function(Uint8List) storageRead,
   required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
   required FutureOr<void> Function(Uint8List) storageDelete,
@@ -191,6 +202,7 @@ Future<ExternalJoinProviderResult> joinGroupExternalCommitV2({
   signerPublicKey: signerPublicKey,
   aad: aad,
   skipLifetimeValidation: skipLifetimeValidation,
+  credentialBytes: credentialBytes,
   storageRead: storageRead,
   storageWrite: storageWrite,
   storageDelete: storageDelete,
@@ -506,6 +518,7 @@ Future<CommitProviderResult> selfUpdateWithNewSigner({
   required List<int> newSignerBytes,
   required List<int> newCredentialIdentity,
   required List<int> newSignerPublicKey,
+  Uint8List? newCredentialBytes,
   required FutureOr<Uint8List?> Function(Uint8List) storageRead,
   required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
   required FutureOr<void> Function(Uint8List) storageDelete,
@@ -515,6 +528,7 @@ Future<CommitProviderResult> selfUpdateWithNewSigner({
   newSignerBytes: newSignerBytes,
   newCredentialIdentity: newCredentialIdentity,
   newSignerPublicKey: newSignerPublicKey,
+  newCredentialBytes: newCredentialBytes,
   storageRead: storageRead,
   storageWrite: storageWrite,
   storageDelete: storageDelete,
@@ -601,12 +615,16 @@ Future<ProposalProviderResult> proposeRemove({
 Future<ProposalProviderResult> proposeSelfUpdate({
   required List<int> groupIdBytes,
   required List<int> signerBytes,
+  MlsCapabilities? leafNodeCapabilities,
+  List<MlsExtension>? leafNodeExtensions,
   required FutureOr<Uint8List?> Function(Uint8List) storageRead,
   required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
   required FutureOr<void> Function(Uint8List) storageDelete,
 }) => RustLib.instance.api.crateApiProviderProposeSelfUpdate(
   groupIdBytes: groupIdBytes,
   signerBytes: signerBytes,
+  leafNodeCapabilities: leafNodeCapabilities,
+  leafNodeExtensions: leafNodeExtensions,
   storageRead: storageRead,
   storageWrite: storageWrite,
   storageDelete: storageDelete,
@@ -822,6 +840,68 @@ Future<ProcessedMessageInspectProviderResult> processMessageWithInspect({
   storageDelete: storageDelete,
 );
 
+Future<void> deleteGroup({
+  required List<int> groupIdBytes,
+  required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+  required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+  required FutureOr<void> Function(Uint8List) storageDelete,
+}) => RustLib.instance.api.crateApiProviderDeleteGroup(
+  groupIdBytes: groupIdBytes,
+  storageRead: storageRead,
+  storageWrite: storageWrite,
+  storageDelete: storageDelete,
+);
+
+Future<void> deleteKeyPackage({
+  required List<int> keyPackageRefBytes,
+  required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+  required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+  required FutureOr<void> Function(Uint8List) storageDelete,
+}) => RustLib.instance.api.crateApiProviderDeleteKeyPackage(
+  keyPackageRefBytes: keyPackageRefBytes,
+  storageRead: storageRead,
+  storageWrite: storageWrite,
+  storageDelete: storageDelete,
+);
+
+Future<void> removePendingProposal({
+  required List<int> groupIdBytes,
+  required List<int> proposalRefBytes,
+  required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+  required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+  required FutureOr<void> Function(Uint8List) storageDelete,
+}) => RustLib.instance.api.crateApiProviderRemovePendingProposal(
+  groupIdBytes: groupIdBytes,
+  proposalRefBytes: proposalRefBytes,
+  storageRead: storageRead,
+  storageWrite: storageWrite,
+  storageDelete: storageDelete,
+);
+
+Future<Uint8List> groupEpochAuthenticator({
+  required List<int> groupIdBytes,
+  required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+  required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+  required FutureOr<void> Function(Uint8List) storageDelete,
+}) => RustLib.instance.api.crateApiProviderGroupEpochAuthenticator(
+  groupIdBytes: groupIdBytes,
+  storageRead: storageRead,
+  storageWrite: storageWrite,
+  storageDelete: storageDelete,
+);
+
+Future<GroupConfigurationResult> groupConfiguration({
+  required List<int> groupIdBytes,
+  required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+  required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+  required FutureOr<void> Function(Uint8List) storageDelete,
+}) => RustLib.instance.api.crateApiProviderGroupConfiguration(
+  groupIdBytes: groupIdBytes,
+  storageRead: storageRead,
+  storageWrite: storageWrite,
+  storageDelete: storageDelete,
+);
+
 /// Extract the group ID from an MLS protocol message.
 ///
 /// Useful for routing incoming messages to the right group before calling
@@ -951,6 +1031,42 @@ class ExternalJoinProviderResult {
           groupId == other.groupId &&
           commit == other.commit &&
           groupInfo == other.groupInfo;
+}
+
+class GroupConfigurationResult {
+  final MlsCiphersuite ciphersuite;
+  final MlsWireFormatPolicy wireFormatPolicy;
+  final int paddingSize;
+  final int senderRatchetMaxOutOfOrder;
+  final int senderRatchetMaxForwardDistance;
+
+  const GroupConfigurationResult({
+    required this.ciphersuite,
+    required this.wireFormatPolicy,
+    required this.paddingSize,
+    required this.senderRatchetMaxOutOfOrder,
+    required this.senderRatchetMaxForwardDistance,
+  });
+
+  @override
+  int get hashCode =>
+      ciphersuite.hashCode ^
+      wireFormatPolicy.hashCode ^
+      paddingSize.hashCode ^
+      senderRatchetMaxOutOfOrder.hashCode ^
+      senderRatchetMaxForwardDistance.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is GroupConfigurationResult &&
+          runtimeType == other.runtimeType &&
+          ciphersuite == other.ciphersuite &&
+          wireFormatPolicy == other.wireFormatPolicy &&
+          paddingSize == other.paddingSize &&
+          senderRatchetMaxOutOfOrder == other.senderRatchetMaxOutOfOrder &&
+          senderRatchetMaxForwardDistance ==
+              other.senderRatchetMaxForwardDistance;
 }
 
 class JoinGroupProviderResult {

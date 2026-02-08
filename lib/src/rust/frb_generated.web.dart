@@ -153,6 +153,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   FlexibleCommitOptions dco_decode_flexible_commit_options(dynamic raw);
 
   @protected
+  GroupConfigurationResult dco_decode_group_configuration_result(dynamic raw);
+
+  @protected
   int dco_decode_i_32(dynamic raw);
 
   @protected
@@ -411,6 +414,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   FlexibleCommitOptions sse_decode_flexible_commit_options(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  GroupConfigurationResult sse_decode_group_configuration_result(
     SseDeserializer deserializer,
   );
 
@@ -723,6 +731,18 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
       cst_encode_opt_list_prim_u_8_strict(raw.aad),
       cst_encode_bool(raw.createGroupInfo),
       cst_encode_bool(raw.useRatchetTreeExtension),
+    ].jsify()!;
+  }
+
+  @protected
+  JSAny cst_encode_group_configuration_result(GroupConfigurationResult raw) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return [
+      cst_encode_mls_ciphersuite(raw.ciphersuite),
+      cst_encode_mls_wire_format_policy(raw.wireFormatPolicy),
+      cst_encode_u_32(raw.paddingSize),
+      cst_encode_u_32(raw.senderRatchetMaxOutOfOrder),
+      cst_encode_u_32(raw.senderRatchetMaxForwardDistance),
     ].jsify()!;
   }
 
@@ -1274,6 +1294,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_group_configuration_result(
+    GroupConfigurationResult self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_i_32(int self, SseSerializer serializer);
 
   @protected
@@ -1682,6 +1708,7 @@ class RustLibWire implements BaseWire {
     JSAny credential_identity,
     JSAny signer_public_key,
     JSAny? group_id,
+    JSAny? credential_bytes,
     PlatformPointer storage_read,
     PlatformPointer storage_write,
     PlatformPointer storage_delete,
@@ -1692,6 +1719,7 @@ class RustLibWire implements BaseWire {
     credential_identity,
     signer_public_key,
     group_id,
+    credential_bytes,
     storage_read,
     storage_write,
     storage_delete,
@@ -1708,6 +1736,7 @@ class RustLibWire implements BaseWire {
     JSAny? group_context_extensions,
     JSAny? leaf_node_extensions,
     JSAny? capabilities,
+    JSAny? credential_bytes,
     PlatformPointer storage_read,
     PlatformPointer storage_write,
     PlatformPointer storage_delete,
@@ -1722,6 +1751,7 @@ class RustLibWire implements BaseWire {
     group_context_extensions,
     leaf_node_extensions,
     capabilities,
+    credential_bytes,
     storage_read,
     storage_write,
     storage_delete,
@@ -1733,6 +1763,7 @@ class RustLibWire implements BaseWire {
     JSAny signer_bytes,
     JSAny credential_identity,
     JSAny signer_public_key,
+    JSAny? credential_bytes,
     PlatformPointer storage_read,
     PlatformPointer storage_write,
     PlatformPointer storage_delete,
@@ -1742,6 +1773,7 @@ class RustLibWire implements BaseWire {
     signer_bytes,
     credential_identity,
     signer_public_key,
+    credential_bytes,
     storage_read,
     storage_write,
     storage_delete,
@@ -1754,6 +1786,7 @@ class RustLibWire implements BaseWire {
     JSAny credential_identity,
     JSAny signer_public_key,
     JSAny options,
+    JSAny? credential_bytes,
     PlatformPointer storage_read,
     PlatformPointer storage_write,
     PlatformPointer storage_delete,
@@ -1764,6 +1797,7 @@ class RustLibWire implements BaseWire {
     credential_identity,
     signer_public_key,
     options,
+    credential_bytes,
     storage_read,
     storage_write,
     storage_delete,
@@ -1784,6 +1818,34 @@ class RustLibWire implements BaseWire {
     signer_bytes,
     message,
     aad,
+    storage_read,
+    storage_write,
+    storage_delete,
+  );
+
+  void wire__crate__api__provider__delete_group(
+    NativePortType port_,
+    JSAny group_id_bytes,
+    PlatformPointer storage_read,
+    PlatformPointer storage_write,
+    PlatformPointer storage_delete,
+  ) => wasmModule.wire__crate__api__provider__delete_group(
+    port_,
+    group_id_bytes,
+    storage_read,
+    storage_write,
+    storage_delete,
+  );
+
+  void wire__crate__api__provider__delete_key_package(
+    NativePortType port_,
+    JSAny key_package_ref_bytes,
+    PlatformPointer storage_read,
+    PlatformPointer storage_write,
+    PlatformPointer storage_delete,
+  ) => wasmModule.wire__crate__api__provider__delete_key_package(
+    port_,
+    key_package_ref_bytes,
     storage_read,
     storage_write,
     storage_delete,
@@ -1901,6 +1963,20 @@ class RustLibWire implements BaseWire {
     storage_delete,
   );
 
+  void wire__crate__api__provider__group_configuration(
+    NativePortType port_,
+    JSAny group_id_bytes,
+    PlatformPointer storage_read,
+    PlatformPointer storage_write,
+    PlatformPointer storage_delete,
+  ) => wasmModule.wire__crate__api__provider__group_configuration(
+    port_,
+    group_id_bytes,
+    storage_read,
+    storage_write,
+    storage_delete,
+  );
+
   void wire__crate__api__provider__group_confirmation_tag(
     NativePortType port_,
     JSAny group_id_bytes,
@@ -1936,6 +2012,20 @@ class RustLibWire implements BaseWire {
     PlatformPointer storage_write,
     PlatformPointer storage_delete,
   ) => wasmModule.wire__crate__api__provider__group_epoch(
+    port_,
+    group_id_bytes,
+    storage_read,
+    storage_write,
+    storage_delete,
+  );
+
+  void wire__crate__api__provider__group_epoch_authenticator(
+    NativePortType port_,
+    JSAny group_id_bytes,
+    PlatformPointer storage_read,
+    PlatformPointer storage_write,
+    PlatformPointer storage_delete,
+  ) => wasmModule.wire__crate__api__provider__group_epoch_authenticator(
     port_,
     group_id_bytes,
     storage_read,
@@ -2119,6 +2209,7 @@ class RustLibWire implements BaseWire {
     JSAny signer_bytes,
     JSAny credential_identity,
     JSAny signer_public_key,
+    JSAny? credential_bytes,
     PlatformPointer storage_read,
     PlatformPointer storage_write,
     PlatformPointer storage_delete,
@@ -2130,6 +2221,7 @@ class RustLibWire implements BaseWire {
     signer_bytes,
     credential_identity,
     signer_public_key,
+    credential_bytes,
     storage_read,
     storage_write,
     storage_delete,
@@ -2145,6 +2237,7 @@ class RustLibWire implements BaseWire {
     JSAny signer_public_key,
     JSAny? aad,
     bool skip_lifetime_validation,
+    JSAny? credential_bytes,
     PlatformPointer storage_read,
     PlatformPointer storage_write,
     PlatformPointer storage_delete,
@@ -2158,6 +2251,7 @@ class RustLibWire implements BaseWire {
     signer_public_key,
     aad,
     skip_lifetime_validation,
+    credential_bytes,
     storage_read,
     storage_write,
     storage_delete,
@@ -2426,6 +2520,8 @@ class RustLibWire implements BaseWire {
     NativePortType port_,
     JSAny group_id_bytes,
     JSAny signer_bytes,
+    JSAny? leaf_node_capabilities,
+    JSAny? leaf_node_extensions,
     PlatformPointer storage_read,
     PlatformPointer storage_write,
     PlatformPointer storage_delete,
@@ -2433,6 +2529,8 @@ class RustLibWire implements BaseWire {
     port_,
     group_id_bytes,
     signer_bytes,
+    leaf_node_capabilities,
+    leaf_node_extensions,
     storage_read,
     storage_write,
     storage_delete,
@@ -2451,6 +2549,22 @@ class RustLibWire implements BaseWire {
     group_id_bytes,
     signer_bytes,
     member_indices,
+    storage_read,
+    storage_write,
+    storage_delete,
+  );
+
+  void wire__crate__api__provider__remove_pending_proposal(
+    NativePortType port_,
+    JSAny group_id_bytes,
+    JSAny proposal_ref_bytes,
+    PlatformPointer storage_read,
+    PlatformPointer storage_write,
+    PlatformPointer storage_delete,
+  ) => wasmModule.wire__crate__api__provider__remove_pending_proposal(
+    port_,
+    group_id_bytes,
+    proposal_ref_bytes,
     storage_read,
     storage_write,
     storage_delete,
@@ -2479,6 +2593,7 @@ class RustLibWire implements BaseWire {
     JSAny new_signer_bytes,
     JSAny new_credential_identity,
     JSAny new_signer_public_key,
+    JSAny? new_credential_bytes,
     PlatformPointer storage_read,
     PlatformPointer storage_write,
     PlatformPointer storage_delete,
@@ -2489,6 +2604,7 @@ class RustLibWire implements BaseWire {
     new_signer_bytes,
     new_credential_identity,
     new_signer_public_key,
+    new_credential_bytes,
     storage_read,
     storage_write,
     storage_delete,
@@ -2703,6 +2819,7 @@ extension type RustLibWasmModule._(JSObject _) implements JSObject {
     JSAny credential_identity,
     JSAny signer_public_key,
     JSAny? group_id,
+    JSAny? credential_bytes,
     PlatformPointer storage_read,
     PlatformPointer storage_write,
     PlatformPointer storage_delete,
@@ -2719,6 +2836,7 @@ extension type RustLibWasmModule._(JSObject _) implements JSObject {
     JSAny? group_context_extensions,
     JSAny? leaf_node_extensions,
     JSAny? capabilities,
+    JSAny? credential_bytes,
     PlatformPointer storage_read,
     PlatformPointer storage_write,
     PlatformPointer storage_delete,
@@ -2730,6 +2848,7 @@ extension type RustLibWasmModule._(JSObject _) implements JSObject {
     JSAny signer_bytes,
     JSAny credential_identity,
     JSAny signer_public_key,
+    JSAny? credential_bytes,
     PlatformPointer storage_read,
     PlatformPointer storage_write,
     PlatformPointer storage_delete,
@@ -2742,6 +2861,7 @@ extension type RustLibWasmModule._(JSObject _) implements JSObject {
     JSAny credential_identity,
     JSAny signer_public_key,
     JSAny options,
+    JSAny? credential_bytes,
     PlatformPointer storage_read,
     PlatformPointer storage_write,
     PlatformPointer storage_delete,
@@ -2753,6 +2873,22 @@ extension type RustLibWasmModule._(JSObject _) implements JSObject {
     JSAny signer_bytes,
     JSAny message,
     JSAny? aad,
+    PlatformPointer storage_read,
+    PlatformPointer storage_write,
+    PlatformPointer storage_delete,
+  );
+
+  external void wire__crate__api__provider__delete_group(
+    NativePortType port_,
+    JSAny group_id_bytes,
+    PlatformPointer storage_read,
+    PlatformPointer storage_write,
+    PlatformPointer storage_delete,
+  );
+
+  external void wire__crate__api__provider__delete_key_package(
+    NativePortType port_,
+    JSAny key_package_ref_bytes,
     PlatformPointer storage_read,
     PlatformPointer storage_write,
     PlatformPointer storage_delete,
@@ -2821,6 +2957,14 @@ extension type RustLibWasmModule._(JSObject _) implements JSObject {
     PlatformPointer storage_delete,
   );
 
+  external void wire__crate__api__provider__group_configuration(
+    NativePortType port_,
+    JSAny group_id_bytes,
+    PlatformPointer storage_read,
+    PlatformPointer storage_write,
+    PlatformPointer storage_delete,
+  );
+
   external void wire__crate__api__provider__group_confirmation_tag(
     NativePortType port_,
     JSAny group_id_bytes,
@@ -2838,6 +2982,14 @@ extension type RustLibWasmModule._(JSObject _) implements JSObject {
   );
 
   external void wire__crate__api__provider__group_epoch(
+    NativePortType port_,
+    JSAny group_id_bytes,
+    PlatformPointer storage_read,
+    PlatformPointer storage_write,
+    PlatformPointer storage_delete,
+  );
+
+  external void wire__crate__api__provider__group_epoch_authenticator(
     NativePortType port_,
     JSAny group_id_bytes,
     PlatformPointer storage_read,
@@ -2950,6 +3102,7 @@ extension type RustLibWasmModule._(JSObject _) implements JSObject {
     JSAny signer_bytes,
     JSAny credential_identity,
     JSAny signer_public_key,
+    JSAny? credential_bytes,
     PlatformPointer storage_read,
     PlatformPointer storage_write,
     PlatformPointer storage_delete,
@@ -2965,6 +3118,7 @@ extension type RustLibWasmModule._(JSObject _) implements JSObject {
     JSAny signer_public_key,
     JSAny? aad,
     bool skip_lifetime_validation,
+    JSAny? credential_bytes,
     PlatformPointer storage_read,
     PlatformPointer storage_write,
     PlatformPointer storage_delete,
@@ -3116,6 +3270,8 @@ extension type RustLibWasmModule._(JSObject _) implements JSObject {
     NativePortType port_,
     JSAny group_id_bytes,
     JSAny signer_bytes,
+    JSAny? leaf_node_capabilities,
+    JSAny? leaf_node_extensions,
     PlatformPointer storage_read,
     PlatformPointer storage_write,
     PlatformPointer storage_delete,
@@ -3126,6 +3282,15 @@ extension type RustLibWasmModule._(JSObject _) implements JSObject {
     JSAny group_id_bytes,
     JSAny signer_bytes,
     JSAny member_indices,
+    PlatformPointer storage_read,
+    PlatformPointer storage_write,
+    PlatformPointer storage_delete,
+  );
+
+  external void wire__crate__api__provider__remove_pending_proposal(
+    NativePortType port_,
+    JSAny group_id_bytes,
+    JSAny proposal_ref_bytes,
     PlatformPointer storage_read,
     PlatformPointer storage_write,
     PlatformPointer storage_delete,
@@ -3147,6 +3312,7 @@ extension type RustLibWasmModule._(JSObject _) implements JSObject {
     JSAny new_signer_bytes,
     JSAny new_credential_identity,
     JSAny new_signer_public_key,
+    JSAny? new_credential_bytes,
     PlatformPointer storage_read,
     PlatformPointer storage_write,
     PlatformPointer storage_delete,

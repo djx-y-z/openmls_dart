@@ -39,7 +39,7 @@ flutter_rust_bridge::frb_generated_boilerplate!(
     default_rust_auto_opaque = RustAutoOpaqueNom,
 );
 pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.11.1";
-pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -739348474;
+pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -1503167156;
 
 // Section: executor
 
@@ -558,13 +558,14 @@ fn wire__crate__api__provider__create_group_impl(
     credential_identity: impl CstDecode<Vec<u8>>,
     signer_public_key: impl CstDecode<Vec<u8>>,
     group_id: impl CstDecode<Option<Vec<u8>>>,
+    credential_bytes: impl CstDecode<Option<Vec<u8>>>,
     storage_read: impl CstDecode<flutter_rust_bridge::DartOpaque>,
     storage_write: impl CstDecode<flutter_rust_bridge::DartOpaque>,
     storage_delete: impl CstDecode<flutter_rust_bridge::DartOpaque>,
 ) {
-    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::DcoCodec,_,_,_>(flutter_rust_bridge::for_generated::TaskInfo{ debug_name: "create_group", port: Some(port_), mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal }, move || { let api_config = config.cst_decode();let api_signer_bytes = signer_bytes.cst_decode();let api_credential_identity = credential_identity.cst_decode();let api_signer_public_key = signer_public_key.cst_decode();let api_group_id = group_id.cst_decode();let api_storage_read = decode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(storage_read.cst_decode());let api_storage_write = decode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(storage_write.cst_decode());let api_storage_delete = decode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(storage_delete.cst_decode()); move |context| async move {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::DcoCodec,_,_,_>(flutter_rust_bridge::for_generated::TaskInfo{ debug_name: "create_group", port: Some(port_), mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal }, move || { let api_config = config.cst_decode();let api_signer_bytes = signer_bytes.cst_decode();let api_credential_identity = credential_identity.cst_decode();let api_signer_public_key = signer_public_key.cst_decode();let api_group_id = group_id.cst_decode();let api_credential_bytes = credential_bytes.cst_decode();let api_storage_read = decode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(storage_read.cst_decode());let api_storage_write = decode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(storage_write.cst_decode());let api_storage_delete = decode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(storage_delete.cst_decode()); move |context| async move {
                     transform_result_dco::<_, _, String>((move || async move {
-                         let output_ok = crate::api::provider::create_group(api_config, api_signer_bytes, api_credential_identity, api_signer_public_key, api_group_id, api_storage_read, api_storage_write, api_storage_delete).await?;   Ok(output_ok)
+                         let output_ok = crate::api::provider::create_group(api_config, api_signer_bytes, api_credential_identity, api_signer_public_key, api_group_id, api_credential_bytes, api_storage_read, api_storage_write, api_storage_delete).await?;   Ok(output_ok)
                     })().await)
                 } })
 }
@@ -579,13 +580,14 @@ fn wire__crate__api__provider__create_group_with_builder_impl(
     group_context_extensions: impl CstDecode<Option<Vec<crate::api::types::MlsExtension>>>,
     leaf_node_extensions: impl CstDecode<Option<Vec<crate::api::types::MlsExtension>>>,
     capabilities: impl CstDecode<Option<crate::api::types::MlsCapabilities>>,
+    credential_bytes: impl CstDecode<Option<Vec<u8>>>,
     storage_read: impl CstDecode<flutter_rust_bridge::DartOpaque>,
     storage_write: impl CstDecode<flutter_rust_bridge::DartOpaque>,
     storage_delete: impl CstDecode<flutter_rust_bridge::DartOpaque>,
 ) {
-    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::DcoCodec,_,_,_>(flutter_rust_bridge::for_generated::TaskInfo{ debug_name: "create_group_with_builder", port: Some(port_), mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal }, move || { let api_config = config.cst_decode();let api_signer_bytes = signer_bytes.cst_decode();let api_credential_identity = credential_identity.cst_decode();let api_signer_public_key = signer_public_key.cst_decode();let api_group_id = group_id.cst_decode();let api_lifetime_seconds = lifetime_seconds.cst_decode();let api_group_context_extensions = group_context_extensions.cst_decode();let api_leaf_node_extensions = leaf_node_extensions.cst_decode();let api_capabilities = capabilities.cst_decode();let api_storage_read = decode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(storage_read.cst_decode());let api_storage_write = decode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(storage_write.cst_decode());let api_storage_delete = decode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(storage_delete.cst_decode()); move |context| async move {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::DcoCodec,_,_,_>(flutter_rust_bridge::for_generated::TaskInfo{ debug_name: "create_group_with_builder", port: Some(port_), mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal }, move || { let api_config = config.cst_decode();let api_signer_bytes = signer_bytes.cst_decode();let api_credential_identity = credential_identity.cst_decode();let api_signer_public_key = signer_public_key.cst_decode();let api_group_id = group_id.cst_decode();let api_lifetime_seconds = lifetime_seconds.cst_decode();let api_group_context_extensions = group_context_extensions.cst_decode();let api_leaf_node_extensions = leaf_node_extensions.cst_decode();let api_capabilities = capabilities.cst_decode();let api_credential_bytes = credential_bytes.cst_decode();let api_storage_read = decode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(storage_read.cst_decode());let api_storage_write = decode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(storage_write.cst_decode());let api_storage_delete = decode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(storage_delete.cst_decode()); move |context| async move {
                     transform_result_dco::<_, _, String>((move || async move {
-                         let output_ok = crate::api::provider::create_group_with_builder(api_config, api_signer_bytes, api_credential_identity, api_signer_public_key, api_group_id, api_lifetime_seconds, api_group_context_extensions, api_leaf_node_extensions, api_capabilities, api_storage_read, api_storage_write, api_storage_delete).await?;   Ok(output_ok)
+                         let output_ok = crate::api::provider::create_group_with_builder(api_config, api_signer_bytes, api_credential_identity, api_signer_public_key, api_group_id, api_lifetime_seconds, api_group_context_extensions, api_leaf_node_extensions, api_capabilities, api_credential_bytes, api_storage_read, api_storage_write, api_storage_delete).await?;   Ok(output_ok)
                     })().await)
                 } })
 }
@@ -595,13 +597,14 @@ fn wire__crate__api__provider__create_key_package_impl(
     signer_bytes: impl CstDecode<Vec<u8>>,
     credential_identity: impl CstDecode<Vec<u8>>,
     signer_public_key: impl CstDecode<Vec<u8>>,
+    credential_bytes: impl CstDecode<Option<Vec<u8>>>,
     storage_read: impl CstDecode<flutter_rust_bridge::DartOpaque>,
     storage_write: impl CstDecode<flutter_rust_bridge::DartOpaque>,
     storage_delete: impl CstDecode<flutter_rust_bridge::DartOpaque>,
 ) {
-    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::DcoCodec,_,_,_>(flutter_rust_bridge::for_generated::TaskInfo{ debug_name: "create_key_package", port: Some(port_), mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal }, move || { let api_ciphersuite = ciphersuite.cst_decode();let api_signer_bytes = signer_bytes.cst_decode();let api_credential_identity = credential_identity.cst_decode();let api_signer_public_key = signer_public_key.cst_decode();let api_storage_read = decode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(storage_read.cst_decode());let api_storage_write = decode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(storage_write.cst_decode());let api_storage_delete = decode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(storage_delete.cst_decode()); move |context| async move {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::DcoCodec,_,_,_>(flutter_rust_bridge::for_generated::TaskInfo{ debug_name: "create_key_package", port: Some(port_), mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal }, move || { let api_ciphersuite = ciphersuite.cst_decode();let api_signer_bytes = signer_bytes.cst_decode();let api_credential_identity = credential_identity.cst_decode();let api_signer_public_key = signer_public_key.cst_decode();let api_credential_bytes = credential_bytes.cst_decode();let api_storage_read = decode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(storage_read.cst_decode());let api_storage_write = decode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(storage_write.cst_decode());let api_storage_delete = decode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(storage_delete.cst_decode()); move |context| async move {
                     transform_result_dco::<_, _, String>((move || async move {
-                         let output_ok = crate::api::provider::create_key_package(api_ciphersuite, api_signer_bytes, api_credential_identity, api_signer_public_key, api_storage_read, api_storage_write, api_storage_delete).await?;   Ok(output_ok)
+                         let output_ok = crate::api::provider::create_key_package(api_ciphersuite, api_signer_bytes, api_credential_identity, api_signer_public_key, api_credential_bytes, api_storage_read, api_storage_write, api_storage_delete).await?;   Ok(output_ok)
                     })().await)
                 } })
 }
@@ -612,13 +615,14 @@ fn wire__crate__api__provider__create_key_package_with_options_impl(
     credential_identity: impl CstDecode<Vec<u8>>,
     signer_public_key: impl CstDecode<Vec<u8>>,
     options: impl CstDecode<crate::api::types::KeyPackageOptions>,
+    credential_bytes: impl CstDecode<Option<Vec<u8>>>,
     storage_read: impl CstDecode<flutter_rust_bridge::DartOpaque>,
     storage_write: impl CstDecode<flutter_rust_bridge::DartOpaque>,
     storage_delete: impl CstDecode<flutter_rust_bridge::DartOpaque>,
 ) {
-    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::DcoCodec,_,_,_>(flutter_rust_bridge::for_generated::TaskInfo{ debug_name: "create_key_package_with_options", port: Some(port_), mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal }, move || { let api_ciphersuite = ciphersuite.cst_decode();let api_signer_bytes = signer_bytes.cst_decode();let api_credential_identity = credential_identity.cst_decode();let api_signer_public_key = signer_public_key.cst_decode();let api_options = options.cst_decode();let api_storage_read = decode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(storage_read.cst_decode());let api_storage_write = decode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(storage_write.cst_decode());let api_storage_delete = decode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(storage_delete.cst_decode()); move |context| async move {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::DcoCodec,_,_,_>(flutter_rust_bridge::for_generated::TaskInfo{ debug_name: "create_key_package_with_options", port: Some(port_), mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal }, move || { let api_ciphersuite = ciphersuite.cst_decode();let api_signer_bytes = signer_bytes.cst_decode();let api_credential_identity = credential_identity.cst_decode();let api_signer_public_key = signer_public_key.cst_decode();let api_options = options.cst_decode();let api_credential_bytes = credential_bytes.cst_decode();let api_storage_read = decode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(storage_read.cst_decode());let api_storage_write = decode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(storage_write.cst_decode());let api_storage_delete = decode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(storage_delete.cst_decode()); move |context| async move {
                     transform_result_dco::<_, _, String>((move || async move {
-                         let output_ok = crate::api::provider::create_key_package_with_options(api_ciphersuite, api_signer_bytes, api_credential_identity, api_signer_public_key, api_options, api_storage_read, api_storage_write, api_storage_delete).await?;   Ok(output_ok)
+                         let output_ok = crate::api::provider::create_key_package_with_options(api_ciphersuite, api_signer_bytes, api_credential_identity, api_signer_public_key, api_options, api_credential_bytes, api_storage_read, api_storage_write, api_storage_delete).await?;   Ok(output_ok)
                     })().await)
                 } })
 }
@@ -635,6 +639,32 @@ fn wire__crate__api__provider__create_message_impl(
     FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::DcoCodec,_,_,_>(flutter_rust_bridge::for_generated::TaskInfo{ debug_name: "create_message", port: Some(port_), mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal }, move || { let api_group_id_bytes = group_id_bytes.cst_decode();let api_signer_bytes = signer_bytes.cst_decode();let api_message = message.cst_decode();let api_aad = aad.cst_decode();let api_storage_read = decode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(storage_read.cst_decode());let api_storage_write = decode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(storage_write.cst_decode());let api_storage_delete = decode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(storage_delete.cst_decode()); move |context| async move {
                     transform_result_dco::<_, _, String>((move || async move {
                          let output_ok = crate::api::provider::create_message(api_group_id_bytes, api_signer_bytes, api_message, api_aad, api_storage_read, api_storage_write, api_storage_delete).await?;   Ok(output_ok)
+                    })().await)
+                } })
+}
+fn wire__crate__api__provider__delete_group_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    group_id_bytes: impl CstDecode<Vec<u8>>,
+    storage_read: impl CstDecode<flutter_rust_bridge::DartOpaque>,
+    storage_write: impl CstDecode<flutter_rust_bridge::DartOpaque>,
+    storage_delete: impl CstDecode<flutter_rust_bridge::DartOpaque>,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::DcoCodec,_,_,_>(flutter_rust_bridge::for_generated::TaskInfo{ debug_name: "delete_group", port: Some(port_), mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal }, move || { let api_group_id_bytes = group_id_bytes.cst_decode();let api_storage_read = decode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(storage_read.cst_decode());let api_storage_write = decode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(storage_write.cst_decode());let api_storage_delete = decode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(storage_delete.cst_decode()); move |context| async move {
+                    transform_result_dco::<_, _, String>((move || async move {
+                         let output_ok = crate::api::provider::delete_group(api_group_id_bytes, api_storage_read, api_storage_write, api_storage_delete).await?;   Ok(output_ok)
+                    })().await)
+                } })
+}
+fn wire__crate__api__provider__delete_key_package_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    key_package_ref_bytes: impl CstDecode<Vec<u8>>,
+    storage_read: impl CstDecode<flutter_rust_bridge::DartOpaque>,
+    storage_write: impl CstDecode<flutter_rust_bridge::DartOpaque>,
+    storage_delete: impl CstDecode<flutter_rust_bridge::DartOpaque>,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::DcoCodec,_,_,_>(flutter_rust_bridge::for_generated::TaskInfo{ debug_name: "delete_key_package", port: Some(port_), mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal }, move || { let api_key_package_ref_bytes = key_package_ref_bytes.cst_decode();let api_storage_read = decode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(storage_read.cst_decode());let api_storage_write = decode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(storage_write.cst_decode());let api_storage_delete = decode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(storage_delete.cst_decode()); move |context| async move {
+                    transform_result_dco::<_, _, String>((move || async move {
+                         let output_ok = crate::api::provider::delete_key_package(api_key_package_ref_bytes, api_storage_read, api_storage_write, api_storage_delete).await?;   Ok(output_ok)
                     })().await)
                 } })
 }
@@ -736,6 +766,19 @@ fn wire__crate__api__provider__group_ciphersuite_impl(
                     })().await)
                 } })
 }
+fn wire__crate__api__provider__group_configuration_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    group_id_bytes: impl CstDecode<Vec<u8>>,
+    storage_read: impl CstDecode<flutter_rust_bridge::DartOpaque>,
+    storage_write: impl CstDecode<flutter_rust_bridge::DartOpaque>,
+    storage_delete: impl CstDecode<flutter_rust_bridge::DartOpaque>,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::DcoCodec,_,_,_>(flutter_rust_bridge::for_generated::TaskInfo{ debug_name: "group_configuration", port: Some(port_), mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal }, move || { let api_group_id_bytes = group_id_bytes.cst_decode();let api_storage_read = decode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(storage_read.cst_decode());let api_storage_write = decode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(storage_write.cst_decode());let api_storage_delete = decode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(storage_delete.cst_decode()); move |context| async move {
+                    transform_result_dco::<_, _, String>((move || async move {
+                         let output_ok = crate::api::provider::group_configuration(api_group_id_bytes, api_storage_read, api_storage_write, api_storage_delete).await?;   Ok(output_ok)
+                    })().await)
+                } })
+}
 fn wire__crate__api__provider__group_confirmation_tag_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     group_id_bytes: impl CstDecode<Vec<u8>>,
@@ -772,6 +815,19 @@ fn wire__crate__api__provider__group_epoch_impl(
     FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::DcoCodec,_,_,_>(flutter_rust_bridge::for_generated::TaskInfo{ debug_name: "group_epoch", port: Some(port_), mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal }, move || { let api_group_id_bytes = group_id_bytes.cst_decode();let api_storage_read = decode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(storage_read.cst_decode());let api_storage_write = decode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(storage_write.cst_decode());let api_storage_delete = decode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(storage_delete.cst_decode()); move |context| async move {
                     transform_result_dco::<_, _, String>((move || async move {
                          let output_ok = crate::api::provider::group_epoch(api_group_id_bytes, api_storage_read, api_storage_write, api_storage_delete).await?;   Ok(output_ok)
+                    })().await)
+                } })
+}
+fn wire__crate__api__provider__group_epoch_authenticator_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    group_id_bytes: impl CstDecode<Vec<u8>>,
+    storage_read: impl CstDecode<flutter_rust_bridge::DartOpaque>,
+    storage_write: impl CstDecode<flutter_rust_bridge::DartOpaque>,
+    storage_delete: impl CstDecode<flutter_rust_bridge::DartOpaque>,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::DcoCodec,_,_,_>(flutter_rust_bridge::for_generated::TaskInfo{ debug_name: "group_epoch_authenticator", port: Some(port_), mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal }, move || { let api_group_id_bytes = group_id_bytes.cst_decode();let api_storage_read = decode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(storage_read.cst_decode());let api_storage_write = decode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(storage_write.cst_decode());let api_storage_delete = decode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(storage_delete.cst_decode()); move |context| async move {
+                    transform_result_dco::<_, _, String>((move || async move {
+                         let output_ok = crate::api::provider::group_epoch_authenticator(api_group_id_bytes, api_storage_read, api_storage_write, api_storage_delete).await?;   Ok(output_ok)
                     })().await)
                 } })
 }
@@ -963,13 +1019,14 @@ fn wire__crate__api__provider__join_group_external_commit_impl(
     signer_bytes: impl CstDecode<Vec<u8>>,
     credential_identity: impl CstDecode<Vec<u8>>,
     signer_public_key: impl CstDecode<Vec<u8>>,
+    credential_bytes: impl CstDecode<Option<Vec<u8>>>,
     storage_read: impl CstDecode<flutter_rust_bridge::DartOpaque>,
     storage_write: impl CstDecode<flutter_rust_bridge::DartOpaque>,
     storage_delete: impl CstDecode<flutter_rust_bridge::DartOpaque>,
 ) {
-    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::DcoCodec,_,_,_>(flutter_rust_bridge::for_generated::TaskInfo{ debug_name: "join_group_external_commit", port: Some(port_), mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal }, move || { let api_config = config.cst_decode();let api_group_info_bytes = group_info_bytes.cst_decode();let api_ratchet_tree_bytes = ratchet_tree_bytes.cst_decode();let api_signer_bytes = signer_bytes.cst_decode();let api_credential_identity = credential_identity.cst_decode();let api_signer_public_key = signer_public_key.cst_decode();let api_storage_read = decode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(storage_read.cst_decode());let api_storage_write = decode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(storage_write.cst_decode());let api_storage_delete = decode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(storage_delete.cst_decode()); move |context| async move {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::DcoCodec,_,_,_>(flutter_rust_bridge::for_generated::TaskInfo{ debug_name: "join_group_external_commit", port: Some(port_), mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal }, move || { let api_config = config.cst_decode();let api_group_info_bytes = group_info_bytes.cst_decode();let api_ratchet_tree_bytes = ratchet_tree_bytes.cst_decode();let api_signer_bytes = signer_bytes.cst_decode();let api_credential_identity = credential_identity.cst_decode();let api_signer_public_key = signer_public_key.cst_decode();let api_credential_bytes = credential_bytes.cst_decode();let api_storage_read = decode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(storage_read.cst_decode());let api_storage_write = decode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(storage_write.cst_decode());let api_storage_delete = decode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(storage_delete.cst_decode()); move |context| async move {
                     transform_result_dco::<_, _, String>((move || async move {
-                         let output_ok = crate::api::provider::join_group_external_commit(api_config, api_group_info_bytes, api_ratchet_tree_bytes, api_signer_bytes, api_credential_identity, api_signer_public_key, api_storage_read, api_storage_write, api_storage_delete).await?;   Ok(output_ok)
+                         let output_ok = crate::api::provider::join_group_external_commit(api_config, api_group_info_bytes, api_ratchet_tree_bytes, api_signer_bytes, api_credential_identity, api_signer_public_key, api_credential_bytes, api_storage_read, api_storage_write, api_storage_delete).await?;   Ok(output_ok)
                     })().await)
                 } })
 }
@@ -983,13 +1040,14 @@ fn wire__crate__api__provider__join_group_external_commit_v2_impl(
     signer_public_key: impl CstDecode<Vec<u8>>,
     aad: impl CstDecode<Option<Vec<u8>>>,
     skip_lifetime_validation: impl CstDecode<bool>,
+    credential_bytes: impl CstDecode<Option<Vec<u8>>>,
     storage_read: impl CstDecode<flutter_rust_bridge::DartOpaque>,
     storage_write: impl CstDecode<flutter_rust_bridge::DartOpaque>,
     storage_delete: impl CstDecode<flutter_rust_bridge::DartOpaque>,
 ) {
-    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::DcoCodec,_,_,_>(flutter_rust_bridge::for_generated::TaskInfo{ debug_name: "join_group_external_commit_v2", port: Some(port_), mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal }, move || { let api_config = config.cst_decode();let api_group_info_bytes = group_info_bytes.cst_decode();let api_ratchet_tree_bytes = ratchet_tree_bytes.cst_decode();let api_signer_bytes = signer_bytes.cst_decode();let api_credential_identity = credential_identity.cst_decode();let api_signer_public_key = signer_public_key.cst_decode();let api_aad = aad.cst_decode();let api_skip_lifetime_validation = skip_lifetime_validation.cst_decode();let api_storage_read = decode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(storage_read.cst_decode());let api_storage_write = decode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(storage_write.cst_decode());let api_storage_delete = decode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(storage_delete.cst_decode()); move |context| async move {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::DcoCodec,_,_,_>(flutter_rust_bridge::for_generated::TaskInfo{ debug_name: "join_group_external_commit_v2", port: Some(port_), mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal }, move || { let api_config = config.cst_decode();let api_group_info_bytes = group_info_bytes.cst_decode();let api_ratchet_tree_bytes = ratchet_tree_bytes.cst_decode();let api_signer_bytes = signer_bytes.cst_decode();let api_credential_identity = credential_identity.cst_decode();let api_signer_public_key = signer_public_key.cst_decode();let api_aad = aad.cst_decode();let api_skip_lifetime_validation = skip_lifetime_validation.cst_decode();let api_credential_bytes = credential_bytes.cst_decode();let api_storage_read = decode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(storage_read.cst_decode());let api_storage_write = decode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(storage_write.cst_decode());let api_storage_delete = decode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(storage_delete.cst_decode()); move |context| async move {
                     transform_result_dco::<_, _, String>((move || async move {
-                         let output_ok = crate::api::provider::join_group_external_commit_v2(api_config, api_group_info_bytes, api_ratchet_tree_bytes, api_signer_bytes, api_credential_identity, api_signer_public_key, api_aad, api_skip_lifetime_validation, api_storage_read, api_storage_write, api_storage_delete).await?;   Ok(output_ok)
+                         let output_ok = crate::api::provider::join_group_external_commit_v2(api_config, api_group_info_bytes, api_ratchet_tree_bytes, api_signer_bytes, api_credential_identity, api_signer_public_key, api_aad, api_skip_lifetime_validation, api_credential_bytes, api_storage_read, api_storage_write, api_storage_delete).await?;   Ok(output_ok)
                     })().await)
                 } })
 }
@@ -1266,13 +1324,15 @@ fn wire__crate__api__provider__propose_self_update_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     group_id_bytes: impl CstDecode<Vec<u8>>,
     signer_bytes: impl CstDecode<Vec<u8>>,
+    leaf_node_capabilities: impl CstDecode<Option<crate::api::types::MlsCapabilities>>,
+    leaf_node_extensions: impl CstDecode<Option<Vec<crate::api::types::MlsExtension>>>,
     storage_read: impl CstDecode<flutter_rust_bridge::DartOpaque>,
     storage_write: impl CstDecode<flutter_rust_bridge::DartOpaque>,
     storage_delete: impl CstDecode<flutter_rust_bridge::DartOpaque>,
 ) {
-    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::DcoCodec,_,_,_>(flutter_rust_bridge::for_generated::TaskInfo{ debug_name: "propose_self_update", port: Some(port_), mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal }, move || { let api_group_id_bytes = group_id_bytes.cst_decode();let api_signer_bytes = signer_bytes.cst_decode();let api_storage_read = decode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(storage_read.cst_decode());let api_storage_write = decode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(storage_write.cst_decode());let api_storage_delete = decode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(storage_delete.cst_decode()); move |context| async move {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::DcoCodec,_,_,_>(flutter_rust_bridge::for_generated::TaskInfo{ debug_name: "propose_self_update", port: Some(port_), mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal }, move || { let api_group_id_bytes = group_id_bytes.cst_decode();let api_signer_bytes = signer_bytes.cst_decode();let api_leaf_node_capabilities = leaf_node_capabilities.cst_decode();let api_leaf_node_extensions = leaf_node_extensions.cst_decode();let api_storage_read = decode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(storage_read.cst_decode());let api_storage_write = decode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(storage_write.cst_decode());let api_storage_delete = decode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(storage_delete.cst_decode()); move |context| async move {
                     transform_result_dco::<_, _, String>((move || async move {
-                         let output_ok = crate::api::provider::propose_self_update(api_group_id_bytes, api_signer_bytes, api_storage_read, api_storage_write, api_storage_delete).await?;   Ok(output_ok)
+                         let output_ok = crate::api::provider::propose_self_update(api_group_id_bytes, api_signer_bytes, api_leaf_node_capabilities, api_leaf_node_extensions, api_storage_read, api_storage_write, api_storage_delete).await?;   Ok(output_ok)
                     })().await)
                 } })
 }
@@ -1288,6 +1348,20 @@ fn wire__crate__api__provider__remove_members_impl(
     FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::DcoCodec,_,_,_>(flutter_rust_bridge::for_generated::TaskInfo{ debug_name: "remove_members", port: Some(port_), mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal }, move || { let api_group_id_bytes = group_id_bytes.cst_decode();let api_signer_bytes = signer_bytes.cst_decode();let api_member_indices = member_indices.cst_decode();let api_storage_read = decode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(storage_read.cst_decode());let api_storage_write = decode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(storage_write.cst_decode());let api_storage_delete = decode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(storage_delete.cst_decode()); move |context| async move {
                     transform_result_dco::<_, _, String>((move || async move {
                          let output_ok = crate::api::provider::remove_members(api_group_id_bytes, api_signer_bytes, api_member_indices, api_storage_read, api_storage_write, api_storage_delete).await?;   Ok(output_ok)
+                    })().await)
+                } })
+}
+fn wire__crate__api__provider__remove_pending_proposal_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    group_id_bytes: impl CstDecode<Vec<u8>>,
+    proposal_ref_bytes: impl CstDecode<Vec<u8>>,
+    storage_read: impl CstDecode<flutter_rust_bridge::DartOpaque>,
+    storage_write: impl CstDecode<flutter_rust_bridge::DartOpaque>,
+    storage_delete: impl CstDecode<flutter_rust_bridge::DartOpaque>,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::DcoCodec,_,_,_>(flutter_rust_bridge::for_generated::TaskInfo{ debug_name: "remove_pending_proposal", port: Some(port_), mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal }, move || { let api_group_id_bytes = group_id_bytes.cst_decode();let api_proposal_ref_bytes = proposal_ref_bytes.cst_decode();let api_storage_read = decode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(storage_read.cst_decode());let api_storage_write = decode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(storage_write.cst_decode());let api_storage_delete = decode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(storage_delete.cst_decode()); move |context| async move {
+                    transform_result_dco::<_, _, String>((move || async move {
+                         let output_ok = crate::api::provider::remove_pending_proposal(api_group_id_bytes, api_proposal_ref_bytes, api_storage_read, api_storage_write, api_storage_delete).await?;   Ok(output_ok)
                     })().await)
                 } })
 }
@@ -1312,13 +1386,14 @@ fn wire__crate__api__provider__self_update_with_new_signer_impl(
     new_signer_bytes: impl CstDecode<Vec<u8>>,
     new_credential_identity: impl CstDecode<Vec<u8>>,
     new_signer_public_key: impl CstDecode<Vec<u8>>,
+    new_credential_bytes: impl CstDecode<Option<Vec<u8>>>,
     storage_read: impl CstDecode<flutter_rust_bridge::DartOpaque>,
     storage_write: impl CstDecode<flutter_rust_bridge::DartOpaque>,
     storage_delete: impl CstDecode<flutter_rust_bridge::DartOpaque>,
 ) {
-    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::DcoCodec,_,_,_>(flutter_rust_bridge::for_generated::TaskInfo{ debug_name: "self_update_with_new_signer", port: Some(port_), mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal }, move || { let api_group_id_bytes = group_id_bytes.cst_decode();let api_old_signer_bytes = old_signer_bytes.cst_decode();let api_new_signer_bytes = new_signer_bytes.cst_decode();let api_new_credential_identity = new_credential_identity.cst_decode();let api_new_signer_public_key = new_signer_public_key.cst_decode();let api_storage_read = decode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(storage_read.cst_decode());let api_storage_write = decode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(storage_write.cst_decode());let api_storage_delete = decode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(storage_delete.cst_decode()); move |context| async move {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::DcoCodec,_,_,_>(flutter_rust_bridge::for_generated::TaskInfo{ debug_name: "self_update_with_new_signer", port: Some(port_), mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal }, move || { let api_group_id_bytes = group_id_bytes.cst_decode();let api_old_signer_bytes = old_signer_bytes.cst_decode();let api_new_signer_bytes = new_signer_bytes.cst_decode();let api_new_credential_identity = new_credential_identity.cst_decode();let api_new_signer_public_key = new_signer_public_key.cst_decode();let api_new_credential_bytes = new_credential_bytes.cst_decode();let api_storage_read = decode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(storage_read.cst_decode());let api_storage_write = decode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(storage_write.cst_decode());let api_storage_delete = decode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(storage_delete.cst_decode()); move |context| async move {
                     transform_result_dco::<_, _, String>((move || async move {
-                         let output_ok = crate::api::provider::self_update_with_new_signer(api_group_id_bytes, api_old_signer_bytes, api_new_signer_bytes, api_new_credential_identity, api_new_signer_public_key, api_storage_read, api_storage_write, api_storage_delete).await?;   Ok(output_ok)
+                         let output_ok = crate::api::provider::self_update_with_new_signer(api_group_id_bytes, api_old_signer_bytes, api_new_signer_bytes, api_new_credential_identity, api_new_signer_public_key, api_new_credential_bytes, api_storage_read, api_storage_write, api_storage_delete).await?;   Ok(output_ok)
                     })().await)
                 } })
 }
@@ -1769,6 +1844,25 @@ impl SseDecode for crate::api::types::FlexibleCommitOptions {
             aad: var_aad,
             create_group_info: var_createGroupInfo,
             use_ratchet_tree_extension: var_useRatchetTreeExtension,
+        };
+    }
+}
+
+impl SseDecode for crate::api::provider::GroupConfigurationResult {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_ciphersuite = <crate::api::types::MlsCiphersuite>::sse_decode(deserializer);
+        let mut var_wireFormatPolicy =
+            <crate::api::types::MlsWireFormatPolicy>::sse_decode(deserializer);
+        let mut var_paddingSize = <u32>::sse_decode(deserializer);
+        let mut var_senderRatchetMaxOutOfOrder = <u32>::sse_decode(deserializer);
+        let mut var_senderRatchetMaxForwardDistance = <u32>::sse_decode(deserializer);
+        return crate::api::provider::GroupConfigurationResult {
+            ciphersuite: var_ciphersuite,
+            wire_format_policy: var_wireFormatPolicy,
+            padding_size: var_paddingSize,
+            sender_ratchet_max_out_of_order: var_senderRatchetMaxOutOfOrder,
+            sender_ratchet_max_forward_distance: var_senderRatchetMaxForwardDistance,
         };
     }
 }
@@ -2528,6 +2622,34 @@ impl flutter_rust_bridge::IntoIntoDart<crate::api::types::FlexibleCommitOptions>
     }
 }
 // Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::api::provider::GroupConfigurationResult {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.ciphersuite.into_into_dart().into_dart(),
+            self.wire_format_policy.into_into_dart().into_dart(),
+            self.padding_size.into_into_dart().into_dart(),
+            self.sender_ratchet_max_out_of_order
+                .into_into_dart()
+                .into_dart(),
+            self.sender_ratchet_max_forward_distance
+                .into_into_dart()
+                .into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::api::provider::GroupConfigurationResult
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::api::provider::GroupConfigurationResult>
+    for crate::api::provider::GroupConfigurationResult
+{
+    fn into_into_dart(self) -> crate::api::provider::GroupConfigurationResult {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
 impl flutter_rust_bridge::IntoDart for crate::api::provider::JoinGroupProviderResult {
     fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
         [self.group_id.into_into_dart().into_dart()].into_dart()
@@ -3097,6 +3219,17 @@ impl SseEncode for crate::api::types::FlexibleCommitOptions {
         <Option<Vec<u8>>>::sse_encode(self.aad, serializer);
         <bool>::sse_encode(self.create_group_info, serializer);
         <bool>::sse_encode(self.use_ratchet_tree_extension, serializer);
+    }
+}
+
+impl SseEncode for crate::api::provider::GroupConfigurationResult {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <crate::api::types::MlsCiphersuite>::sse_encode(self.ciphersuite, serializer);
+        <crate::api::types::MlsWireFormatPolicy>::sse_encode(self.wire_format_policy, serializer);
+        <u32>::sse_encode(self.padding_size, serializer);
+        <u32>::sse_encode(self.sender_ratchet_max_out_of_order, serializer);
+        <u32>::sse_encode(self.sender_ratchet_max_forward_distance, serializer);
     }
 }
 
@@ -3778,6 +3911,22 @@ mod io {
             }
         }
     }
+    impl CstDecode<crate::api::provider::GroupConfigurationResult>
+        for wire_cst_group_configuration_result
+    {
+        // Codec=Cst (C-struct based), see doc to use other codecs
+        fn cst_decode(self) -> crate::api::provider::GroupConfigurationResult {
+            crate::api::provider::GroupConfigurationResult {
+                ciphersuite: self.ciphersuite.cst_decode(),
+                wire_format_policy: self.wire_format_policy.cst_decode(),
+                padding_size: self.padding_size.cst_decode(),
+                sender_ratchet_max_out_of_order: self.sender_ratchet_max_out_of_order.cst_decode(),
+                sender_ratchet_max_forward_distance: self
+                    .sender_ratchet_max_forward_distance
+                    .cst_decode(),
+            }
+        }
+    }
     impl CstDecode<crate::api::provider::JoinGroupProviderResult>
         for wire_cst_join_group_provider_result
     {
@@ -4142,6 +4291,22 @@ mod io {
         }
     }
     impl Default for wire_cst_flexible_commit_options {
+        fn default() -> Self {
+            Self::new_with_null_ptr()
+        }
+    }
+    impl NewWithNullPtr for wire_cst_group_configuration_result {
+        fn new_with_null_ptr() -> Self {
+            Self {
+                ciphersuite: Default::default(),
+                wire_format_policy: Default::default(),
+                padding_size: Default::default(),
+                sender_ratchet_max_out_of_order: Default::default(),
+                sender_ratchet_max_forward_distance: Default::default(),
+            }
+        }
+    }
+    impl Default for wire_cst_group_configuration_result {
         fn default() -> Self {
             Self::new_with_null_ptr()
         }
@@ -4599,6 +4764,7 @@ mod io {
         credential_identity: *mut wire_cst_list_prim_u_8_loose,
         signer_public_key: *mut wire_cst_list_prim_u_8_loose,
         group_id: *mut wire_cst_list_prim_u_8_strict,
+        credential_bytes: *mut wire_cst_list_prim_u_8_strict,
         storage_read: *const std::ffi::c_void,
         storage_write: *const std::ffi::c_void,
         storage_delete: *const std::ffi::c_void,
@@ -4610,6 +4776,7 @@ mod io {
             credential_identity,
             signer_public_key,
             group_id,
+            credential_bytes,
             storage_read,
             storage_write,
             storage_delete,
@@ -4628,6 +4795,7 @@ mod io {
         group_context_extensions: *mut wire_cst_list_mls_extension,
         leaf_node_extensions: *mut wire_cst_list_mls_extension,
         capabilities: *mut wire_cst_mls_capabilities,
+        credential_bytes: *mut wire_cst_list_prim_u_8_strict,
         storage_read: *const std::ffi::c_void,
         storage_write: *const std::ffi::c_void,
         storage_delete: *const std::ffi::c_void,
@@ -4643,6 +4811,7 @@ mod io {
             group_context_extensions,
             leaf_node_extensions,
             capabilities,
+            credential_bytes,
             storage_read,
             storage_write,
             storage_delete,
@@ -4656,6 +4825,7 @@ mod io {
         signer_bytes: *mut wire_cst_list_prim_u_8_loose,
         credential_identity: *mut wire_cst_list_prim_u_8_loose,
         signer_public_key: *mut wire_cst_list_prim_u_8_loose,
+        credential_bytes: *mut wire_cst_list_prim_u_8_strict,
         storage_read: *const std::ffi::c_void,
         storage_write: *const std::ffi::c_void,
         storage_delete: *const std::ffi::c_void,
@@ -4666,6 +4836,7 @@ mod io {
             signer_bytes,
             credential_identity,
             signer_public_key,
+            credential_bytes,
             storage_read,
             storage_write,
             storage_delete,
@@ -4680,6 +4851,7 @@ mod io {
         credential_identity: *mut wire_cst_list_prim_u_8_loose,
         signer_public_key: *mut wire_cst_list_prim_u_8_loose,
         options: *mut wire_cst_key_package_options,
+        credential_bytes: *mut wire_cst_list_prim_u_8_strict,
         storage_read: *const std::ffi::c_void,
         storage_write: *const std::ffi::c_void,
         storage_delete: *const std::ffi::c_void,
@@ -4691,6 +4863,7 @@ mod io {
             credential_identity,
             signer_public_key,
             options,
+            credential_bytes,
             storage_read,
             storage_write,
             storage_delete,
@@ -4714,6 +4887,40 @@ mod io {
             signer_bytes,
             message,
             aad,
+            storage_read,
+            storage_write,
+            storage_delete,
+        )
+    }
+
+    #[unsafe(no_mangle)]
+    pub extern "C" fn frbgen_openmls_wire__crate__api__provider__delete_group(
+        port_: i64,
+        group_id_bytes: *mut wire_cst_list_prim_u_8_loose,
+        storage_read: *const std::ffi::c_void,
+        storage_write: *const std::ffi::c_void,
+        storage_delete: *const std::ffi::c_void,
+    ) {
+        wire__crate__api__provider__delete_group_impl(
+            port_,
+            group_id_bytes,
+            storage_read,
+            storage_write,
+            storage_delete,
+        )
+    }
+
+    #[unsafe(no_mangle)]
+    pub extern "C" fn frbgen_openmls_wire__crate__api__provider__delete_key_package(
+        port_: i64,
+        key_package_ref_bytes: *mut wire_cst_list_prim_u_8_loose,
+        storage_read: *const std::ffi::c_void,
+        storage_write: *const std::ffi::c_void,
+        storage_delete: *const std::ffi::c_void,
+    ) {
+        wire__crate__api__provider__delete_key_package_impl(
+            port_,
+            key_package_ref_bytes,
             storage_read,
             storage_write,
             storage_delete,
@@ -4854,6 +5061,23 @@ mod io {
     }
 
     #[unsafe(no_mangle)]
+    pub extern "C" fn frbgen_openmls_wire__crate__api__provider__group_configuration(
+        port_: i64,
+        group_id_bytes: *mut wire_cst_list_prim_u_8_loose,
+        storage_read: *const std::ffi::c_void,
+        storage_write: *const std::ffi::c_void,
+        storage_delete: *const std::ffi::c_void,
+    ) {
+        wire__crate__api__provider__group_configuration_impl(
+            port_,
+            group_id_bytes,
+            storage_read,
+            storage_write,
+            storage_delete,
+        )
+    }
+
+    #[unsafe(no_mangle)]
     pub extern "C" fn frbgen_openmls_wire__crate__api__provider__group_confirmation_tag(
         port_: i64,
         group_id_bytes: *mut wire_cst_list_prim_u_8_loose,
@@ -4896,6 +5120,23 @@ mod io {
         storage_delete: *const std::ffi::c_void,
     ) {
         wire__crate__api__provider__group_epoch_impl(
+            port_,
+            group_id_bytes,
+            storage_read,
+            storage_write,
+            storage_delete,
+        )
+    }
+
+    #[unsafe(no_mangle)]
+    pub extern "C" fn frbgen_openmls_wire__crate__api__provider__group_epoch_authenticator(
+        port_: i64,
+        group_id_bytes: *mut wire_cst_list_prim_u_8_loose,
+        storage_read: *const std::ffi::c_void,
+        storage_write: *const std::ffi::c_void,
+        storage_delete: *const std::ffi::c_void,
+    ) {
+        wire__crate__api__provider__group_epoch_authenticator_impl(
             port_,
             group_id_bytes,
             storage_read,
@@ -5119,6 +5360,7 @@ mod io {
         signer_bytes: *mut wire_cst_list_prim_u_8_loose,
         credential_identity: *mut wire_cst_list_prim_u_8_loose,
         signer_public_key: *mut wire_cst_list_prim_u_8_loose,
+        credential_bytes: *mut wire_cst_list_prim_u_8_strict,
         storage_read: *const std::ffi::c_void,
         storage_write: *const std::ffi::c_void,
         storage_delete: *const std::ffi::c_void,
@@ -5131,6 +5373,7 @@ mod io {
             signer_bytes,
             credential_identity,
             signer_public_key,
+            credential_bytes,
             storage_read,
             storage_write,
             storage_delete,
@@ -5148,6 +5391,7 @@ mod io {
         signer_public_key: *mut wire_cst_list_prim_u_8_loose,
         aad: *mut wire_cst_list_prim_u_8_strict,
         skip_lifetime_validation: bool,
+        credential_bytes: *mut wire_cst_list_prim_u_8_strict,
         storage_read: *const std::ffi::c_void,
         storage_write: *const std::ffi::c_void,
         storage_delete: *const std::ffi::c_void,
@@ -5162,6 +5406,7 @@ mod io {
             signer_public_key,
             aad,
             skip_lifetime_validation,
+            credential_bytes,
             storage_read,
             storage_write,
             storage_delete,
@@ -5472,6 +5717,8 @@ mod io {
         port_: i64,
         group_id_bytes: *mut wire_cst_list_prim_u_8_loose,
         signer_bytes: *mut wire_cst_list_prim_u_8_loose,
+        leaf_node_capabilities: *mut wire_cst_mls_capabilities,
+        leaf_node_extensions: *mut wire_cst_list_mls_extension,
         storage_read: *const std::ffi::c_void,
         storage_write: *const std::ffi::c_void,
         storage_delete: *const std::ffi::c_void,
@@ -5480,6 +5727,8 @@ mod io {
             port_,
             group_id_bytes,
             signer_bytes,
+            leaf_node_capabilities,
+            leaf_node_extensions,
             storage_read,
             storage_write,
             storage_delete,
@@ -5501,6 +5750,25 @@ mod io {
             group_id_bytes,
             signer_bytes,
             member_indices,
+            storage_read,
+            storage_write,
+            storage_delete,
+        )
+    }
+
+    #[unsafe(no_mangle)]
+    pub extern "C" fn frbgen_openmls_wire__crate__api__provider__remove_pending_proposal(
+        port_: i64,
+        group_id_bytes: *mut wire_cst_list_prim_u_8_loose,
+        proposal_ref_bytes: *mut wire_cst_list_prim_u_8_loose,
+        storage_read: *const std::ffi::c_void,
+        storage_write: *const std::ffi::c_void,
+        storage_delete: *const std::ffi::c_void,
+    ) {
+        wire__crate__api__provider__remove_pending_proposal_impl(
+            port_,
+            group_id_bytes,
+            proposal_ref_bytes,
             storage_read,
             storage_write,
             storage_delete,
@@ -5534,6 +5802,7 @@ mod io {
         new_signer_bytes: *mut wire_cst_list_prim_u_8_loose,
         new_credential_identity: *mut wire_cst_list_prim_u_8_loose,
         new_signer_public_key: *mut wire_cst_list_prim_u_8_loose,
+        new_credential_bytes: *mut wire_cst_list_prim_u_8_strict,
         storage_read: *const std::ffi::c_void,
         storage_write: *const std::ffi::c_void,
         storage_delete: *const std::ffi::c_void,
@@ -5545,6 +5814,7 @@ mod io {
             new_signer_bytes,
             new_credential_identity,
             new_signer_public_key,
+            new_credential_bytes,
             storage_read,
             storage_write,
             storage_delete,
@@ -5892,6 +6162,15 @@ mod io {
         aad: *mut wire_cst_list_prim_u_8_strict,
         create_group_info: bool,
         use_ratchet_tree_extension: bool,
+    }
+    #[repr(C)]
+    #[derive(Clone, Copy)]
+    pub struct wire_cst_group_configuration_result {
+        ciphersuite: i32,
+        wire_format_policy: i32,
+        padding_size: u32,
+        sender_ratchet_max_out_of_order: u32,
+        sender_ratchet_max_forward_distance: u32,
     }
     #[repr(C)]
     #[derive(Clone, Copy)]
@@ -6252,6 +6531,29 @@ mod web {
                 aad: self_.get(5).cst_decode(),
                 create_group_info: self_.get(6).cst_decode(),
                 use_ratchet_tree_extension: self_.get(7).cst_decode(),
+            }
+        }
+    }
+    impl CstDecode<crate::api::provider::GroupConfigurationResult>
+        for flutter_rust_bridge::for_generated::wasm_bindgen::JsValue
+    {
+        // Codec=Cst (C-struct based), see doc to use other codecs
+        fn cst_decode(self) -> crate::api::provider::GroupConfigurationResult {
+            let self_ = self
+                .dyn_into::<flutter_rust_bridge::for_generated::js_sys::Array>()
+                .unwrap();
+            assert_eq!(
+                self_.length(),
+                5,
+                "Expected 5 elements, got {}",
+                self_.length()
+            );
+            crate::api::provider::GroupConfigurationResult {
+                ciphersuite: self_.get(0).cst_decode(),
+                wire_format_policy: self_.get(1).cst_decode(),
+                padding_size: self_.get(2).cst_decode(),
+                sender_ratchet_max_out_of_order: self_.get(3).cst_decode(),
+                sender_ratchet_max_forward_distance: self_.get(4).cst_decode(),
             }
         }
     }
@@ -7081,6 +7383,7 @@ mod web {
         credential_identity: Box<[u8]>,
         signer_public_key: Box<[u8]>,
         group_id: Option<Box<[u8]>>,
+        credential_bytes: Option<Box<[u8]>>,
         storage_read: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
         storage_write: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
         storage_delete: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
@@ -7092,6 +7395,7 @@ mod web {
             credential_identity,
             signer_public_key,
             group_id,
+            credential_bytes,
             storage_read,
             storage_write,
             storage_delete,
@@ -7110,6 +7414,7 @@ mod web {
         group_context_extensions: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
         leaf_node_extensions: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
         capabilities: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
+        credential_bytes: Option<Box<[u8]>>,
         storage_read: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
         storage_write: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
         storage_delete: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
@@ -7125,6 +7430,7 @@ mod web {
             group_context_extensions,
             leaf_node_extensions,
             capabilities,
+            credential_bytes,
             storage_read,
             storage_write,
             storage_delete,
@@ -7138,6 +7444,7 @@ mod web {
         signer_bytes: Box<[u8]>,
         credential_identity: Box<[u8]>,
         signer_public_key: Box<[u8]>,
+        credential_bytes: Option<Box<[u8]>>,
         storage_read: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
         storage_write: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
         storage_delete: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
@@ -7148,6 +7455,7 @@ mod web {
             signer_bytes,
             credential_identity,
             signer_public_key,
+            credential_bytes,
             storage_read,
             storage_write,
             storage_delete,
@@ -7162,6 +7470,7 @@ mod web {
         credential_identity: Box<[u8]>,
         signer_public_key: Box<[u8]>,
         options: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
+        credential_bytes: Option<Box<[u8]>>,
         storage_read: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
         storage_write: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
         storage_delete: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
@@ -7173,6 +7482,7 @@ mod web {
             credential_identity,
             signer_public_key,
             options,
+            credential_bytes,
             storage_read,
             storage_write,
             storage_delete,
@@ -7196,6 +7506,40 @@ mod web {
             signer_bytes,
             message,
             aad,
+            storage_read,
+            storage_write,
+            storage_delete,
+        )
+    }
+
+    #[wasm_bindgen]
+    pub fn wire__crate__api__provider__delete_group(
+        port_: flutter_rust_bridge::for_generated::MessagePort,
+        group_id_bytes: Box<[u8]>,
+        storage_read: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
+        storage_write: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
+        storage_delete: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
+    ) {
+        wire__crate__api__provider__delete_group_impl(
+            port_,
+            group_id_bytes,
+            storage_read,
+            storage_write,
+            storage_delete,
+        )
+    }
+
+    #[wasm_bindgen]
+    pub fn wire__crate__api__provider__delete_key_package(
+        port_: flutter_rust_bridge::for_generated::MessagePort,
+        key_package_ref_bytes: Box<[u8]>,
+        storage_read: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
+        storage_write: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
+        storage_delete: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
+    ) {
+        wire__crate__api__provider__delete_key_package_impl(
+            port_,
+            key_package_ref_bytes,
             storage_read,
             storage_write,
             storage_delete,
@@ -7336,6 +7680,23 @@ mod web {
     }
 
     #[wasm_bindgen]
+    pub fn wire__crate__api__provider__group_configuration(
+        port_: flutter_rust_bridge::for_generated::MessagePort,
+        group_id_bytes: Box<[u8]>,
+        storage_read: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
+        storage_write: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
+        storage_delete: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
+    ) {
+        wire__crate__api__provider__group_configuration_impl(
+            port_,
+            group_id_bytes,
+            storage_read,
+            storage_write,
+            storage_delete,
+        )
+    }
+
+    #[wasm_bindgen]
     pub fn wire__crate__api__provider__group_confirmation_tag(
         port_: flutter_rust_bridge::for_generated::MessagePort,
         group_id_bytes: Box<[u8]>,
@@ -7378,6 +7739,23 @@ mod web {
         storage_delete: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
     ) {
         wire__crate__api__provider__group_epoch_impl(
+            port_,
+            group_id_bytes,
+            storage_read,
+            storage_write,
+            storage_delete,
+        )
+    }
+
+    #[wasm_bindgen]
+    pub fn wire__crate__api__provider__group_epoch_authenticator(
+        port_: flutter_rust_bridge::for_generated::MessagePort,
+        group_id_bytes: Box<[u8]>,
+        storage_read: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
+        storage_write: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
+        storage_delete: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
+    ) {
+        wire__crate__api__provider__group_epoch_authenticator_impl(
             port_,
             group_id_bytes,
             storage_read,
@@ -7601,6 +7979,7 @@ mod web {
         signer_bytes: Box<[u8]>,
         credential_identity: Box<[u8]>,
         signer_public_key: Box<[u8]>,
+        credential_bytes: Option<Box<[u8]>>,
         storage_read: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
         storage_write: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
         storage_delete: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
@@ -7613,6 +7992,7 @@ mod web {
             signer_bytes,
             credential_identity,
             signer_public_key,
+            credential_bytes,
             storage_read,
             storage_write,
             storage_delete,
@@ -7630,6 +8010,7 @@ mod web {
         signer_public_key: Box<[u8]>,
         aad: Option<Box<[u8]>>,
         skip_lifetime_validation: bool,
+        credential_bytes: Option<Box<[u8]>>,
         storage_read: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
         storage_write: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
         storage_delete: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
@@ -7644,6 +8025,7 @@ mod web {
             signer_public_key,
             aad,
             skip_lifetime_validation,
+            credential_bytes,
             storage_read,
             storage_write,
             storage_delete,
@@ -7954,6 +8336,8 @@ mod web {
         port_: flutter_rust_bridge::for_generated::MessagePort,
         group_id_bytes: Box<[u8]>,
         signer_bytes: Box<[u8]>,
+        leaf_node_capabilities: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
+        leaf_node_extensions: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
         storage_read: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
         storage_write: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
         storage_delete: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
@@ -7962,6 +8346,8 @@ mod web {
             port_,
             group_id_bytes,
             signer_bytes,
+            leaf_node_capabilities,
+            leaf_node_extensions,
             storage_read,
             storage_write,
             storage_delete,
@@ -7983,6 +8369,25 @@ mod web {
             group_id_bytes,
             signer_bytes,
             member_indices,
+            storage_read,
+            storage_write,
+            storage_delete,
+        )
+    }
+
+    #[wasm_bindgen]
+    pub fn wire__crate__api__provider__remove_pending_proposal(
+        port_: flutter_rust_bridge::for_generated::MessagePort,
+        group_id_bytes: Box<[u8]>,
+        proposal_ref_bytes: Box<[u8]>,
+        storage_read: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
+        storage_write: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
+        storage_delete: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
+    ) {
+        wire__crate__api__provider__remove_pending_proposal_impl(
+            port_,
+            group_id_bytes,
+            proposal_ref_bytes,
             storage_read,
             storage_write,
             storage_delete,
@@ -8016,6 +8421,7 @@ mod web {
         new_signer_bytes: Box<[u8]>,
         new_credential_identity: Box<[u8]>,
         new_signer_public_key: Box<[u8]>,
+        new_credential_bytes: Option<Box<[u8]>>,
         storage_read: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
         storage_write: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
         storage_delete: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
@@ -8027,6 +8433,7 @@ mod web {
             new_signer_bytes,
             new_credential_identity,
             new_signer_public_key,
+            new_credential_bytes,
             storage_read,
             storage_write,
             storage_delete,
