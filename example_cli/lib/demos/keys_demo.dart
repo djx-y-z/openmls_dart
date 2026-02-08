@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:openmls/openmls.dart';
 
@@ -65,6 +66,46 @@ Future<void> runKeysDemo() async {
   // 6. List supported ciphersuites
   final suites = supportedCiphersuites();
   printStep(6, 'Supported ciphersuites', [for (final s in suites) '- $s']);
+  print('');
+
+  // 7. Create key package with options (lifetime, last-resort)
+  final storage = InMemoryMlsStorage();
+  final client = MlsClient(storage);
+  final signerBytes = serializeSigner(
+    ciphersuite: ciphersuite,
+    privateKey: signer.privateKey(),
+    publicKey: signer.publicKey(),
+  );
+  final kpOptions = KeyPackageOptions(
+    lifetimeSeconds: BigInt.from(86400), // 1 day
+    lastResort: true,
+  );
+  final kpResult = await client.createKeyPackageWithOptions(
+    ciphersuite: ciphersuite,
+    signerBytes: signerBytes,
+    credentialIdentity: utf8.encode('alice'),
+    signerPublicKey: signer.publicKey(),
+    options: kpOptions,
+  );
+  printStep(7, 'Key package with options', [
+    'Lifetime: 86400 seconds (1 day)',
+    'Last resort: true',
+    'Key package size: ${kpResult.keyPackageBytes.length} bytes',
+  ]);
+  print('');
+
+  // 8. X.509 credential
+  final cert = Uint8List.fromList(utf8.encode('mock-x509-certificate'));
+  final x509Cred = MlsCredential.x509(certificateChain: [cert]);
+  final x509Serialized = x509Cred.serialize();
+  final x509Restored = MlsCredential.deserialize(bytes: x509Serialized);
+  final restoredCerts = x509Restored.certificates();
+  printStep(8, 'X.509 credential', [
+    'Credential type: ${x509Cred.credentialType()} (2 = X.509)',
+    'Certificate chain length: 1',
+    'Serialized size: ${x509Serialized.length} bytes',
+    'Round-trip match: ${utf8.decode(restoredCerts[0]) == utf8.decode(cert)}',
+  ]);
 
   // No dispose() needed - FRB handles memory automatically
 }

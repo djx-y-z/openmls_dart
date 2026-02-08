@@ -1,4 +1,6 @@
 import 'package:openmls/openmls.dart';
+import 'package:openmls_example_cli/demos/advanced_groups_demo.dart';
+import 'package:openmls_example_cli/demos/advanced_proposals_demo.dart';
 import 'package:openmls_example_cli/demos/groups_demo.dart';
 import 'package:openmls_example_cli/demos/keys_demo.dart';
 import 'package:openmls_example_cli/demos/proposals_demo.dart';
@@ -17,6 +19,8 @@ void main() async {
     await runGroupsDemo();
     await runStateDemo();
     await runProposalsDemo();
+    await runAdvancedGroupsDemo();
+    await runAdvancedProposalsDemo();
 
     print('');
     print('All demos completed successfully!');

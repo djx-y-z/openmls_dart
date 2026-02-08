@@ -141,6 +141,22 @@ Future<void> runGroupsDemo() async {
     'AAD: "$aadText"',
     'Decrypted: "${utf8.decode(aadProcessed.applicationMessage!)}"',
   ]);
+  print('');
+
+  // 9. processMessageWithInspect — inspect staged commit details
+  final updateResult = await aliceClient.selfUpdate(
+    groupIdBytes: groupId,
+    signerBytes: aliceSigner,
+  );
+  final inspected = await bobClient.processMessageWithInspect(
+    groupIdBytes: groupId,
+    messageBytes: updateResult.commit,
+  );
+  printStep(9, 'processMessageWithInspect', [
+    'Type: ${inspected.messageType}',
+    'Has staged commit info: ${inspected.stagedCommitInfo != null}',
+    'Self removed: ${inspected.stagedCommitInfo?.selfRemoved}',
+  ]);
 
   // No dispose() needed - FRB handles memory automatically
 }

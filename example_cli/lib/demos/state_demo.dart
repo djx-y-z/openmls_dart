@@ -145,6 +145,50 @@ Future<void> runStateDemo() async {
     'Leaf index: $bobIndex',
     'Identity: "${credentialName(bobMember!.credential)}"',
   ]);
+  print('');
+
+  // 11. groupId function
+  final queriedGroupId = await aliceClient.groupId(groupIdBytes: groupId);
+  printStep(11, 'groupId()', [
+    'Matches: ${bytesToHex(queriedGroupId) == bytesToHex(groupId)}',
+  ]);
+  print('');
+
+  // 12. Group extensions
+  final extensions = await aliceClient.groupExtensions(groupIdBytes: groupId);
+  printStep(12, 'Group extensions', [
+    'Extensions bytes size: ${extensions.length}',
+  ]);
+  print('');
+
+  // 13. Export ratchet tree
+  final ratchetTree = await aliceClient.exportRatchetTree(
+    groupIdBytes: groupId,
+  );
+  printStep(13, 'Export ratchet tree', [
+    'Ratchet tree size: ${ratchetTree.length} bytes',
+  ]);
+  print('');
+
+  // 14. Export group info
+  final groupInfo = await aliceClient.exportGroupInfo(
+    groupIdBytes: groupId,
+    signerBytes: aliceSigner,
+  );
+  printStep(14, 'Export group info', [
+    'Group info size: ${groupInfo.length} bytes',
+  ]);
+  print('');
+
+  // 15. Past resumption PSK
+  final psk = await aliceClient.getPastResumptionPsk(
+    groupIdBytes: groupId,
+    epoch: BigInt.zero,
+  );
+  printStep(15, 'Past resumption PSK (epoch 0)', [
+    'PSK size: ${psk!.length} bytes',
+    'PSK: ${bytesToHex(psk, maxLength: 32)}',
+  ]);
 
   // No dispose() needed - FRB handles memory automatically
 }
