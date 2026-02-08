@@ -16,6 +16,8 @@
 - **MlsClient**: Convenience wrapper injecting storage callbacks into every API call
 - **MlsStorage**: Abstract key-value interface for pluggable persistence (SQLite, Hive, etc.)
 - **InMemoryMlsStorage**: In-memory implementation for testing and prototyping
+- **SecureBytes**: Wrapper for sensitive byte data with automatic zeroing on disposal
+- **SecureUint8List**: Extension with `zeroize()` method for manual zeroing of `Uint8List`
 - Cross-platform support: Android, iOS, macOS, Linux, Windows, Web (WASM)
 - Automatic native library download via Dart Build Hooks
 - SHA256 checksum verification for supply chain security

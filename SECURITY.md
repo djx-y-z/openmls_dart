@@ -113,6 +113,41 @@ These concerns are handled automatically by the architecture:
 | Cryptographic operations | OpenMLS + RustCrypto |
 | Key zeroization | Rust (zeroize crate) |
 
+## Zeroing Sensitive Data
+
+### SecureBytes wrapper (automatic zeroing)
+
+```dart
+// Wrap takes ownership - no extra copy
+final secureData = SecureBytes.wrap(sensitiveBytes);
+try {
+  // ... use secureData.bytes ...
+} finally {
+  secureData.dispose(); // Immediate zeroing (recommended)
+}
+
+// Copy constructor - original NOT zeroed (caller responsible)
+final secureCopy = SecureBytes(sensitiveBytes);
+sensitiveBytes.zeroize(); // Zero the original yourself
+```
+
+### Manual zeroing extension
+
+```dart
+final sensitiveList = Uint8List.fromList([...]);
+try {
+  // ... use sensitiveList ...
+} finally {
+  sensitiveList.zeroize(); // Zero all bytes
+}
+```
+
+### Limitations
+
+- Dart's garbage collector may copy data before zeroing occurs
+- These utilities provide defence-in-depth, not absolute security guarantees
+- For critical secrets, prefer keeping them in Rust (opaque types with `zeroize` crate)
+
 ## Known Limitations
 
 1. **Dart VM memory:** Dart's garbage collector may copy data before Rust can zero it. This is a platform limitation. OpenMLS uses the `zeroize` crate for sensitive data on the Rust side.
@@ -131,6 +166,7 @@ When reviewing code changes, verify:
 - [ ] Store operations properly secured (encryption at rest)
 - [ ] Error handling doesn't leak sensitive information
 - [ ] MLS protocol messages processed in order
+- [ ] Sensitive data in Dart uses `SecureBytes` or `.zeroize()` extension
 - [ ] No hardcoded keys or secrets
 
 ## Upstream Security

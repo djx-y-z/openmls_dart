@@ -206,6 +206,7 @@ make help
 - Keep the library updated to the latest version
 - Use a persistent `MlsStorage` implementation in production (not `InMemoryMlsStorage`)
 - Never log or expose serialized key material (`signer.serialize()`, private keys)
+- Use `SecureBytes.wrap()` or `.zeroize()` for sensitive data (serialized keys, shared secrets) — see [SECURITY.md](SECURITY.md)
 - Process MLS messages in order to maintain group state consistency
 
 See [SECURITY.md](SECURITY.md) for full security guidelines.
