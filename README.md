@@ -13,16 +13,51 @@ Dart bindings for [OpenMLS](https://github.com/openmls/openmls), providing a Rus
 
 |             | Android | iOS   | macOS  | Linux      | Windows | Web |
 |-------------|---------|-------|--------|------------|---------|-----|
-| **Support** | SDK 24+ | 12.0+ | 10.14+ | arm64, x64 | x64     | ✓   |
+| **Support** | SDK 24+ | 12.0+ | 10.14+ | arm64, x64 | x64     | WASM |
 | **Arch**    | arm64, armv7, x64 | arm64 | arm64, x64 | arm64, x64 | x64 | wasm32 |
 
 ## Features
 
-- **Flutter & CLI Support**: Works with Flutter apps and standalone Dart CLI applications
 - **MLS Protocol (RFC 9420)**: Secure group messaging with forward secrecy and post-compromise security
 - **Group Key Agreement**: Efficient tree-based group key agreement (TreeKEM)
+- **Pluggable Storage**: Bring your own database via the `MlsStorage` interface (SQLite, Hive, etc.)
+- **Basic & X.509 Credentials**: Support for both credential types
+- **Flutter & CLI Support**: Works with Flutter apps and standalone Dart CLI applications
 - **Automatic Builds**: Native libraries downloaded automatically via build hooks
 - **High Performance**: Direct Rust integration via Flutter Rust Bridge
+
+## Implementation Status
+
+| Category | Status | Description |
+|----------|:------:|-------------|
+| Group Lifecycle | Done | Create, join (Welcome, external commit), leave, inspect |
+| Member Management | Done | Add, remove, swap members |
+| Messaging | Done | Encrypt/decrypt application messages with AAD |
+| Proposals | Done | Add, remove, self-update, PSK, custom, group context extensions |
+| Commits | Done | Pending proposals, flexible commit, merge/clear |
+| Key Packages | Done | Create with options (lifetime, last-resort) |
+| Credentials | Done | Basic and X.509 credential types |
+| State Queries | Done | Members, epoch, extensions, ratchet tree, group info, PSK export |
+| Storage | Done | Pluggable KV storage via `MlsStorage` interface |
+
+<details>
+<summary>Full API reference (56 functions)</summary>
+
+**Key Packages**: `createKeyPackage`, `createKeyPackageWithOptions`
+
+**Group Lifecycle**: `createGroup`, `createGroupWithBuilder`, `joinGroupFromWelcome`, `joinGroupFromWelcomeWithOptions`, `inspectWelcome`, `joinGroupExternalCommit`, `joinGroupExternalCommitV2`
+
+**State Queries**: `groupId`, `groupEpoch`, `groupIsActive`, `groupMembers`, `groupCiphersuite`, `groupOwnIndex`, `groupCredential`, `groupExtensions`, `groupPendingProposals`, `groupHasPendingProposals`, `groupMemberAt`, `groupMemberLeafIndex`, `groupOwnLeafNode`, `groupConfirmationTag`, `exportRatchetTree`, `exportGroupInfo`, `exportSecret`, `exportGroupContext`, `getPastResumptionPsk`
+
+**Mutations**: `addMembers`, `addMembersWithoutUpdate`, `removeMembers`, `selfUpdate`, `selfUpdateWithNewSigner`, `swapMembers`, `leaveGroup`, `leaveGroupViaSelfRemove`
+
+**Proposals**: `proposeAdd`, `proposeRemove`, `proposeSelfUpdate`, `proposeExternalPsk`, `proposeGroupContextExtensions`, `proposeCustomProposal`, `proposeRemoveMemberByCredential`
+
+**Commit/Merge**: `commitToPendingProposals`, `mergePendingCommit`, `clearPendingCommit`, `clearPendingProposals`, `setConfiguration`, `updateGroupContextExtensions`, `flexibleCommit`
+
+**Messages**: `createMessage`, `processMessage`, `processMessageWithInspect`, `mlsMessageExtractGroupId`, `mlsMessageExtractEpoch`, `mlsMessageContentType`
+
+</details>
 
 ## Installation
 
@@ -40,14 +75,68 @@ Native libraries are downloaded automatically during build via Dart build hooks.
 ## Usage
 
 ```dart
+import 'dart:convert';
 import 'package:openmls/openmls.dart';
 
 void main() async {
   // Initialize the library
-  await OpenMls.init();
+  await Openmls.init();
 
-  // TODO: Add MLS group messaging example
+  // Create client with in-memory storage (use SQLite/Hive in production)
+  final storage = InMemoryMlsStorage();
+  final client = MlsClient(storage);
+
+  // Generate signing key pair
+  final ciphersuite = MlsCiphersuite.mls128DhkemX25519Aes128GcmSha256Ed25519;
+  final keyPair = MlsSignatureKeyPair.generate(ciphersuite: ciphersuite);
+  final signerBytes = serializeSigner(
+    ciphersuite: ciphersuite,
+    privateKey: keyPair.privateKey(),
+    publicKey: keyPair.publicKey(),
+  );
+
+  // Create a group
+  final config = MlsGroupConfig.defaultConfig(ciphersuite: ciphersuite);
+  final group = await client.createGroup(
+    config: config,
+    signerBytes: signerBytes,
+    credentialIdentity: utf8.encode('alice'),
+    signerPublicKey: keyPair.publicKey(),
+  );
+  print('Created group: ${group.groupId}');
+
+  // Clean up
+  Openmls.cleanup();
 }
+```
+
+## Storage
+
+All MLS state (groups, key packages, secrets) is persisted through the `MlsStorage` interface:
+
+```dart
+abstract class MlsStorage {
+  FutureOr<Uint8List?> read(Uint8List key);
+  FutureOr<void> write(Uint8List key, Uint8List value);
+  FutureOr<void> delete(Uint8List key);
+}
+```
+
+Keys and values are opaque byte arrays managed internally by OpenMLS. Implement this interface with any backend:
+
+- **`InMemoryMlsStorage`** - included, for testing and prototyping
+- **SQLite** - for production mobile/desktop apps
+- **Hive** - for lightweight persistent storage
+
+Wrap your storage in `MlsClient` to inject it into every API call automatically:
+
+```dart
+final storage = InMemoryMlsStorage(); // or your custom implementation
+final client = MlsClient(storage);
+
+// All operations use your storage backend
+final group = await client.createGroup(...);
+await client.addMembers(...);
 ```
 
 ## Building from Source
@@ -93,15 +182,33 @@ make help
 
 ```
 ┌─────────────────────────────────────────────────┐
-│          OpenMLS (Rust crate)                    │  ← Core MLS implementation
+│          OpenMLS (Rust crate)                    │  Core MLS implementation
 ├─────────────────────────────────────────────────┤
-│       rust/src/api/*.rs (Rust wrappers)         │  ← FRB-annotated functions
+│       rust/src/api/*.rs (Rust wrappers)         │  FRB-annotated functions
 ├─────────────────────────────────────────────────┤
-│      lib/src/rust/*.dart (FRB generated)        │  ← Auto-generated Dart API
+│      lib/src/rust/*.dart (FRB generated)        │  Auto-generated Dart API
 ├─────────────────────────────────────────────────┤
-│           Your Dart application code            │  ← Uses the API
+│    MlsClient + MlsStorage (lib/src/)            │  Convenience wrapper
+├─────────────────────────────────────────────────┤
+│           Your Dart application code            │  Uses MlsClient
 └─────────────────────────────────────────────────┘
 ```
+
+## Security Notes
+
+**Key Properties:**
+- **MLS Protocol (RFC 9420)** - Standardized group key agreement with forward secrecy and post-compromise security
+- **Rust Implementation** - All cryptographic operations run in Rust (OpenMLS with RustCrypto backend)
+- **Memory Safety** - Rust's ownership model prevents memory-related vulnerabilities
+- **No `unsafe` code** in the wrapper layer
+
+**Best Practices:**
+- Keep the library updated to the latest version
+- Use a persistent `MlsStorage` implementation in production (not `InMemoryMlsStorage`)
+- Never log or expose serialized key material (`signer.serialize()`, private keys)
+- Process MLS messages in order to maintain group state consistency
+
+See [SECURITY.md](SECURITY.md) for full security guidelines.
 
 ## Acknowledgements
 
@@ -109,7 +216,9 @@ This library would not be possible without [OpenMLS](https://github.com/openmls/
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+Contributions are welcome! Please read our [Contributing Guidelines](CONTRIBUTING.md) before submitting issues or pull requests.
+
+For major changes, please open an issue first to discuss what you would like to change.
 
 ## Security
 
