@@ -172,7 +172,10 @@ class Openmls {
 /// Base mixin for openmls operations.
 mixin OpenmlsBase {
   /// Ensures the library is initialized.
+  // coverage:ignore-start
   static void ensureInit() {
     Openmls.ensureInitialized();
   }
+
+  // coverage:ignore-end
 }

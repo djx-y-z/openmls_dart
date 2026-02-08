@@ -39,6 +39,7 @@ ExternalLibrary? tryLoadNativeAsset(String assetId) {
 
   // 2. Try AOT mode location: ../lib/ relative to executable
   // In AOT mode (dart build cli), library is in bundle/lib/
+  // coverage:ignore-start
   try {
     final executableDir = File(Platform.resolvedExecutable).parent.path;
     final aotLibPath = '$executableDir/../lib/$libraryName';
@@ -46,14 +47,17 @@ ExternalLibrary? tryLoadNativeAsset(String assetId) {
       return ExternalLibrary.open(File(aotLibPath).absolute.path);
     }
   } catch (_) {}
+  // coverage:ignore-end
 
   return null;
 }
 
 /// Load library from a file path.
+// coverage:ignore-start
 ExternalLibrary openLibraryFromPath(String path) {
   return ExternalLibrary.open(path);
 }
+// coverage:ignore-end
 
 /// Get the platform-specific library name.
 String getLibraryName() {

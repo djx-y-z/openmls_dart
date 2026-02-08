@@ -3,7 +3,12 @@
 
 // ignore_for_file: unused_import, unused_element, unnecessary_import, duplicate_ignore, invalid_use_of_internal_member, annotate_overrides, non_constant_identifier_names, curly_braces_in_flow_control_structures, prefer_const_literals_to_create_immutables, unused_field
 
+import 'api/config.dart';
+import 'api/credential.dart';
 import 'api/init.dart';
+import 'api/keys.dart';
+import 'api/provider.dart';
+import 'api/types.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'frb_generated.dart';
@@ -64,7 +69,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.11.1';
 
   @override
-  int get rustContentHash => 2068206792;
+  int get rustContentHash => -739348474;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -75,9 +80,575 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
 }
 
 abstract class RustLibApi extends BaseApi {
+  MlsCredential crateApiCredentialMlsCredentialBasic({
+    required List<int> identity,
+  });
+
+  List<Uint8List> crateApiCredentialMlsCredentialCertificates({
+    required MlsCredential that,
+  });
+
+  int crateApiCredentialMlsCredentialCredentialType({
+    required MlsCredential that,
+  });
+
+  MlsCredential crateApiCredentialMlsCredentialDeserialize({
+    required List<int> bytes,
+  });
+
+  Uint8List crateApiCredentialMlsCredentialIdentity({
+    required MlsCredential that,
+  });
+
+  Uint8List crateApiCredentialMlsCredentialSerialize({
+    required MlsCredential that,
+  });
+
+  Uint8List crateApiCredentialMlsCredentialSerializedContent({
+    required MlsCredential that,
+  });
+
+  MlsCredential crateApiCredentialMlsCredentialX509({
+    required List<Uint8List> certificateChain,
+  });
+
+  MlsSignatureKeyPair crateApiKeysMlsSignatureKeyPairDeserializePublic({
+    required List<int> bytes,
+  });
+
+  MlsSignatureKeyPair crateApiKeysMlsSignatureKeyPairFromRaw({
+    required MlsCiphersuite ciphersuite,
+    required List<int> privateKey,
+    required List<int> publicKey,
+  });
+
+  MlsSignatureKeyPair crateApiKeysMlsSignatureKeyPairGenerate({
+    required MlsCiphersuite ciphersuite,
+  });
+
+  Uint8List crateApiKeysMlsSignatureKeyPairPrivateKey({
+    required MlsSignatureKeyPair that,
+  });
+
+  Uint8List crateApiKeysMlsSignatureKeyPairPublicKey({
+    required MlsSignatureKeyPair that,
+  });
+
+  Uint8List crateApiKeysMlsSignatureKeyPairSerialize({
+    required MlsSignatureKeyPair that,
+  });
+
+  int crateApiKeysMlsSignatureKeyPairSignatureScheme({
+    required MlsSignatureKeyPair that,
+  });
+
+  Future<AddMembersProviderResult> crateApiProviderAddMembers({
+    required List<int> groupIdBytes,
+    required List<int> signerBytes,
+    required List<Uint8List> keyPackagesBytes,
+    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+    required FutureOr<void> Function(Uint8List) storageDelete,
+  });
+
+  Future<AddMembersProviderResult> crateApiProviderAddMembersWithoutUpdate({
+    required List<int> groupIdBytes,
+    required List<int> signerBytes,
+    required List<Uint8List> keyPackagesBytes,
+    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+    required FutureOr<void> Function(Uint8List) storageDelete,
+  });
+
+  Future<void> crateApiProviderClearPendingCommit({
+    required List<int> groupIdBytes,
+    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+    required FutureOr<void> Function(Uint8List) storageDelete,
+  });
+
+  Future<void> crateApiProviderClearPendingProposals({
+    required List<int> groupIdBytes,
+    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+    required FutureOr<void> Function(Uint8List) storageDelete,
+  });
+
+  Future<CommitProviderResult> crateApiProviderCommitToPendingProposals({
+    required List<int> groupIdBytes,
+    required List<int> signerBytes,
+    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+    required FutureOr<void> Function(Uint8List) storageDelete,
+  });
+
+  Future<CreateGroupProviderResult> crateApiProviderCreateGroup({
+    required MlsGroupConfig config,
+    required List<int> signerBytes,
+    required List<int> credentialIdentity,
+    required List<int> signerPublicKey,
+    Uint8List? groupId,
+    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+    required FutureOr<void> Function(Uint8List) storageDelete,
+  });
+
+  Future<CreateGroupProviderResult> crateApiProviderCreateGroupWithBuilder({
+    required MlsGroupConfig config,
+    required List<int> signerBytes,
+    required List<int> credentialIdentity,
+    required List<int> signerPublicKey,
+    Uint8List? groupId,
+    BigInt? lifetimeSeconds,
+    List<MlsExtension>? groupContextExtensions,
+    List<MlsExtension>? leafNodeExtensions,
+    MlsCapabilities? capabilities,
+    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+    required FutureOr<void> Function(Uint8List) storageDelete,
+  });
+
+  Future<KeyPackageProviderResult> crateApiProviderCreateKeyPackage({
+    required MlsCiphersuite ciphersuite,
+    required List<int> signerBytes,
+    required List<int> credentialIdentity,
+    required List<int> signerPublicKey,
+    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+    required FutureOr<void> Function(Uint8List) storageDelete,
+  });
+
+  Future<KeyPackageProviderResult> crateApiProviderCreateKeyPackageWithOptions({
+    required MlsCiphersuite ciphersuite,
+    required List<int> signerBytes,
+    required List<int> credentialIdentity,
+    required List<int> signerPublicKey,
+    required KeyPackageOptions options,
+    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+    required FutureOr<void> Function(Uint8List) storageDelete,
+  });
+
+  Future<CreateMessageProviderResult> crateApiProviderCreateMessage({
+    required List<int> groupIdBytes,
+    required List<int> signerBytes,
+    required List<int> message,
+    Uint8List? aad,
+    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+    required FutureOr<void> Function(Uint8List) storageDelete,
+  });
+
+  Future<MlsGroupContextInfo> crateApiProviderExportGroupContext({
+    required List<int> groupIdBytes,
+    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+    required FutureOr<void> Function(Uint8List) storageDelete,
+  });
+
+  Future<Uint8List> crateApiProviderExportGroupInfo({
+    required List<int> groupIdBytes,
+    required List<int> signerBytes,
+    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+    required FutureOr<void> Function(Uint8List) storageDelete,
+  });
+
+  Future<Uint8List> crateApiProviderExportRatchetTree({
+    required List<int> groupIdBytes,
+    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+    required FutureOr<void> Function(Uint8List) storageDelete,
+  });
+
+  Future<Uint8List> crateApiProviderExportSecret({
+    required List<int> groupIdBytes,
+    required String label,
+    required List<int> context,
+    required int keyLength,
+    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+    required FutureOr<void> Function(Uint8List) storageDelete,
+  });
+
+  Future<CommitProviderResult> crateApiProviderFlexibleCommit({
+    required List<int> groupIdBytes,
+    required List<int> signerBytes,
+    required FlexibleCommitOptions options,
+    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+    required FutureOr<void> Function(Uint8List) storageDelete,
+  });
+
+  Future<Uint8List?> crateApiProviderGetPastResumptionPsk({
+    required List<int> groupIdBytes,
+    required BigInt epoch,
+    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+    required FutureOr<void> Function(Uint8List) storageDelete,
+  });
+
+  Future<MlsCiphersuite> crateApiProviderGroupCiphersuite({
+    required List<int> groupIdBytes,
+    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+    required FutureOr<void> Function(Uint8List) storageDelete,
+  });
+
+  Future<Uint8List> crateApiProviderGroupConfirmationTag({
+    required List<int> groupIdBytes,
+    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+    required FutureOr<void> Function(Uint8List) storageDelete,
+  });
+
+  Future<Uint8List> crateApiProviderGroupCredential({
+    required List<int> groupIdBytes,
+    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+    required FutureOr<void> Function(Uint8List) storageDelete,
+  });
+
+  Future<BigInt> crateApiProviderGroupEpoch({
+    required List<int> groupIdBytes,
+    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+    required FutureOr<void> Function(Uint8List) storageDelete,
+  });
+
+  Future<Uint8List> crateApiProviderGroupExtensions({
+    required List<int> groupIdBytes,
+    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+    required FutureOr<void> Function(Uint8List) storageDelete,
+  });
+
+  Future<bool> crateApiProviderGroupHasPendingProposals({
+    required List<int> groupIdBytes,
+    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+    required FutureOr<void> Function(Uint8List) storageDelete,
+  });
+
+  Future<Uint8List> crateApiProviderGroupId({
+    required List<int> groupIdBytes,
+    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+    required FutureOr<void> Function(Uint8List) storageDelete,
+  });
+
+  Future<bool> crateApiProviderGroupIsActive({
+    required List<int> groupIdBytes,
+    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+    required FutureOr<void> Function(Uint8List) storageDelete,
+  });
+
+  Future<MlsMemberInfo?> crateApiProviderGroupMemberAt({
+    required List<int> groupIdBytes,
+    required int leafIndex,
+    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+    required FutureOr<void> Function(Uint8List) storageDelete,
+  });
+
+  Future<int?> crateApiProviderGroupMemberLeafIndex({
+    required List<int> groupIdBytes,
+    required List<int> credentialIdentity,
+    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+    required FutureOr<void> Function(Uint8List) storageDelete,
+  });
+
+  Future<List<MlsMemberInfo>> crateApiProviderGroupMembers({
+    required List<int> groupIdBytes,
+    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+    required FutureOr<void> Function(Uint8List) storageDelete,
+  });
+
+  Future<int> crateApiProviderGroupOwnIndex({
+    required List<int> groupIdBytes,
+    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+    required FutureOr<void> Function(Uint8List) storageDelete,
+  });
+
+  Future<MlsLeafNodeInfo> crateApiProviderGroupOwnLeafNode({
+    required List<int> groupIdBytes,
+    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+    required FutureOr<void> Function(Uint8List) storageDelete,
+  });
+
+  Future<List<MlsPendingProposalInfo>> crateApiProviderGroupPendingProposals({
+    required List<int> groupIdBytes,
+    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+    required FutureOr<void> Function(Uint8List) storageDelete,
+  });
+
   void crateApiInitInitOpenmls({required String libraryPath});
 
+  Future<WelcomeInspectResult> crateApiProviderInspectWelcome({
+    required MlsGroupConfig config,
+    required List<int> welcomeBytes,
+    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+    required FutureOr<void> Function(Uint8List) storageDelete,
+  });
+
   bool crateApiInitIsOpenmlsInitialized();
+
+  Future<ExternalJoinProviderResult> crateApiProviderJoinGroupExternalCommit({
+    required MlsGroupConfig config,
+    required List<int> groupInfoBytes,
+    Uint8List? ratchetTreeBytes,
+    required List<int> signerBytes,
+    required List<int> credentialIdentity,
+    required List<int> signerPublicKey,
+    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+    required FutureOr<void> Function(Uint8List) storageDelete,
+  });
+
+  Future<ExternalJoinProviderResult> crateApiProviderJoinGroupExternalCommitV2({
+    required MlsGroupConfig config,
+    required List<int> groupInfoBytes,
+    Uint8List? ratchetTreeBytes,
+    required List<int> signerBytes,
+    required List<int> credentialIdentity,
+    required List<int> signerPublicKey,
+    Uint8List? aad,
+    required bool skipLifetimeValidation,
+    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+    required FutureOr<void> Function(Uint8List) storageDelete,
+  });
+
+  Future<JoinGroupProviderResult> crateApiProviderJoinGroupFromWelcome({
+    required MlsGroupConfig config,
+    required List<int> welcomeBytes,
+    Uint8List? ratchetTreeBytes,
+    required List<int> signerBytes,
+    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+    required FutureOr<void> Function(Uint8List) storageDelete,
+  });
+
+  Future<JoinGroupProviderResult>
+  crateApiProviderJoinGroupFromWelcomeWithOptions({
+    required MlsGroupConfig config,
+    required List<int> welcomeBytes,
+    Uint8List? ratchetTreeBytes,
+    required List<int> signerBytes,
+    required bool skipLifetimeValidation,
+    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+    required FutureOr<void> Function(Uint8List) storageDelete,
+  });
+
+  Future<LeaveGroupProviderResult> crateApiProviderLeaveGroup({
+    required List<int> groupIdBytes,
+    required List<int> signerBytes,
+    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+    required FutureOr<void> Function(Uint8List) storageDelete,
+  });
+
+  Future<LeaveGroupProviderResult> crateApiProviderLeaveGroupViaSelfRemove({
+    required List<int> groupIdBytes,
+    required List<int> signerBytes,
+    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+    required FutureOr<void> Function(Uint8List) storageDelete,
+  });
+
+  Future<void> crateApiProviderMergePendingCommit({
+    required List<int> groupIdBytes,
+    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+    required FutureOr<void> Function(Uint8List) storageDelete,
+  });
+
+  MlsGroupConfig crateApiConfigMlsGroupConfigDefaultConfig({
+    required MlsCiphersuite ciphersuite,
+  });
+
+  String crateApiProviderMlsMessageContentType({
+    required List<int> messageBytes,
+  });
+
+  BigInt crateApiProviderMlsMessageExtractEpoch({
+    required List<int> messageBytes,
+  });
+
+  Uint8List crateApiProviderMlsMessageExtractGroupId({
+    required List<int> messageBytes,
+  });
+
+  Future<ProcessedMessageProviderResult> crateApiProviderProcessMessage({
+    required List<int> groupIdBytes,
+    required List<int> messageBytes,
+    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+    required FutureOr<void> Function(Uint8List) storageDelete,
+  });
+
+  Future<ProcessedMessageInspectProviderResult>
+  crateApiProviderProcessMessageWithInspect({
+    required List<int> groupIdBytes,
+    required List<int> messageBytes,
+    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+    required FutureOr<void> Function(Uint8List) storageDelete,
+  });
+
+  Future<ProposalProviderResult> crateApiProviderProposeAdd({
+    required List<int> groupIdBytes,
+    required List<int> signerBytes,
+    required List<int> keyPackageBytes,
+    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+    required FutureOr<void> Function(Uint8List) storageDelete,
+  });
+
+  Future<ProposalProviderResult> crateApiProviderProposeCustomProposal({
+    required List<int> groupIdBytes,
+    required List<int> signerBytes,
+    required int proposalType,
+    required List<int> payload,
+    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+    required FutureOr<void> Function(Uint8List) storageDelete,
+  });
+
+  Future<ProposalProviderResult> crateApiProviderProposeExternalPsk({
+    required List<int> groupIdBytes,
+    required List<int> signerBytes,
+    required List<int> pskId,
+    required List<int> pskNonce,
+    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+    required FutureOr<void> Function(Uint8List) storageDelete,
+  });
+
+  Future<ProposalProviderResult> crateApiProviderProposeGroupContextExtensions({
+    required List<int> groupIdBytes,
+    required List<int> signerBytes,
+    required List<MlsExtension> extensions,
+    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+    required FutureOr<void> Function(Uint8List) storageDelete,
+  });
+
+  Future<ProposalProviderResult> crateApiProviderProposeRemove({
+    required List<int> groupIdBytes,
+    required List<int> signerBytes,
+    required int memberIndex,
+    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+    required FutureOr<void> Function(Uint8List) storageDelete,
+  });
+
+  Future<ProposalProviderResult>
+  crateApiProviderProposeRemoveMemberByCredential({
+    required List<int> groupIdBytes,
+    required List<int> signerBytes,
+    required List<int> credentialIdentity,
+    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+    required FutureOr<void> Function(Uint8List) storageDelete,
+  });
+
+  Future<ProposalProviderResult> crateApiProviderProposeSelfUpdate({
+    required List<int> groupIdBytes,
+    required List<int> signerBytes,
+    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+    required FutureOr<void> Function(Uint8List) storageDelete,
+  });
+
+  Future<CommitProviderResult> crateApiProviderRemoveMembers({
+    required List<int> groupIdBytes,
+    required List<int> signerBytes,
+    required List<int> memberIndices,
+    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+    required FutureOr<void> Function(Uint8List) storageDelete,
+  });
+
+  Future<CommitProviderResult> crateApiProviderSelfUpdate({
+    required List<int> groupIdBytes,
+    required List<int> signerBytes,
+    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+    required FutureOr<void> Function(Uint8List) storageDelete,
+  });
+
+  Future<CommitProviderResult> crateApiProviderSelfUpdateWithNewSigner({
+    required List<int> groupIdBytes,
+    required List<int> oldSignerBytes,
+    required List<int> newSignerBytes,
+    required List<int> newCredentialIdentity,
+    required List<int> newSignerPublicKey,
+    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+    required FutureOr<void> Function(Uint8List) storageDelete,
+  });
+
+  Uint8List crateApiKeysSerializeSigner({
+    required MlsCiphersuite ciphersuite,
+    required List<int> privateKey,
+    required List<int> publicKey,
+  });
+
+  Future<void> crateApiProviderSetConfiguration({
+    required List<int> groupIdBytes,
+    required MlsGroupConfig config,
+    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+    required FutureOr<void> Function(Uint8List) storageDelete,
+  });
+
+  List<MlsCiphersuite> crateApiTypesSupportedCiphersuites();
+
+  Future<AddMembersProviderResult> crateApiProviderSwapMembers({
+    required List<int> groupIdBytes,
+    required List<int> signerBytes,
+    required List<int> removeIndices,
+    required List<Uint8List> addKeyPackagesBytes,
+    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+    required FutureOr<void> Function(Uint8List) storageDelete,
+  });
+
+  Future<CommitProviderResult> crateApiProviderUpdateGroupContextExtensions({
+    required List<int> groupIdBytes,
+    required List<int> signerBytes,
+    required List<MlsExtension> extensions,
+    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+    required FutureOr<void> Function(Uint8List) storageDelete,
+  });
+
+  RustArcIncrementStrongCountFnType
+  get rust_arc_increment_strong_count_MlsCredential;
+
+  RustArcDecrementStrongCountFnType
+  get rust_arc_decrement_strong_count_MlsCredential;
+
+  CrossPlatformFinalizerArg
+  get rust_arc_decrement_strong_count_MlsCredentialPtr;
+
+  RustArcIncrementStrongCountFnType
+  get rust_arc_increment_strong_count_MlsSignatureKeyPair;
+
+  RustArcDecrementStrongCountFnType
+  get rust_arc_decrement_strong_count_MlsSignatureKeyPair;
+
+  CrossPlatformFinalizerArg
+  get rust_arc_decrement_strong_count_MlsSignatureKeyPairPtr;
 }
 
 class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
@@ -87,6 +658,2310 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     required super.generalizedFrbRustBinding,
     required super.portManager,
   });
+
+  @override
+  MlsCredential crateApiCredentialMlsCredentialBasic({
+    required List<int> identity,
+  }) {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          var arg0 = cst_encode_list_prim_u_8_loose(identity);
+          return wire.wire__crate__api__credential__MlsCredential_basic(arg0);
+        },
+        codec: DcoCodec(
+          decodeSuccessData:
+              dco_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsCredential,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiCredentialMlsCredentialBasicConstMeta,
+        argValues: [identity],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiCredentialMlsCredentialBasicConstMeta =>
+      const TaskConstMeta(
+        debugName: "MlsCredential_basic",
+        argNames: ["identity"],
+      );
+
+  @override
+  List<Uint8List> crateApiCredentialMlsCredentialCertificates({
+    required MlsCredential that,
+  }) {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          var arg0 =
+              cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsCredential(
+                that,
+              );
+          return wire.wire__crate__api__credential__MlsCredential_certificates(
+            arg0,
+          );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_list_list_prim_u_8_strict,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiCredentialMlsCredentialCertificatesConstMeta,
+        argValues: [that],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiCredentialMlsCredentialCertificatesConstMeta =>
+      const TaskConstMeta(
+        debugName: "MlsCredential_certificates",
+        argNames: ["that"],
+      );
+
+  @override
+  int crateApiCredentialMlsCredentialCredentialType({
+    required MlsCredential that,
+  }) {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          var arg0 =
+              cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsCredential(
+                that,
+              );
+          return wire
+              .wire__crate__api__credential__MlsCredential_credential_type(
+                arg0,
+              );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_u_16,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiCredentialMlsCredentialCredentialTypeConstMeta,
+        argValues: [that],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiCredentialMlsCredentialCredentialTypeConstMeta =>
+      const TaskConstMeta(
+        debugName: "MlsCredential_credential_type",
+        argNames: ["that"],
+      );
+
+  @override
+  MlsCredential crateApiCredentialMlsCredentialDeserialize({
+    required List<int> bytes,
+  }) {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          var arg0 = cst_encode_list_prim_u_8_loose(bytes);
+          return wire.wire__crate__api__credential__MlsCredential_deserialize(
+            arg0,
+          );
+        },
+        codec: DcoCodec(
+          decodeSuccessData:
+              dco_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsCredential,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiCredentialMlsCredentialDeserializeConstMeta,
+        argValues: [bytes],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiCredentialMlsCredentialDeserializeConstMeta =>
+      const TaskConstMeta(
+        debugName: "MlsCredential_deserialize",
+        argNames: ["bytes"],
+      );
+
+  @override
+  Uint8List crateApiCredentialMlsCredentialIdentity({
+    required MlsCredential that,
+  }) {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          var arg0 =
+              cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsCredential(
+                that,
+              );
+          return wire.wire__crate__api__credential__MlsCredential_identity(
+            arg0,
+          );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_list_prim_u_8_strict,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiCredentialMlsCredentialIdentityConstMeta,
+        argValues: [that],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiCredentialMlsCredentialIdentityConstMeta =>
+      const TaskConstMeta(
+        debugName: "MlsCredential_identity",
+        argNames: ["that"],
+      );
+
+  @override
+  Uint8List crateApiCredentialMlsCredentialSerialize({
+    required MlsCredential that,
+  }) {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          var arg0 =
+              cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsCredential(
+                that,
+              );
+          return wire.wire__crate__api__credential__MlsCredential_serialize(
+            arg0,
+          );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_list_prim_u_8_strict,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiCredentialMlsCredentialSerializeConstMeta,
+        argValues: [that],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiCredentialMlsCredentialSerializeConstMeta =>
+      const TaskConstMeta(
+        debugName: "MlsCredential_serialize",
+        argNames: ["that"],
+      );
+
+  @override
+  Uint8List crateApiCredentialMlsCredentialSerializedContent({
+    required MlsCredential that,
+  }) {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          var arg0 =
+              cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsCredential(
+                that,
+              );
+          return wire
+              .wire__crate__api__credential__MlsCredential_serialized_content(
+                arg0,
+              );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_list_prim_u_8_strict,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiCredentialMlsCredentialSerializedContentConstMeta,
+        argValues: [that],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta
+  get kCrateApiCredentialMlsCredentialSerializedContentConstMeta =>
+      const TaskConstMeta(
+        debugName: "MlsCredential_serialized_content",
+        argNames: ["that"],
+      );
+
+  @override
+  MlsCredential crateApiCredentialMlsCredentialX509({
+    required List<Uint8List> certificateChain,
+  }) {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          var arg0 = cst_encode_list_list_prim_u_8_strict(certificateChain);
+          return wire.wire__crate__api__credential__MlsCredential_x509(arg0);
+        },
+        codec: DcoCodec(
+          decodeSuccessData:
+              dco_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsCredential,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiCredentialMlsCredentialX509ConstMeta,
+        argValues: [certificateChain],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiCredentialMlsCredentialX509ConstMeta =>
+      const TaskConstMeta(
+        debugName: "MlsCredential_x509",
+        argNames: ["certificateChain"],
+      );
+
+  @override
+  MlsSignatureKeyPair crateApiKeysMlsSignatureKeyPairDeserializePublic({
+    required List<int> bytes,
+  }) {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          var arg0 = cst_encode_list_prim_u_8_loose(bytes);
+          return wire
+              .wire__crate__api__keys__MlsSignatureKeyPair_deserialize_public(
+                arg0,
+              );
+        },
+        codec: DcoCodec(
+          decodeSuccessData:
+              dco_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsSignatureKeyPair,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiKeysMlsSignatureKeyPairDeserializePublicConstMeta,
+        argValues: [bytes],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta
+  get kCrateApiKeysMlsSignatureKeyPairDeserializePublicConstMeta =>
+      const TaskConstMeta(
+        debugName: "MlsSignatureKeyPair_deserialize_public",
+        argNames: ["bytes"],
+      );
+
+  @override
+  MlsSignatureKeyPair crateApiKeysMlsSignatureKeyPairFromRaw({
+    required MlsCiphersuite ciphersuite,
+    required List<int> privateKey,
+    required List<int> publicKey,
+  }) {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          var arg0 = cst_encode_mls_ciphersuite(ciphersuite);
+          var arg1 = cst_encode_list_prim_u_8_loose(privateKey);
+          var arg2 = cst_encode_list_prim_u_8_loose(publicKey);
+          return wire.wire__crate__api__keys__MlsSignatureKeyPair_from_raw(
+            arg0,
+            arg1,
+            arg2,
+          );
+        },
+        codec: DcoCodec(
+          decodeSuccessData:
+              dco_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsSignatureKeyPair,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiKeysMlsSignatureKeyPairFromRawConstMeta,
+        argValues: [ciphersuite, privateKey, publicKey],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiKeysMlsSignatureKeyPairFromRawConstMeta =>
+      const TaskConstMeta(
+        debugName: "MlsSignatureKeyPair_from_raw",
+        argNames: ["ciphersuite", "privateKey", "publicKey"],
+      );
+
+  @override
+  MlsSignatureKeyPair crateApiKeysMlsSignatureKeyPairGenerate({
+    required MlsCiphersuite ciphersuite,
+  }) {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          var arg0 = cst_encode_mls_ciphersuite(ciphersuite);
+          return wire.wire__crate__api__keys__MlsSignatureKeyPair_generate(
+            arg0,
+          );
+        },
+        codec: DcoCodec(
+          decodeSuccessData:
+              dco_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsSignatureKeyPair,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiKeysMlsSignatureKeyPairGenerateConstMeta,
+        argValues: [ciphersuite],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiKeysMlsSignatureKeyPairGenerateConstMeta =>
+      const TaskConstMeta(
+        debugName: "MlsSignatureKeyPair_generate",
+        argNames: ["ciphersuite"],
+      );
+
+  @override
+  Uint8List crateApiKeysMlsSignatureKeyPairPrivateKey({
+    required MlsSignatureKeyPair that,
+  }) {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          var arg0 =
+              cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsSignatureKeyPair(
+                that,
+              );
+          return wire.wire__crate__api__keys__MlsSignatureKeyPair_private_key(
+            arg0,
+          );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_list_prim_u_8_strict,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiKeysMlsSignatureKeyPairPrivateKeyConstMeta,
+        argValues: [that],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiKeysMlsSignatureKeyPairPrivateKeyConstMeta =>
+      const TaskConstMeta(
+        debugName: "MlsSignatureKeyPair_private_key",
+        argNames: ["that"],
+      );
+
+  @override
+  Uint8List crateApiKeysMlsSignatureKeyPairPublicKey({
+    required MlsSignatureKeyPair that,
+  }) {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          var arg0 =
+              cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsSignatureKeyPair(
+                that,
+              );
+          return wire.wire__crate__api__keys__MlsSignatureKeyPair_public_key(
+            arg0,
+          );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_list_prim_u_8_strict,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiKeysMlsSignatureKeyPairPublicKeyConstMeta,
+        argValues: [that],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiKeysMlsSignatureKeyPairPublicKeyConstMeta =>
+      const TaskConstMeta(
+        debugName: "MlsSignatureKeyPair_public_key",
+        argNames: ["that"],
+      );
+
+  @override
+  Uint8List crateApiKeysMlsSignatureKeyPairSerialize({
+    required MlsSignatureKeyPair that,
+  }) {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          var arg0 =
+              cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsSignatureKeyPair(
+                that,
+              );
+          return wire.wire__crate__api__keys__MlsSignatureKeyPair_serialize(
+            arg0,
+          );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_list_prim_u_8_strict,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiKeysMlsSignatureKeyPairSerializeConstMeta,
+        argValues: [that],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiKeysMlsSignatureKeyPairSerializeConstMeta =>
+      const TaskConstMeta(
+        debugName: "MlsSignatureKeyPair_serialize",
+        argNames: ["that"],
+      );
+
+  @override
+  int crateApiKeysMlsSignatureKeyPairSignatureScheme({
+    required MlsSignatureKeyPair that,
+  }) {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          var arg0 =
+              cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsSignatureKeyPair(
+                that,
+              );
+          return wire
+              .wire__crate__api__keys__MlsSignatureKeyPair_signature_scheme(
+                arg0,
+              );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_u_16,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiKeysMlsSignatureKeyPairSignatureSchemeConstMeta,
+        argValues: [that],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiKeysMlsSignatureKeyPairSignatureSchemeConstMeta =>
+      const TaskConstMeta(
+        debugName: "MlsSignatureKeyPair_signature_scheme",
+        argNames: ["that"],
+      );
+
+  @override
+  Future<AddMembersProviderResult> crateApiProviderAddMembers({
+    required List<int> groupIdBytes,
+    required List<int> signerBytes,
+    required List<Uint8List> keyPackagesBytes,
+    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+    required FutureOr<void> Function(Uint8List) storageDelete,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 = cst_encode_list_prim_u_8_loose(groupIdBytes);
+          var arg1 = cst_encode_list_prim_u_8_loose(signerBytes);
+          var arg2 = cst_encode_list_list_prim_u_8_strict(keyPackagesBytes);
+          var arg3 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
+                storageRead,
+              );
+          var arg4 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
+                storageWrite,
+              );
+          var arg5 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
+                storageDelete,
+              );
+          return wire.wire__crate__api__provider__add_members(
+            port_,
+            arg0,
+            arg1,
+            arg2,
+            arg3,
+            arg4,
+            arg5,
+          );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_add_members_provider_result,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiProviderAddMembersConstMeta,
+        argValues: [
+          groupIdBytes,
+          signerBytes,
+          keyPackagesBytes,
+          storageRead,
+          storageWrite,
+          storageDelete,
+        ],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiProviderAddMembersConstMeta => const TaskConstMeta(
+    debugName: "add_members",
+    argNames: [
+      "groupIdBytes",
+      "signerBytes",
+      "keyPackagesBytes",
+      "storageRead",
+      "storageWrite",
+      "storageDelete",
+    ],
+  );
+
+  @override
+  Future<AddMembersProviderResult> crateApiProviderAddMembersWithoutUpdate({
+    required List<int> groupIdBytes,
+    required List<int> signerBytes,
+    required List<Uint8List> keyPackagesBytes,
+    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+    required FutureOr<void> Function(Uint8List) storageDelete,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 = cst_encode_list_prim_u_8_loose(groupIdBytes);
+          var arg1 = cst_encode_list_prim_u_8_loose(signerBytes);
+          var arg2 = cst_encode_list_list_prim_u_8_strict(keyPackagesBytes);
+          var arg3 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
+                storageRead,
+              );
+          var arg4 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
+                storageWrite,
+              );
+          var arg5 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
+                storageDelete,
+              );
+          return wire.wire__crate__api__provider__add_members_without_update(
+            port_,
+            arg0,
+            arg1,
+            arg2,
+            arg3,
+            arg4,
+            arg5,
+          );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_add_members_provider_result,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiProviderAddMembersWithoutUpdateConstMeta,
+        argValues: [
+          groupIdBytes,
+          signerBytes,
+          keyPackagesBytes,
+          storageRead,
+          storageWrite,
+          storageDelete,
+        ],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiProviderAddMembersWithoutUpdateConstMeta =>
+      const TaskConstMeta(
+        debugName: "add_members_without_update",
+        argNames: [
+          "groupIdBytes",
+          "signerBytes",
+          "keyPackagesBytes",
+          "storageRead",
+          "storageWrite",
+          "storageDelete",
+        ],
+      );
+
+  @override
+  Future<void> crateApiProviderClearPendingCommit({
+    required List<int> groupIdBytes,
+    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+    required FutureOr<void> Function(Uint8List) storageDelete,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 = cst_encode_list_prim_u_8_loose(groupIdBytes);
+          var arg1 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
+                storageRead,
+              );
+          var arg2 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
+                storageWrite,
+              );
+          var arg3 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
+                storageDelete,
+              );
+          return wire.wire__crate__api__provider__clear_pending_commit(
+            port_,
+            arg0,
+            arg1,
+            arg2,
+            arg3,
+          );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_unit,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiProviderClearPendingCommitConstMeta,
+        argValues: [groupIdBytes, storageRead, storageWrite, storageDelete],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiProviderClearPendingCommitConstMeta =>
+      const TaskConstMeta(
+        debugName: "clear_pending_commit",
+        argNames: [
+          "groupIdBytes",
+          "storageRead",
+          "storageWrite",
+          "storageDelete",
+        ],
+      );
+
+  @override
+  Future<void> crateApiProviderClearPendingProposals({
+    required List<int> groupIdBytes,
+    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+    required FutureOr<void> Function(Uint8List) storageDelete,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 = cst_encode_list_prim_u_8_loose(groupIdBytes);
+          var arg1 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
+                storageRead,
+              );
+          var arg2 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
+                storageWrite,
+              );
+          var arg3 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
+                storageDelete,
+              );
+          return wire.wire__crate__api__provider__clear_pending_proposals(
+            port_,
+            arg0,
+            arg1,
+            arg2,
+            arg3,
+          );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_unit,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiProviderClearPendingProposalsConstMeta,
+        argValues: [groupIdBytes, storageRead, storageWrite, storageDelete],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiProviderClearPendingProposalsConstMeta =>
+      const TaskConstMeta(
+        debugName: "clear_pending_proposals",
+        argNames: [
+          "groupIdBytes",
+          "storageRead",
+          "storageWrite",
+          "storageDelete",
+        ],
+      );
+
+  @override
+  Future<CommitProviderResult> crateApiProviderCommitToPendingProposals({
+    required List<int> groupIdBytes,
+    required List<int> signerBytes,
+    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+    required FutureOr<void> Function(Uint8List) storageDelete,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 = cst_encode_list_prim_u_8_loose(groupIdBytes);
+          var arg1 = cst_encode_list_prim_u_8_loose(signerBytes);
+          var arg2 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
+                storageRead,
+              );
+          var arg3 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
+                storageWrite,
+              );
+          var arg4 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
+                storageDelete,
+              );
+          return wire.wire__crate__api__provider__commit_to_pending_proposals(
+            port_,
+            arg0,
+            arg1,
+            arg2,
+            arg3,
+            arg4,
+          );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_commit_provider_result,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiProviderCommitToPendingProposalsConstMeta,
+        argValues: [
+          groupIdBytes,
+          signerBytes,
+          storageRead,
+          storageWrite,
+          storageDelete,
+        ],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiProviderCommitToPendingProposalsConstMeta =>
+      const TaskConstMeta(
+        debugName: "commit_to_pending_proposals",
+        argNames: [
+          "groupIdBytes",
+          "signerBytes",
+          "storageRead",
+          "storageWrite",
+          "storageDelete",
+        ],
+      );
+
+  @override
+  Future<CreateGroupProviderResult> crateApiProviderCreateGroup({
+    required MlsGroupConfig config,
+    required List<int> signerBytes,
+    required List<int> credentialIdentity,
+    required List<int> signerPublicKey,
+    Uint8List? groupId,
+    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+    required FutureOr<void> Function(Uint8List) storageDelete,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 = cst_encode_box_autoadd_mls_group_config(config);
+          var arg1 = cst_encode_list_prim_u_8_loose(signerBytes);
+          var arg2 = cst_encode_list_prim_u_8_loose(credentialIdentity);
+          var arg3 = cst_encode_list_prim_u_8_loose(signerPublicKey);
+          var arg4 = cst_encode_opt_list_prim_u_8_strict(groupId);
+          var arg5 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
+                storageRead,
+              );
+          var arg6 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
+                storageWrite,
+              );
+          var arg7 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
+                storageDelete,
+              );
+          return wire.wire__crate__api__provider__create_group(
+            port_,
+            arg0,
+            arg1,
+            arg2,
+            arg3,
+            arg4,
+            arg5,
+            arg6,
+            arg7,
+          );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_create_group_provider_result,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiProviderCreateGroupConstMeta,
+        argValues: [
+          config,
+          signerBytes,
+          credentialIdentity,
+          signerPublicKey,
+          groupId,
+          storageRead,
+          storageWrite,
+          storageDelete,
+        ],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiProviderCreateGroupConstMeta =>
+      const TaskConstMeta(
+        debugName: "create_group",
+        argNames: [
+          "config",
+          "signerBytes",
+          "credentialIdentity",
+          "signerPublicKey",
+          "groupId",
+          "storageRead",
+          "storageWrite",
+          "storageDelete",
+        ],
+      );
+
+  @override
+  Future<CreateGroupProviderResult> crateApiProviderCreateGroupWithBuilder({
+    required MlsGroupConfig config,
+    required List<int> signerBytes,
+    required List<int> credentialIdentity,
+    required List<int> signerPublicKey,
+    Uint8List? groupId,
+    BigInt? lifetimeSeconds,
+    List<MlsExtension>? groupContextExtensions,
+    List<MlsExtension>? leafNodeExtensions,
+    MlsCapabilities? capabilities,
+    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+    required FutureOr<void> Function(Uint8List) storageDelete,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 = cst_encode_box_autoadd_mls_group_config(config);
+          var arg1 = cst_encode_list_prim_u_8_loose(signerBytes);
+          var arg2 = cst_encode_list_prim_u_8_loose(credentialIdentity);
+          var arg3 = cst_encode_list_prim_u_8_loose(signerPublicKey);
+          var arg4 = cst_encode_opt_list_prim_u_8_strict(groupId);
+          var arg5 = cst_encode_opt_box_autoadd_u_64(lifetimeSeconds);
+          var arg6 = cst_encode_opt_list_mls_extension(groupContextExtensions);
+          var arg7 = cst_encode_opt_list_mls_extension(leafNodeExtensions);
+          var arg8 = cst_encode_opt_box_autoadd_mls_capabilities(capabilities);
+          var arg9 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
+                storageRead,
+              );
+          var arg10 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
+                storageWrite,
+              );
+          var arg11 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
+                storageDelete,
+              );
+          return wire.wire__crate__api__provider__create_group_with_builder(
+            port_,
+            arg0,
+            arg1,
+            arg2,
+            arg3,
+            arg4,
+            arg5,
+            arg6,
+            arg7,
+            arg8,
+            arg9,
+            arg10,
+            arg11,
+          );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_create_group_provider_result,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiProviderCreateGroupWithBuilderConstMeta,
+        argValues: [
+          config,
+          signerBytes,
+          credentialIdentity,
+          signerPublicKey,
+          groupId,
+          lifetimeSeconds,
+          groupContextExtensions,
+          leafNodeExtensions,
+          capabilities,
+          storageRead,
+          storageWrite,
+          storageDelete,
+        ],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiProviderCreateGroupWithBuilderConstMeta =>
+      const TaskConstMeta(
+        debugName: "create_group_with_builder",
+        argNames: [
+          "config",
+          "signerBytes",
+          "credentialIdentity",
+          "signerPublicKey",
+          "groupId",
+          "lifetimeSeconds",
+          "groupContextExtensions",
+          "leafNodeExtensions",
+          "capabilities",
+          "storageRead",
+          "storageWrite",
+          "storageDelete",
+        ],
+      );
+
+  @override
+  Future<KeyPackageProviderResult> crateApiProviderCreateKeyPackage({
+    required MlsCiphersuite ciphersuite,
+    required List<int> signerBytes,
+    required List<int> credentialIdentity,
+    required List<int> signerPublicKey,
+    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+    required FutureOr<void> Function(Uint8List) storageDelete,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 = cst_encode_mls_ciphersuite(ciphersuite);
+          var arg1 = cst_encode_list_prim_u_8_loose(signerBytes);
+          var arg2 = cst_encode_list_prim_u_8_loose(credentialIdentity);
+          var arg3 = cst_encode_list_prim_u_8_loose(signerPublicKey);
+          var arg4 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
+                storageRead,
+              );
+          var arg5 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
+                storageWrite,
+              );
+          var arg6 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
+                storageDelete,
+              );
+          return wire.wire__crate__api__provider__create_key_package(
+            port_,
+            arg0,
+            arg1,
+            arg2,
+            arg3,
+            arg4,
+            arg5,
+            arg6,
+          );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_key_package_provider_result,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiProviderCreateKeyPackageConstMeta,
+        argValues: [
+          ciphersuite,
+          signerBytes,
+          credentialIdentity,
+          signerPublicKey,
+          storageRead,
+          storageWrite,
+          storageDelete,
+        ],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiProviderCreateKeyPackageConstMeta =>
+      const TaskConstMeta(
+        debugName: "create_key_package",
+        argNames: [
+          "ciphersuite",
+          "signerBytes",
+          "credentialIdentity",
+          "signerPublicKey",
+          "storageRead",
+          "storageWrite",
+          "storageDelete",
+        ],
+      );
+
+  @override
+  Future<KeyPackageProviderResult> crateApiProviderCreateKeyPackageWithOptions({
+    required MlsCiphersuite ciphersuite,
+    required List<int> signerBytes,
+    required List<int> credentialIdentity,
+    required List<int> signerPublicKey,
+    required KeyPackageOptions options,
+    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+    required FutureOr<void> Function(Uint8List) storageDelete,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 = cst_encode_mls_ciphersuite(ciphersuite);
+          var arg1 = cst_encode_list_prim_u_8_loose(signerBytes);
+          var arg2 = cst_encode_list_prim_u_8_loose(credentialIdentity);
+          var arg3 = cst_encode_list_prim_u_8_loose(signerPublicKey);
+          var arg4 = cst_encode_box_autoadd_key_package_options(options);
+          var arg5 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
+                storageRead,
+              );
+          var arg6 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
+                storageWrite,
+              );
+          var arg7 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
+                storageDelete,
+              );
+          return wire
+              .wire__crate__api__provider__create_key_package_with_options(
+                port_,
+                arg0,
+                arg1,
+                arg2,
+                arg3,
+                arg4,
+                arg5,
+                arg6,
+                arg7,
+              );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_key_package_provider_result,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiProviderCreateKeyPackageWithOptionsConstMeta,
+        argValues: [
+          ciphersuite,
+          signerBytes,
+          credentialIdentity,
+          signerPublicKey,
+          options,
+          storageRead,
+          storageWrite,
+          storageDelete,
+        ],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiProviderCreateKeyPackageWithOptionsConstMeta =>
+      const TaskConstMeta(
+        debugName: "create_key_package_with_options",
+        argNames: [
+          "ciphersuite",
+          "signerBytes",
+          "credentialIdentity",
+          "signerPublicKey",
+          "options",
+          "storageRead",
+          "storageWrite",
+          "storageDelete",
+        ],
+      );
+
+  @override
+  Future<CreateMessageProviderResult> crateApiProviderCreateMessage({
+    required List<int> groupIdBytes,
+    required List<int> signerBytes,
+    required List<int> message,
+    Uint8List? aad,
+    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+    required FutureOr<void> Function(Uint8List) storageDelete,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 = cst_encode_list_prim_u_8_loose(groupIdBytes);
+          var arg1 = cst_encode_list_prim_u_8_loose(signerBytes);
+          var arg2 = cst_encode_list_prim_u_8_loose(message);
+          var arg3 = cst_encode_opt_list_prim_u_8_strict(aad);
+          var arg4 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
+                storageRead,
+              );
+          var arg5 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
+                storageWrite,
+              );
+          var arg6 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
+                storageDelete,
+              );
+          return wire.wire__crate__api__provider__create_message(
+            port_,
+            arg0,
+            arg1,
+            arg2,
+            arg3,
+            arg4,
+            arg5,
+            arg6,
+          );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_create_message_provider_result,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiProviderCreateMessageConstMeta,
+        argValues: [
+          groupIdBytes,
+          signerBytes,
+          message,
+          aad,
+          storageRead,
+          storageWrite,
+          storageDelete,
+        ],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiProviderCreateMessageConstMeta =>
+      const TaskConstMeta(
+        debugName: "create_message",
+        argNames: [
+          "groupIdBytes",
+          "signerBytes",
+          "message",
+          "aad",
+          "storageRead",
+          "storageWrite",
+          "storageDelete",
+        ],
+      );
+
+  @override
+  Future<MlsGroupContextInfo> crateApiProviderExportGroupContext({
+    required List<int> groupIdBytes,
+    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+    required FutureOr<void> Function(Uint8List) storageDelete,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 = cst_encode_list_prim_u_8_loose(groupIdBytes);
+          var arg1 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
+                storageRead,
+              );
+          var arg2 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
+                storageWrite,
+              );
+          var arg3 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
+                storageDelete,
+              );
+          return wire.wire__crate__api__provider__export_group_context(
+            port_,
+            arg0,
+            arg1,
+            arg2,
+            arg3,
+          );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_mls_group_context_info,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiProviderExportGroupContextConstMeta,
+        argValues: [groupIdBytes, storageRead, storageWrite, storageDelete],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiProviderExportGroupContextConstMeta =>
+      const TaskConstMeta(
+        debugName: "export_group_context",
+        argNames: [
+          "groupIdBytes",
+          "storageRead",
+          "storageWrite",
+          "storageDelete",
+        ],
+      );
+
+  @override
+  Future<Uint8List> crateApiProviderExportGroupInfo({
+    required List<int> groupIdBytes,
+    required List<int> signerBytes,
+    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+    required FutureOr<void> Function(Uint8List) storageDelete,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 = cst_encode_list_prim_u_8_loose(groupIdBytes);
+          var arg1 = cst_encode_list_prim_u_8_loose(signerBytes);
+          var arg2 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
+                storageRead,
+              );
+          var arg3 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
+                storageWrite,
+              );
+          var arg4 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
+                storageDelete,
+              );
+          return wire.wire__crate__api__provider__export_group_info(
+            port_,
+            arg0,
+            arg1,
+            arg2,
+            arg3,
+            arg4,
+          );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_list_prim_u_8_strict,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiProviderExportGroupInfoConstMeta,
+        argValues: [
+          groupIdBytes,
+          signerBytes,
+          storageRead,
+          storageWrite,
+          storageDelete,
+        ],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiProviderExportGroupInfoConstMeta =>
+      const TaskConstMeta(
+        debugName: "export_group_info",
+        argNames: [
+          "groupIdBytes",
+          "signerBytes",
+          "storageRead",
+          "storageWrite",
+          "storageDelete",
+        ],
+      );
+
+  @override
+  Future<Uint8List> crateApiProviderExportRatchetTree({
+    required List<int> groupIdBytes,
+    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+    required FutureOr<void> Function(Uint8List) storageDelete,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 = cst_encode_list_prim_u_8_loose(groupIdBytes);
+          var arg1 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
+                storageRead,
+              );
+          var arg2 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
+                storageWrite,
+              );
+          var arg3 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
+                storageDelete,
+              );
+          return wire.wire__crate__api__provider__export_ratchet_tree(
+            port_,
+            arg0,
+            arg1,
+            arg2,
+            arg3,
+          );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_list_prim_u_8_strict,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiProviderExportRatchetTreeConstMeta,
+        argValues: [groupIdBytes, storageRead, storageWrite, storageDelete],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiProviderExportRatchetTreeConstMeta =>
+      const TaskConstMeta(
+        debugName: "export_ratchet_tree",
+        argNames: [
+          "groupIdBytes",
+          "storageRead",
+          "storageWrite",
+          "storageDelete",
+        ],
+      );
+
+  @override
+  Future<Uint8List> crateApiProviderExportSecret({
+    required List<int> groupIdBytes,
+    required String label,
+    required List<int> context,
+    required int keyLength,
+    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+    required FutureOr<void> Function(Uint8List) storageDelete,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 = cst_encode_list_prim_u_8_loose(groupIdBytes);
+          var arg1 = cst_encode_String(label);
+          var arg2 = cst_encode_list_prim_u_8_loose(context);
+          var arg3 = cst_encode_u_32(keyLength);
+          var arg4 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
+                storageRead,
+              );
+          var arg5 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
+                storageWrite,
+              );
+          var arg6 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
+                storageDelete,
+              );
+          return wire.wire__crate__api__provider__export_secret(
+            port_,
+            arg0,
+            arg1,
+            arg2,
+            arg3,
+            arg4,
+            arg5,
+            arg6,
+          );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_list_prim_u_8_strict,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiProviderExportSecretConstMeta,
+        argValues: [
+          groupIdBytes,
+          label,
+          context,
+          keyLength,
+          storageRead,
+          storageWrite,
+          storageDelete,
+        ],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiProviderExportSecretConstMeta =>
+      const TaskConstMeta(
+        debugName: "export_secret",
+        argNames: [
+          "groupIdBytes",
+          "label",
+          "context",
+          "keyLength",
+          "storageRead",
+          "storageWrite",
+          "storageDelete",
+        ],
+      );
+
+  @override
+  Future<CommitProviderResult> crateApiProviderFlexibleCommit({
+    required List<int> groupIdBytes,
+    required List<int> signerBytes,
+    required FlexibleCommitOptions options,
+    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+    required FutureOr<void> Function(Uint8List) storageDelete,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 = cst_encode_list_prim_u_8_loose(groupIdBytes);
+          var arg1 = cst_encode_list_prim_u_8_loose(signerBytes);
+          var arg2 = cst_encode_box_autoadd_flexible_commit_options(options);
+          var arg3 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
+                storageRead,
+              );
+          var arg4 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
+                storageWrite,
+              );
+          var arg5 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
+                storageDelete,
+              );
+          return wire.wire__crate__api__provider__flexible_commit(
+            port_,
+            arg0,
+            arg1,
+            arg2,
+            arg3,
+            arg4,
+            arg5,
+          );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_commit_provider_result,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiProviderFlexibleCommitConstMeta,
+        argValues: [
+          groupIdBytes,
+          signerBytes,
+          options,
+          storageRead,
+          storageWrite,
+          storageDelete,
+        ],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiProviderFlexibleCommitConstMeta =>
+      const TaskConstMeta(
+        debugName: "flexible_commit",
+        argNames: [
+          "groupIdBytes",
+          "signerBytes",
+          "options",
+          "storageRead",
+          "storageWrite",
+          "storageDelete",
+        ],
+      );
+
+  @override
+  Future<Uint8List?> crateApiProviderGetPastResumptionPsk({
+    required List<int> groupIdBytes,
+    required BigInt epoch,
+    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+    required FutureOr<void> Function(Uint8List) storageDelete,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 = cst_encode_list_prim_u_8_loose(groupIdBytes);
+          var arg1 = cst_encode_u_64(epoch);
+          var arg2 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
+                storageRead,
+              );
+          var arg3 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
+                storageWrite,
+              );
+          var arg4 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
+                storageDelete,
+              );
+          return wire.wire__crate__api__provider__get_past_resumption_psk(
+            port_,
+            arg0,
+            arg1,
+            arg2,
+            arg3,
+            arg4,
+          );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_opt_list_prim_u_8_strict,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiProviderGetPastResumptionPskConstMeta,
+        argValues: [
+          groupIdBytes,
+          epoch,
+          storageRead,
+          storageWrite,
+          storageDelete,
+        ],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiProviderGetPastResumptionPskConstMeta =>
+      const TaskConstMeta(
+        debugName: "get_past_resumption_psk",
+        argNames: [
+          "groupIdBytes",
+          "epoch",
+          "storageRead",
+          "storageWrite",
+          "storageDelete",
+        ],
+      );
+
+  @override
+  Future<MlsCiphersuite> crateApiProviderGroupCiphersuite({
+    required List<int> groupIdBytes,
+    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+    required FutureOr<void> Function(Uint8List) storageDelete,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 = cst_encode_list_prim_u_8_loose(groupIdBytes);
+          var arg1 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
+                storageRead,
+              );
+          var arg2 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
+                storageWrite,
+              );
+          var arg3 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
+                storageDelete,
+              );
+          return wire.wire__crate__api__provider__group_ciphersuite(
+            port_,
+            arg0,
+            arg1,
+            arg2,
+            arg3,
+          );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_mls_ciphersuite,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiProviderGroupCiphersuiteConstMeta,
+        argValues: [groupIdBytes, storageRead, storageWrite, storageDelete],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiProviderGroupCiphersuiteConstMeta =>
+      const TaskConstMeta(
+        debugName: "group_ciphersuite",
+        argNames: [
+          "groupIdBytes",
+          "storageRead",
+          "storageWrite",
+          "storageDelete",
+        ],
+      );
+
+  @override
+  Future<Uint8List> crateApiProviderGroupConfirmationTag({
+    required List<int> groupIdBytes,
+    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+    required FutureOr<void> Function(Uint8List) storageDelete,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 = cst_encode_list_prim_u_8_loose(groupIdBytes);
+          var arg1 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
+                storageRead,
+              );
+          var arg2 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
+                storageWrite,
+              );
+          var arg3 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
+                storageDelete,
+              );
+          return wire.wire__crate__api__provider__group_confirmation_tag(
+            port_,
+            arg0,
+            arg1,
+            arg2,
+            arg3,
+          );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_list_prim_u_8_strict,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiProviderGroupConfirmationTagConstMeta,
+        argValues: [groupIdBytes, storageRead, storageWrite, storageDelete],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiProviderGroupConfirmationTagConstMeta =>
+      const TaskConstMeta(
+        debugName: "group_confirmation_tag",
+        argNames: [
+          "groupIdBytes",
+          "storageRead",
+          "storageWrite",
+          "storageDelete",
+        ],
+      );
+
+  @override
+  Future<Uint8List> crateApiProviderGroupCredential({
+    required List<int> groupIdBytes,
+    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+    required FutureOr<void> Function(Uint8List) storageDelete,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 = cst_encode_list_prim_u_8_loose(groupIdBytes);
+          var arg1 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
+                storageRead,
+              );
+          var arg2 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
+                storageWrite,
+              );
+          var arg3 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
+                storageDelete,
+              );
+          return wire.wire__crate__api__provider__group_credential(
+            port_,
+            arg0,
+            arg1,
+            arg2,
+            arg3,
+          );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_list_prim_u_8_strict,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiProviderGroupCredentialConstMeta,
+        argValues: [groupIdBytes, storageRead, storageWrite, storageDelete],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiProviderGroupCredentialConstMeta =>
+      const TaskConstMeta(
+        debugName: "group_credential",
+        argNames: [
+          "groupIdBytes",
+          "storageRead",
+          "storageWrite",
+          "storageDelete",
+        ],
+      );
+
+  @override
+  Future<BigInt> crateApiProviderGroupEpoch({
+    required List<int> groupIdBytes,
+    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+    required FutureOr<void> Function(Uint8List) storageDelete,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 = cst_encode_list_prim_u_8_loose(groupIdBytes);
+          var arg1 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
+                storageRead,
+              );
+          var arg2 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
+                storageWrite,
+              );
+          var arg3 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
+                storageDelete,
+              );
+          return wire.wire__crate__api__provider__group_epoch(
+            port_,
+            arg0,
+            arg1,
+            arg2,
+            arg3,
+          );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_u_64,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiProviderGroupEpochConstMeta,
+        argValues: [groupIdBytes, storageRead, storageWrite, storageDelete],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiProviderGroupEpochConstMeta => const TaskConstMeta(
+    debugName: "group_epoch",
+    argNames: ["groupIdBytes", "storageRead", "storageWrite", "storageDelete"],
+  );
+
+  @override
+  Future<Uint8List> crateApiProviderGroupExtensions({
+    required List<int> groupIdBytes,
+    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+    required FutureOr<void> Function(Uint8List) storageDelete,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 = cst_encode_list_prim_u_8_loose(groupIdBytes);
+          var arg1 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
+                storageRead,
+              );
+          var arg2 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
+                storageWrite,
+              );
+          var arg3 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
+                storageDelete,
+              );
+          return wire.wire__crate__api__provider__group_extensions(
+            port_,
+            arg0,
+            arg1,
+            arg2,
+            arg3,
+          );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_list_prim_u_8_strict,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiProviderGroupExtensionsConstMeta,
+        argValues: [groupIdBytes, storageRead, storageWrite, storageDelete],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiProviderGroupExtensionsConstMeta =>
+      const TaskConstMeta(
+        debugName: "group_extensions",
+        argNames: [
+          "groupIdBytes",
+          "storageRead",
+          "storageWrite",
+          "storageDelete",
+        ],
+      );
+
+  @override
+  Future<bool> crateApiProviderGroupHasPendingProposals({
+    required List<int> groupIdBytes,
+    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+    required FutureOr<void> Function(Uint8List) storageDelete,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 = cst_encode_list_prim_u_8_loose(groupIdBytes);
+          var arg1 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
+                storageRead,
+              );
+          var arg2 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
+                storageWrite,
+              );
+          var arg3 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
+                storageDelete,
+              );
+          return wire.wire__crate__api__provider__group_has_pending_proposals(
+            port_,
+            arg0,
+            arg1,
+            arg2,
+            arg3,
+          );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_bool,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiProviderGroupHasPendingProposalsConstMeta,
+        argValues: [groupIdBytes, storageRead, storageWrite, storageDelete],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiProviderGroupHasPendingProposalsConstMeta =>
+      const TaskConstMeta(
+        debugName: "group_has_pending_proposals",
+        argNames: [
+          "groupIdBytes",
+          "storageRead",
+          "storageWrite",
+          "storageDelete",
+        ],
+      );
+
+  @override
+  Future<Uint8List> crateApiProviderGroupId({
+    required List<int> groupIdBytes,
+    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+    required FutureOr<void> Function(Uint8List) storageDelete,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 = cst_encode_list_prim_u_8_loose(groupIdBytes);
+          var arg1 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
+                storageRead,
+              );
+          var arg2 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
+                storageWrite,
+              );
+          var arg3 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
+                storageDelete,
+              );
+          return wire.wire__crate__api__provider__group_id(
+            port_,
+            arg0,
+            arg1,
+            arg2,
+            arg3,
+          );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_list_prim_u_8_strict,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiProviderGroupIdConstMeta,
+        argValues: [groupIdBytes, storageRead, storageWrite, storageDelete],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiProviderGroupIdConstMeta => const TaskConstMeta(
+    debugName: "group_id",
+    argNames: ["groupIdBytes", "storageRead", "storageWrite", "storageDelete"],
+  );
+
+  @override
+  Future<bool> crateApiProviderGroupIsActive({
+    required List<int> groupIdBytes,
+    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+    required FutureOr<void> Function(Uint8List) storageDelete,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 = cst_encode_list_prim_u_8_loose(groupIdBytes);
+          var arg1 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
+                storageRead,
+              );
+          var arg2 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
+                storageWrite,
+              );
+          var arg3 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
+                storageDelete,
+              );
+          return wire.wire__crate__api__provider__group_is_active(
+            port_,
+            arg0,
+            arg1,
+            arg2,
+            arg3,
+          );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_bool,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiProviderGroupIsActiveConstMeta,
+        argValues: [groupIdBytes, storageRead, storageWrite, storageDelete],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiProviderGroupIsActiveConstMeta =>
+      const TaskConstMeta(
+        debugName: "group_is_active",
+        argNames: [
+          "groupIdBytes",
+          "storageRead",
+          "storageWrite",
+          "storageDelete",
+        ],
+      );
+
+  @override
+  Future<MlsMemberInfo?> crateApiProviderGroupMemberAt({
+    required List<int> groupIdBytes,
+    required int leafIndex,
+    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+    required FutureOr<void> Function(Uint8List) storageDelete,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 = cst_encode_list_prim_u_8_loose(groupIdBytes);
+          var arg1 = cst_encode_u_32(leafIndex);
+          var arg2 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
+                storageRead,
+              );
+          var arg3 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
+                storageWrite,
+              );
+          var arg4 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
+                storageDelete,
+              );
+          return wire.wire__crate__api__provider__group_member_at(
+            port_,
+            arg0,
+            arg1,
+            arg2,
+            arg3,
+            arg4,
+          );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_opt_box_autoadd_mls_member_info,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiProviderGroupMemberAtConstMeta,
+        argValues: [
+          groupIdBytes,
+          leafIndex,
+          storageRead,
+          storageWrite,
+          storageDelete,
+        ],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiProviderGroupMemberAtConstMeta =>
+      const TaskConstMeta(
+        debugName: "group_member_at",
+        argNames: [
+          "groupIdBytes",
+          "leafIndex",
+          "storageRead",
+          "storageWrite",
+          "storageDelete",
+        ],
+      );
+
+  @override
+  Future<int?> crateApiProviderGroupMemberLeafIndex({
+    required List<int> groupIdBytes,
+    required List<int> credentialIdentity,
+    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+    required FutureOr<void> Function(Uint8List) storageDelete,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 = cst_encode_list_prim_u_8_loose(groupIdBytes);
+          var arg1 = cst_encode_list_prim_u_8_loose(credentialIdentity);
+          var arg2 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
+                storageRead,
+              );
+          var arg3 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
+                storageWrite,
+              );
+          var arg4 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
+                storageDelete,
+              );
+          return wire.wire__crate__api__provider__group_member_leaf_index(
+            port_,
+            arg0,
+            arg1,
+            arg2,
+            arg3,
+            arg4,
+          );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_opt_box_autoadd_u_32,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiProviderGroupMemberLeafIndexConstMeta,
+        argValues: [
+          groupIdBytes,
+          credentialIdentity,
+          storageRead,
+          storageWrite,
+          storageDelete,
+        ],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiProviderGroupMemberLeafIndexConstMeta =>
+      const TaskConstMeta(
+        debugName: "group_member_leaf_index",
+        argNames: [
+          "groupIdBytes",
+          "credentialIdentity",
+          "storageRead",
+          "storageWrite",
+          "storageDelete",
+        ],
+      );
+
+  @override
+  Future<List<MlsMemberInfo>> crateApiProviderGroupMembers({
+    required List<int> groupIdBytes,
+    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+    required FutureOr<void> Function(Uint8List) storageDelete,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 = cst_encode_list_prim_u_8_loose(groupIdBytes);
+          var arg1 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
+                storageRead,
+              );
+          var arg2 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
+                storageWrite,
+              );
+          var arg3 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
+                storageDelete,
+              );
+          return wire.wire__crate__api__provider__group_members(
+            port_,
+            arg0,
+            arg1,
+            arg2,
+            arg3,
+          );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_list_mls_member_info,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiProviderGroupMembersConstMeta,
+        argValues: [groupIdBytes, storageRead, storageWrite, storageDelete],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiProviderGroupMembersConstMeta =>
+      const TaskConstMeta(
+        debugName: "group_members",
+        argNames: [
+          "groupIdBytes",
+          "storageRead",
+          "storageWrite",
+          "storageDelete",
+        ],
+      );
+
+  @override
+  Future<int> crateApiProviderGroupOwnIndex({
+    required List<int> groupIdBytes,
+    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+    required FutureOr<void> Function(Uint8List) storageDelete,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 = cst_encode_list_prim_u_8_loose(groupIdBytes);
+          var arg1 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
+                storageRead,
+              );
+          var arg2 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
+                storageWrite,
+              );
+          var arg3 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
+                storageDelete,
+              );
+          return wire.wire__crate__api__provider__group_own_index(
+            port_,
+            arg0,
+            arg1,
+            arg2,
+            arg3,
+          );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_u_32,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiProviderGroupOwnIndexConstMeta,
+        argValues: [groupIdBytes, storageRead, storageWrite, storageDelete],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiProviderGroupOwnIndexConstMeta =>
+      const TaskConstMeta(
+        debugName: "group_own_index",
+        argNames: [
+          "groupIdBytes",
+          "storageRead",
+          "storageWrite",
+          "storageDelete",
+        ],
+      );
+
+  @override
+  Future<MlsLeafNodeInfo> crateApiProviderGroupOwnLeafNode({
+    required List<int> groupIdBytes,
+    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+    required FutureOr<void> Function(Uint8List) storageDelete,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 = cst_encode_list_prim_u_8_loose(groupIdBytes);
+          var arg1 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
+                storageRead,
+              );
+          var arg2 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
+                storageWrite,
+              );
+          var arg3 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
+                storageDelete,
+              );
+          return wire.wire__crate__api__provider__group_own_leaf_node(
+            port_,
+            arg0,
+            arg1,
+            arg2,
+            arg3,
+          );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_mls_leaf_node_info,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiProviderGroupOwnLeafNodeConstMeta,
+        argValues: [groupIdBytes, storageRead, storageWrite, storageDelete],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiProviderGroupOwnLeafNodeConstMeta =>
+      const TaskConstMeta(
+        debugName: "group_own_leaf_node",
+        argNames: [
+          "groupIdBytes",
+          "storageRead",
+          "storageWrite",
+          "storageDelete",
+        ],
+      );
+
+  @override
+  Future<List<MlsPendingProposalInfo>> crateApiProviderGroupPendingProposals({
+    required List<int> groupIdBytes,
+    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+    required FutureOr<void> Function(Uint8List) storageDelete,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 = cst_encode_list_prim_u_8_loose(groupIdBytes);
+          var arg1 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
+                storageRead,
+              );
+          var arg2 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
+                storageWrite,
+              );
+          var arg3 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
+                storageDelete,
+              );
+          return wire.wire__crate__api__provider__group_pending_proposals(
+            port_,
+            arg0,
+            arg1,
+            arg2,
+            arg3,
+          );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_list_mls_pending_proposal_info,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiProviderGroupPendingProposalsConstMeta,
+        argValues: [groupIdBytes, storageRead, storageWrite, storageDelete],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiProviderGroupPendingProposalsConstMeta =>
+      const TaskConstMeta(
+        debugName: "group_pending_proposals",
+        argNames: [
+          "groupIdBytes",
+          "storageRead",
+          "storageWrite",
+          "storageDelete",
+        ],
+      );
 
   @override
   void crateApiInitInitOpenmls({required String libraryPath}) {
@@ -111,6 +2986,69 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       const TaskConstMeta(debugName: "init_openmls", argNames: ["libraryPath"]);
 
   @override
+  Future<WelcomeInspectResult> crateApiProviderInspectWelcome({
+    required MlsGroupConfig config,
+    required List<int> welcomeBytes,
+    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+    required FutureOr<void> Function(Uint8List) storageDelete,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 = cst_encode_box_autoadd_mls_group_config(config);
+          var arg1 = cst_encode_list_prim_u_8_loose(welcomeBytes);
+          var arg2 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
+                storageRead,
+              );
+          var arg3 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
+                storageWrite,
+              );
+          var arg4 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
+                storageDelete,
+              );
+          return wire.wire__crate__api__provider__inspect_welcome(
+            port_,
+            arg0,
+            arg1,
+            arg2,
+            arg3,
+            arg4,
+          );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_welcome_inspect_result,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiProviderInspectWelcomeConstMeta,
+        argValues: [
+          config,
+          welcomeBytes,
+          storageRead,
+          storageWrite,
+          storageDelete,
+        ],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiProviderInspectWelcomeConstMeta =>
+      const TaskConstMeta(
+        debugName: "inspect_welcome",
+        argNames: [
+          "config",
+          "welcomeBytes",
+          "storageRead",
+          "storageWrite",
+          "storageDelete",
+        ],
+      );
+
+  @override
   bool crateApiInitIsOpenmlsInitialized() {
     return handler.executeSync(
       SyncTask(
@@ -131,10 +3069,1941 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   TaskConstMeta get kCrateApiInitIsOpenmlsInitializedConstMeta =>
       const TaskConstMeta(debugName: "is_openmls_initialized", argNames: []);
 
+  @override
+  Future<ExternalJoinProviderResult> crateApiProviderJoinGroupExternalCommit({
+    required MlsGroupConfig config,
+    required List<int> groupInfoBytes,
+    Uint8List? ratchetTreeBytes,
+    required List<int> signerBytes,
+    required List<int> credentialIdentity,
+    required List<int> signerPublicKey,
+    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+    required FutureOr<void> Function(Uint8List) storageDelete,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 = cst_encode_box_autoadd_mls_group_config(config);
+          var arg1 = cst_encode_list_prim_u_8_loose(groupInfoBytes);
+          var arg2 = cst_encode_opt_list_prim_u_8_strict(ratchetTreeBytes);
+          var arg3 = cst_encode_list_prim_u_8_loose(signerBytes);
+          var arg4 = cst_encode_list_prim_u_8_loose(credentialIdentity);
+          var arg5 = cst_encode_list_prim_u_8_loose(signerPublicKey);
+          var arg6 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
+                storageRead,
+              );
+          var arg7 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
+                storageWrite,
+              );
+          var arg8 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
+                storageDelete,
+              );
+          return wire.wire__crate__api__provider__join_group_external_commit(
+            port_,
+            arg0,
+            arg1,
+            arg2,
+            arg3,
+            arg4,
+            arg5,
+            arg6,
+            arg7,
+            arg8,
+          );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_external_join_provider_result,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiProviderJoinGroupExternalCommitConstMeta,
+        argValues: [
+          config,
+          groupInfoBytes,
+          ratchetTreeBytes,
+          signerBytes,
+          credentialIdentity,
+          signerPublicKey,
+          storageRead,
+          storageWrite,
+          storageDelete,
+        ],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiProviderJoinGroupExternalCommitConstMeta =>
+      const TaskConstMeta(
+        debugName: "join_group_external_commit",
+        argNames: [
+          "config",
+          "groupInfoBytes",
+          "ratchetTreeBytes",
+          "signerBytes",
+          "credentialIdentity",
+          "signerPublicKey",
+          "storageRead",
+          "storageWrite",
+          "storageDelete",
+        ],
+      );
+
+  @override
+  Future<ExternalJoinProviderResult> crateApiProviderJoinGroupExternalCommitV2({
+    required MlsGroupConfig config,
+    required List<int> groupInfoBytes,
+    Uint8List? ratchetTreeBytes,
+    required List<int> signerBytes,
+    required List<int> credentialIdentity,
+    required List<int> signerPublicKey,
+    Uint8List? aad,
+    required bool skipLifetimeValidation,
+    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+    required FutureOr<void> Function(Uint8List) storageDelete,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 = cst_encode_box_autoadd_mls_group_config(config);
+          var arg1 = cst_encode_list_prim_u_8_loose(groupInfoBytes);
+          var arg2 = cst_encode_opt_list_prim_u_8_strict(ratchetTreeBytes);
+          var arg3 = cst_encode_list_prim_u_8_loose(signerBytes);
+          var arg4 = cst_encode_list_prim_u_8_loose(credentialIdentity);
+          var arg5 = cst_encode_list_prim_u_8_loose(signerPublicKey);
+          var arg6 = cst_encode_opt_list_prim_u_8_strict(aad);
+          var arg7 = cst_encode_bool(skipLifetimeValidation);
+          var arg8 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
+                storageRead,
+              );
+          var arg9 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
+                storageWrite,
+              );
+          var arg10 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
+                storageDelete,
+              );
+          return wire.wire__crate__api__provider__join_group_external_commit_v2(
+            port_,
+            arg0,
+            arg1,
+            arg2,
+            arg3,
+            arg4,
+            arg5,
+            arg6,
+            arg7,
+            arg8,
+            arg9,
+            arg10,
+          );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_external_join_provider_result,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiProviderJoinGroupExternalCommitV2ConstMeta,
+        argValues: [
+          config,
+          groupInfoBytes,
+          ratchetTreeBytes,
+          signerBytes,
+          credentialIdentity,
+          signerPublicKey,
+          aad,
+          skipLifetimeValidation,
+          storageRead,
+          storageWrite,
+          storageDelete,
+        ],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiProviderJoinGroupExternalCommitV2ConstMeta =>
+      const TaskConstMeta(
+        debugName: "join_group_external_commit_v2",
+        argNames: [
+          "config",
+          "groupInfoBytes",
+          "ratchetTreeBytes",
+          "signerBytes",
+          "credentialIdentity",
+          "signerPublicKey",
+          "aad",
+          "skipLifetimeValidation",
+          "storageRead",
+          "storageWrite",
+          "storageDelete",
+        ],
+      );
+
+  @override
+  Future<JoinGroupProviderResult> crateApiProviderJoinGroupFromWelcome({
+    required MlsGroupConfig config,
+    required List<int> welcomeBytes,
+    Uint8List? ratchetTreeBytes,
+    required List<int> signerBytes,
+    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+    required FutureOr<void> Function(Uint8List) storageDelete,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 = cst_encode_box_autoadd_mls_group_config(config);
+          var arg1 = cst_encode_list_prim_u_8_loose(welcomeBytes);
+          var arg2 = cst_encode_opt_list_prim_u_8_strict(ratchetTreeBytes);
+          var arg3 = cst_encode_list_prim_u_8_loose(signerBytes);
+          var arg4 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
+                storageRead,
+              );
+          var arg5 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
+                storageWrite,
+              );
+          var arg6 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
+                storageDelete,
+              );
+          return wire.wire__crate__api__provider__join_group_from_welcome(
+            port_,
+            arg0,
+            arg1,
+            arg2,
+            arg3,
+            arg4,
+            arg5,
+            arg6,
+          );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_join_group_provider_result,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiProviderJoinGroupFromWelcomeConstMeta,
+        argValues: [
+          config,
+          welcomeBytes,
+          ratchetTreeBytes,
+          signerBytes,
+          storageRead,
+          storageWrite,
+          storageDelete,
+        ],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiProviderJoinGroupFromWelcomeConstMeta =>
+      const TaskConstMeta(
+        debugName: "join_group_from_welcome",
+        argNames: [
+          "config",
+          "welcomeBytes",
+          "ratchetTreeBytes",
+          "signerBytes",
+          "storageRead",
+          "storageWrite",
+          "storageDelete",
+        ],
+      );
+
+  @override
+  Future<JoinGroupProviderResult>
+  crateApiProviderJoinGroupFromWelcomeWithOptions({
+    required MlsGroupConfig config,
+    required List<int> welcomeBytes,
+    Uint8List? ratchetTreeBytes,
+    required List<int> signerBytes,
+    required bool skipLifetimeValidation,
+    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+    required FutureOr<void> Function(Uint8List) storageDelete,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 = cst_encode_box_autoadd_mls_group_config(config);
+          var arg1 = cst_encode_list_prim_u_8_loose(welcomeBytes);
+          var arg2 = cst_encode_opt_list_prim_u_8_strict(ratchetTreeBytes);
+          var arg3 = cst_encode_list_prim_u_8_loose(signerBytes);
+          var arg4 = cst_encode_bool(skipLifetimeValidation);
+          var arg5 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
+                storageRead,
+              );
+          var arg6 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
+                storageWrite,
+              );
+          var arg7 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
+                storageDelete,
+              );
+          return wire
+              .wire__crate__api__provider__join_group_from_welcome_with_options(
+                port_,
+                arg0,
+                arg1,
+                arg2,
+                arg3,
+                arg4,
+                arg5,
+                arg6,
+                arg7,
+              );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_join_group_provider_result,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiProviderJoinGroupFromWelcomeWithOptionsConstMeta,
+        argValues: [
+          config,
+          welcomeBytes,
+          ratchetTreeBytes,
+          signerBytes,
+          skipLifetimeValidation,
+          storageRead,
+          storageWrite,
+          storageDelete,
+        ],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiProviderJoinGroupFromWelcomeWithOptionsConstMeta =>
+      const TaskConstMeta(
+        debugName: "join_group_from_welcome_with_options",
+        argNames: [
+          "config",
+          "welcomeBytes",
+          "ratchetTreeBytes",
+          "signerBytes",
+          "skipLifetimeValidation",
+          "storageRead",
+          "storageWrite",
+          "storageDelete",
+        ],
+      );
+
+  @override
+  Future<LeaveGroupProviderResult> crateApiProviderLeaveGroup({
+    required List<int> groupIdBytes,
+    required List<int> signerBytes,
+    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+    required FutureOr<void> Function(Uint8List) storageDelete,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 = cst_encode_list_prim_u_8_loose(groupIdBytes);
+          var arg1 = cst_encode_list_prim_u_8_loose(signerBytes);
+          var arg2 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
+                storageRead,
+              );
+          var arg3 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
+                storageWrite,
+              );
+          var arg4 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
+                storageDelete,
+              );
+          return wire.wire__crate__api__provider__leave_group(
+            port_,
+            arg0,
+            arg1,
+            arg2,
+            arg3,
+            arg4,
+          );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_leave_group_provider_result,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiProviderLeaveGroupConstMeta,
+        argValues: [
+          groupIdBytes,
+          signerBytes,
+          storageRead,
+          storageWrite,
+          storageDelete,
+        ],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiProviderLeaveGroupConstMeta => const TaskConstMeta(
+    debugName: "leave_group",
+    argNames: [
+      "groupIdBytes",
+      "signerBytes",
+      "storageRead",
+      "storageWrite",
+      "storageDelete",
+    ],
+  );
+
+  @override
+  Future<LeaveGroupProviderResult> crateApiProviderLeaveGroupViaSelfRemove({
+    required List<int> groupIdBytes,
+    required List<int> signerBytes,
+    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+    required FutureOr<void> Function(Uint8List) storageDelete,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 = cst_encode_list_prim_u_8_loose(groupIdBytes);
+          var arg1 = cst_encode_list_prim_u_8_loose(signerBytes);
+          var arg2 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
+                storageRead,
+              );
+          var arg3 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
+                storageWrite,
+              );
+          var arg4 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
+                storageDelete,
+              );
+          return wire.wire__crate__api__provider__leave_group_via_self_remove(
+            port_,
+            arg0,
+            arg1,
+            arg2,
+            arg3,
+            arg4,
+          );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_leave_group_provider_result,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiProviderLeaveGroupViaSelfRemoveConstMeta,
+        argValues: [
+          groupIdBytes,
+          signerBytes,
+          storageRead,
+          storageWrite,
+          storageDelete,
+        ],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiProviderLeaveGroupViaSelfRemoveConstMeta =>
+      const TaskConstMeta(
+        debugName: "leave_group_via_self_remove",
+        argNames: [
+          "groupIdBytes",
+          "signerBytes",
+          "storageRead",
+          "storageWrite",
+          "storageDelete",
+        ],
+      );
+
+  @override
+  Future<void> crateApiProviderMergePendingCommit({
+    required List<int> groupIdBytes,
+    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+    required FutureOr<void> Function(Uint8List) storageDelete,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 = cst_encode_list_prim_u_8_loose(groupIdBytes);
+          var arg1 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
+                storageRead,
+              );
+          var arg2 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
+                storageWrite,
+              );
+          var arg3 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
+                storageDelete,
+              );
+          return wire.wire__crate__api__provider__merge_pending_commit(
+            port_,
+            arg0,
+            arg1,
+            arg2,
+            arg3,
+          );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_unit,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiProviderMergePendingCommitConstMeta,
+        argValues: [groupIdBytes, storageRead, storageWrite, storageDelete],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiProviderMergePendingCommitConstMeta =>
+      const TaskConstMeta(
+        debugName: "merge_pending_commit",
+        argNames: [
+          "groupIdBytes",
+          "storageRead",
+          "storageWrite",
+          "storageDelete",
+        ],
+      );
+
+  @override
+  MlsGroupConfig crateApiConfigMlsGroupConfigDefaultConfig({
+    required MlsCiphersuite ciphersuite,
+  }) {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          var arg0 = cst_encode_mls_ciphersuite(ciphersuite);
+          return wire.wire__crate__api__config__mls_group_config_default_config(
+            arg0,
+          );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_mls_group_config,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiConfigMlsGroupConfigDefaultConfigConstMeta,
+        argValues: [ciphersuite],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiConfigMlsGroupConfigDefaultConfigConstMeta =>
+      const TaskConstMeta(
+        debugName: "mls_group_config_default_config",
+        argNames: ["ciphersuite"],
+      );
+
+  @override
+  String crateApiProviderMlsMessageContentType({
+    required List<int> messageBytes,
+  }) {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          var arg0 = cst_encode_list_prim_u_8_loose(messageBytes);
+          return wire.wire__crate__api__provider__mls_message_content_type(
+            arg0,
+          );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_String,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiProviderMlsMessageContentTypeConstMeta,
+        argValues: [messageBytes],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiProviderMlsMessageContentTypeConstMeta =>
+      const TaskConstMeta(
+        debugName: "mls_message_content_type",
+        argNames: ["messageBytes"],
+      );
+
+  @override
+  BigInt crateApiProviderMlsMessageExtractEpoch({
+    required List<int> messageBytes,
+  }) {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          var arg0 = cst_encode_list_prim_u_8_loose(messageBytes);
+          return wire.wire__crate__api__provider__mls_message_extract_epoch(
+            arg0,
+          );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_u_64,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiProviderMlsMessageExtractEpochConstMeta,
+        argValues: [messageBytes],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiProviderMlsMessageExtractEpochConstMeta =>
+      const TaskConstMeta(
+        debugName: "mls_message_extract_epoch",
+        argNames: ["messageBytes"],
+      );
+
+  @override
+  Uint8List crateApiProviderMlsMessageExtractGroupId({
+    required List<int> messageBytes,
+  }) {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          var arg0 = cst_encode_list_prim_u_8_loose(messageBytes);
+          return wire.wire__crate__api__provider__mls_message_extract_group_id(
+            arg0,
+          );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_list_prim_u_8_strict,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiProviderMlsMessageExtractGroupIdConstMeta,
+        argValues: [messageBytes],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiProviderMlsMessageExtractGroupIdConstMeta =>
+      const TaskConstMeta(
+        debugName: "mls_message_extract_group_id",
+        argNames: ["messageBytes"],
+      );
+
+  @override
+  Future<ProcessedMessageProviderResult> crateApiProviderProcessMessage({
+    required List<int> groupIdBytes,
+    required List<int> messageBytes,
+    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+    required FutureOr<void> Function(Uint8List) storageDelete,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 = cst_encode_list_prim_u_8_loose(groupIdBytes);
+          var arg1 = cst_encode_list_prim_u_8_loose(messageBytes);
+          var arg2 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
+                storageRead,
+              );
+          var arg3 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
+                storageWrite,
+              );
+          var arg4 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
+                storageDelete,
+              );
+          return wire.wire__crate__api__provider__process_message(
+            port_,
+            arg0,
+            arg1,
+            arg2,
+            arg3,
+            arg4,
+          );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_processed_message_provider_result,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiProviderProcessMessageConstMeta,
+        argValues: [
+          groupIdBytes,
+          messageBytes,
+          storageRead,
+          storageWrite,
+          storageDelete,
+        ],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiProviderProcessMessageConstMeta =>
+      const TaskConstMeta(
+        debugName: "process_message",
+        argNames: [
+          "groupIdBytes",
+          "messageBytes",
+          "storageRead",
+          "storageWrite",
+          "storageDelete",
+        ],
+      );
+
+  @override
+  Future<ProcessedMessageInspectProviderResult>
+  crateApiProviderProcessMessageWithInspect({
+    required List<int> groupIdBytes,
+    required List<int> messageBytes,
+    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+    required FutureOr<void> Function(Uint8List) storageDelete,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 = cst_encode_list_prim_u_8_loose(groupIdBytes);
+          var arg1 = cst_encode_list_prim_u_8_loose(messageBytes);
+          var arg2 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
+                storageRead,
+              );
+          var arg3 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
+                storageWrite,
+              );
+          var arg4 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
+                storageDelete,
+              );
+          return wire.wire__crate__api__provider__process_message_with_inspect(
+            port_,
+            arg0,
+            arg1,
+            arg2,
+            arg3,
+            arg4,
+          );
+        },
+        codec: DcoCodec(
+          decodeSuccessData:
+              dco_decode_processed_message_inspect_provider_result,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiProviderProcessMessageWithInspectConstMeta,
+        argValues: [
+          groupIdBytes,
+          messageBytes,
+          storageRead,
+          storageWrite,
+          storageDelete,
+        ],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiProviderProcessMessageWithInspectConstMeta =>
+      const TaskConstMeta(
+        debugName: "process_message_with_inspect",
+        argNames: [
+          "groupIdBytes",
+          "messageBytes",
+          "storageRead",
+          "storageWrite",
+          "storageDelete",
+        ],
+      );
+
+  @override
+  Future<ProposalProviderResult> crateApiProviderProposeAdd({
+    required List<int> groupIdBytes,
+    required List<int> signerBytes,
+    required List<int> keyPackageBytes,
+    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+    required FutureOr<void> Function(Uint8List) storageDelete,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 = cst_encode_list_prim_u_8_loose(groupIdBytes);
+          var arg1 = cst_encode_list_prim_u_8_loose(signerBytes);
+          var arg2 = cst_encode_list_prim_u_8_loose(keyPackageBytes);
+          var arg3 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
+                storageRead,
+              );
+          var arg4 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
+                storageWrite,
+              );
+          var arg5 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
+                storageDelete,
+              );
+          return wire.wire__crate__api__provider__propose_add(
+            port_,
+            arg0,
+            arg1,
+            arg2,
+            arg3,
+            arg4,
+            arg5,
+          );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_proposal_provider_result,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiProviderProposeAddConstMeta,
+        argValues: [
+          groupIdBytes,
+          signerBytes,
+          keyPackageBytes,
+          storageRead,
+          storageWrite,
+          storageDelete,
+        ],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiProviderProposeAddConstMeta => const TaskConstMeta(
+    debugName: "propose_add",
+    argNames: [
+      "groupIdBytes",
+      "signerBytes",
+      "keyPackageBytes",
+      "storageRead",
+      "storageWrite",
+      "storageDelete",
+    ],
+  );
+
+  @override
+  Future<ProposalProviderResult> crateApiProviderProposeCustomProposal({
+    required List<int> groupIdBytes,
+    required List<int> signerBytes,
+    required int proposalType,
+    required List<int> payload,
+    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+    required FutureOr<void> Function(Uint8List) storageDelete,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 = cst_encode_list_prim_u_8_loose(groupIdBytes);
+          var arg1 = cst_encode_list_prim_u_8_loose(signerBytes);
+          var arg2 = cst_encode_u_16(proposalType);
+          var arg3 = cst_encode_list_prim_u_8_loose(payload);
+          var arg4 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
+                storageRead,
+              );
+          var arg5 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
+                storageWrite,
+              );
+          var arg6 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
+                storageDelete,
+              );
+          return wire.wire__crate__api__provider__propose_custom_proposal(
+            port_,
+            arg0,
+            arg1,
+            arg2,
+            arg3,
+            arg4,
+            arg5,
+            arg6,
+          );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_proposal_provider_result,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiProviderProposeCustomProposalConstMeta,
+        argValues: [
+          groupIdBytes,
+          signerBytes,
+          proposalType,
+          payload,
+          storageRead,
+          storageWrite,
+          storageDelete,
+        ],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiProviderProposeCustomProposalConstMeta =>
+      const TaskConstMeta(
+        debugName: "propose_custom_proposal",
+        argNames: [
+          "groupIdBytes",
+          "signerBytes",
+          "proposalType",
+          "payload",
+          "storageRead",
+          "storageWrite",
+          "storageDelete",
+        ],
+      );
+
+  @override
+  Future<ProposalProviderResult> crateApiProviderProposeExternalPsk({
+    required List<int> groupIdBytes,
+    required List<int> signerBytes,
+    required List<int> pskId,
+    required List<int> pskNonce,
+    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+    required FutureOr<void> Function(Uint8List) storageDelete,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 = cst_encode_list_prim_u_8_loose(groupIdBytes);
+          var arg1 = cst_encode_list_prim_u_8_loose(signerBytes);
+          var arg2 = cst_encode_list_prim_u_8_loose(pskId);
+          var arg3 = cst_encode_list_prim_u_8_loose(pskNonce);
+          var arg4 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
+                storageRead,
+              );
+          var arg5 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
+                storageWrite,
+              );
+          var arg6 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
+                storageDelete,
+              );
+          return wire.wire__crate__api__provider__propose_external_psk(
+            port_,
+            arg0,
+            arg1,
+            arg2,
+            arg3,
+            arg4,
+            arg5,
+            arg6,
+          );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_proposal_provider_result,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiProviderProposeExternalPskConstMeta,
+        argValues: [
+          groupIdBytes,
+          signerBytes,
+          pskId,
+          pskNonce,
+          storageRead,
+          storageWrite,
+          storageDelete,
+        ],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiProviderProposeExternalPskConstMeta =>
+      const TaskConstMeta(
+        debugName: "propose_external_psk",
+        argNames: [
+          "groupIdBytes",
+          "signerBytes",
+          "pskId",
+          "pskNonce",
+          "storageRead",
+          "storageWrite",
+          "storageDelete",
+        ],
+      );
+
+  @override
+  Future<ProposalProviderResult> crateApiProviderProposeGroupContextExtensions({
+    required List<int> groupIdBytes,
+    required List<int> signerBytes,
+    required List<MlsExtension> extensions,
+    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+    required FutureOr<void> Function(Uint8List) storageDelete,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 = cst_encode_list_prim_u_8_loose(groupIdBytes);
+          var arg1 = cst_encode_list_prim_u_8_loose(signerBytes);
+          var arg2 = cst_encode_list_mls_extension(extensions);
+          var arg3 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
+                storageRead,
+              );
+          var arg4 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
+                storageWrite,
+              );
+          var arg5 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
+                storageDelete,
+              );
+          return wire
+              .wire__crate__api__provider__propose_group_context_extensions(
+                port_,
+                arg0,
+                arg1,
+                arg2,
+                arg3,
+                arg4,
+                arg5,
+              );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_proposal_provider_result,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiProviderProposeGroupContextExtensionsConstMeta,
+        argValues: [
+          groupIdBytes,
+          signerBytes,
+          extensions,
+          storageRead,
+          storageWrite,
+          storageDelete,
+        ],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiProviderProposeGroupContextExtensionsConstMeta =>
+      const TaskConstMeta(
+        debugName: "propose_group_context_extensions",
+        argNames: [
+          "groupIdBytes",
+          "signerBytes",
+          "extensions",
+          "storageRead",
+          "storageWrite",
+          "storageDelete",
+        ],
+      );
+
+  @override
+  Future<ProposalProviderResult> crateApiProviderProposeRemove({
+    required List<int> groupIdBytes,
+    required List<int> signerBytes,
+    required int memberIndex,
+    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+    required FutureOr<void> Function(Uint8List) storageDelete,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 = cst_encode_list_prim_u_8_loose(groupIdBytes);
+          var arg1 = cst_encode_list_prim_u_8_loose(signerBytes);
+          var arg2 = cst_encode_u_32(memberIndex);
+          var arg3 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
+                storageRead,
+              );
+          var arg4 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
+                storageWrite,
+              );
+          var arg5 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
+                storageDelete,
+              );
+          return wire.wire__crate__api__provider__propose_remove(
+            port_,
+            arg0,
+            arg1,
+            arg2,
+            arg3,
+            arg4,
+            arg5,
+          );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_proposal_provider_result,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiProviderProposeRemoveConstMeta,
+        argValues: [
+          groupIdBytes,
+          signerBytes,
+          memberIndex,
+          storageRead,
+          storageWrite,
+          storageDelete,
+        ],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiProviderProposeRemoveConstMeta =>
+      const TaskConstMeta(
+        debugName: "propose_remove",
+        argNames: [
+          "groupIdBytes",
+          "signerBytes",
+          "memberIndex",
+          "storageRead",
+          "storageWrite",
+          "storageDelete",
+        ],
+      );
+
+  @override
+  Future<ProposalProviderResult>
+  crateApiProviderProposeRemoveMemberByCredential({
+    required List<int> groupIdBytes,
+    required List<int> signerBytes,
+    required List<int> credentialIdentity,
+    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+    required FutureOr<void> Function(Uint8List) storageDelete,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 = cst_encode_list_prim_u_8_loose(groupIdBytes);
+          var arg1 = cst_encode_list_prim_u_8_loose(signerBytes);
+          var arg2 = cst_encode_list_prim_u_8_loose(credentialIdentity);
+          var arg3 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
+                storageRead,
+              );
+          var arg4 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
+                storageWrite,
+              );
+          var arg5 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
+                storageDelete,
+              );
+          return wire
+              .wire__crate__api__provider__propose_remove_member_by_credential(
+                port_,
+                arg0,
+                arg1,
+                arg2,
+                arg3,
+                arg4,
+                arg5,
+              );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_proposal_provider_result,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiProviderProposeRemoveMemberByCredentialConstMeta,
+        argValues: [
+          groupIdBytes,
+          signerBytes,
+          credentialIdentity,
+          storageRead,
+          storageWrite,
+          storageDelete,
+        ],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiProviderProposeRemoveMemberByCredentialConstMeta =>
+      const TaskConstMeta(
+        debugName: "propose_remove_member_by_credential",
+        argNames: [
+          "groupIdBytes",
+          "signerBytes",
+          "credentialIdentity",
+          "storageRead",
+          "storageWrite",
+          "storageDelete",
+        ],
+      );
+
+  @override
+  Future<ProposalProviderResult> crateApiProviderProposeSelfUpdate({
+    required List<int> groupIdBytes,
+    required List<int> signerBytes,
+    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+    required FutureOr<void> Function(Uint8List) storageDelete,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 = cst_encode_list_prim_u_8_loose(groupIdBytes);
+          var arg1 = cst_encode_list_prim_u_8_loose(signerBytes);
+          var arg2 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
+                storageRead,
+              );
+          var arg3 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
+                storageWrite,
+              );
+          var arg4 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
+                storageDelete,
+              );
+          return wire.wire__crate__api__provider__propose_self_update(
+            port_,
+            arg0,
+            arg1,
+            arg2,
+            arg3,
+            arg4,
+          );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_proposal_provider_result,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiProviderProposeSelfUpdateConstMeta,
+        argValues: [
+          groupIdBytes,
+          signerBytes,
+          storageRead,
+          storageWrite,
+          storageDelete,
+        ],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiProviderProposeSelfUpdateConstMeta =>
+      const TaskConstMeta(
+        debugName: "propose_self_update",
+        argNames: [
+          "groupIdBytes",
+          "signerBytes",
+          "storageRead",
+          "storageWrite",
+          "storageDelete",
+        ],
+      );
+
+  @override
+  Future<CommitProviderResult> crateApiProviderRemoveMembers({
+    required List<int> groupIdBytes,
+    required List<int> signerBytes,
+    required List<int> memberIndices,
+    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+    required FutureOr<void> Function(Uint8List) storageDelete,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 = cst_encode_list_prim_u_8_loose(groupIdBytes);
+          var arg1 = cst_encode_list_prim_u_8_loose(signerBytes);
+          var arg2 = cst_encode_list_prim_u_32_loose(memberIndices);
+          var arg3 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
+                storageRead,
+              );
+          var arg4 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
+                storageWrite,
+              );
+          var arg5 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
+                storageDelete,
+              );
+          return wire.wire__crate__api__provider__remove_members(
+            port_,
+            arg0,
+            arg1,
+            arg2,
+            arg3,
+            arg4,
+            arg5,
+          );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_commit_provider_result,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiProviderRemoveMembersConstMeta,
+        argValues: [
+          groupIdBytes,
+          signerBytes,
+          memberIndices,
+          storageRead,
+          storageWrite,
+          storageDelete,
+        ],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiProviderRemoveMembersConstMeta =>
+      const TaskConstMeta(
+        debugName: "remove_members",
+        argNames: [
+          "groupIdBytes",
+          "signerBytes",
+          "memberIndices",
+          "storageRead",
+          "storageWrite",
+          "storageDelete",
+        ],
+      );
+
+  @override
+  Future<CommitProviderResult> crateApiProviderSelfUpdate({
+    required List<int> groupIdBytes,
+    required List<int> signerBytes,
+    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+    required FutureOr<void> Function(Uint8List) storageDelete,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 = cst_encode_list_prim_u_8_loose(groupIdBytes);
+          var arg1 = cst_encode_list_prim_u_8_loose(signerBytes);
+          var arg2 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
+                storageRead,
+              );
+          var arg3 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
+                storageWrite,
+              );
+          var arg4 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
+                storageDelete,
+              );
+          return wire.wire__crate__api__provider__self_update(
+            port_,
+            arg0,
+            arg1,
+            arg2,
+            arg3,
+            arg4,
+          );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_commit_provider_result,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiProviderSelfUpdateConstMeta,
+        argValues: [
+          groupIdBytes,
+          signerBytes,
+          storageRead,
+          storageWrite,
+          storageDelete,
+        ],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiProviderSelfUpdateConstMeta => const TaskConstMeta(
+    debugName: "self_update",
+    argNames: [
+      "groupIdBytes",
+      "signerBytes",
+      "storageRead",
+      "storageWrite",
+      "storageDelete",
+    ],
+  );
+
+  @override
+  Future<CommitProviderResult> crateApiProviderSelfUpdateWithNewSigner({
+    required List<int> groupIdBytes,
+    required List<int> oldSignerBytes,
+    required List<int> newSignerBytes,
+    required List<int> newCredentialIdentity,
+    required List<int> newSignerPublicKey,
+    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+    required FutureOr<void> Function(Uint8List) storageDelete,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 = cst_encode_list_prim_u_8_loose(groupIdBytes);
+          var arg1 = cst_encode_list_prim_u_8_loose(oldSignerBytes);
+          var arg2 = cst_encode_list_prim_u_8_loose(newSignerBytes);
+          var arg3 = cst_encode_list_prim_u_8_loose(newCredentialIdentity);
+          var arg4 = cst_encode_list_prim_u_8_loose(newSignerPublicKey);
+          var arg5 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
+                storageRead,
+              );
+          var arg6 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
+                storageWrite,
+              );
+          var arg7 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
+                storageDelete,
+              );
+          return wire.wire__crate__api__provider__self_update_with_new_signer(
+            port_,
+            arg0,
+            arg1,
+            arg2,
+            arg3,
+            arg4,
+            arg5,
+            arg6,
+            arg7,
+          );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_commit_provider_result,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiProviderSelfUpdateWithNewSignerConstMeta,
+        argValues: [
+          groupIdBytes,
+          oldSignerBytes,
+          newSignerBytes,
+          newCredentialIdentity,
+          newSignerPublicKey,
+          storageRead,
+          storageWrite,
+          storageDelete,
+        ],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiProviderSelfUpdateWithNewSignerConstMeta =>
+      const TaskConstMeta(
+        debugName: "self_update_with_new_signer",
+        argNames: [
+          "groupIdBytes",
+          "oldSignerBytes",
+          "newSignerBytes",
+          "newCredentialIdentity",
+          "newSignerPublicKey",
+          "storageRead",
+          "storageWrite",
+          "storageDelete",
+        ],
+      );
+
+  @override
+  Uint8List crateApiKeysSerializeSigner({
+    required MlsCiphersuite ciphersuite,
+    required List<int> privateKey,
+    required List<int> publicKey,
+  }) {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          var arg0 = cst_encode_mls_ciphersuite(ciphersuite);
+          var arg1 = cst_encode_list_prim_u_8_loose(privateKey);
+          var arg2 = cst_encode_list_prim_u_8_loose(publicKey);
+          return wire.wire__crate__api__keys__serialize_signer(
+            arg0,
+            arg1,
+            arg2,
+          );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_list_prim_u_8_strict,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiKeysSerializeSignerConstMeta,
+        argValues: [ciphersuite, privateKey, publicKey],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiKeysSerializeSignerConstMeta =>
+      const TaskConstMeta(
+        debugName: "serialize_signer",
+        argNames: ["ciphersuite", "privateKey", "publicKey"],
+      );
+
+  @override
+  Future<void> crateApiProviderSetConfiguration({
+    required List<int> groupIdBytes,
+    required MlsGroupConfig config,
+    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+    required FutureOr<void> Function(Uint8List) storageDelete,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 = cst_encode_list_prim_u_8_loose(groupIdBytes);
+          var arg1 = cst_encode_box_autoadd_mls_group_config(config);
+          var arg2 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
+                storageRead,
+              );
+          var arg3 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
+                storageWrite,
+              );
+          var arg4 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
+                storageDelete,
+              );
+          return wire.wire__crate__api__provider__set_configuration(
+            port_,
+            arg0,
+            arg1,
+            arg2,
+            arg3,
+            arg4,
+          );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_unit,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiProviderSetConfigurationConstMeta,
+        argValues: [
+          groupIdBytes,
+          config,
+          storageRead,
+          storageWrite,
+          storageDelete,
+        ],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiProviderSetConfigurationConstMeta =>
+      const TaskConstMeta(
+        debugName: "set_configuration",
+        argNames: [
+          "groupIdBytes",
+          "config",
+          "storageRead",
+          "storageWrite",
+          "storageDelete",
+        ],
+      );
+
+  @override
+  List<MlsCiphersuite> crateApiTypesSupportedCiphersuites() {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          return wire.wire__crate__api__types__supported_ciphersuites();
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_list_mls_ciphersuite,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiTypesSupportedCiphersuitesConstMeta,
+        argValues: [],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiTypesSupportedCiphersuitesConstMeta =>
+      const TaskConstMeta(debugName: "supported_ciphersuites", argNames: []);
+
+  @override
+  Future<AddMembersProviderResult> crateApiProviderSwapMembers({
+    required List<int> groupIdBytes,
+    required List<int> signerBytes,
+    required List<int> removeIndices,
+    required List<Uint8List> addKeyPackagesBytes,
+    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+    required FutureOr<void> Function(Uint8List) storageDelete,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 = cst_encode_list_prim_u_8_loose(groupIdBytes);
+          var arg1 = cst_encode_list_prim_u_8_loose(signerBytes);
+          var arg2 = cst_encode_list_prim_u_32_loose(removeIndices);
+          var arg3 = cst_encode_list_list_prim_u_8_strict(addKeyPackagesBytes);
+          var arg4 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
+                storageRead,
+              );
+          var arg5 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
+                storageWrite,
+              );
+          var arg6 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
+                storageDelete,
+              );
+          return wire.wire__crate__api__provider__swap_members(
+            port_,
+            arg0,
+            arg1,
+            arg2,
+            arg3,
+            arg4,
+            arg5,
+            arg6,
+          );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_add_members_provider_result,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiProviderSwapMembersConstMeta,
+        argValues: [
+          groupIdBytes,
+          signerBytes,
+          removeIndices,
+          addKeyPackagesBytes,
+          storageRead,
+          storageWrite,
+          storageDelete,
+        ],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiProviderSwapMembersConstMeta =>
+      const TaskConstMeta(
+        debugName: "swap_members",
+        argNames: [
+          "groupIdBytes",
+          "signerBytes",
+          "removeIndices",
+          "addKeyPackagesBytes",
+          "storageRead",
+          "storageWrite",
+          "storageDelete",
+        ],
+      );
+
+  @override
+  Future<CommitProviderResult> crateApiProviderUpdateGroupContextExtensions({
+    required List<int> groupIdBytes,
+    required List<int> signerBytes,
+    required List<MlsExtension> extensions,
+    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
+    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
+    required FutureOr<void> Function(Uint8List) storageDelete,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 = cst_encode_list_prim_u_8_loose(groupIdBytes);
+          var arg1 = cst_encode_list_prim_u_8_loose(signerBytes);
+          var arg2 = cst_encode_list_mls_extension(extensions);
+          var arg3 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
+                storageRead,
+              );
+          var arg4 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
+                storageWrite,
+              );
+          var arg5 =
+              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
+                storageDelete,
+              );
+          return wire
+              .wire__crate__api__provider__update_group_context_extensions(
+                port_,
+                arg0,
+                arg1,
+                arg2,
+                arg3,
+                arg4,
+                arg5,
+              );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_commit_provider_result,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiProviderUpdateGroupContextExtensionsConstMeta,
+        argValues: [
+          groupIdBytes,
+          signerBytes,
+          extensions,
+          storageRead,
+          storageWrite,
+          storageDelete,
+        ],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiProviderUpdateGroupContextExtensionsConstMeta =>
+      const TaskConstMeta(
+        debugName: "update_group_context_extensions",
+        argNames: [
+          "groupIdBytes",
+          "signerBytes",
+          "extensions",
+          "storageRead",
+          "storageWrite",
+          "storageDelete",
+        ],
+      );
+
+  Future<void> Function(int, dynamic)
+  encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
+    FutureOr<Uint8List?> Function(Uint8List) raw,
+  ) {
+    return (callId, rawArg0) async {
+      final arg0 = dco_decode_list_prim_u_8_strict(rawArg0);
+
+      Box<Uint8List?>? rawOutput;
+      Box<AnyhowException>? rawError;
+      try {
+        rawOutput = Box(await raw(arg0));
+      } catch (e, s) {
+        rawError = Box(AnyhowException("$e\n\n$s"));
+      }
+
+      final serializer = SseSerializer(generalizedFrbRustBinding);
+      assert((rawOutput != null) ^ (rawError != null));
+      if (rawOutput != null) {
+        serializer.buffer.putUint8(0);
+        sse_encode_opt_list_prim_u_8_strict(rawOutput.value, serializer);
+      } else {
+        serializer.buffer.putUint8(1);
+        sse_encode_AnyhowException(rawError!.value, serializer);
+      }
+      final output = serializer.intoRaw();
+
+      generalizedFrbRustBinding.dartFnDeliverOutput(
+        callId: callId,
+        ptr: output.ptr,
+        rustVecLen: output.rustVecLen,
+        dataLen: output.dataLen,
+      );
+    };
+  }
+
+  Future<void> Function(int, dynamic)
+  encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
+    FutureOr<void> Function(Uint8List) raw,
+  ) {
+    return (callId, rawArg0) async {
+      final arg0 = dco_decode_list_prim_u_8_strict(rawArg0);
+
+      Box<void>? rawOutput;
+      Box<AnyhowException>? rawError;
+      try {
+        rawOutput = Box(await raw(arg0));
+      } catch (e, s) {
+        rawError = Box(AnyhowException("$e\n\n$s"));
+      }
+
+      final serializer = SseSerializer(generalizedFrbRustBinding);
+      assert((rawOutput != null) ^ (rawError != null));
+      if (rawOutput != null) {
+        serializer.buffer.putUint8(0);
+        sse_encode_unit(rawOutput.value, serializer);
+      } else {
+        serializer.buffer.putUint8(1);
+        sse_encode_AnyhowException(rawError!.value, serializer);
+      }
+      final output = serializer.intoRaw();
+
+      generalizedFrbRustBinding.dartFnDeliverOutput(
+        callId: callId,
+        ptr: output.ptr,
+        rustVecLen: output.rustVecLen,
+        dataLen: output.dataLen,
+      );
+    };
+  }
+
+  Future<void> Function(int, dynamic, dynamic)
+  encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
+    FutureOr<void> Function(Uint8List, Uint8List) raw,
+  ) {
+    return (callId, rawArg0, rawArg1) async {
+      final arg0 = dco_decode_list_prim_u_8_strict(rawArg0);
+      final arg1 = dco_decode_list_prim_u_8_strict(rawArg1);
+
+      Box<void>? rawOutput;
+      Box<AnyhowException>? rawError;
+      try {
+        rawOutput = Box(await raw(arg0, arg1));
+      } catch (e, s) {
+        rawError = Box(AnyhowException("$e\n\n$s"));
+      }
+
+      final serializer = SseSerializer(generalizedFrbRustBinding);
+      assert((rawOutput != null) ^ (rawError != null));
+      if (rawOutput != null) {
+        serializer.buffer.putUint8(0);
+        sse_encode_unit(rawOutput.value, serializer);
+      } else {
+        serializer.buffer.putUint8(1);
+        sse_encode_AnyhowException(rawError!.value, serializer);
+      }
+      final output = serializer.intoRaw();
+
+      generalizedFrbRustBinding.dartFnDeliverOutput(
+        callId: callId,
+        ptr: output.ptr,
+        rustVecLen: output.rustVecLen,
+        dataLen: output.dataLen,
+      );
+    };
+  }
+
+  RustArcIncrementStrongCountFnType
+  get rust_arc_increment_strong_count_MlsCredential => wire
+      .rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsCredential;
+
+  RustArcDecrementStrongCountFnType
+  get rust_arc_decrement_strong_count_MlsCredential => wire
+      .rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsCredential;
+
+  RustArcIncrementStrongCountFnType
+  get rust_arc_increment_strong_count_MlsSignatureKeyPair => wire
+      .rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsSignatureKeyPair;
+
+  RustArcDecrementStrongCountFnType
+  get rust_arc_decrement_strong_count_MlsSignatureKeyPair => wire
+      .rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsSignatureKeyPair;
+
+  @protected
+  AnyhowException dco_decode_AnyhowException(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return AnyhowException(raw as String);
+  }
+
+  @protected
+  MlsCredential
+  dco_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsCredential(
+    dynamic raw,
+  ) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return MlsCredentialImpl.frbInternalDcoDecode(raw as List<dynamic>);
+  }
+
+  @protected
+  MlsSignatureKeyPair
+  dco_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsSignatureKeyPair(
+    dynamic raw,
+  ) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return MlsSignatureKeyPairImpl.frbInternalDcoDecode(raw as List<dynamic>);
+  }
+
+  @protected
+  MlsCredential
+  dco_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsCredential(
+    dynamic raw,
+  ) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return MlsCredentialImpl.frbInternalDcoDecode(raw as List<dynamic>);
+  }
+
+  @protected
+  MlsSignatureKeyPair
+  dco_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsSignatureKeyPair(
+    dynamic raw,
+  ) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return MlsSignatureKeyPairImpl.frbInternalDcoDecode(raw as List<dynamic>);
+  }
+
+  @protected
+  FutureOr<Uint8List?> Function(Uint8List)
+  dco_decode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
+    dynamic raw,
+  ) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    throw UnimplementedError('');
+  }
+
+  @protected
+  FutureOr<void> Function(Uint8List)
+  dco_decode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
+    dynamic raw,
+  ) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    throw UnimplementedError('');
+  }
+
+  @protected
+  FutureOr<void> Function(Uint8List, Uint8List)
+  dco_decode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
+    dynamic raw,
+  ) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    throw UnimplementedError('');
+  }
+
+  @protected
+  Object dco_decode_DartOpaque(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return decodeDartOpaque(raw, generalizedFrbRustBinding);
+  }
+
+  @protected
+  MlsCredential
+  dco_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsCredential(
+    dynamic raw,
+  ) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return MlsCredentialImpl.frbInternalDcoDecode(raw as List<dynamic>);
+  }
+
+  @protected
+  MlsSignatureKeyPair
+  dco_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsSignatureKeyPair(
+    dynamic raw,
+  ) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return MlsSignatureKeyPairImpl.frbInternalDcoDecode(raw as List<dynamic>);
+  }
+
   @protected
   String dco_decode_String(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw as String;
+  }
+
+  @protected
+  AddMembersProviderResult dco_decode_add_members_provider_result(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 3)
+      throw Exception('unexpected arr length: expect 3 but see ${arr.length}');
+    return AddMembersProviderResult(
+      commit: dco_decode_list_prim_u_8_strict(arr[0]),
+      welcome: dco_decode_list_prim_u_8_strict(arr[1]),
+      groupInfo: dco_decode_opt_list_prim_u_8_strict(arr[2]),
+    );
   }
 
   @protected
@@ -144,9 +5013,508 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  FlexibleCommitOptions dco_decode_box_autoadd_flexible_commit_options(
+    dynamic raw,
+  ) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return dco_decode_flexible_commit_options(raw);
+  }
+
+  @protected
+  KeyPackageOptions dco_decode_box_autoadd_key_package_options(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return dco_decode_key_package_options(raw);
+  }
+
+  @protected
+  MlsCapabilities dco_decode_box_autoadd_mls_capabilities(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return dco_decode_mls_capabilities(raw);
+  }
+
+  @protected
+  MlsGroupConfig dco_decode_box_autoadd_mls_group_config(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return dco_decode_mls_group_config(raw);
+  }
+
+  @protected
+  MlsMemberInfo dco_decode_box_autoadd_mls_member_info(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return dco_decode_mls_member_info(raw);
+  }
+
+  @protected
+  MlsProposalType dco_decode_box_autoadd_mls_proposal_type(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return dco_decode_mls_proposal_type(raw);
+  }
+
+  @protected
+  StagedCommitInfo dco_decode_box_autoadd_staged_commit_info(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return dco_decode_staged_commit_info(raw);
+  }
+
+  @protected
+  int dco_decode_box_autoadd_u_32(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw as int;
+  }
+
+  @protected
+  BigInt dco_decode_box_autoadd_u_64(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return dco_decode_u_64(raw);
+  }
+
+  @protected
+  CommitProviderResult dco_decode_commit_provider_result(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 3)
+      throw Exception('unexpected arr length: expect 3 but see ${arr.length}');
+    return CommitProviderResult(
+      commit: dco_decode_list_prim_u_8_strict(arr[0]),
+      welcome: dco_decode_opt_list_prim_u_8_strict(arr[1]),
+      groupInfo: dco_decode_opt_list_prim_u_8_strict(arr[2]),
+    );
+  }
+
+  @protected
+  CreateGroupProviderResult dco_decode_create_group_provider_result(
+    dynamic raw,
+  ) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 1)
+      throw Exception('unexpected arr length: expect 1 but see ${arr.length}');
+    return CreateGroupProviderResult(
+      groupId: dco_decode_list_prim_u_8_strict(arr[0]),
+    );
+  }
+
+  @protected
+  CreateMessageProviderResult dco_decode_create_message_provider_result(
+    dynamic raw,
+  ) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 1)
+      throw Exception('unexpected arr length: expect 1 but see ${arr.length}');
+    return CreateMessageProviderResult(
+      ciphertext: dco_decode_list_prim_u_8_strict(arr[0]),
+    );
+  }
+
+  @protected
+  ExternalJoinProviderResult dco_decode_external_join_provider_result(
+    dynamic raw,
+  ) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 3)
+      throw Exception('unexpected arr length: expect 3 but see ${arr.length}');
+    return ExternalJoinProviderResult(
+      groupId: dco_decode_list_prim_u_8_strict(arr[0]),
+      commit: dco_decode_list_prim_u_8_strict(arr[1]),
+      groupInfo: dco_decode_opt_list_prim_u_8_strict(arr[2]),
+    );
+  }
+
+  @protected
+  FlexibleCommitOptions dco_decode_flexible_commit_options(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 8)
+      throw Exception('unexpected arr length: expect 8 but see ${arr.length}');
+    return FlexibleCommitOptions(
+      addKeyPackages: dco_decode_list_list_prim_u_8_strict(arr[0]),
+      removeIndices: dco_decode_list_prim_u_32_strict(arr[1]),
+      forceSelfUpdate: dco_decode_bool(arr[2]),
+      consumePendingProposals: dco_decode_bool(arr[3]),
+      groupContextExtensions: dco_decode_opt_list_mls_extension(arr[4]),
+      aad: dco_decode_opt_list_prim_u_8_strict(arr[5]),
+      createGroupInfo: dco_decode_bool(arr[6]),
+      useRatchetTreeExtension: dco_decode_bool(arr[7]),
+    );
+  }
+
+  @protected
+  int dco_decode_i_32(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw as int;
+  }
+
+  @protected
+  PlatformInt64 dco_decode_isize(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return dcoDecodeI64(raw);
+  }
+
+  @protected
+  JoinGroupProviderResult dco_decode_join_group_provider_result(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 1)
+      throw Exception('unexpected arr length: expect 1 but see ${arr.length}');
+    return JoinGroupProviderResult(
+      groupId: dco_decode_list_prim_u_8_strict(arr[0]),
+    );
+  }
+
+  @protected
+  KeyPackageOptions dco_decode_key_package_options(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 5)
+      throw Exception('unexpected arr length: expect 5 but see ${arr.length}');
+    return KeyPackageOptions(
+      lifetimeSeconds: dco_decode_opt_box_autoadd_u_64(arr[0]),
+      lastResort: dco_decode_bool(arr[1]),
+      capabilities: dco_decode_opt_box_autoadd_mls_capabilities(arr[2]),
+      leafNodeExtensions: dco_decode_opt_list_mls_extension(arr[3]),
+      keyPackageExtensions: dco_decode_opt_list_mls_extension(arr[4]),
+    );
+  }
+
+  @protected
+  KeyPackageProviderResult dco_decode_key_package_provider_result(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 1)
+      throw Exception('unexpected arr length: expect 1 but see ${arr.length}');
+    return KeyPackageProviderResult(
+      keyPackageBytes: dco_decode_list_prim_u_8_strict(arr[0]),
+    );
+  }
+
+  @protected
+  LeaveGroupProviderResult dco_decode_leave_group_provider_result(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 1)
+      throw Exception('unexpected arr length: expect 1 but see ${arr.length}');
+    return LeaveGroupProviderResult(
+      message: dco_decode_list_prim_u_8_strict(arr[0]),
+    );
+  }
+
+  @protected
+  List<Uint8List> dco_decode_list_list_prim_u_8_strict(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return (raw as List<dynamic>).map(dco_decode_list_prim_u_8_strict).toList();
+  }
+
+  @protected
+  List<MlsCiphersuite> dco_decode_list_mls_ciphersuite(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return (raw as List<dynamic>).map(dco_decode_mls_ciphersuite).toList();
+  }
+
+  @protected
+  List<MlsExtension> dco_decode_list_mls_extension(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return (raw as List<dynamic>).map(dco_decode_mls_extension).toList();
+  }
+
+  @protected
+  List<MlsMemberInfo> dco_decode_list_mls_member_info(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return (raw as List<dynamic>).map(dco_decode_mls_member_info).toList();
+  }
+
+  @protected
+  List<MlsPendingProposalInfo> dco_decode_list_mls_pending_proposal_info(
+    dynamic raw,
+  ) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return (raw as List<dynamic>)
+        .map(dco_decode_mls_pending_proposal_info)
+        .toList();
+  }
+
+  @protected
+  Uint16List dco_decode_list_prim_u_16_strict(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw as Uint16List;
+  }
+
+  @protected
+  List<int> dco_decode_list_prim_u_32_loose(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw as List<int>;
+  }
+
+  @protected
+  Uint32List dco_decode_list_prim_u_32_strict(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw as Uint32List;
+  }
+
+  @protected
+  List<int> dco_decode_list_prim_u_8_loose(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw as List<int>;
+  }
+
+  @protected
   Uint8List dco_decode_list_prim_u_8_strict(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw as Uint8List;
+  }
+
+  @protected
+  MlsCapabilities dco_decode_mls_capabilities(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 5)
+      throw Exception('unexpected arr length: expect 5 but see ${arr.length}');
+    return MlsCapabilities(
+      versions: dco_decode_list_prim_u_16_strict(arr[0]),
+      ciphersuites: dco_decode_list_prim_u_16_strict(arr[1]),
+      extensions: dco_decode_list_prim_u_16_strict(arr[2]),
+      proposals: dco_decode_list_prim_u_16_strict(arr[3]),
+      credentials: dco_decode_list_prim_u_16_strict(arr[4]),
+    );
+  }
+
+  @protected
+  MlsCiphersuite dco_decode_mls_ciphersuite(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return MlsCiphersuite.values[raw as int];
+  }
+
+  @protected
+  MlsExtension dco_decode_mls_extension(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 2)
+      throw Exception('unexpected arr length: expect 2 but see ${arr.length}');
+    return MlsExtension(
+      extensionType: dco_decode_u_16(arr[0]),
+      data: dco_decode_list_prim_u_8_strict(arr[1]),
+    );
+  }
+
+  @protected
+  MlsGroupConfig dco_decode_mls_group_config(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 8)
+      throw Exception('unexpected arr length: expect 8 but see ${arr.length}');
+    return MlsGroupConfig(
+      ciphersuite: dco_decode_mls_ciphersuite(arr[0]),
+      wireFormatPolicy: dco_decode_mls_wire_format_policy(arr[1]),
+      useRatchetTreeExtension: dco_decode_bool(arr[2]),
+      maxPastEpochs: dco_decode_u_32(arr[3]),
+      paddingSize: dco_decode_u_32(arr[4]),
+      senderRatchetMaxOutOfOrder: dco_decode_u_32(arr[5]),
+      senderRatchetMaxForwardDistance: dco_decode_u_32(arr[6]),
+      numberOfResumptionPsks: dco_decode_u_32(arr[7]),
+    );
+  }
+
+  @protected
+  MlsGroupContextInfo dco_decode_mls_group_context_info(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 6)
+      throw Exception('unexpected arr length: expect 6 but see ${arr.length}');
+    return MlsGroupContextInfo(
+      groupId: dco_decode_list_prim_u_8_strict(arr[0]),
+      epoch: dco_decode_u_64(arr[1]),
+      ciphersuite: dco_decode_mls_ciphersuite(arr[2]),
+      treeHash: dco_decode_list_prim_u_8_strict(arr[3]),
+      confirmedTranscriptHash: dco_decode_list_prim_u_8_strict(arr[4]),
+      extensions: dco_decode_list_prim_u_8_strict(arr[5]),
+    );
+  }
+
+  @protected
+  MlsLeafNodeInfo dco_decode_mls_leaf_node_info(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 5)
+      throw Exception('unexpected arr length: expect 5 but see ${arr.length}');
+    return MlsLeafNodeInfo(
+      credentialIdentity: dco_decode_list_prim_u_8_strict(arr[0]),
+      signatureKey: dco_decode_list_prim_u_8_strict(arr[1]),
+      encryptionKey: dco_decode_list_prim_u_8_strict(arr[2]),
+      capabilities: dco_decode_mls_capabilities(arr[3]),
+      extensions: dco_decode_list_mls_extension(arr[4]),
+    );
+  }
+
+  @protected
+  MlsMemberInfo dco_decode_mls_member_info(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 3)
+      throw Exception('unexpected arr length: expect 3 but see ${arr.length}');
+    return MlsMemberInfo(
+      index: dco_decode_u_32(arr[0]),
+      credentialIdentity: dco_decode_list_prim_u_8_strict(arr[1]),
+      signatureKey: dco_decode_list_prim_u_8_strict(arr[2]),
+    );
+  }
+
+  @protected
+  MlsPendingProposalInfo dco_decode_mls_pending_proposal_info(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 2)
+      throw Exception('unexpected arr length: expect 2 but see ${arr.length}');
+    return MlsPendingProposalInfo(
+      proposalType: dco_decode_mls_proposal_type(arr[0]),
+      senderIndex: dco_decode_opt_box_autoadd_u_32(arr[1]),
+    );
+  }
+
+  @protected
+  MlsProposalType dco_decode_mls_proposal_type(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return MlsProposalType.values[raw as int];
+  }
+
+  @protected
+  MlsWireFormatPolicy dco_decode_mls_wire_format_policy(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return MlsWireFormatPolicy.values[raw as int];
+  }
+
+  @protected
+  MlsCapabilities? dco_decode_opt_box_autoadd_mls_capabilities(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw == null ? null : dco_decode_box_autoadd_mls_capabilities(raw);
+  }
+
+  @protected
+  MlsMemberInfo? dco_decode_opt_box_autoadd_mls_member_info(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw == null ? null : dco_decode_box_autoadd_mls_member_info(raw);
+  }
+
+  @protected
+  MlsProposalType? dco_decode_opt_box_autoadd_mls_proposal_type(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw == null ? null : dco_decode_box_autoadd_mls_proposal_type(raw);
+  }
+
+  @protected
+  StagedCommitInfo? dco_decode_opt_box_autoadd_staged_commit_info(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw == null ? null : dco_decode_box_autoadd_staged_commit_info(raw);
+  }
+
+  @protected
+  int? dco_decode_opt_box_autoadd_u_32(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw == null ? null : dco_decode_box_autoadd_u_32(raw);
+  }
+
+  @protected
+  BigInt? dco_decode_opt_box_autoadd_u_64(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw == null ? null : dco_decode_box_autoadd_u_64(raw);
+  }
+
+  @protected
+  List<MlsExtension>? dco_decode_opt_list_mls_extension(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw == null ? null : dco_decode_list_mls_extension(raw);
+  }
+
+  @protected
+  Uint8List? dco_decode_opt_list_prim_u_8_strict(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw == null ? null : dco_decode_list_prim_u_8_strict(raw);
+  }
+
+  @protected
+  ProcessedMessageInspectProviderResult
+  dco_decode_processed_message_inspect_provider_result(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 6)
+      throw Exception('unexpected arr length: expect 6 but see ${arr.length}');
+    return ProcessedMessageInspectProviderResult(
+      messageType: dco_decode_processed_message_type(arr[0]),
+      senderIndex: dco_decode_opt_box_autoadd_u_32(arr[1]),
+      epoch: dco_decode_u_64(arr[2]),
+      applicationMessage: dco_decode_opt_list_prim_u_8_strict(arr[3]),
+      stagedCommitInfo: dco_decode_opt_box_autoadd_staged_commit_info(arr[4]),
+      proposalType: dco_decode_opt_box_autoadd_mls_proposal_type(arr[5]),
+    );
+  }
+
+  @protected
+  ProcessedMessageProviderResult dco_decode_processed_message_provider_result(
+    dynamic raw,
+  ) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 7)
+      throw Exception('unexpected arr length: expect 7 but see ${arr.length}');
+    return ProcessedMessageProviderResult(
+      messageType: dco_decode_processed_message_type(arr[0]),
+      senderIndex: dco_decode_opt_box_autoadd_u_32(arr[1]),
+      epoch: dco_decode_u_64(arr[2]),
+      applicationMessage: dco_decode_opt_list_prim_u_8_strict(arr[3]),
+      hasStagedCommit: dco_decode_bool(arr[4]),
+      hasProposal: dco_decode_bool(arr[5]),
+      proposalType: dco_decode_opt_box_autoadd_mls_proposal_type(arr[6]),
+    );
+  }
+
+  @protected
+  ProcessedMessageType dco_decode_processed_message_type(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return ProcessedMessageType.values[raw as int];
+  }
+
+  @protected
+  ProposalProviderResult dco_decode_proposal_provider_result(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 1)
+      throw Exception('unexpected arr length: expect 1 but see ${arr.length}');
+    return ProposalProviderResult(
+      proposalMessage: dco_decode_list_prim_u_8_strict(arr[0]),
+    );
+  }
+
+  @protected
+  StagedCommitInfo dco_decode_staged_commit_info(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 5)
+      throw Exception('unexpected arr length: expect 5 but see ${arr.length}');
+    return StagedCommitInfo(
+      addCredentialIdentities: dco_decode_list_list_prim_u_8_strict(arr[0]),
+      removeIndices: dco_decode_list_prim_u_32_strict(arr[1]),
+      hasUpdate: dco_decode_bool(arr[2]),
+      selfRemoved: dco_decode_bool(arr[3]),
+      pskCount: dco_decode_u_32(arr[4]),
+    );
+  }
+
+  @protected
+  int dco_decode_u_16(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw as int;
+  }
+
+  @protected
+  int dco_decode_u_32(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw as int;
+  }
+
+  @protected
+  BigInt dco_decode_u_64(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return dcoDecodeU64(raw);
   }
 
   @protected
@@ -162,10 +5530,131 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  BigInt dco_decode_usize(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return dcoDecodeU64(raw);
+  }
+
+  @protected
+  WelcomeInspectResult dco_decode_welcome_inspect_result(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 4)
+      throw Exception('unexpected arr length: expect 4 but see ${arr.length}');
+    return WelcomeInspectResult(
+      groupId: dco_decode_list_prim_u_8_strict(arr[0]),
+      ciphersuite: dco_decode_mls_ciphersuite(arr[1]),
+      pskCount: dco_decode_u_32(arr[2]),
+      epoch: dco_decode_u_64(arr[3]),
+    );
+  }
+
+  @protected
+  AnyhowException sse_decode_AnyhowException(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var inner = sse_decode_String(deserializer);
+    return AnyhowException(inner);
+  }
+
+  @protected
+  MlsCredential
+  sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsCredential(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return MlsCredentialImpl.frbInternalSseDecode(
+      sse_decode_usize(deserializer),
+      sse_decode_i_32(deserializer),
+    );
+  }
+
+  @protected
+  MlsSignatureKeyPair
+  sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsSignatureKeyPair(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return MlsSignatureKeyPairImpl.frbInternalSseDecode(
+      sse_decode_usize(deserializer),
+      sse_decode_i_32(deserializer),
+    );
+  }
+
+  @protected
+  MlsCredential
+  sse_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsCredential(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return MlsCredentialImpl.frbInternalSseDecode(
+      sse_decode_usize(deserializer),
+      sse_decode_i_32(deserializer),
+    );
+  }
+
+  @protected
+  MlsSignatureKeyPair
+  sse_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsSignatureKeyPair(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return MlsSignatureKeyPairImpl.frbInternalSseDecode(
+      sse_decode_usize(deserializer),
+      sse_decode_i_32(deserializer),
+    );
+  }
+
+  @protected
+  Object sse_decode_DartOpaque(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var inner = sse_decode_isize(deserializer);
+    return decodeDartOpaque(inner, generalizedFrbRustBinding);
+  }
+
+  @protected
+  MlsCredential
+  sse_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsCredential(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return MlsCredentialImpl.frbInternalSseDecode(
+      sse_decode_usize(deserializer),
+      sse_decode_i_32(deserializer),
+    );
+  }
+
+  @protected
+  MlsSignatureKeyPair
+  sse_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsSignatureKeyPair(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return MlsSignatureKeyPairImpl.frbInternalSseDecode(
+      sse_decode_usize(deserializer),
+      sse_decode_i_32(deserializer),
+    );
+  }
+
+  @protected
   String sse_decode_String(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var inner = sse_decode_list_prim_u_8_strict(deserializer);
     return utf8.decoder.convert(inner);
+  }
+
+  @protected
+  AddMembersProviderResult sse_decode_add_members_provider_result(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_commit = sse_decode_list_prim_u_8_strict(deserializer);
+    var var_welcome = sse_decode_list_prim_u_8_strict(deserializer);
+    var var_groupInfo = sse_decode_opt_list_prim_u_8_strict(deserializer);
+    return AddMembersProviderResult(
+      commit: var_commit,
+      welcome: var_welcome,
+      groupInfo: var_groupInfo,
+    );
   }
 
   @protected
@@ -175,10 +5664,660 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  FlexibleCommitOptions sse_decode_box_autoadd_flexible_commit_options(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return (sse_decode_flexible_commit_options(deserializer));
+  }
+
+  @protected
+  KeyPackageOptions sse_decode_box_autoadd_key_package_options(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return (sse_decode_key_package_options(deserializer));
+  }
+
+  @protected
+  MlsCapabilities sse_decode_box_autoadd_mls_capabilities(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return (sse_decode_mls_capabilities(deserializer));
+  }
+
+  @protected
+  MlsGroupConfig sse_decode_box_autoadd_mls_group_config(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return (sse_decode_mls_group_config(deserializer));
+  }
+
+  @protected
+  MlsMemberInfo sse_decode_box_autoadd_mls_member_info(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return (sse_decode_mls_member_info(deserializer));
+  }
+
+  @protected
+  MlsProposalType sse_decode_box_autoadd_mls_proposal_type(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return (sse_decode_mls_proposal_type(deserializer));
+  }
+
+  @protected
+  StagedCommitInfo sse_decode_box_autoadd_staged_commit_info(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return (sse_decode_staged_commit_info(deserializer));
+  }
+
+  @protected
+  int sse_decode_box_autoadd_u_32(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return (sse_decode_u_32(deserializer));
+  }
+
+  @protected
+  BigInt sse_decode_box_autoadd_u_64(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return (sse_decode_u_64(deserializer));
+  }
+
+  @protected
+  CommitProviderResult sse_decode_commit_provider_result(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_commit = sse_decode_list_prim_u_8_strict(deserializer);
+    var var_welcome = sse_decode_opt_list_prim_u_8_strict(deserializer);
+    var var_groupInfo = sse_decode_opt_list_prim_u_8_strict(deserializer);
+    return CommitProviderResult(
+      commit: var_commit,
+      welcome: var_welcome,
+      groupInfo: var_groupInfo,
+    );
+  }
+
+  @protected
+  CreateGroupProviderResult sse_decode_create_group_provider_result(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_groupId = sse_decode_list_prim_u_8_strict(deserializer);
+    return CreateGroupProviderResult(groupId: var_groupId);
+  }
+
+  @protected
+  CreateMessageProviderResult sse_decode_create_message_provider_result(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_ciphertext = sse_decode_list_prim_u_8_strict(deserializer);
+    return CreateMessageProviderResult(ciphertext: var_ciphertext);
+  }
+
+  @protected
+  ExternalJoinProviderResult sse_decode_external_join_provider_result(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_groupId = sse_decode_list_prim_u_8_strict(deserializer);
+    var var_commit = sse_decode_list_prim_u_8_strict(deserializer);
+    var var_groupInfo = sse_decode_opt_list_prim_u_8_strict(deserializer);
+    return ExternalJoinProviderResult(
+      groupId: var_groupId,
+      commit: var_commit,
+      groupInfo: var_groupInfo,
+    );
+  }
+
+  @protected
+  FlexibleCommitOptions sse_decode_flexible_commit_options(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_addKeyPackages = sse_decode_list_list_prim_u_8_strict(deserializer);
+    var var_removeIndices = sse_decode_list_prim_u_32_strict(deserializer);
+    var var_forceSelfUpdate = sse_decode_bool(deserializer);
+    var var_consumePendingProposals = sse_decode_bool(deserializer);
+    var var_groupContextExtensions = sse_decode_opt_list_mls_extension(
+      deserializer,
+    );
+    var var_aad = sse_decode_opt_list_prim_u_8_strict(deserializer);
+    var var_createGroupInfo = sse_decode_bool(deserializer);
+    var var_useRatchetTreeExtension = sse_decode_bool(deserializer);
+    return FlexibleCommitOptions(
+      addKeyPackages: var_addKeyPackages,
+      removeIndices: var_removeIndices,
+      forceSelfUpdate: var_forceSelfUpdate,
+      consumePendingProposals: var_consumePendingProposals,
+      groupContextExtensions: var_groupContextExtensions,
+      aad: var_aad,
+      createGroupInfo: var_createGroupInfo,
+      useRatchetTreeExtension: var_useRatchetTreeExtension,
+    );
+  }
+
+  @protected
+  int sse_decode_i_32(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return deserializer.buffer.getInt32();
+  }
+
+  @protected
+  PlatformInt64 sse_decode_isize(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return deserializer.buffer.getPlatformInt64();
+  }
+
+  @protected
+  JoinGroupProviderResult sse_decode_join_group_provider_result(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_groupId = sse_decode_list_prim_u_8_strict(deserializer);
+    return JoinGroupProviderResult(groupId: var_groupId);
+  }
+
+  @protected
+  KeyPackageOptions sse_decode_key_package_options(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_lifetimeSeconds = sse_decode_opt_box_autoadd_u_64(deserializer);
+    var var_lastResort = sse_decode_bool(deserializer);
+    var var_capabilities = sse_decode_opt_box_autoadd_mls_capabilities(
+      deserializer,
+    );
+    var var_leafNodeExtensions = sse_decode_opt_list_mls_extension(
+      deserializer,
+    );
+    var var_keyPackageExtensions = sse_decode_opt_list_mls_extension(
+      deserializer,
+    );
+    return KeyPackageOptions(
+      lifetimeSeconds: var_lifetimeSeconds,
+      lastResort: var_lastResort,
+      capabilities: var_capabilities,
+      leafNodeExtensions: var_leafNodeExtensions,
+      keyPackageExtensions: var_keyPackageExtensions,
+    );
+  }
+
+  @protected
+  KeyPackageProviderResult sse_decode_key_package_provider_result(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_keyPackageBytes = sse_decode_list_prim_u_8_strict(deserializer);
+    return KeyPackageProviderResult(keyPackageBytes: var_keyPackageBytes);
+  }
+
+  @protected
+  LeaveGroupProviderResult sse_decode_leave_group_provider_result(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_message = sse_decode_list_prim_u_8_strict(deserializer);
+    return LeaveGroupProviderResult(message: var_message);
+  }
+
+  @protected
+  List<Uint8List> sse_decode_list_list_prim_u_8_strict(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    var len_ = sse_decode_i_32(deserializer);
+    var ans_ = <Uint8List>[];
+    for (var idx_ = 0; idx_ < len_; ++idx_) {
+      ans_.add(sse_decode_list_prim_u_8_strict(deserializer));
+    }
+    return ans_;
+  }
+
+  @protected
+  List<MlsCiphersuite> sse_decode_list_mls_ciphersuite(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    var len_ = sse_decode_i_32(deserializer);
+    var ans_ = <MlsCiphersuite>[];
+    for (var idx_ = 0; idx_ < len_; ++idx_) {
+      ans_.add(sse_decode_mls_ciphersuite(deserializer));
+    }
+    return ans_;
+  }
+
+  @protected
+  List<MlsExtension> sse_decode_list_mls_extension(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    var len_ = sse_decode_i_32(deserializer);
+    var ans_ = <MlsExtension>[];
+    for (var idx_ = 0; idx_ < len_; ++idx_) {
+      ans_.add(sse_decode_mls_extension(deserializer));
+    }
+    return ans_;
+  }
+
+  @protected
+  List<MlsMemberInfo> sse_decode_list_mls_member_info(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    var len_ = sse_decode_i_32(deserializer);
+    var ans_ = <MlsMemberInfo>[];
+    for (var idx_ = 0; idx_ < len_; ++idx_) {
+      ans_.add(sse_decode_mls_member_info(deserializer));
+    }
+    return ans_;
+  }
+
+  @protected
+  List<MlsPendingProposalInfo> sse_decode_list_mls_pending_proposal_info(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    var len_ = sse_decode_i_32(deserializer);
+    var ans_ = <MlsPendingProposalInfo>[];
+    for (var idx_ = 0; idx_ < len_; ++idx_) {
+      ans_.add(sse_decode_mls_pending_proposal_info(deserializer));
+    }
+    return ans_;
+  }
+
+  @protected
+  Uint16List sse_decode_list_prim_u_16_strict(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var len_ = sse_decode_i_32(deserializer);
+    return deserializer.buffer.getUint16List(len_);
+  }
+
+  @protected
+  List<int> sse_decode_list_prim_u_32_loose(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var len_ = sse_decode_i_32(deserializer);
+    return deserializer.buffer.getUint32List(len_);
+  }
+
+  @protected
+  Uint32List sse_decode_list_prim_u_32_strict(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var len_ = sse_decode_i_32(deserializer);
+    return deserializer.buffer.getUint32List(len_);
+  }
+
+  @protected
+  List<int> sse_decode_list_prim_u_8_loose(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var len_ = sse_decode_i_32(deserializer);
+    return deserializer.buffer.getUint8List(len_);
+  }
+
+  @protected
   Uint8List sse_decode_list_prim_u_8_strict(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var len_ = sse_decode_i_32(deserializer);
     return deserializer.buffer.getUint8List(len_);
+  }
+
+  @protected
+  MlsCapabilities sse_decode_mls_capabilities(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_versions = sse_decode_list_prim_u_16_strict(deserializer);
+    var var_ciphersuites = sse_decode_list_prim_u_16_strict(deserializer);
+    var var_extensions = sse_decode_list_prim_u_16_strict(deserializer);
+    var var_proposals = sse_decode_list_prim_u_16_strict(deserializer);
+    var var_credentials = sse_decode_list_prim_u_16_strict(deserializer);
+    return MlsCapabilities(
+      versions: var_versions,
+      ciphersuites: var_ciphersuites,
+      extensions: var_extensions,
+      proposals: var_proposals,
+      credentials: var_credentials,
+    );
+  }
+
+  @protected
+  MlsCiphersuite sse_decode_mls_ciphersuite(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var inner = sse_decode_i_32(deserializer);
+    return MlsCiphersuite.values[inner];
+  }
+
+  @protected
+  MlsExtension sse_decode_mls_extension(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_extensionType = sse_decode_u_16(deserializer);
+    var var_data = sse_decode_list_prim_u_8_strict(deserializer);
+    return MlsExtension(extensionType: var_extensionType, data: var_data);
+  }
+
+  @protected
+  MlsGroupConfig sse_decode_mls_group_config(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_ciphersuite = sse_decode_mls_ciphersuite(deserializer);
+    var var_wireFormatPolicy = sse_decode_mls_wire_format_policy(deserializer);
+    var var_useRatchetTreeExtension = sse_decode_bool(deserializer);
+    var var_maxPastEpochs = sse_decode_u_32(deserializer);
+    var var_paddingSize = sse_decode_u_32(deserializer);
+    var var_senderRatchetMaxOutOfOrder = sse_decode_u_32(deserializer);
+    var var_senderRatchetMaxForwardDistance = sse_decode_u_32(deserializer);
+    var var_numberOfResumptionPsks = sse_decode_u_32(deserializer);
+    return MlsGroupConfig(
+      ciphersuite: var_ciphersuite,
+      wireFormatPolicy: var_wireFormatPolicy,
+      useRatchetTreeExtension: var_useRatchetTreeExtension,
+      maxPastEpochs: var_maxPastEpochs,
+      paddingSize: var_paddingSize,
+      senderRatchetMaxOutOfOrder: var_senderRatchetMaxOutOfOrder,
+      senderRatchetMaxForwardDistance: var_senderRatchetMaxForwardDistance,
+      numberOfResumptionPsks: var_numberOfResumptionPsks,
+    );
+  }
+
+  @protected
+  MlsGroupContextInfo sse_decode_mls_group_context_info(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_groupId = sse_decode_list_prim_u_8_strict(deserializer);
+    var var_epoch = sse_decode_u_64(deserializer);
+    var var_ciphersuite = sse_decode_mls_ciphersuite(deserializer);
+    var var_treeHash = sse_decode_list_prim_u_8_strict(deserializer);
+    var var_confirmedTranscriptHash = sse_decode_list_prim_u_8_strict(
+      deserializer,
+    );
+    var var_extensions = sse_decode_list_prim_u_8_strict(deserializer);
+    return MlsGroupContextInfo(
+      groupId: var_groupId,
+      epoch: var_epoch,
+      ciphersuite: var_ciphersuite,
+      treeHash: var_treeHash,
+      confirmedTranscriptHash: var_confirmedTranscriptHash,
+      extensions: var_extensions,
+    );
+  }
+
+  @protected
+  MlsLeafNodeInfo sse_decode_mls_leaf_node_info(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_credentialIdentity = sse_decode_list_prim_u_8_strict(deserializer);
+    var var_signatureKey = sse_decode_list_prim_u_8_strict(deserializer);
+    var var_encryptionKey = sse_decode_list_prim_u_8_strict(deserializer);
+    var var_capabilities = sse_decode_mls_capabilities(deserializer);
+    var var_extensions = sse_decode_list_mls_extension(deserializer);
+    return MlsLeafNodeInfo(
+      credentialIdentity: var_credentialIdentity,
+      signatureKey: var_signatureKey,
+      encryptionKey: var_encryptionKey,
+      capabilities: var_capabilities,
+      extensions: var_extensions,
+    );
+  }
+
+  @protected
+  MlsMemberInfo sse_decode_mls_member_info(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_index = sse_decode_u_32(deserializer);
+    var var_credentialIdentity = sse_decode_list_prim_u_8_strict(deserializer);
+    var var_signatureKey = sse_decode_list_prim_u_8_strict(deserializer);
+    return MlsMemberInfo(
+      index: var_index,
+      credentialIdentity: var_credentialIdentity,
+      signatureKey: var_signatureKey,
+    );
+  }
+
+  @protected
+  MlsPendingProposalInfo sse_decode_mls_pending_proposal_info(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_proposalType = sse_decode_mls_proposal_type(deserializer);
+    var var_senderIndex = sse_decode_opt_box_autoadd_u_32(deserializer);
+    return MlsPendingProposalInfo(
+      proposalType: var_proposalType,
+      senderIndex: var_senderIndex,
+    );
+  }
+
+  @protected
+  MlsProposalType sse_decode_mls_proposal_type(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var inner = sse_decode_i_32(deserializer);
+    return MlsProposalType.values[inner];
+  }
+
+  @protected
+  MlsWireFormatPolicy sse_decode_mls_wire_format_policy(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var inner = sse_decode_i_32(deserializer);
+    return MlsWireFormatPolicy.values[inner];
+  }
+
+  @protected
+  MlsCapabilities? sse_decode_opt_box_autoadd_mls_capabilities(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    if (sse_decode_bool(deserializer)) {
+      return (sse_decode_box_autoadd_mls_capabilities(deserializer));
+    } else {
+      return null;
+    }
+  }
+
+  @protected
+  MlsMemberInfo? sse_decode_opt_box_autoadd_mls_member_info(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    if (sse_decode_bool(deserializer)) {
+      return (sse_decode_box_autoadd_mls_member_info(deserializer));
+    } else {
+      return null;
+    }
+  }
+
+  @protected
+  MlsProposalType? sse_decode_opt_box_autoadd_mls_proposal_type(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    if (sse_decode_bool(deserializer)) {
+      return (sse_decode_box_autoadd_mls_proposal_type(deserializer));
+    } else {
+      return null;
+    }
+  }
+
+  @protected
+  StagedCommitInfo? sse_decode_opt_box_autoadd_staged_commit_info(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    if (sse_decode_bool(deserializer)) {
+      return (sse_decode_box_autoadd_staged_commit_info(deserializer));
+    } else {
+      return null;
+    }
+  }
+
+  @protected
+  int? sse_decode_opt_box_autoadd_u_32(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    if (sse_decode_bool(deserializer)) {
+      return (sse_decode_box_autoadd_u_32(deserializer));
+    } else {
+      return null;
+    }
+  }
+
+  @protected
+  BigInt? sse_decode_opt_box_autoadd_u_64(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    if (sse_decode_bool(deserializer)) {
+      return (sse_decode_box_autoadd_u_64(deserializer));
+    } else {
+      return null;
+    }
+  }
+
+  @protected
+  List<MlsExtension>? sse_decode_opt_list_mls_extension(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    if (sse_decode_bool(deserializer)) {
+      return (sse_decode_list_mls_extension(deserializer));
+    } else {
+      return null;
+    }
+  }
+
+  @protected
+  Uint8List? sse_decode_opt_list_prim_u_8_strict(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    if (sse_decode_bool(deserializer)) {
+      return (sse_decode_list_prim_u_8_strict(deserializer));
+    } else {
+      return null;
+    }
+  }
+
+  @protected
+  ProcessedMessageInspectProviderResult
+  sse_decode_processed_message_inspect_provider_result(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_messageType = sse_decode_processed_message_type(deserializer);
+    var var_senderIndex = sse_decode_opt_box_autoadd_u_32(deserializer);
+    var var_epoch = sse_decode_u_64(deserializer);
+    var var_applicationMessage = sse_decode_opt_list_prim_u_8_strict(
+      deserializer,
+    );
+    var var_stagedCommitInfo = sse_decode_opt_box_autoadd_staged_commit_info(
+      deserializer,
+    );
+    var var_proposalType = sse_decode_opt_box_autoadd_mls_proposal_type(
+      deserializer,
+    );
+    return ProcessedMessageInspectProviderResult(
+      messageType: var_messageType,
+      senderIndex: var_senderIndex,
+      epoch: var_epoch,
+      applicationMessage: var_applicationMessage,
+      stagedCommitInfo: var_stagedCommitInfo,
+      proposalType: var_proposalType,
+    );
+  }
+
+  @protected
+  ProcessedMessageProviderResult sse_decode_processed_message_provider_result(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_messageType = sse_decode_processed_message_type(deserializer);
+    var var_senderIndex = sse_decode_opt_box_autoadd_u_32(deserializer);
+    var var_epoch = sse_decode_u_64(deserializer);
+    var var_applicationMessage = sse_decode_opt_list_prim_u_8_strict(
+      deserializer,
+    );
+    var var_hasStagedCommit = sse_decode_bool(deserializer);
+    var var_hasProposal = sse_decode_bool(deserializer);
+    var var_proposalType = sse_decode_opt_box_autoadd_mls_proposal_type(
+      deserializer,
+    );
+    return ProcessedMessageProviderResult(
+      messageType: var_messageType,
+      senderIndex: var_senderIndex,
+      epoch: var_epoch,
+      applicationMessage: var_applicationMessage,
+      hasStagedCommit: var_hasStagedCommit,
+      hasProposal: var_hasProposal,
+      proposalType: var_proposalType,
+    );
+  }
+
+  @protected
+  ProcessedMessageType sse_decode_processed_message_type(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var inner = sse_decode_i_32(deserializer);
+    return ProcessedMessageType.values[inner];
+  }
+
+  @protected
+  ProposalProviderResult sse_decode_proposal_provider_result(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_proposalMessage = sse_decode_list_prim_u_8_strict(deserializer);
+    return ProposalProviderResult(proposalMessage: var_proposalMessage);
+  }
+
+  @protected
+  StagedCommitInfo sse_decode_staged_commit_info(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_addCredentialIdentities = sse_decode_list_list_prim_u_8_strict(
+      deserializer,
+    );
+    var var_removeIndices = sse_decode_list_prim_u_32_strict(deserializer);
+    var var_hasUpdate = sse_decode_bool(deserializer);
+    var var_selfRemoved = sse_decode_bool(deserializer);
+    var var_pskCount = sse_decode_u_32(deserializer);
+    return StagedCommitInfo(
+      addCredentialIdentities: var_addCredentialIdentities,
+      removeIndices: var_removeIndices,
+      hasUpdate: var_hasUpdate,
+      selfRemoved: var_selfRemoved,
+      pskCount: var_pskCount,
+    );
+  }
+
+  @protected
+  int sse_decode_u_16(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return deserializer.buffer.getUint16();
+  }
+
+  @protected
+  int sse_decode_u_32(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return deserializer.buffer.getUint32();
+  }
+
+  @protected
+  BigInt sse_decode_u_64(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return deserializer.buffer.getBigUint64();
   }
 
   @protected
@@ -193,13 +6332,181 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  int sse_decode_i_32(SseDeserializer deserializer) {
+  BigInt sse_decode_usize(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    return deserializer.buffer.getInt32();
+    return deserializer.buffer.getBigUint64();
+  }
+
+  @protected
+  WelcomeInspectResult sse_decode_welcome_inspect_result(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_groupId = sse_decode_list_prim_u_8_strict(deserializer);
+    var var_ciphersuite = sse_decode_mls_ciphersuite(deserializer);
+    var var_pskCount = sse_decode_u_32(deserializer);
+    var var_epoch = sse_decode_u_64(deserializer);
+    return WelcomeInspectResult(
+      groupId: var_groupId,
+      ciphersuite: var_ciphersuite,
+      pskCount: var_pskCount,
+      epoch: var_epoch,
+    );
+  }
+
+  @protected
+  int
+  cst_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsCredential(
+    MlsCredential raw,
+  ) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    // ignore: invalid_use_of_internal_member
+    return (raw as MlsCredentialImpl).frbInternalCstEncode(move: true);
+  }
+
+  @protected
+  int
+  cst_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsSignatureKeyPair(
+    MlsSignatureKeyPair raw,
+  ) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    // ignore: invalid_use_of_internal_member
+    return (raw as MlsSignatureKeyPairImpl).frbInternalCstEncode(move: true);
+  }
+
+  @protected
+  int
+  cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsCredential(
+    MlsCredential raw,
+  ) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    // ignore: invalid_use_of_internal_member
+    return (raw as MlsCredentialImpl).frbInternalCstEncode(move: false);
+  }
+
+  @protected
+  int
+  cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsSignatureKeyPair(
+    MlsSignatureKeyPair raw,
+  ) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    // ignore: invalid_use_of_internal_member
+    return (raw as MlsSignatureKeyPairImpl).frbInternalCstEncode(move: false);
+  }
+
+  @protected
+  PlatformPointer
+  cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
+    FutureOr<Uint8List?> Function(Uint8List) raw,
+  ) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return cst_encode_DartOpaque(
+      encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
+        raw,
+      ),
+    );
+  }
+
+  @protected
+  PlatformPointer
+  cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
+    FutureOr<void> Function(Uint8List) raw,
+  ) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return cst_encode_DartOpaque(
+      encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
+        raw,
+      ),
+    );
+  }
+
+  @protected
+  PlatformPointer
+  cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
+    FutureOr<void> Function(Uint8List, Uint8List) raw,
+  ) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return cst_encode_DartOpaque(
+      encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
+        raw,
+      ),
+    );
+  }
+
+  @protected
+  PlatformPointer cst_encode_DartOpaque(Object raw) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return encodeDartOpaque(
+      raw,
+      portManager.dartHandlerPort,
+      generalizedFrbRustBinding,
+    );
+  }
+
+  @protected
+  int
+  cst_encode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsCredential(
+    MlsCredential raw,
+  ) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    // ignore: invalid_use_of_internal_member
+    return (raw as MlsCredentialImpl).frbInternalCstEncode();
+  }
+
+  @protected
+  int
+  cst_encode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsSignatureKeyPair(
+    MlsSignatureKeyPair raw,
+  ) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    // ignore: invalid_use_of_internal_member
+    return (raw as MlsSignatureKeyPairImpl).frbInternalCstEncode();
   }
 
   @protected
   bool cst_encode_bool(bool raw) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return raw;
+  }
+
+  @protected
+  int cst_encode_i_32(int raw) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return raw;
+  }
+
+  @protected
+  int cst_encode_mls_ciphersuite(MlsCiphersuite raw) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return cst_encode_i_32(raw.index);
+  }
+
+  @protected
+  int cst_encode_mls_proposal_type(MlsProposalType raw) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return cst_encode_i_32(raw.index);
+  }
+
+  @protected
+  int cst_encode_mls_wire_format_policy(MlsWireFormatPolicy raw) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return cst_encode_i_32(raw.index);
+  }
+
+  @protected
+  int cst_encode_processed_message_type(ProcessedMessageType raw) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return cst_encode_i_32(raw.index);
+  }
+
+  @protected
+  int cst_encode_u_16(int raw) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return raw;
+  }
+
+  @protected
+  int cst_encode_u_32(int raw) {
     // Codec=Cst (C-struct based), see doc to use other codecs
     return raw;
   }
@@ -217,15 +6524,460 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_AnyhowException(
+    AnyhowException self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_String(self.message, serializer);
+  }
+
+  @protected
+  void
+  sse_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsCredential(
+    MlsCredential self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_usize(
+      (self as MlsCredentialImpl).frbInternalSseEncode(move: true),
+      serializer,
+    );
+  }
+
+  @protected
+  void
+  sse_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsSignatureKeyPair(
+    MlsSignatureKeyPair self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_usize(
+      (self as MlsSignatureKeyPairImpl).frbInternalSseEncode(move: true),
+      serializer,
+    );
+  }
+
+  @protected
+  void
+  sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsCredential(
+    MlsCredential self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_usize(
+      (self as MlsCredentialImpl).frbInternalSseEncode(move: false),
+      serializer,
+    );
+  }
+
+  @protected
+  void
+  sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsSignatureKeyPair(
+    MlsSignatureKeyPair self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_usize(
+      (self as MlsSignatureKeyPairImpl).frbInternalSseEncode(move: false),
+      serializer,
+    );
+  }
+
+  @protected
+  void
+  sse_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
+    FutureOr<Uint8List?> Function(Uint8List) self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_DartOpaque(
+      encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
+        self,
+      ),
+      serializer,
+    );
+  }
+
+  @protected
+  void
+  sse_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
+    FutureOr<void> Function(Uint8List) self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_DartOpaque(
+      encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
+        self,
+      ),
+      serializer,
+    );
+  }
+
+  @protected
+  void
+  sse_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
+    FutureOr<void> Function(Uint8List, Uint8List) self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_DartOpaque(
+      encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
+        self,
+      ),
+      serializer,
+    );
+  }
+
+  @protected
+  void sse_encode_DartOpaque(Object self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_isize(
+      PlatformPointerUtil.ptrToPlatformInt64(
+        encodeDartOpaque(
+          self,
+          portManager.dartHandlerPort,
+          generalizedFrbRustBinding,
+        ),
+      ),
+      serializer,
+    );
+  }
+
+  @protected
+  void
+  sse_encode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsCredential(
+    MlsCredential self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_usize(
+      (self as MlsCredentialImpl).frbInternalSseEncode(move: null),
+      serializer,
+    );
+  }
+
+  @protected
+  void
+  sse_encode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsSignatureKeyPair(
+    MlsSignatureKeyPair self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_usize(
+      (self as MlsSignatureKeyPairImpl).frbInternalSseEncode(move: null),
+      serializer,
+    );
+  }
+
+  @protected
   void sse_encode_String(String self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_list_prim_u_8_strict(utf8.encoder.convert(self), serializer);
   }
 
   @protected
+  void sse_encode_add_members_provider_result(
+    AddMembersProviderResult self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_list_prim_u_8_strict(self.commit, serializer);
+    sse_encode_list_prim_u_8_strict(self.welcome, serializer);
+    sse_encode_opt_list_prim_u_8_strict(self.groupInfo, serializer);
+  }
+
+  @protected
   void sse_encode_bool(bool self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     serializer.buffer.putUint8(self ? 1 : 0);
+  }
+
+  @protected
+  void sse_encode_box_autoadd_flexible_commit_options(
+    FlexibleCommitOptions self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_flexible_commit_options(self, serializer);
+  }
+
+  @protected
+  void sse_encode_box_autoadd_key_package_options(
+    KeyPackageOptions self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_key_package_options(self, serializer);
+  }
+
+  @protected
+  void sse_encode_box_autoadd_mls_capabilities(
+    MlsCapabilities self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_mls_capabilities(self, serializer);
+  }
+
+  @protected
+  void sse_encode_box_autoadd_mls_group_config(
+    MlsGroupConfig self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_mls_group_config(self, serializer);
+  }
+
+  @protected
+  void sse_encode_box_autoadd_mls_member_info(
+    MlsMemberInfo self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_mls_member_info(self, serializer);
+  }
+
+  @protected
+  void sse_encode_box_autoadd_mls_proposal_type(
+    MlsProposalType self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_mls_proposal_type(self, serializer);
+  }
+
+  @protected
+  void sse_encode_box_autoadd_staged_commit_info(
+    StagedCommitInfo self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_staged_commit_info(self, serializer);
+  }
+
+  @protected
+  void sse_encode_box_autoadd_u_32(int self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_u_32(self, serializer);
+  }
+
+  @protected
+  void sse_encode_box_autoadd_u_64(BigInt self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_u_64(self, serializer);
+  }
+
+  @protected
+  void sse_encode_commit_provider_result(
+    CommitProviderResult self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_list_prim_u_8_strict(self.commit, serializer);
+    sse_encode_opt_list_prim_u_8_strict(self.welcome, serializer);
+    sse_encode_opt_list_prim_u_8_strict(self.groupInfo, serializer);
+  }
+
+  @protected
+  void sse_encode_create_group_provider_result(
+    CreateGroupProviderResult self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_list_prim_u_8_strict(self.groupId, serializer);
+  }
+
+  @protected
+  void sse_encode_create_message_provider_result(
+    CreateMessageProviderResult self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_list_prim_u_8_strict(self.ciphertext, serializer);
+  }
+
+  @protected
+  void sse_encode_external_join_provider_result(
+    ExternalJoinProviderResult self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_list_prim_u_8_strict(self.groupId, serializer);
+    sse_encode_list_prim_u_8_strict(self.commit, serializer);
+    sse_encode_opt_list_prim_u_8_strict(self.groupInfo, serializer);
+  }
+
+  @protected
+  void sse_encode_flexible_commit_options(
+    FlexibleCommitOptions self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_list_list_prim_u_8_strict(self.addKeyPackages, serializer);
+    sse_encode_list_prim_u_32_strict(self.removeIndices, serializer);
+    sse_encode_bool(self.forceSelfUpdate, serializer);
+    sse_encode_bool(self.consumePendingProposals, serializer);
+    sse_encode_opt_list_mls_extension(self.groupContextExtensions, serializer);
+    sse_encode_opt_list_prim_u_8_strict(self.aad, serializer);
+    sse_encode_bool(self.createGroupInfo, serializer);
+    sse_encode_bool(self.useRatchetTreeExtension, serializer);
+  }
+
+  @protected
+  void sse_encode_i_32(int self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    serializer.buffer.putInt32(self);
+  }
+
+  @protected
+  void sse_encode_isize(PlatformInt64 self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    serializer.buffer.putPlatformInt64(self);
+  }
+
+  @protected
+  void sse_encode_join_group_provider_result(
+    JoinGroupProviderResult self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_list_prim_u_8_strict(self.groupId, serializer);
+  }
+
+  @protected
+  void sse_encode_key_package_options(
+    KeyPackageOptions self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_opt_box_autoadd_u_64(self.lifetimeSeconds, serializer);
+    sse_encode_bool(self.lastResort, serializer);
+    sse_encode_opt_box_autoadd_mls_capabilities(self.capabilities, serializer);
+    sse_encode_opt_list_mls_extension(self.leafNodeExtensions, serializer);
+    sse_encode_opt_list_mls_extension(self.keyPackageExtensions, serializer);
+  }
+
+  @protected
+  void sse_encode_key_package_provider_result(
+    KeyPackageProviderResult self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_list_prim_u_8_strict(self.keyPackageBytes, serializer);
+  }
+
+  @protected
+  void sse_encode_leave_group_provider_result(
+    LeaveGroupProviderResult self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_list_prim_u_8_strict(self.message, serializer);
+  }
+
+  @protected
+  void sse_encode_list_list_prim_u_8_strict(
+    List<Uint8List> self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    for (final item in self) {
+      sse_encode_list_prim_u_8_strict(item, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_list_mls_ciphersuite(
+    List<MlsCiphersuite> self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    for (final item in self) {
+      sse_encode_mls_ciphersuite(item, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_list_mls_extension(
+    List<MlsExtension> self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    for (final item in self) {
+      sse_encode_mls_extension(item, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_list_mls_member_info(
+    List<MlsMemberInfo> self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    for (final item in self) {
+      sse_encode_mls_member_info(item, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_list_mls_pending_proposal_info(
+    List<MlsPendingProposalInfo> self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    for (final item in self) {
+      sse_encode_mls_pending_proposal_info(item, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_list_prim_u_16_strict(
+    Uint16List self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    serializer.buffer.putUint16List(self);
+  }
+
+  @protected
+  void sse_encode_list_prim_u_32_loose(
+    List<int> self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    serializer.buffer.putUint32List(
+      self is Uint32List ? self : Uint32List.fromList(self),
+    );
+  }
+
+  @protected
+  void sse_encode_list_prim_u_32_strict(
+    Uint32List self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    serializer.buffer.putUint32List(self);
+  }
+
+  @protected
+  void sse_encode_list_prim_u_8_loose(
+    List<int> self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    serializer.buffer.putUint8List(
+      self is Uint8List ? self : Uint8List.fromList(self),
+    );
   }
 
   @protected
@@ -236,6 +6988,299 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_i_32(self.length, serializer);
     serializer.buffer.putUint8List(self);
+  }
+
+  @protected
+  void sse_encode_mls_capabilities(
+    MlsCapabilities self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_list_prim_u_16_strict(self.versions, serializer);
+    sse_encode_list_prim_u_16_strict(self.ciphersuites, serializer);
+    sse_encode_list_prim_u_16_strict(self.extensions, serializer);
+    sse_encode_list_prim_u_16_strict(self.proposals, serializer);
+    sse_encode_list_prim_u_16_strict(self.credentials, serializer);
+  }
+
+  @protected
+  void sse_encode_mls_ciphersuite(
+    MlsCiphersuite self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.index, serializer);
+  }
+
+  @protected
+  void sse_encode_mls_extension(MlsExtension self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_u_16(self.extensionType, serializer);
+    sse_encode_list_prim_u_8_strict(self.data, serializer);
+  }
+
+  @protected
+  void sse_encode_mls_group_config(
+    MlsGroupConfig self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_mls_ciphersuite(self.ciphersuite, serializer);
+    sse_encode_mls_wire_format_policy(self.wireFormatPolicy, serializer);
+    sse_encode_bool(self.useRatchetTreeExtension, serializer);
+    sse_encode_u_32(self.maxPastEpochs, serializer);
+    sse_encode_u_32(self.paddingSize, serializer);
+    sse_encode_u_32(self.senderRatchetMaxOutOfOrder, serializer);
+    sse_encode_u_32(self.senderRatchetMaxForwardDistance, serializer);
+    sse_encode_u_32(self.numberOfResumptionPsks, serializer);
+  }
+
+  @protected
+  void sse_encode_mls_group_context_info(
+    MlsGroupContextInfo self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_list_prim_u_8_strict(self.groupId, serializer);
+    sse_encode_u_64(self.epoch, serializer);
+    sse_encode_mls_ciphersuite(self.ciphersuite, serializer);
+    sse_encode_list_prim_u_8_strict(self.treeHash, serializer);
+    sse_encode_list_prim_u_8_strict(self.confirmedTranscriptHash, serializer);
+    sse_encode_list_prim_u_8_strict(self.extensions, serializer);
+  }
+
+  @protected
+  void sse_encode_mls_leaf_node_info(
+    MlsLeafNodeInfo self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_list_prim_u_8_strict(self.credentialIdentity, serializer);
+    sse_encode_list_prim_u_8_strict(self.signatureKey, serializer);
+    sse_encode_list_prim_u_8_strict(self.encryptionKey, serializer);
+    sse_encode_mls_capabilities(self.capabilities, serializer);
+    sse_encode_list_mls_extension(self.extensions, serializer);
+  }
+
+  @protected
+  void sse_encode_mls_member_info(
+    MlsMemberInfo self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_u_32(self.index, serializer);
+    sse_encode_list_prim_u_8_strict(self.credentialIdentity, serializer);
+    sse_encode_list_prim_u_8_strict(self.signatureKey, serializer);
+  }
+
+  @protected
+  void sse_encode_mls_pending_proposal_info(
+    MlsPendingProposalInfo self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_mls_proposal_type(self.proposalType, serializer);
+    sse_encode_opt_box_autoadd_u_32(self.senderIndex, serializer);
+  }
+
+  @protected
+  void sse_encode_mls_proposal_type(
+    MlsProposalType self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.index, serializer);
+  }
+
+  @protected
+  void sse_encode_mls_wire_format_policy(
+    MlsWireFormatPolicy self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.index, serializer);
+  }
+
+  @protected
+  void sse_encode_opt_box_autoadd_mls_capabilities(
+    MlsCapabilities? self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    sse_encode_bool(self != null, serializer);
+    if (self != null) {
+      sse_encode_box_autoadd_mls_capabilities(self, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_opt_box_autoadd_mls_member_info(
+    MlsMemberInfo? self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    sse_encode_bool(self != null, serializer);
+    if (self != null) {
+      sse_encode_box_autoadd_mls_member_info(self, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_opt_box_autoadd_mls_proposal_type(
+    MlsProposalType? self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    sse_encode_bool(self != null, serializer);
+    if (self != null) {
+      sse_encode_box_autoadd_mls_proposal_type(self, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_opt_box_autoadd_staged_commit_info(
+    StagedCommitInfo? self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    sse_encode_bool(self != null, serializer);
+    if (self != null) {
+      sse_encode_box_autoadd_staged_commit_info(self, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_opt_box_autoadd_u_32(int? self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    sse_encode_bool(self != null, serializer);
+    if (self != null) {
+      sse_encode_box_autoadd_u_32(self, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_opt_box_autoadd_u_64(BigInt? self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    sse_encode_bool(self != null, serializer);
+    if (self != null) {
+      sse_encode_box_autoadd_u_64(self, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_opt_list_mls_extension(
+    List<MlsExtension>? self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    sse_encode_bool(self != null, serializer);
+    if (self != null) {
+      sse_encode_list_mls_extension(self, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_opt_list_prim_u_8_strict(
+    Uint8List? self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    sse_encode_bool(self != null, serializer);
+    if (self != null) {
+      sse_encode_list_prim_u_8_strict(self, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_processed_message_inspect_provider_result(
+    ProcessedMessageInspectProviderResult self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_processed_message_type(self.messageType, serializer);
+    sse_encode_opt_box_autoadd_u_32(self.senderIndex, serializer);
+    sse_encode_u_64(self.epoch, serializer);
+    sse_encode_opt_list_prim_u_8_strict(self.applicationMessage, serializer);
+    sse_encode_opt_box_autoadd_staged_commit_info(
+      self.stagedCommitInfo,
+      serializer,
+    );
+    sse_encode_opt_box_autoadd_mls_proposal_type(self.proposalType, serializer);
+  }
+
+  @protected
+  void sse_encode_processed_message_provider_result(
+    ProcessedMessageProviderResult self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_processed_message_type(self.messageType, serializer);
+    sse_encode_opt_box_autoadd_u_32(self.senderIndex, serializer);
+    sse_encode_u_64(self.epoch, serializer);
+    sse_encode_opt_list_prim_u_8_strict(self.applicationMessage, serializer);
+    sse_encode_bool(self.hasStagedCommit, serializer);
+    sse_encode_bool(self.hasProposal, serializer);
+    sse_encode_opt_box_autoadd_mls_proposal_type(self.proposalType, serializer);
+  }
+
+  @protected
+  void sse_encode_processed_message_type(
+    ProcessedMessageType self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.index, serializer);
+  }
+
+  @protected
+  void sse_encode_proposal_provider_result(
+    ProposalProviderResult self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_list_prim_u_8_strict(self.proposalMessage, serializer);
+  }
+
+  @protected
+  void sse_encode_staged_commit_info(
+    StagedCommitInfo self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_list_list_prim_u_8_strict(
+      self.addCredentialIdentities,
+      serializer,
+    );
+    sse_encode_list_prim_u_32_strict(self.removeIndices, serializer);
+    sse_encode_bool(self.hasUpdate, serializer);
+    sse_encode_bool(self.selfRemoved, serializer);
+    sse_encode_u_32(self.pskCount, serializer);
+  }
+
+  @protected
+  void sse_encode_u_16(int self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    serializer.buffer.putUint16(self);
+  }
+
+  @protected
+  void sse_encode_u_32(int self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    serializer.buffer.putUint32(self);
+  }
+
+  @protected
+  void sse_encode_u_64(BigInt self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    serializer.buffer.putBigUint64(self);
   }
 
   @protected
@@ -250,8 +7295,121 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  void sse_encode_i_32(int self, SseSerializer serializer) {
+  void sse_encode_usize(BigInt self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    serializer.buffer.putInt32(self);
+    serializer.buffer.putBigUint64(self);
   }
+
+  @protected
+  void sse_encode_welcome_inspect_result(
+    WelcomeInspectResult self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_list_prim_u_8_strict(self.groupId, serializer);
+    sse_encode_mls_ciphersuite(self.ciphersuite, serializer);
+    sse_encode_u_32(self.pskCount, serializer);
+    sse_encode_u_64(self.epoch, serializer);
+  }
+}
+
+@sealed
+class MlsCredentialImpl extends RustOpaque implements MlsCredential {
+  // Not to be used by end users
+  MlsCredentialImpl.frbInternalDcoDecode(List<dynamic> wire)
+    : super.frbInternalDcoDecode(wire, _kStaticData);
+
+  // Not to be used by end users
+  MlsCredentialImpl.frbInternalSseDecode(BigInt ptr, int externalSizeOnNative)
+    : super.frbInternalSseDecode(ptr, externalSizeOnNative, _kStaticData);
+
+  static final _kStaticData = RustArcStaticData(
+    rustArcIncrementStrongCount:
+        RustLib.instance.api.rust_arc_increment_strong_count_MlsCredential,
+    rustArcDecrementStrongCount:
+        RustLib.instance.api.rust_arc_decrement_strong_count_MlsCredential,
+    rustArcDecrementStrongCountPtr:
+        RustLib.instance.api.rust_arc_decrement_strong_count_MlsCredentialPtr,
+  );
+
+  /// Returns the certificate chain from an X.509 credential.
+  ///
+  /// Each entry is a DER-encoded X.509 certificate.
+  /// Returns an error if this is not an X.509 credential.
+  List<Uint8List> certificates() => RustLib.instance.api
+      .crateApiCredentialMlsCredentialCertificates(that: this);
+
+  /// Returns the credential type value (1 = Basic, 2 = X509).
+  int credentialType() => RustLib.instance.api
+      .crateApiCredentialMlsCredentialCredentialType(that: this);
+
+  /// Returns the identity bytes from a BasicCredential.
+  ///
+  /// Returns an error if this is not a BasicCredential.
+  Uint8List identity() =>
+      RustLib.instance.api.crateApiCredentialMlsCredentialIdentity(that: this);
+
+  /// TLS-serialize this credential for wire transmission.
+  Uint8List serialize() =>
+      RustLib.instance.api.crateApiCredentialMlsCredentialSerialize(that: this);
+
+  /// Returns the raw serialized content of this credential.
+  ///
+  /// For BasicCredential, this is the identity bytes.
+  /// For X.509, this is the TLS-serialized certificate chain.
+  Uint8List serializedContent() => RustLib.instance.api
+      .crateApiCredentialMlsCredentialSerializedContent(that: this);
+}
+
+@sealed
+class MlsSignatureKeyPairImpl extends RustOpaque
+    implements MlsSignatureKeyPair {
+  // Not to be used by end users
+  MlsSignatureKeyPairImpl.frbInternalDcoDecode(List<dynamic> wire)
+    : super.frbInternalDcoDecode(wire, _kStaticData);
+
+  // Not to be used by end users
+  MlsSignatureKeyPairImpl.frbInternalSseDecode(
+    BigInt ptr,
+    int externalSizeOnNative,
+  ) : super.frbInternalSseDecode(ptr, externalSizeOnNative, _kStaticData);
+
+  static final _kStaticData = RustArcStaticData(
+    rustArcIncrementStrongCount: RustLib
+        .instance
+        .api
+        .rust_arc_increment_strong_count_MlsSignatureKeyPair,
+    rustArcDecrementStrongCount: RustLib
+        .instance
+        .api
+        .rust_arc_decrement_strong_count_MlsSignatureKeyPair,
+    rustArcDecrementStrongCountPtr: RustLib
+        .instance
+        .api
+        .rust_arc_decrement_strong_count_MlsSignatureKeyPairPtr,
+  );
+
+  /// Returns the private key bytes.
+  ///
+  /// # Security
+  /// The returned bytes contain private key material. The caller is responsible
+  /// for securely zeroing these bytes when done.
+  Uint8List privateKey() => RustLib.instance.api
+      .crateApiKeysMlsSignatureKeyPairPrivateKey(that: this);
+
+  /// Returns the public key bytes.
+  Uint8List publicKey() =>
+      RustLib.instance.api.crateApiKeysMlsSignatureKeyPairPublicKey(that: this);
+
+  /// Serialize the key pair to bytes for storage.
+  ///
+  /// # Security
+  /// The returned bytes contain private key material. The caller is responsible
+  /// for securely storing and zeroing these bytes when done.
+  Uint8List serialize() =>
+      RustLib.instance.api.crateApiKeysMlsSignatureKeyPairSerialize(that: this);
+
+  /// Returns the signature scheme as a u16.
+  int signatureScheme() => RustLib.instance.api
+      .crateApiKeysMlsSignatureKeyPairSignatureScheme(that: this);
 }

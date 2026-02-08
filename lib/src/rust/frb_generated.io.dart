@@ -3,7 +3,12 @@
 
 // ignore_for_file: unused_import, unused_element, unnecessary_import, duplicate_ignore, invalid_use_of_internal_member, annotate_overrides, non_constant_identifier_names, curly_braces_in_flow_control_structures, prefer_const_literals_to_create_immutables, unused_field
 
+import 'api/config.dart';
+import 'api/credential.dart';
 import 'api/init.dart';
+import 'api/keys.dart';
+import 'api/provider.dart';
+import 'api/types.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:ffi' as ffi;
@@ -18,14 +23,263 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
     required super.portManager,
   });
 
+  CrossPlatformFinalizerArg
+  get rust_arc_decrement_strong_count_MlsCredentialPtr => wire
+      ._rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsCredentialPtr;
+
+  CrossPlatformFinalizerArg
+  get rust_arc_decrement_strong_count_MlsSignatureKeyPairPtr => wire
+      ._rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsSignatureKeyPairPtr;
+
+  @protected
+  AnyhowException dco_decode_AnyhowException(dynamic raw);
+
+  @protected
+  MlsCredential
+  dco_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsCredential(
+    dynamic raw,
+  );
+
+  @protected
+  MlsSignatureKeyPair
+  dco_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsSignatureKeyPair(
+    dynamic raw,
+  );
+
+  @protected
+  MlsCredential
+  dco_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsCredential(
+    dynamic raw,
+  );
+
+  @protected
+  MlsSignatureKeyPair
+  dco_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsSignatureKeyPair(
+    dynamic raw,
+  );
+
+  @protected
+  FutureOr<Uint8List?> Function(Uint8List)
+  dco_decode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
+    dynamic raw,
+  );
+
+  @protected
+  FutureOr<void> Function(Uint8List)
+  dco_decode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
+    dynamic raw,
+  );
+
+  @protected
+  FutureOr<void> Function(Uint8List, Uint8List)
+  dco_decode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
+    dynamic raw,
+  );
+
+  @protected
+  Object dco_decode_DartOpaque(dynamic raw);
+
+  @protected
+  MlsCredential
+  dco_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsCredential(
+    dynamic raw,
+  );
+
+  @protected
+  MlsSignatureKeyPair
+  dco_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsSignatureKeyPair(
+    dynamic raw,
+  );
+
   @protected
   String dco_decode_String(dynamic raw);
+
+  @protected
+  AddMembersProviderResult dco_decode_add_members_provider_result(dynamic raw);
 
   @protected
   bool dco_decode_bool(dynamic raw);
 
   @protected
+  FlexibleCommitOptions dco_decode_box_autoadd_flexible_commit_options(
+    dynamic raw,
+  );
+
+  @protected
+  KeyPackageOptions dco_decode_box_autoadd_key_package_options(dynamic raw);
+
+  @protected
+  MlsCapabilities dco_decode_box_autoadd_mls_capabilities(dynamic raw);
+
+  @protected
+  MlsGroupConfig dco_decode_box_autoadd_mls_group_config(dynamic raw);
+
+  @protected
+  MlsMemberInfo dco_decode_box_autoadd_mls_member_info(dynamic raw);
+
+  @protected
+  MlsProposalType dco_decode_box_autoadd_mls_proposal_type(dynamic raw);
+
+  @protected
+  StagedCommitInfo dco_decode_box_autoadd_staged_commit_info(dynamic raw);
+
+  @protected
+  int dco_decode_box_autoadd_u_32(dynamic raw);
+
+  @protected
+  BigInt dco_decode_box_autoadd_u_64(dynamic raw);
+
+  @protected
+  CommitProviderResult dco_decode_commit_provider_result(dynamic raw);
+
+  @protected
+  CreateGroupProviderResult dco_decode_create_group_provider_result(
+    dynamic raw,
+  );
+
+  @protected
+  CreateMessageProviderResult dco_decode_create_message_provider_result(
+    dynamic raw,
+  );
+
+  @protected
+  ExternalJoinProviderResult dco_decode_external_join_provider_result(
+    dynamic raw,
+  );
+
+  @protected
+  FlexibleCommitOptions dco_decode_flexible_commit_options(dynamic raw);
+
+  @protected
+  int dco_decode_i_32(dynamic raw);
+
+  @protected
+  PlatformInt64 dco_decode_isize(dynamic raw);
+
+  @protected
+  JoinGroupProviderResult dco_decode_join_group_provider_result(dynamic raw);
+
+  @protected
+  KeyPackageOptions dco_decode_key_package_options(dynamic raw);
+
+  @protected
+  KeyPackageProviderResult dco_decode_key_package_provider_result(dynamic raw);
+
+  @protected
+  LeaveGroupProviderResult dco_decode_leave_group_provider_result(dynamic raw);
+
+  @protected
+  List<Uint8List> dco_decode_list_list_prim_u_8_strict(dynamic raw);
+
+  @protected
+  List<MlsCiphersuite> dco_decode_list_mls_ciphersuite(dynamic raw);
+
+  @protected
+  List<MlsExtension> dco_decode_list_mls_extension(dynamic raw);
+
+  @protected
+  List<MlsMemberInfo> dco_decode_list_mls_member_info(dynamic raw);
+
+  @protected
+  List<MlsPendingProposalInfo> dco_decode_list_mls_pending_proposal_info(
+    dynamic raw,
+  );
+
+  @protected
+  Uint16List dco_decode_list_prim_u_16_strict(dynamic raw);
+
+  @protected
+  List<int> dco_decode_list_prim_u_32_loose(dynamic raw);
+
+  @protected
+  Uint32List dco_decode_list_prim_u_32_strict(dynamic raw);
+
+  @protected
+  List<int> dco_decode_list_prim_u_8_loose(dynamic raw);
+
+  @protected
   Uint8List dco_decode_list_prim_u_8_strict(dynamic raw);
+
+  @protected
+  MlsCapabilities dco_decode_mls_capabilities(dynamic raw);
+
+  @protected
+  MlsCiphersuite dco_decode_mls_ciphersuite(dynamic raw);
+
+  @protected
+  MlsExtension dco_decode_mls_extension(dynamic raw);
+
+  @protected
+  MlsGroupConfig dco_decode_mls_group_config(dynamic raw);
+
+  @protected
+  MlsGroupContextInfo dco_decode_mls_group_context_info(dynamic raw);
+
+  @protected
+  MlsLeafNodeInfo dco_decode_mls_leaf_node_info(dynamic raw);
+
+  @protected
+  MlsMemberInfo dco_decode_mls_member_info(dynamic raw);
+
+  @protected
+  MlsPendingProposalInfo dco_decode_mls_pending_proposal_info(dynamic raw);
+
+  @protected
+  MlsProposalType dco_decode_mls_proposal_type(dynamic raw);
+
+  @protected
+  MlsWireFormatPolicy dco_decode_mls_wire_format_policy(dynamic raw);
+
+  @protected
+  MlsCapabilities? dco_decode_opt_box_autoadd_mls_capabilities(dynamic raw);
+
+  @protected
+  MlsMemberInfo? dco_decode_opt_box_autoadd_mls_member_info(dynamic raw);
+
+  @protected
+  MlsProposalType? dco_decode_opt_box_autoadd_mls_proposal_type(dynamic raw);
+
+  @protected
+  StagedCommitInfo? dco_decode_opt_box_autoadd_staged_commit_info(dynamic raw);
+
+  @protected
+  int? dco_decode_opt_box_autoadd_u_32(dynamic raw);
+
+  @protected
+  BigInt? dco_decode_opt_box_autoadd_u_64(dynamic raw);
+
+  @protected
+  List<MlsExtension>? dco_decode_opt_list_mls_extension(dynamic raw);
+
+  @protected
+  Uint8List? dco_decode_opt_list_prim_u_8_strict(dynamic raw);
+
+  @protected
+  ProcessedMessageInspectProviderResult
+  dco_decode_processed_message_inspect_provider_result(dynamic raw);
+
+  @protected
+  ProcessedMessageProviderResult dco_decode_processed_message_provider_result(
+    dynamic raw,
+  );
+
+  @protected
+  ProcessedMessageType dco_decode_processed_message_type(dynamic raw);
+
+  @protected
+  ProposalProviderResult dco_decode_proposal_provider_result(dynamic raw);
+
+  @protected
+  StagedCommitInfo dco_decode_staged_commit_info(dynamic raw);
+
+  @protected
+  int dco_decode_u_16(dynamic raw);
+
+  @protected
+  int dco_decode_u_32(dynamic raw);
+
+  @protected
+  BigInt dco_decode_u_64(dynamic raw);
 
   @protected
   int dco_decode_u_8(dynamic raw);
@@ -34,13 +288,298 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void dco_decode_unit(dynamic raw);
 
   @protected
+  BigInt dco_decode_usize(dynamic raw);
+
+  @protected
+  WelcomeInspectResult dco_decode_welcome_inspect_result(dynamic raw);
+
+  @protected
+  AnyhowException sse_decode_AnyhowException(SseDeserializer deserializer);
+
+  @protected
+  MlsCredential
+  sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsCredential(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  MlsSignatureKeyPair
+  sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsSignatureKeyPair(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  MlsCredential
+  sse_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsCredential(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  MlsSignatureKeyPair
+  sse_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsSignatureKeyPair(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  Object sse_decode_DartOpaque(SseDeserializer deserializer);
+
+  @protected
+  MlsCredential
+  sse_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsCredential(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  MlsSignatureKeyPair
+  sse_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsSignatureKeyPair(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   String sse_decode_String(SseDeserializer deserializer);
+
+  @protected
+  AddMembersProviderResult sse_decode_add_members_provider_result(
+    SseDeserializer deserializer,
+  );
 
   @protected
   bool sse_decode_bool(SseDeserializer deserializer);
 
   @protected
+  FlexibleCommitOptions sse_decode_box_autoadd_flexible_commit_options(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  KeyPackageOptions sse_decode_box_autoadd_key_package_options(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  MlsCapabilities sse_decode_box_autoadd_mls_capabilities(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  MlsGroupConfig sse_decode_box_autoadd_mls_group_config(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  MlsMemberInfo sse_decode_box_autoadd_mls_member_info(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  MlsProposalType sse_decode_box_autoadd_mls_proposal_type(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  StagedCommitInfo sse_decode_box_autoadd_staged_commit_info(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  int sse_decode_box_autoadd_u_32(SseDeserializer deserializer);
+
+  @protected
+  BigInt sse_decode_box_autoadd_u_64(SseDeserializer deserializer);
+
+  @protected
+  CommitProviderResult sse_decode_commit_provider_result(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  CreateGroupProviderResult sse_decode_create_group_provider_result(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  CreateMessageProviderResult sse_decode_create_message_provider_result(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  ExternalJoinProviderResult sse_decode_external_join_provider_result(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  FlexibleCommitOptions sse_decode_flexible_commit_options(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  int sse_decode_i_32(SseDeserializer deserializer);
+
+  @protected
+  PlatformInt64 sse_decode_isize(SseDeserializer deserializer);
+
+  @protected
+  JoinGroupProviderResult sse_decode_join_group_provider_result(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  KeyPackageOptions sse_decode_key_package_options(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  KeyPackageProviderResult sse_decode_key_package_provider_result(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  LeaveGroupProviderResult sse_decode_leave_group_provider_result(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<Uint8List> sse_decode_list_list_prim_u_8_strict(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<MlsCiphersuite> sse_decode_list_mls_ciphersuite(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<MlsExtension> sse_decode_list_mls_extension(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<MlsMemberInfo> sse_decode_list_mls_member_info(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<MlsPendingProposalInfo> sse_decode_list_mls_pending_proposal_info(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  Uint16List sse_decode_list_prim_u_16_strict(SseDeserializer deserializer);
+
+  @protected
+  List<int> sse_decode_list_prim_u_32_loose(SseDeserializer deserializer);
+
+  @protected
+  Uint32List sse_decode_list_prim_u_32_strict(SseDeserializer deserializer);
+
+  @protected
+  List<int> sse_decode_list_prim_u_8_loose(SseDeserializer deserializer);
+
+  @protected
   Uint8List sse_decode_list_prim_u_8_strict(SseDeserializer deserializer);
+
+  @protected
+  MlsCapabilities sse_decode_mls_capabilities(SseDeserializer deserializer);
+
+  @protected
+  MlsCiphersuite sse_decode_mls_ciphersuite(SseDeserializer deserializer);
+
+  @protected
+  MlsExtension sse_decode_mls_extension(SseDeserializer deserializer);
+
+  @protected
+  MlsGroupConfig sse_decode_mls_group_config(SseDeserializer deserializer);
+
+  @protected
+  MlsGroupContextInfo sse_decode_mls_group_context_info(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  MlsLeafNodeInfo sse_decode_mls_leaf_node_info(SseDeserializer deserializer);
+
+  @protected
+  MlsMemberInfo sse_decode_mls_member_info(SseDeserializer deserializer);
+
+  @protected
+  MlsPendingProposalInfo sse_decode_mls_pending_proposal_info(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  MlsProposalType sse_decode_mls_proposal_type(SseDeserializer deserializer);
+
+  @protected
+  MlsWireFormatPolicy sse_decode_mls_wire_format_policy(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  MlsCapabilities? sse_decode_opt_box_autoadd_mls_capabilities(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  MlsMemberInfo? sse_decode_opt_box_autoadd_mls_member_info(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  MlsProposalType? sse_decode_opt_box_autoadd_mls_proposal_type(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  StagedCommitInfo? sse_decode_opt_box_autoadd_staged_commit_info(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  int? sse_decode_opt_box_autoadd_u_32(SseDeserializer deserializer);
+
+  @protected
+  BigInt? sse_decode_opt_box_autoadd_u_64(SseDeserializer deserializer);
+
+  @protected
+  List<MlsExtension>? sse_decode_opt_list_mls_extension(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  Uint8List? sse_decode_opt_list_prim_u_8_strict(SseDeserializer deserializer);
+
+  @protected
+  ProcessedMessageInspectProviderResult
+  sse_decode_processed_message_inspect_provider_result(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  ProcessedMessageProviderResult sse_decode_processed_message_provider_result(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  ProcessedMessageType sse_decode_processed_message_type(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  ProposalProviderResult sse_decode_proposal_provider_result(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  StagedCommitInfo sse_decode_staged_commit_info(SseDeserializer deserializer);
+
+  @protected
+  int sse_decode_u_16(SseDeserializer deserializer);
+
+  @protected
+  int sse_decode_u_32(SseDeserializer deserializer);
+
+  @protected
+  BigInt sse_decode_u_64(SseDeserializer deserializer);
 
   @protected
   int sse_decode_u_8(SseDeserializer deserializer);
@@ -49,12 +588,206 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_decode_unit(SseDeserializer deserializer);
 
   @protected
-  int sse_decode_i_32(SseDeserializer deserializer);
+  BigInt sse_decode_usize(SseDeserializer deserializer);
+
+  @protected
+  WelcomeInspectResult sse_decode_welcome_inspect_result(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  ffi.Pointer<wire_cst_list_prim_u_8_strict> cst_encode_AnyhowException(
+    AnyhowException raw,
+  ) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    throw UnimplementedError();
+  }
 
   @protected
   ffi.Pointer<wire_cst_list_prim_u_8_strict> cst_encode_String(String raw) {
     // Codec=Cst (C-struct based), see doc to use other codecs
     return cst_encode_list_prim_u_8_strict(utf8.encoder.convert(raw));
+  }
+
+  @protected
+  ffi.Pointer<wire_cst_flexible_commit_options>
+  cst_encode_box_autoadd_flexible_commit_options(FlexibleCommitOptions raw) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    final ptr = wire.cst_new_box_autoadd_flexible_commit_options();
+    cst_api_fill_to_wire_flexible_commit_options(raw, ptr.ref);
+    return ptr;
+  }
+
+  @protected
+  ffi.Pointer<wire_cst_key_package_options>
+  cst_encode_box_autoadd_key_package_options(KeyPackageOptions raw) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    final ptr = wire.cst_new_box_autoadd_key_package_options();
+    cst_api_fill_to_wire_key_package_options(raw, ptr.ref);
+    return ptr;
+  }
+
+  @protected
+  ffi.Pointer<wire_cst_mls_capabilities>
+  cst_encode_box_autoadd_mls_capabilities(MlsCapabilities raw) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    final ptr = wire.cst_new_box_autoadd_mls_capabilities();
+    cst_api_fill_to_wire_mls_capabilities(raw, ptr.ref);
+    return ptr;
+  }
+
+  @protected
+  ffi.Pointer<wire_cst_mls_group_config>
+  cst_encode_box_autoadd_mls_group_config(MlsGroupConfig raw) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    final ptr = wire.cst_new_box_autoadd_mls_group_config();
+    cst_api_fill_to_wire_mls_group_config(raw, ptr.ref);
+    return ptr;
+  }
+
+  @protected
+  ffi.Pointer<wire_cst_mls_member_info> cst_encode_box_autoadd_mls_member_info(
+    MlsMemberInfo raw,
+  ) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    final ptr = wire.cst_new_box_autoadd_mls_member_info();
+    cst_api_fill_to_wire_mls_member_info(raw, ptr.ref);
+    return ptr;
+  }
+
+  @protected
+  ffi.Pointer<ffi.Int32> cst_encode_box_autoadd_mls_proposal_type(
+    MlsProposalType raw,
+  ) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return wire.cst_new_box_autoadd_mls_proposal_type(
+      cst_encode_mls_proposal_type(raw),
+    );
+  }
+
+  @protected
+  ffi.Pointer<wire_cst_staged_commit_info>
+  cst_encode_box_autoadd_staged_commit_info(StagedCommitInfo raw) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    final ptr = wire.cst_new_box_autoadd_staged_commit_info();
+    cst_api_fill_to_wire_staged_commit_info(raw, ptr.ref);
+    return ptr;
+  }
+
+  @protected
+  ffi.Pointer<ffi.Uint32> cst_encode_box_autoadd_u_32(int raw) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return wire.cst_new_box_autoadd_u_32(cst_encode_u_32(raw));
+  }
+
+  @protected
+  ffi.Pointer<ffi.Uint64> cst_encode_box_autoadd_u_64(BigInt raw) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return wire.cst_new_box_autoadd_u_64(cst_encode_u_64(raw));
+  }
+
+  @protected
+  int cst_encode_isize(PlatformInt64 raw) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return raw.toInt();
+  }
+
+  @protected
+  ffi.Pointer<wire_cst_list_list_prim_u_8_strict>
+  cst_encode_list_list_prim_u_8_strict(List<Uint8List> raw) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    final ans = wire.cst_new_list_list_prim_u_8_strict(raw.length);
+    for (var i = 0; i < raw.length; ++i) {
+      ans.ref.ptr[i] = cst_encode_list_prim_u_8_strict(raw[i]);
+    }
+    return ans;
+  }
+
+  @protected
+  ffi.Pointer<wire_cst_list_mls_ciphersuite> cst_encode_list_mls_ciphersuite(
+    List<MlsCiphersuite> raw,
+  ) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    final ans = wire.cst_new_list_mls_ciphersuite(raw.length);
+    for (var i = 0; i < raw.length; ++i) {
+      ans.ref.ptr[i] = cst_encode_mls_ciphersuite(raw[i]);
+    }
+    return ans;
+  }
+
+  @protected
+  ffi.Pointer<wire_cst_list_mls_extension> cst_encode_list_mls_extension(
+    List<MlsExtension> raw,
+  ) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    final ans = wire.cst_new_list_mls_extension(raw.length);
+    for (var i = 0; i < raw.length; ++i) {
+      cst_api_fill_to_wire_mls_extension(raw[i], ans.ref.ptr[i]);
+    }
+    return ans;
+  }
+
+  @protected
+  ffi.Pointer<wire_cst_list_mls_member_info> cst_encode_list_mls_member_info(
+    List<MlsMemberInfo> raw,
+  ) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    final ans = wire.cst_new_list_mls_member_info(raw.length);
+    for (var i = 0; i < raw.length; ++i) {
+      cst_api_fill_to_wire_mls_member_info(raw[i], ans.ref.ptr[i]);
+    }
+    return ans;
+  }
+
+  @protected
+  ffi.Pointer<wire_cst_list_mls_pending_proposal_info>
+  cst_encode_list_mls_pending_proposal_info(List<MlsPendingProposalInfo> raw) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    final ans = wire.cst_new_list_mls_pending_proposal_info(raw.length);
+    for (var i = 0; i < raw.length; ++i) {
+      cst_api_fill_to_wire_mls_pending_proposal_info(raw[i], ans.ref.ptr[i]);
+    }
+    return ans;
+  }
+
+  @protected
+  ffi.Pointer<wire_cst_list_prim_u_16_strict> cst_encode_list_prim_u_16_strict(
+    Uint16List raw,
+  ) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    final ans = wire.cst_new_list_prim_u_16_strict(raw.length);
+    ans.ref.ptr.asTypedList(raw.length).setAll(0, raw);
+    return ans;
+  }
+
+  @protected
+  ffi.Pointer<wire_cst_list_prim_u_32_loose> cst_encode_list_prim_u_32_loose(
+    List<int> raw,
+  ) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    final ans = wire.cst_new_list_prim_u_32_loose(raw.length);
+    ans.ref.ptr.asTypedList(raw.length).setAll(0, raw);
+    return ans;
+  }
+
+  @protected
+  ffi.Pointer<wire_cst_list_prim_u_32_strict> cst_encode_list_prim_u_32_strict(
+    Uint32List raw,
+  ) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    final ans = wire.cst_new_list_prim_u_32_strict(raw.length);
+    ans.ref.ptr.asTypedList(raw.length).setAll(0, raw);
+    return ans;
+  }
+
+  @protected
+  ffi.Pointer<wire_cst_list_prim_u_8_loose> cst_encode_list_prim_u_8_loose(
+    List<int> raw,
+  ) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    final ans = wire.cst_new_list_prim_u_8_loose(raw.length);
+    ans.ref.ptr.asTypedList(raw.length).setAll(0, raw);
+    return ans;
   }
 
   @protected
@@ -68,7 +801,511 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   }
 
   @protected
+  ffi.Pointer<wire_cst_mls_capabilities>
+  cst_encode_opt_box_autoadd_mls_capabilities(MlsCapabilities? raw) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return raw == null
+        ? ffi.nullptr
+        : cst_encode_box_autoadd_mls_capabilities(raw);
+  }
+
+  @protected
+  ffi.Pointer<wire_cst_mls_member_info>
+  cst_encode_opt_box_autoadd_mls_member_info(MlsMemberInfo? raw) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return raw == null
+        ? ffi.nullptr
+        : cst_encode_box_autoadd_mls_member_info(raw);
+  }
+
+  @protected
+  ffi.Pointer<ffi.Int32> cst_encode_opt_box_autoadd_mls_proposal_type(
+    MlsProposalType? raw,
+  ) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return raw == null
+        ? ffi.nullptr
+        : cst_encode_box_autoadd_mls_proposal_type(raw);
+  }
+
+  @protected
+  ffi.Pointer<wire_cst_staged_commit_info>
+  cst_encode_opt_box_autoadd_staged_commit_info(StagedCommitInfo? raw) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return raw == null
+        ? ffi.nullptr
+        : cst_encode_box_autoadd_staged_commit_info(raw);
+  }
+
+  @protected
+  ffi.Pointer<ffi.Uint32> cst_encode_opt_box_autoadd_u_32(int? raw) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return raw == null ? ffi.nullptr : cst_encode_box_autoadd_u_32(raw);
+  }
+
+  @protected
+  ffi.Pointer<ffi.Uint64> cst_encode_opt_box_autoadd_u_64(BigInt? raw) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return raw == null ? ffi.nullptr : cst_encode_box_autoadd_u_64(raw);
+  }
+
+  @protected
+  ffi.Pointer<wire_cst_list_mls_extension> cst_encode_opt_list_mls_extension(
+    List<MlsExtension>? raw,
+  ) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return raw == null ? ffi.nullptr : cst_encode_list_mls_extension(raw);
+  }
+
+  @protected
+  ffi.Pointer<wire_cst_list_prim_u_8_strict>
+  cst_encode_opt_list_prim_u_8_strict(Uint8List? raw) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return raw == null ? ffi.nullptr : cst_encode_list_prim_u_8_strict(raw);
+  }
+
+  @protected
+  int cst_encode_u_64(BigInt raw) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return raw.toSigned(64).toInt();
+  }
+
+  @protected
+  int cst_encode_usize(BigInt raw) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return raw.toSigned(64).toInt();
+  }
+
+  @protected
+  void cst_api_fill_to_wire_add_members_provider_result(
+    AddMembersProviderResult apiObj,
+    wire_cst_add_members_provider_result wireObj,
+  ) {
+    wireObj.commit = cst_encode_list_prim_u_8_strict(apiObj.commit);
+    wireObj.welcome = cst_encode_list_prim_u_8_strict(apiObj.welcome);
+    wireObj.group_info = cst_encode_opt_list_prim_u_8_strict(apiObj.groupInfo);
+  }
+
+  @protected
+  void cst_api_fill_to_wire_box_autoadd_flexible_commit_options(
+    FlexibleCommitOptions apiObj,
+    ffi.Pointer<wire_cst_flexible_commit_options> wireObj,
+  ) {
+    cst_api_fill_to_wire_flexible_commit_options(apiObj, wireObj.ref);
+  }
+
+  @protected
+  void cst_api_fill_to_wire_box_autoadd_key_package_options(
+    KeyPackageOptions apiObj,
+    ffi.Pointer<wire_cst_key_package_options> wireObj,
+  ) {
+    cst_api_fill_to_wire_key_package_options(apiObj, wireObj.ref);
+  }
+
+  @protected
+  void cst_api_fill_to_wire_box_autoadd_mls_capabilities(
+    MlsCapabilities apiObj,
+    ffi.Pointer<wire_cst_mls_capabilities> wireObj,
+  ) {
+    cst_api_fill_to_wire_mls_capabilities(apiObj, wireObj.ref);
+  }
+
+  @protected
+  void cst_api_fill_to_wire_box_autoadd_mls_group_config(
+    MlsGroupConfig apiObj,
+    ffi.Pointer<wire_cst_mls_group_config> wireObj,
+  ) {
+    cst_api_fill_to_wire_mls_group_config(apiObj, wireObj.ref);
+  }
+
+  @protected
+  void cst_api_fill_to_wire_box_autoadd_mls_member_info(
+    MlsMemberInfo apiObj,
+    ffi.Pointer<wire_cst_mls_member_info> wireObj,
+  ) {
+    cst_api_fill_to_wire_mls_member_info(apiObj, wireObj.ref);
+  }
+
+  @protected
+  void cst_api_fill_to_wire_box_autoadd_staged_commit_info(
+    StagedCommitInfo apiObj,
+    ffi.Pointer<wire_cst_staged_commit_info> wireObj,
+  ) {
+    cst_api_fill_to_wire_staged_commit_info(apiObj, wireObj.ref);
+  }
+
+  @protected
+  void cst_api_fill_to_wire_commit_provider_result(
+    CommitProviderResult apiObj,
+    wire_cst_commit_provider_result wireObj,
+  ) {
+    wireObj.commit = cst_encode_list_prim_u_8_strict(apiObj.commit);
+    wireObj.welcome = cst_encode_opt_list_prim_u_8_strict(apiObj.welcome);
+    wireObj.group_info = cst_encode_opt_list_prim_u_8_strict(apiObj.groupInfo);
+  }
+
+  @protected
+  void cst_api_fill_to_wire_create_group_provider_result(
+    CreateGroupProviderResult apiObj,
+    wire_cst_create_group_provider_result wireObj,
+  ) {
+    wireObj.group_id = cst_encode_list_prim_u_8_strict(apiObj.groupId);
+  }
+
+  @protected
+  void cst_api_fill_to_wire_create_message_provider_result(
+    CreateMessageProviderResult apiObj,
+    wire_cst_create_message_provider_result wireObj,
+  ) {
+    wireObj.ciphertext = cst_encode_list_prim_u_8_strict(apiObj.ciphertext);
+  }
+
+  @protected
+  void cst_api_fill_to_wire_external_join_provider_result(
+    ExternalJoinProviderResult apiObj,
+    wire_cst_external_join_provider_result wireObj,
+  ) {
+    wireObj.group_id = cst_encode_list_prim_u_8_strict(apiObj.groupId);
+    wireObj.commit = cst_encode_list_prim_u_8_strict(apiObj.commit);
+    wireObj.group_info = cst_encode_opt_list_prim_u_8_strict(apiObj.groupInfo);
+  }
+
+  @protected
+  void cst_api_fill_to_wire_flexible_commit_options(
+    FlexibleCommitOptions apiObj,
+    wire_cst_flexible_commit_options wireObj,
+  ) {
+    wireObj.add_key_packages = cst_encode_list_list_prim_u_8_strict(
+      apiObj.addKeyPackages,
+    );
+    wireObj.remove_indices = cst_encode_list_prim_u_32_strict(
+      apiObj.removeIndices,
+    );
+    wireObj.force_self_update = cst_encode_bool(apiObj.forceSelfUpdate);
+    wireObj.consume_pending_proposals = cst_encode_bool(
+      apiObj.consumePendingProposals,
+    );
+    wireObj.group_context_extensions = cst_encode_opt_list_mls_extension(
+      apiObj.groupContextExtensions,
+    );
+    wireObj.aad = cst_encode_opt_list_prim_u_8_strict(apiObj.aad);
+    wireObj.create_group_info = cst_encode_bool(apiObj.createGroupInfo);
+    wireObj.use_ratchet_tree_extension = cst_encode_bool(
+      apiObj.useRatchetTreeExtension,
+    );
+  }
+
+  @protected
+  void cst_api_fill_to_wire_join_group_provider_result(
+    JoinGroupProviderResult apiObj,
+    wire_cst_join_group_provider_result wireObj,
+  ) {
+    wireObj.group_id = cst_encode_list_prim_u_8_strict(apiObj.groupId);
+  }
+
+  @protected
+  void cst_api_fill_to_wire_key_package_options(
+    KeyPackageOptions apiObj,
+    wire_cst_key_package_options wireObj,
+  ) {
+    wireObj.lifetime_seconds = cst_encode_opt_box_autoadd_u_64(
+      apiObj.lifetimeSeconds,
+    );
+    wireObj.last_resort = cst_encode_bool(apiObj.lastResort);
+    wireObj.capabilities = cst_encode_opt_box_autoadd_mls_capabilities(
+      apiObj.capabilities,
+    );
+    wireObj.leaf_node_extensions = cst_encode_opt_list_mls_extension(
+      apiObj.leafNodeExtensions,
+    );
+    wireObj.key_package_extensions = cst_encode_opt_list_mls_extension(
+      apiObj.keyPackageExtensions,
+    );
+  }
+
+  @protected
+  void cst_api_fill_to_wire_key_package_provider_result(
+    KeyPackageProviderResult apiObj,
+    wire_cst_key_package_provider_result wireObj,
+  ) {
+    wireObj.key_package_bytes = cst_encode_list_prim_u_8_strict(
+      apiObj.keyPackageBytes,
+    );
+  }
+
+  @protected
+  void cst_api_fill_to_wire_leave_group_provider_result(
+    LeaveGroupProviderResult apiObj,
+    wire_cst_leave_group_provider_result wireObj,
+  ) {
+    wireObj.message = cst_encode_list_prim_u_8_strict(apiObj.message);
+  }
+
+  @protected
+  void cst_api_fill_to_wire_mls_capabilities(
+    MlsCapabilities apiObj,
+    wire_cst_mls_capabilities wireObj,
+  ) {
+    wireObj.versions = cst_encode_list_prim_u_16_strict(apiObj.versions);
+    wireObj.ciphersuites = cst_encode_list_prim_u_16_strict(
+      apiObj.ciphersuites,
+    );
+    wireObj.extensions = cst_encode_list_prim_u_16_strict(apiObj.extensions);
+    wireObj.proposals = cst_encode_list_prim_u_16_strict(apiObj.proposals);
+    wireObj.credentials = cst_encode_list_prim_u_16_strict(apiObj.credentials);
+  }
+
+  @protected
+  void cst_api_fill_to_wire_mls_extension(
+    MlsExtension apiObj,
+    wire_cst_mls_extension wireObj,
+  ) {
+    wireObj.extension_type = cst_encode_u_16(apiObj.extensionType);
+    wireObj.data = cst_encode_list_prim_u_8_strict(apiObj.data);
+  }
+
+  @protected
+  void cst_api_fill_to_wire_mls_group_config(
+    MlsGroupConfig apiObj,
+    wire_cst_mls_group_config wireObj,
+  ) {
+    wireObj.ciphersuite = cst_encode_mls_ciphersuite(apiObj.ciphersuite);
+    wireObj.wire_format_policy = cst_encode_mls_wire_format_policy(
+      apiObj.wireFormatPolicy,
+    );
+    wireObj.use_ratchet_tree_extension = cst_encode_bool(
+      apiObj.useRatchetTreeExtension,
+    );
+    wireObj.max_past_epochs = cst_encode_u_32(apiObj.maxPastEpochs);
+    wireObj.padding_size = cst_encode_u_32(apiObj.paddingSize);
+    wireObj.sender_ratchet_max_out_of_order = cst_encode_u_32(
+      apiObj.senderRatchetMaxOutOfOrder,
+    );
+    wireObj.sender_ratchet_max_forward_distance = cst_encode_u_32(
+      apiObj.senderRatchetMaxForwardDistance,
+    );
+    wireObj.number_of_resumption_psks = cst_encode_u_32(
+      apiObj.numberOfResumptionPsks,
+    );
+  }
+
+  @protected
+  void cst_api_fill_to_wire_mls_group_context_info(
+    MlsGroupContextInfo apiObj,
+    wire_cst_mls_group_context_info wireObj,
+  ) {
+    wireObj.group_id = cst_encode_list_prim_u_8_strict(apiObj.groupId);
+    wireObj.epoch = cst_encode_u_64(apiObj.epoch);
+    wireObj.ciphersuite = cst_encode_mls_ciphersuite(apiObj.ciphersuite);
+    wireObj.tree_hash = cst_encode_list_prim_u_8_strict(apiObj.treeHash);
+    wireObj.confirmed_transcript_hash = cst_encode_list_prim_u_8_strict(
+      apiObj.confirmedTranscriptHash,
+    );
+    wireObj.extensions = cst_encode_list_prim_u_8_strict(apiObj.extensions);
+  }
+
+  @protected
+  void cst_api_fill_to_wire_mls_leaf_node_info(
+    MlsLeafNodeInfo apiObj,
+    wire_cst_mls_leaf_node_info wireObj,
+  ) {
+    wireObj.credential_identity = cst_encode_list_prim_u_8_strict(
+      apiObj.credentialIdentity,
+    );
+    wireObj.signature_key = cst_encode_list_prim_u_8_strict(
+      apiObj.signatureKey,
+    );
+    wireObj.encryption_key = cst_encode_list_prim_u_8_strict(
+      apiObj.encryptionKey,
+    );
+    cst_api_fill_to_wire_mls_capabilities(
+      apiObj.capabilities,
+      wireObj.capabilities,
+    );
+    wireObj.extensions = cst_encode_list_mls_extension(apiObj.extensions);
+  }
+
+  @protected
+  void cst_api_fill_to_wire_mls_member_info(
+    MlsMemberInfo apiObj,
+    wire_cst_mls_member_info wireObj,
+  ) {
+    wireObj.index = cst_encode_u_32(apiObj.index);
+    wireObj.credential_identity = cst_encode_list_prim_u_8_strict(
+      apiObj.credentialIdentity,
+    );
+    wireObj.signature_key = cst_encode_list_prim_u_8_strict(
+      apiObj.signatureKey,
+    );
+  }
+
+  @protected
+  void cst_api_fill_to_wire_mls_pending_proposal_info(
+    MlsPendingProposalInfo apiObj,
+    wire_cst_mls_pending_proposal_info wireObj,
+  ) {
+    wireObj.proposal_type = cst_encode_mls_proposal_type(apiObj.proposalType);
+    wireObj.sender_index = cst_encode_opt_box_autoadd_u_32(apiObj.senderIndex);
+  }
+
+  @protected
+  void cst_api_fill_to_wire_processed_message_inspect_provider_result(
+    ProcessedMessageInspectProviderResult apiObj,
+    wire_cst_processed_message_inspect_provider_result wireObj,
+  ) {
+    wireObj.message_type = cst_encode_processed_message_type(
+      apiObj.messageType,
+    );
+    wireObj.sender_index = cst_encode_opt_box_autoadd_u_32(apiObj.senderIndex);
+    wireObj.epoch = cst_encode_u_64(apiObj.epoch);
+    wireObj.application_message = cst_encode_opt_list_prim_u_8_strict(
+      apiObj.applicationMessage,
+    );
+    wireObj.staged_commit_info = cst_encode_opt_box_autoadd_staged_commit_info(
+      apiObj.stagedCommitInfo,
+    );
+    wireObj.proposal_type = cst_encode_opt_box_autoadd_mls_proposal_type(
+      apiObj.proposalType,
+    );
+  }
+
+  @protected
+  void cst_api_fill_to_wire_processed_message_provider_result(
+    ProcessedMessageProviderResult apiObj,
+    wire_cst_processed_message_provider_result wireObj,
+  ) {
+    wireObj.message_type = cst_encode_processed_message_type(
+      apiObj.messageType,
+    );
+    wireObj.sender_index = cst_encode_opt_box_autoadd_u_32(apiObj.senderIndex);
+    wireObj.epoch = cst_encode_u_64(apiObj.epoch);
+    wireObj.application_message = cst_encode_opt_list_prim_u_8_strict(
+      apiObj.applicationMessage,
+    );
+    wireObj.has_staged_commit = cst_encode_bool(apiObj.hasStagedCommit);
+    wireObj.has_proposal = cst_encode_bool(apiObj.hasProposal);
+    wireObj.proposal_type = cst_encode_opt_box_autoadd_mls_proposal_type(
+      apiObj.proposalType,
+    );
+  }
+
+  @protected
+  void cst_api_fill_to_wire_proposal_provider_result(
+    ProposalProviderResult apiObj,
+    wire_cst_proposal_provider_result wireObj,
+  ) {
+    wireObj.proposal_message = cst_encode_list_prim_u_8_strict(
+      apiObj.proposalMessage,
+    );
+  }
+
+  @protected
+  void cst_api_fill_to_wire_staged_commit_info(
+    StagedCommitInfo apiObj,
+    wire_cst_staged_commit_info wireObj,
+  ) {
+    wireObj.add_credential_identities = cst_encode_list_list_prim_u_8_strict(
+      apiObj.addCredentialIdentities,
+    );
+    wireObj.remove_indices = cst_encode_list_prim_u_32_strict(
+      apiObj.removeIndices,
+    );
+    wireObj.has_update = cst_encode_bool(apiObj.hasUpdate);
+    wireObj.self_removed = cst_encode_bool(apiObj.selfRemoved);
+    wireObj.psk_count = cst_encode_u_32(apiObj.pskCount);
+  }
+
+  @protected
+  void cst_api_fill_to_wire_welcome_inspect_result(
+    WelcomeInspectResult apiObj,
+    wire_cst_welcome_inspect_result wireObj,
+  ) {
+    wireObj.group_id = cst_encode_list_prim_u_8_strict(apiObj.groupId);
+    wireObj.ciphersuite = cst_encode_mls_ciphersuite(apiObj.ciphersuite);
+    wireObj.psk_count = cst_encode_u_32(apiObj.pskCount);
+    wireObj.epoch = cst_encode_u_64(apiObj.epoch);
+  }
+
+  @protected
+  int
+  cst_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsCredential(
+    MlsCredential raw,
+  );
+
+  @protected
+  int
+  cst_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsSignatureKeyPair(
+    MlsSignatureKeyPair raw,
+  );
+
+  @protected
+  int
+  cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsCredential(
+    MlsCredential raw,
+  );
+
+  @protected
+  int
+  cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsSignatureKeyPair(
+    MlsSignatureKeyPair raw,
+  );
+
+  @protected
+  PlatformPointer
+  cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
+    FutureOr<Uint8List?> Function(Uint8List) raw,
+  );
+
+  @protected
+  PlatformPointer
+  cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
+    FutureOr<void> Function(Uint8List) raw,
+  );
+
+  @protected
+  PlatformPointer
+  cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
+    FutureOr<void> Function(Uint8List, Uint8List) raw,
+  );
+
+  @protected
+  PlatformPointer cst_encode_DartOpaque(Object raw);
+
+  @protected
+  int
+  cst_encode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsCredential(
+    MlsCredential raw,
+  );
+
+  @protected
+  int
+  cst_encode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsSignatureKeyPair(
+    MlsSignatureKeyPair raw,
+  );
+
+  @protected
   bool cst_encode_bool(bool raw);
+
+  @protected
+  int cst_encode_i_32(int raw);
+
+  @protected
+  int cst_encode_mls_ciphersuite(MlsCiphersuite raw);
+
+  @protected
+  int cst_encode_mls_proposal_type(MlsProposalType raw);
+
+  @protected
+  int cst_encode_mls_wire_format_policy(MlsWireFormatPolicy raw);
+
+  @protected
+  int cst_encode_processed_message_type(ProcessedMessageType raw);
+
+  @protected
+  int cst_encode_u_16(int raw);
+
+  @protected
+  int cst_encode_u_32(int raw);
 
   @protected
   int cst_encode_u_8(int raw);
@@ -77,10 +1314,247 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void cst_encode_unit(void raw);
 
   @protected
+  void sse_encode_AnyhowException(
+    AnyhowException self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void
+  sse_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsCredential(
+    MlsCredential self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void
+  sse_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsSignatureKeyPair(
+    MlsSignatureKeyPair self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void
+  sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsCredential(
+    MlsCredential self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void
+  sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsSignatureKeyPair(
+    MlsSignatureKeyPair self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void
+  sse_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
+    FutureOr<Uint8List?> Function(Uint8List) self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void
+  sse_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
+    FutureOr<void> Function(Uint8List) self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void
+  sse_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
+    FutureOr<void> Function(Uint8List, Uint8List) self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_DartOpaque(Object self, SseSerializer serializer);
+
+  @protected
+  void
+  sse_encode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsCredential(
+    MlsCredential self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void
+  sse_encode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsSignatureKeyPair(
+    MlsSignatureKeyPair self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_String(String self, SseSerializer serializer);
 
   @protected
+  void sse_encode_add_members_provider_result(
+    AddMembersProviderResult self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_bool(bool self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_box_autoadd_flexible_commit_options(
+    FlexibleCommitOptions self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_key_package_options(
+    KeyPackageOptions self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_mls_capabilities(
+    MlsCapabilities self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_mls_group_config(
+    MlsGroupConfig self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_mls_member_info(
+    MlsMemberInfo self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_mls_proposal_type(
+    MlsProposalType self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_staged_commit_info(
+    StagedCommitInfo self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_u_32(int self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_box_autoadd_u_64(BigInt self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_commit_provider_result(
+    CommitProviderResult self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_create_group_provider_result(
+    CreateGroupProviderResult self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_create_message_provider_result(
+    CreateMessageProviderResult self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_external_join_provider_result(
+    ExternalJoinProviderResult self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_flexible_commit_options(
+    FlexibleCommitOptions self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_i_32(int self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_isize(PlatformInt64 self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_join_group_provider_result(
+    JoinGroupProviderResult self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_key_package_options(
+    KeyPackageOptions self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_key_package_provider_result(
+    KeyPackageProviderResult self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_leave_group_provider_result(
+    LeaveGroupProviderResult self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_list_prim_u_8_strict(
+    List<Uint8List> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_mls_ciphersuite(
+    List<MlsCiphersuite> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_mls_extension(
+    List<MlsExtension> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_mls_member_info(
+    List<MlsMemberInfo> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_mls_pending_proposal_info(
+    List<MlsPendingProposalInfo> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_prim_u_16_strict(
+    Uint16List self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_prim_u_32_loose(
+    List<int> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_prim_u_32_strict(
+    Uint32List self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_prim_u_8_loose(List<int> self, SseSerializer serializer);
 
   @protected
   void sse_encode_list_prim_u_8_strict(
@@ -89,13 +1563,154 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_mls_capabilities(
+    MlsCapabilities self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_mls_ciphersuite(
+    MlsCiphersuite self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_mls_extension(MlsExtension self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_mls_group_config(
+    MlsGroupConfig self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_mls_group_context_info(
+    MlsGroupContextInfo self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_mls_leaf_node_info(
+    MlsLeafNodeInfo self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_mls_member_info(MlsMemberInfo self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_mls_pending_proposal_info(
+    MlsPendingProposalInfo self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_mls_proposal_type(
+    MlsProposalType self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_mls_wire_format_policy(
+    MlsWireFormatPolicy self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_box_autoadd_mls_capabilities(
+    MlsCapabilities? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_box_autoadd_mls_member_info(
+    MlsMemberInfo? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_box_autoadd_mls_proposal_type(
+    MlsProposalType? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_box_autoadd_staged_commit_info(
+    StagedCommitInfo? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_box_autoadd_u_32(int? self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_opt_box_autoadd_u_64(BigInt? self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_opt_list_mls_extension(
+    List<MlsExtension>? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_list_prim_u_8_strict(
+    Uint8List? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_processed_message_inspect_provider_result(
+    ProcessedMessageInspectProviderResult self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_processed_message_provider_result(
+    ProcessedMessageProviderResult self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_processed_message_type(
+    ProcessedMessageType self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_proposal_provider_result(
+    ProposalProviderResult self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_staged_commit_info(
+    StagedCommitInfo self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_u_16(int self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_u_32(int self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_u_64(BigInt self, SseSerializer serializer);
+
+  @protected
   void sse_encode_u_8(int self, SseSerializer serializer);
 
   @protected
   void sse_encode_unit(void self, SseSerializer serializer);
 
   @protected
-  void sse_encode_i_32(int self, SseSerializer serializer);
+  void sse_encode_usize(BigInt self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_welcome_inspect_result(
+    WelcomeInspectResult self,
+    SseSerializer serializer,
+  );
 }
 
 // Section: wire_class
@@ -135,6 +1750,1624 @@ class RustLibWire implements BaseWire {
   late final _store_dart_post_cobject = _store_dart_post_cobjectPtr
       .asFunction<void Function(DartPostCObjectFnType)>();
 
+  WireSyncRust2DartDco wire__crate__api__credential__MlsCredential_basic(
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> identity,
+  ) {
+    return _wire__crate__api__credential__MlsCredential_basic(identity);
+  }
+
+  late final _wire__crate__api__credential__MlsCredential_basicPtr =
+      _lookup<
+        ffi.NativeFunction<
+          WireSyncRust2DartDco Function(
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+          )
+        >
+      >('frbgen_openmls_wire__crate__api__credential__MlsCredential_basic');
+  late final _wire__crate__api__credential__MlsCredential_basic =
+      _wire__crate__api__credential__MlsCredential_basicPtr
+          .asFunction<
+            WireSyncRust2DartDco Function(
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            )
+          >();
+
+  WireSyncRust2DartDco wire__crate__api__credential__MlsCredential_certificates(
+    int that,
+  ) {
+    return _wire__crate__api__credential__MlsCredential_certificates(that);
+  }
+
+  late final _wire__crate__api__credential__MlsCredential_certificatesPtr =
+      _lookup<ffi.NativeFunction<WireSyncRust2DartDco Function(ffi.UintPtr)>>(
+        'frbgen_openmls_wire__crate__api__credential__MlsCredential_certificates',
+      );
+  late final _wire__crate__api__credential__MlsCredential_certificates =
+      _wire__crate__api__credential__MlsCredential_certificatesPtr
+          .asFunction<WireSyncRust2DartDco Function(int)>();
+
+  WireSyncRust2DartDco
+  wire__crate__api__credential__MlsCredential_credential_type(int that) {
+    return _wire__crate__api__credential__MlsCredential_credential_type(that);
+  }
+
+  late final _wire__crate__api__credential__MlsCredential_credential_typePtr =
+      _lookup<ffi.NativeFunction<WireSyncRust2DartDco Function(ffi.UintPtr)>>(
+        'frbgen_openmls_wire__crate__api__credential__MlsCredential_credential_type',
+      );
+  late final _wire__crate__api__credential__MlsCredential_credential_type =
+      _wire__crate__api__credential__MlsCredential_credential_typePtr
+          .asFunction<WireSyncRust2DartDco Function(int)>();
+
+  WireSyncRust2DartDco wire__crate__api__credential__MlsCredential_deserialize(
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> bytes,
+  ) {
+    return _wire__crate__api__credential__MlsCredential_deserialize(bytes);
+  }
+
+  late final _wire__crate__api__credential__MlsCredential_deserializePtr =
+      _lookup<
+        ffi.NativeFunction<
+          WireSyncRust2DartDco Function(
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+          )
+        >
+      >(
+        'frbgen_openmls_wire__crate__api__credential__MlsCredential_deserialize',
+      );
+  late final _wire__crate__api__credential__MlsCredential_deserialize =
+      _wire__crate__api__credential__MlsCredential_deserializePtr
+          .asFunction<
+            WireSyncRust2DartDco Function(
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            )
+          >();
+
+  WireSyncRust2DartDco wire__crate__api__credential__MlsCredential_identity(
+    int that,
+  ) {
+    return _wire__crate__api__credential__MlsCredential_identity(that);
+  }
+
+  late final _wire__crate__api__credential__MlsCredential_identityPtr =
+      _lookup<ffi.NativeFunction<WireSyncRust2DartDco Function(ffi.UintPtr)>>(
+        'frbgen_openmls_wire__crate__api__credential__MlsCredential_identity',
+      );
+  late final _wire__crate__api__credential__MlsCredential_identity =
+      _wire__crate__api__credential__MlsCredential_identityPtr
+          .asFunction<WireSyncRust2DartDco Function(int)>();
+
+  WireSyncRust2DartDco wire__crate__api__credential__MlsCredential_serialize(
+    int that,
+  ) {
+    return _wire__crate__api__credential__MlsCredential_serialize(that);
+  }
+
+  late final _wire__crate__api__credential__MlsCredential_serializePtr =
+      _lookup<ffi.NativeFunction<WireSyncRust2DartDco Function(ffi.UintPtr)>>(
+        'frbgen_openmls_wire__crate__api__credential__MlsCredential_serialize',
+      );
+  late final _wire__crate__api__credential__MlsCredential_serialize =
+      _wire__crate__api__credential__MlsCredential_serializePtr
+          .asFunction<WireSyncRust2DartDco Function(int)>();
+
+  WireSyncRust2DartDco
+  wire__crate__api__credential__MlsCredential_serialized_content(int that) {
+    return _wire__crate__api__credential__MlsCredential_serialized_content(
+      that,
+    );
+  }
+
+  late final _wire__crate__api__credential__MlsCredential_serialized_contentPtr =
+      _lookup<ffi.NativeFunction<WireSyncRust2DartDco Function(ffi.UintPtr)>>(
+        'frbgen_openmls_wire__crate__api__credential__MlsCredential_serialized_content',
+      );
+  late final _wire__crate__api__credential__MlsCredential_serialized_content =
+      _wire__crate__api__credential__MlsCredential_serialized_contentPtr
+          .asFunction<WireSyncRust2DartDco Function(int)>();
+
+  WireSyncRust2DartDco wire__crate__api__credential__MlsCredential_x509(
+    ffi.Pointer<wire_cst_list_list_prim_u_8_strict> certificate_chain,
+  ) {
+    return _wire__crate__api__credential__MlsCredential_x509(certificate_chain);
+  }
+
+  late final _wire__crate__api__credential__MlsCredential_x509Ptr =
+      _lookup<
+        ffi.NativeFunction<
+          WireSyncRust2DartDco Function(
+            ffi.Pointer<wire_cst_list_list_prim_u_8_strict>,
+          )
+        >
+      >('frbgen_openmls_wire__crate__api__credential__MlsCredential_x509');
+  late final _wire__crate__api__credential__MlsCredential_x509 =
+      _wire__crate__api__credential__MlsCredential_x509Ptr
+          .asFunction<
+            WireSyncRust2DartDco Function(
+              ffi.Pointer<wire_cst_list_list_prim_u_8_strict>,
+            )
+          >();
+
+  WireSyncRust2DartDco
+  wire__crate__api__keys__MlsSignatureKeyPair_deserialize_public(
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> bytes,
+  ) {
+    return _wire__crate__api__keys__MlsSignatureKeyPair_deserialize_public(
+      bytes,
+    );
+  }
+
+  late final _wire__crate__api__keys__MlsSignatureKeyPair_deserialize_publicPtr =
+      _lookup<
+        ffi.NativeFunction<
+          WireSyncRust2DartDco Function(
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+          )
+        >
+      >(
+        'frbgen_openmls_wire__crate__api__keys__MlsSignatureKeyPair_deserialize_public',
+      );
+  late final _wire__crate__api__keys__MlsSignatureKeyPair_deserialize_public =
+      _wire__crate__api__keys__MlsSignatureKeyPair_deserialize_publicPtr
+          .asFunction<
+            WireSyncRust2DartDco Function(
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            )
+          >();
+
+  WireSyncRust2DartDco wire__crate__api__keys__MlsSignatureKeyPair_from_raw(
+    int ciphersuite,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> private_key,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> public_key,
+  ) {
+    return _wire__crate__api__keys__MlsSignatureKeyPair_from_raw(
+      ciphersuite,
+      private_key,
+      public_key,
+    );
+  }
+
+  late final _wire__crate__api__keys__MlsSignatureKeyPair_from_rawPtr =
+      _lookup<
+        ffi.NativeFunction<
+          WireSyncRust2DartDco Function(
+            ffi.Int32,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+          )
+        >
+      >('frbgen_openmls_wire__crate__api__keys__MlsSignatureKeyPair_from_raw');
+  late final _wire__crate__api__keys__MlsSignatureKeyPair_from_raw =
+      _wire__crate__api__keys__MlsSignatureKeyPair_from_rawPtr
+          .asFunction<
+            WireSyncRust2DartDco Function(
+              int,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            )
+          >();
+
+  WireSyncRust2DartDco wire__crate__api__keys__MlsSignatureKeyPair_generate(
+    int ciphersuite,
+  ) {
+    return _wire__crate__api__keys__MlsSignatureKeyPair_generate(ciphersuite);
+  }
+
+  late final _wire__crate__api__keys__MlsSignatureKeyPair_generatePtr =
+      _lookup<ffi.NativeFunction<WireSyncRust2DartDco Function(ffi.Int32)>>(
+        'frbgen_openmls_wire__crate__api__keys__MlsSignatureKeyPair_generate',
+      );
+  late final _wire__crate__api__keys__MlsSignatureKeyPair_generate =
+      _wire__crate__api__keys__MlsSignatureKeyPair_generatePtr
+          .asFunction<WireSyncRust2DartDco Function(int)>();
+
+  WireSyncRust2DartDco wire__crate__api__keys__MlsSignatureKeyPair_private_key(
+    int that,
+  ) {
+    return _wire__crate__api__keys__MlsSignatureKeyPair_private_key(that);
+  }
+
+  late final _wire__crate__api__keys__MlsSignatureKeyPair_private_keyPtr =
+      _lookup<ffi.NativeFunction<WireSyncRust2DartDco Function(ffi.UintPtr)>>(
+        'frbgen_openmls_wire__crate__api__keys__MlsSignatureKeyPair_private_key',
+      );
+  late final _wire__crate__api__keys__MlsSignatureKeyPair_private_key =
+      _wire__crate__api__keys__MlsSignatureKeyPair_private_keyPtr
+          .asFunction<WireSyncRust2DartDco Function(int)>();
+
+  WireSyncRust2DartDco wire__crate__api__keys__MlsSignatureKeyPair_public_key(
+    int that,
+  ) {
+    return _wire__crate__api__keys__MlsSignatureKeyPair_public_key(that);
+  }
+
+  late final _wire__crate__api__keys__MlsSignatureKeyPair_public_keyPtr =
+      _lookup<ffi.NativeFunction<WireSyncRust2DartDco Function(ffi.UintPtr)>>(
+        'frbgen_openmls_wire__crate__api__keys__MlsSignatureKeyPair_public_key',
+      );
+  late final _wire__crate__api__keys__MlsSignatureKeyPair_public_key =
+      _wire__crate__api__keys__MlsSignatureKeyPair_public_keyPtr
+          .asFunction<WireSyncRust2DartDco Function(int)>();
+
+  WireSyncRust2DartDco wire__crate__api__keys__MlsSignatureKeyPair_serialize(
+    int that,
+  ) {
+    return _wire__crate__api__keys__MlsSignatureKeyPair_serialize(that);
+  }
+
+  late final _wire__crate__api__keys__MlsSignatureKeyPair_serializePtr =
+      _lookup<ffi.NativeFunction<WireSyncRust2DartDco Function(ffi.UintPtr)>>(
+        'frbgen_openmls_wire__crate__api__keys__MlsSignatureKeyPair_serialize',
+      );
+  late final _wire__crate__api__keys__MlsSignatureKeyPair_serialize =
+      _wire__crate__api__keys__MlsSignatureKeyPair_serializePtr
+          .asFunction<WireSyncRust2DartDco Function(int)>();
+
+  WireSyncRust2DartDco
+  wire__crate__api__keys__MlsSignatureKeyPair_signature_scheme(int that) {
+    return _wire__crate__api__keys__MlsSignatureKeyPair_signature_scheme(that);
+  }
+
+  late final _wire__crate__api__keys__MlsSignatureKeyPair_signature_schemePtr =
+      _lookup<ffi.NativeFunction<WireSyncRust2DartDco Function(ffi.UintPtr)>>(
+        'frbgen_openmls_wire__crate__api__keys__MlsSignatureKeyPair_signature_scheme',
+      );
+  late final _wire__crate__api__keys__MlsSignatureKeyPair_signature_scheme =
+      _wire__crate__api__keys__MlsSignatureKeyPair_signature_schemePtr
+          .asFunction<WireSyncRust2DartDco Function(int)>();
+
+  void wire__crate__api__provider__add_members(
+    int port_,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> group_id_bytes,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> signer_bytes,
+    ffi.Pointer<wire_cst_list_list_prim_u_8_strict> key_packages_bytes,
+    ffi.Pointer<ffi.Void> storage_read,
+    ffi.Pointer<ffi.Void> storage_write,
+    ffi.Pointer<ffi.Void> storage_delete,
+  ) {
+    return _wire__crate__api__provider__add_members(
+      port_,
+      group_id_bytes,
+      signer_bytes,
+      key_packages_bytes,
+      storage_read,
+      storage_write,
+      storage_delete,
+    );
+  }
+
+  late final _wire__crate__api__provider__add_membersPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Int64,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Pointer<wire_cst_list_list_prim_u_8_strict>,
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Void>,
+          )
+        >
+      >('frbgen_openmls_wire__crate__api__provider__add_members');
+  late final _wire__crate__api__provider__add_members =
+      _wire__crate__api__provider__add_membersPtr
+          .asFunction<
+            void Function(
+              int,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              ffi.Pointer<wire_cst_list_list_prim_u_8_strict>,
+              ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Void>,
+            )
+          >();
+
+  void wire__crate__api__provider__add_members_without_update(
+    int port_,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> group_id_bytes,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> signer_bytes,
+    ffi.Pointer<wire_cst_list_list_prim_u_8_strict> key_packages_bytes,
+    ffi.Pointer<ffi.Void> storage_read,
+    ffi.Pointer<ffi.Void> storage_write,
+    ffi.Pointer<ffi.Void> storage_delete,
+  ) {
+    return _wire__crate__api__provider__add_members_without_update(
+      port_,
+      group_id_bytes,
+      signer_bytes,
+      key_packages_bytes,
+      storage_read,
+      storage_write,
+      storage_delete,
+    );
+  }
+
+  late final _wire__crate__api__provider__add_members_without_updatePtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Int64,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Pointer<wire_cst_list_list_prim_u_8_strict>,
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Void>,
+          )
+        >
+      >(
+        'frbgen_openmls_wire__crate__api__provider__add_members_without_update',
+      );
+  late final _wire__crate__api__provider__add_members_without_update =
+      _wire__crate__api__provider__add_members_without_updatePtr
+          .asFunction<
+            void Function(
+              int,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              ffi.Pointer<wire_cst_list_list_prim_u_8_strict>,
+              ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Void>,
+            )
+          >();
+
+  void wire__crate__api__provider__clear_pending_commit(
+    int port_,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> group_id_bytes,
+    ffi.Pointer<ffi.Void> storage_read,
+    ffi.Pointer<ffi.Void> storage_write,
+    ffi.Pointer<ffi.Void> storage_delete,
+  ) {
+    return _wire__crate__api__provider__clear_pending_commit(
+      port_,
+      group_id_bytes,
+      storage_read,
+      storage_write,
+      storage_delete,
+    );
+  }
+
+  late final _wire__crate__api__provider__clear_pending_commitPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Int64,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Void>,
+          )
+        >
+      >('frbgen_openmls_wire__crate__api__provider__clear_pending_commit');
+  late final _wire__crate__api__provider__clear_pending_commit =
+      _wire__crate__api__provider__clear_pending_commitPtr
+          .asFunction<
+            void Function(
+              int,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Void>,
+            )
+          >();
+
+  void wire__crate__api__provider__clear_pending_proposals(
+    int port_,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> group_id_bytes,
+    ffi.Pointer<ffi.Void> storage_read,
+    ffi.Pointer<ffi.Void> storage_write,
+    ffi.Pointer<ffi.Void> storage_delete,
+  ) {
+    return _wire__crate__api__provider__clear_pending_proposals(
+      port_,
+      group_id_bytes,
+      storage_read,
+      storage_write,
+      storage_delete,
+    );
+  }
+
+  late final _wire__crate__api__provider__clear_pending_proposalsPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Int64,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Void>,
+          )
+        >
+      >('frbgen_openmls_wire__crate__api__provider__clear_pending_proposals');
+  late final _wire__crate__api__provider__clear_pending_proposals =
+      _wire__crate__api__provider__clear_pending_proposalsPtr
+          .asFunction<
+            void Function(
+              int,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Void>,
+            )
+          >();
+
+  void wire__crate__api__provider__commit_to_pending_proposals(
+    int port_,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> group_id_bytes,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> signer_bytes,
+    ffi.Pointer<ffi.Void> storage_read,
+    ffi.Pointer<ffi.Void> storage_write,
+    ffi.Pointer<ffi.Void> storage_delete,
+  ) {
+    return _wire__crate__api__provider__commit_to_pending_proposals(
+      port_,
+      group_id_bytes,
+      signer_bytes,
+      storage_read,
+      storage_write,
+      storage_delete,
+    );
+  }
+
+  late final _wire__crate__api__provider__commit_to_pending_proposalsPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Int64,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Void>,
+          )
+        >
+      >(
+        'frbgen_openmls_wire__crate__api__provider__commit_to_pending_proposals',
+      );
+  late final _wire__crate__api__provider__commit_to_pending_proposals =
+      _wire__crate__api__provider__commit_to_pending_proposalsPtr
+          .asFunction<
+            void Function(
+              int,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Void>,
+            )
+          >();
+
+  void wire__crate__api__provider__create_group(
+    int port_,
+    ffi.Pointer<wire_cst_mls_group_config> config,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> signer_bytes,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> credential_identity,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> signer_public_key,
+    ffi.Pointer<wire_cst_list_prim_u_8_strict> group_id,
+    ffi.Pointer<ffi.Void> storage_read,
+    ffi.Pointer<ffi.Void> storage_write,
+    ffi.Pointer<ffi.Void> storage_delete,
+  ) {
+    return _wire__crate__api__provider__create_group(
+      port_,
+      config,
+      signer_bytes,
+      credential_identity,
+      signer_public_key,
+      group_id,
+      storage_read,
+      storage_write,
+      storage_delete,
+    );
+  }
+
+  late final _wire__crate__api__provider__create_groupPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Int64,
+            ffi.Pointer<wire_cst_mls_group_config>,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Pointer<wire_cst_list_prim_u_8_strict>,
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Void>,
+          )
+        >
+      >('frbgen_openmls_wire__crate__api__provider__create_group');
+  late final _wire__crate__api__provider__create_group =
+      _wire__crate__api__provider__create_groupPtr
+          .asFunction<
+            void Function(
+              int,
+              ffi.Pointer<wire_cst_mls_group_config>,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              ffi.Pointer<wire_cst_list_prim_u_8_strict>,
+              ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Void>,
+            )
+          >();
+
+  void wire__crate__api__provider__create_group_with_builder(
+    int port_,
+    ffi.Pointer<wire_cst_mls_group_config> config,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> signer_bytes,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> credential_identity,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> signer_public_key,
+    ffi.Pointer<wire_cst_list_prim_u_8_strict> group_id,
+    ffi.Pointer<ffi.Uint64> lifetime_seconds,
+    ffi.Pointer<wire_cst_list_mls_extension> group_context_extensions,
+    ffi.Pointer<wire_cst_list_mls_extension> leaf_node_extensions,
+    ffi.Pointer<wire_cst_mls_capabilities> capabilities,
+    ffi.Pointer<ffi.Void> storage_read,
+    ffi.Pointer<ffi.Void> storage_write,
+    ffi.Pointer<ffi.Void> storage_delete,
+  ) {
+    return _wire__crate__api__provider__create_group_with_builder(
+      port_,
+      config,
+      signer_bytes,
+      credential_identity,
+      signer_public_key,
+      group_id,
+      lifetime_seconds,
+      group_context_extensions,
+      leaf_node_extensions,
+      capabilities,
+      storage_read,
+      storage_write,
+      storage_delete,
+    );
+  }
+
+  late final _wire__crate__api__provider__create_group_with_builderPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Int64,
+            ffi.Pointer<wire_cst_mls_group_config>,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Pointer<wire_cst_list_prim_u_8_strict>,
+            ffi.Pointer<ffi.Uint64>,
+            ffi.Pointer<wire_cst_list_mls_extension>,
+            ffi.Pointer<wire_cst_list_mls_extension>,
+            ffi.Pointer<wire_cst_mls_capabilities>,
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Void>,
+          )
+        >
+      >('frbgen_openmls_wire__crate__api__provider__create_group_with_builder');
+  late final _wire__crate__api__provider__create_group_with_builder =
+      _wire__crate__api__provider__create_group_with_builderPtr
+          .asFunction<
+            void Function(
+              int,
+              ffi.Pointer<wire_cst_mls_group_config>,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              ffi.Pointer<wire_cst_list_prim_u_8_strict>,
+              ffi.Pointer<ffi.Uint64>,
+              ffi.Pointer<wire_cst_list_mls_extension>,
+              ffi.Pointer<wire_cst_list_mls_extension>,
+              ffi.Pointer<wire_cst_mls_capabilities>,
+              ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Void>,
+            )
+          >();
+
+  void wire__crate__api__provider__create_key_package(
+    int port_,
+    int ciphersuite,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> signer_bytes,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> credential_identity,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> signer_public_key,
+    ffi.Pointer<ffi.Void> storage_read,
+    ffi.Pointer<ffi.Void> storage_write,
+    ffi.Pointer<ffi.Void> storage_delete,
+  ) {
+    return _wire__crate__api__provider__create_key_package(
+      port_,
+      ciphersuite,
+      signer_bytes,
+      credential_identity,
+      signer_public_key,
+      storage_read,
+      storage_write,
+      storage_delete,
+    );
+  }
+
+  late final _wire__crate__api__provider__create_key_packagePtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Int64,
+            ffi.Int32,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Void>,
+          )
+        >
+      >('frbgen_openmls_wire__crate__api__provider__create_key_package');
+  late final _wire__crate__api__provider__create_key_package =
+      _wire__crate__api__provider__create_key_packagePtr
+          .asFunction<
+            void Function(
+              int,
+              int,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Void>,
+            )
+          >();
+
+  void wire__crate__api__provider__create_key_package_with_options(
+    int port_,
+    int ciphersuite,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> signer_bytes,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> credential_identity,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> signer_public_key,
+    ffi.Pointer<wire_cst_key_package_options> options,
+    ffi.Pointer<ffi.Void> storage_read,
+    ffi.Pointer<ffi.Void> storage_write,
+    ffi.Pointer<ffi.Void> storage_delete,
+  ) {
+    return _wire__crate__api__provider__create_key_package_with_options(
+      port_,
+      ciphersuite,
+      signer_bytes,
+      credential_identity,
+      signer_public_key,
+      options,
+      storage_read,
+      storage_write,
+      storage_delete,
+    );
+  }
+
+  late final _wire__crate__api__provider__create_key_package_with_optionsPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Int64,
+            ffi.Int32,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Pointer<wire_cst_key_package_options>,
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Void>,
+          )
+        >
+      >(
+        'frbgen_openmls_wire__crate__api__provider__create_key_package_with_options',
+      );
+  late final _wire__crate__api__provider__create_key_package_with_options =
+      _wire__crate__api__provider__create_key_package_with_optionsPtr
+          .asFunction<
+            void Function(
+              int,
+              int,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              ffi.Pointer<wire_cst_key_package_options>,
+              ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Void>,
+            )
+          >();
+
+  void wire__crate__api__provider__create_message(
+    int port_,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> group_id_bytes,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> signer_bytes,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> message,
+    ffi.Pointer<wire_cst_list_prim_u_8_strict> aad,
+    ffi.Pointer<ffi.Void> storage_read,
+    ffi.Pointer<ffi.Void> storage_write,
+    ffi.Pointer<ffi.Void> storage_delete,
+  ) {
+    return _wire__crate__api__provider__create_message(
+      port_,
+      group_id_bytes,
+      signer_bytes,
+      message,
+      aad,
+      storage_read,
+      storage_write,
+      storage_delete,
+    );
+  }
+
+  late final _wire__crate__api__provider__create_messagePtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Int64,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Pointer<wire_cst_list_prim_u_8_strict>,
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Void>,
+          )
+        >
+      >('frbgen_openmls_wire__crate__api__provider__create_message');
+  late final _wire__crate__api__provider__create_message =
+      _wire__crate__api__provider__create_messagePtr
+          .asFunction<
+            void Function(
+              int,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              ffi.Pointer<wire_cst_list_prim_u_8_strict>,
+              ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Void>,
+            )
+          >();
+
+  void wire__crate__api__provider__export_group_context(
+    int port_,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> group_id_bytes,
+    ffi.Pointer<ffi.Void> storage_read,
+    ffi.Pointer<ffi.Void> storage_write,
+    ffi.Pointer<ffi.Void> storage_delete,
+  ) {
+    return _wire__crate__api__provider__export_group_context(
+      port_,
+      group_id_bytes,
+      storage_read,
+      storage_write,
+      storage_delete,
+    );
+  }
+
+  late final _wire__crate__api__provider__export_group_contextPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Int64,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Void>,
+          )
+        >
+      >('frbgen_openmls_wire__crate__api__provider__export_group_context');
+  late final _wire__crate__api__provider__export_group_context =
+      _wire__crate__api__provider__export_group_contextPtr
+          .asFunction<
+            void Function(
+              int,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Void>,
+            )
+          >();
+
+  void wire__crate__api__provider__export_group_info(
+    int port_,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> group_id_bytes,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> signer_bytes,
+    ffi.Pointer<ffi.Void> storage_read,
+    ffi.Pointer<ffi.Void> storage_write,
+    ffi.Pointer<ffi.Void> storage_delete,
+  ) {
+    return _wire__crate__api__provider__export_group_info(
+      port_,
+      group_id_bytes,
+      signer_bytes,
+      storage_read,
+      storage_write,
+      storage_delete,
+    );
+  }
+
+  late final _wire__crate__api__provider__export_group_infoPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Int64,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Void>,
+          )
+        >
+      >('frbgen_openmls_wire__crate__api__provider__export_group_info');
+  late final _wire__crate__api__provider__export_group_info =
+      _wire__crate__api__provider__export_group_infoPtr
+          .asFunction<
+            void Function(
+              int,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Void>,
+            )
+          >();
+
+  void wire__crate__api__provider__export_ratchet_tree(
+    int port_,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> group_id_bytes,
+    ffi.Pointer<ffi.Void> storage_read,
+    ffi.Pointer<ffi.Void> storage_write,
+    ffi.Pointer<ffi.Void> storage_delete,
+  ) {
+    return _wire__crate__api__provider__export_ratchet_tree(
+      port_,
+      group_id_bytes,
+      storage_read,
+      storage_write,
+      storage_delete,
+    );
+  }
+
+  late final _wire__crate__api__provider__export_ratchet_treePtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Int64,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Void>,
+          )
+        >
+      >('frbgen_openmls_wire__crate__api__provider__export_ratchet_tree');
+  late final _wire__crate__api__provider__export_ratchet_tree =
+      _wire__crate__api__provider__export_ratchet_treePtr
+          .asFunction<
+            void Function(
+              int,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Void>,
+            )
+          >();
+
+  void wire__crate__api__provider__export_secret(
+    int port_,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> group_id_bytes,
+    ffi.Pointer<wire_cst_list_prim_u_8_strict> label,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> context,
+    int key_length,
+    ffi.Pointer<ffi.Void> storage_read,
+    ffi.Pointer<ffi.Void> storage_write,
+    ffi.Pointer<ffi.Void> storage_delete,
+  ) {
+    return _wire__crate__api__provider__export_secret(
+      port_,
+      group_id_bytes,
+      label,
+      context,
+      key_length,
+      storage_read,
+      storage_write,
+      storage_delete,
+    );
+  }
+
+  late final _wire__crate__api__provider__export_secretPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Int64,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Pointer<wire_cst_list_prim_u_8_strict>,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Uint32,
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Void>,
+          )
+        >
+      >('frbgen_openmls_wire__crate__api__provider__export_secret');
+  late final _wire__crate__api__provider__export_secret =
+      _wire__crate__api__provider__export_secretPtr
+          .asFunction<
+            void Function(
+              int,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              ffi.Pointer<wire_cst_list_prim_u_8_strict>,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              int,
+              ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Void>,
+            )
+          >();
+
+  void wire__crate__api__provider__flexible_commit(
+    int port_,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> group_id_bytes,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> signer_bytes,
+    ffi.Pointer<wire_cst_flexible_commit_options> options,
+    ffi.Pointer<ffi.Void> storage_read,
+    ffi.Pointer<ffi.Void> storage_write,
+    ffi.Pointer<ffi.Void> storage_delete,
+  ) {
+    return _wire__crate__api__provider__flexible_commit(
+      port_,
+      group_id_bytes,
+      signer_bytes,
+      options,
+      storage_read,
+      storage_write,
+      storage_delete,
+    );
+  }
+
+  late final _wire__crate__api__provider__flexible_commitPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Int64,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Pointer<wire_cst_flexible_commit_options>,
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Void>,
+          )
+        >
+      >('frbgen_openmls_wire__crate__api__provider__flexible_commit');
+  late final _wire__crate__api__provider__flexible_commit =
+      _wire__crate__api__provider__flexible_commitPtr
+          .asFunction<
+            void Function(
+              int,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              ffi.Pointer<wire_cst_flexible_commit_options>,
+              ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Void>,
+            )
+          >();
+
+  void wire__crate__api__provider__get_past_resumption_psk(
+    int port_,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> group_id_bytes,
+    int epoch,
+    ffi.Pointer<ffi.Void> storage_read,
+    ffi.Pointer<ffi.Void> storage_write,
+    ffi.Pointer<ffi.Void> storage_delete,
+  ) {
+    return _wire__crate__api__provider__get_past_resumption_psk(
+      port_,
+      group_id_bytes,
+      epoch,
+      storage_read,
+      storage_write,
+      storage_delete,
+    );
+  }
+
+  late final _wire__crate__api__provider__get_past_resumption_pskPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Int64,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Uint64,
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Void>,
+          )
+        >
+      >('frbgen_openmls_wire__crate__api__provider__get_past_resumption_psk');
+  late final _wire__crate__api__provider__get_past_resumption_psk =
+      _wire__crate__api__provider__get_past_resumption_pskPtr
+          .asFunction<
+            void Function(
+              int,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              int,
+              ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Void>,
+            )
+          >();
+
+  void wire__crate__api__provider__group_ciphersuite(
+    int port_,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> group_id_bytes,
+    ffi.Pointer<ffi.Void> storage_read,
+    ffi.Pointer<ffi.Void> storage_write,
+    ffi.Pointer<ffi.Void> storage_delete,
+  ) {
+    return _wire__crate__api__provider__group_ciphersuite(
+      port_,
+      group_id_bytes,
+      storage_read,
+      storage_write,
+      storage_delete,
+    );
+  }
+
+  late final _wire__crate__api__provider__group_ciphersuitePtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Int64,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Void>,
+          )
+        >
+      >('frbgen_openmls_wire__crate__api__provider__group_ciphersuite');
+  late final _wire__crate__api__provider__group_ciphersuite =
+      _wire__crate__api__provider__group_ciphersuitePtr
+          .asFunction<
+            void Function(
+              int,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Void>,
+            )
+          >();
+
+  void wire__crate__api__provider__group_confirmation_tag(
+    int port_,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> group_id_bytes,
+    ffi.Pointer<ffi.Void> storage_read,
+    ffi.Pointer<ffi.Void> storage_write,
+    ffi.Pointer<ffi.Void> storage_delete,
+  ) {
+    return _wire__crate__api__provider__group_confirmation_tag(
+      port_,
+      group_id_bytes,
+      storage_read,
+      storage_write,
+      storage_delete,
+    );
+  }
+
+  late final _wire__crate__api__provider__group_confirmation_tagPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Int64,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Void>,
+          )
+        >
+      >('frbgen_openmls_wire__crate__api__provider__group_confirmation_tag');
+  late final _wire__crate__api__provider__group_confirmation_tag =
+      _wire__crate__api__provider__group_confirmation_tagPtr
+          .asFunction<
+            void Function(
+              int,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Void>,
+            )
+          >();
+
+  void wire__crate__api__provider__group_credential(
+    int port_,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> group_id_bytes,
+    ffi.Pointer<ffi.Void> storage_read,
+    ffi.Pointer<ffi.Void> storage_write,
+    ffi.Pointer<ffi.Void> storage_delete,
+  ) {
+    return _wire__crate__api__provider__group_credential(
+      port_,
+      group_id_bytes,
+      storage_read,
+      storage_write,
+      storage_delete,
+    );
+  }
+
+  late final _wire__crate__api__provider__group_credentialPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Int64,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Void>,
+          )
+        >
+      >('frbgen_openmls_wire__crate__api__provider__group_credential');
+  late final _wire__crate__api__provider__group_credential =
+      _wire__crate__api__provider__group_credentialPtr
+          .asFunction<
+            void Function(
+              int,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Void>,
+            )
+          >();
+
+  void wire__crate__api__provider__group_epoch(
+    int port_,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> group_id_bytes,
+    ffi.Pointer<ffi.Void> storage_read,
+    ffi.Pointer<ffi.Void> storage_write,
+    ffi.Pointer<ffi.Void> storage_delete,
+  ) {
+    return _wire__crate__api__provider__group_epoch(
+      port_,
+      group_id_bytes,
+      storage_read,
+      storage_write,
+      storage_delete,
+    );
+  }
+
+  late final _wire__crate__api__provider__group_epochPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Int64,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Void>,
+          )
+        >
+      >('frbgen_openmls_wire__crate__api__provider__group_epoch');
+  late final _wire__crate__api__provider__group_epoch =
+      _wire__crate__api__provider__group_epochPtr
+          .asFunction<
+            void Function(
+              int,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Void>,
+            )
+          >();
+
+  void wire__crate__api__provider__group_extensions(
+    int port_,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> group_id_bytes,
+    ffi.Pointer<ffi.Void> storage_read,
+    ffi.Pointer<ffi.Void> storage_write,
+    ffi.Pointer<ffi.Void> storage_delete,
+  ) {
+    return _wire__crate__api__provider__group_extensions(
+      port_,
+      group_id_bytes,
+      storage_read,
+      storage_write,
+      storage_delete,
+    );
+  }
+
+  late final _wire__crate__api__provider__group_extensionsPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Int64,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Void>,
+          )
+        >
+      >('frbgen_openmls_wire__crate__api__provider__group_extensions');
+  late final _wire__crate__api__provider__group_extensions =
+      _wire__crate__api__provider__group_extensionsPtr
+          .asFunction<
+            void Function(
+              int,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Void>,
+            )
+          >();
+
+  void wire__crate__api__provider__group_has_pending_proposals(
+    int port_,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> group_id_bytes,
+    ffi.Pointer<ffi.Void> storage_read,
+    ffi.Pointer<ffi.Void> storage_write,
+    ffi.Pointer<ffi.Void> storage_delete,
+  ) {
+    return _wire__crate__api__provider__group_has_pending_proposals(
+      port_,
+      group_id_bytes,
+      storage_read,
+      storage_write,
+      storage_delete,
+    );
+  }
+
+  late final _wire__crate__api__provider__group_has_pending_proposalsPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Int64,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Void>,
+          )
+        >
+      >(
+        'frbgen_openmls_wire__crate__api__provider__group_has_pending_proposals',
+      );
+  late final _wire__crate__api__provider__group_has_pending_proposals =
+      _wire__crate__api__provider__group_has_pending_proposalsPtr
+          .asFunction<
+            void Function(
+              int,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Void>,
+            )
+          >();
+
+  void wire__crate__api__provider__group_id(
+    int port_,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> group_id_bytes,
+    ffi.Pointer<ffi.Void> storage_read,
+    ffi.Pointer<ffi.Void> storage_write,
+    ffi.Pointer<ffi.Void> storage_delete,
+  ) {
+    return _wire__crate__api__provider__group_id(
+      port_,
+      group_id_bytes,
+      storage_read,
+      storage_write,
+      storage_delete,
+    );
+  }
+
+  late final _wire__crate__api__provider__group_idPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Int64,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Void>,
+          )
+        >
+      >('frbgen_openmls_wire__crate__api__provider__group_id');
+  late final _wire__crate__api__provider__group_id =
+      _wire__crate__api__provider__group_idPtr
+          .asFunction<
+            void Function(
+              int,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Void>,
+            )
+          >();
+
+  void wire__crate__api__provider__group_is_active(
+    int port_,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> group_id_bytes,
+    ffi.Pointer<ffi.Void> storage_read,
+    ffi.Pointer<ffi.Void> storage_write,
+    ffi.Pointer<ffi.Void> storage_delete,
+  ) {
+    return _wire__crate__api__provider__group_is_active(
+      port_,
+      group_id_bytes,
+      storage_read,
+      storage_write,
+      storage_delete,
+    );
+  }
+
+  late final _wire__crate__api__provider__group_is_activePtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Int64,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Void>,
+          )
+        >
+      >('frbgen_openmls_wire__crate__api__provider__group_is_active');
+  late final _wire__crate__api__provider__group_is_active =
+      _wire__crate__api__provider__group_is_activePtr
+          .asFunction<
+            void Function(
+              int,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Void>,
+            )
+          >();
+
+  void wire__crate__api__provider__group_member_at(
+    int port_,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> group_id_bytes,
+    int leaf_index,
+    ffi.Pointer<ffi.Void> storage_read,
+    ffi.Pointer<ffi.Void> storage_write,
+    ffi.Pointer<ffi.Void> storage_delete,
+  ) {
+    return _wire__crate__api__provider__group_member_at(
+      port_,
+      group_id_bytes,
+      leaf_index,
+      storage_read,
+      storage_write,
+      storage_delete,
+    );
+  }
+
+  late final _wire__crate__api__provider__group_member_atPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Int64,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Uint32,
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Void>,
+          )
+        >
+      >('frbgen_openmls_wire__crate__api__provider__group_member_at');
+  late final _wire__crate__api__provider__group_member_at =
+      _wire__crate__api__provider__group_member_atPtr
+          .asFunction<
+            void Function(
+              int,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              int,
+              ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Void>,
+            )
+          >();
+
+  void wire__crate__api__provider__group_member_leaf_index(
+    int port_,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> group_id_bytes,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> credential_identity,
+    ffi.Pointer<ffi.Void> storage_read,
+    ffi.Pointer<ffi.Void> storage_write,
+    ffi.Pointer<ffi.Void> storage_delete,
+  ) {
+    return _wire__crate__api__provider__group_member_leaf_index(
+      port_,
+      group_id_bytes,
+      credential_identity,
+      storage_read,
+      storage_write,
+      storage_delete,
+    );
+  }
+
+  late final _wire__crate__api__provider__group_member_leaf_indexPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Int64,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Void>,
+          )
+        >
+      >('frbgen_openmls_wire__crate__api__provider__group_member_leaf_index');
+  late final _wire__crate__api__provider__group_member_leaf_index =
+      _wire__crate__api__provider__group_member_leaf_indexPtr
+          .asFunction<
+            void Function(
+              int,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Void>,
+            )
+          >();
+
+  void wire__crate__api__provider__group_members(
+    int port_,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> group_id_bytes,
+    ffi.Pointer<ffi.Void> storage_read,
+    ffi.Pointer<ffi.Void> storage_write,
+    ffi.Pointer<ffi.Void> storage_delete,
+  ) {
+    return _wire__crate__api__provider__group_members(
+      port_,
+      group_id_bytes,
+      storage_read,
+      storage_write,
+      storage_delete,
+    );
+  }
+
+  late final _wire__crate__api__provider__group_membersPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Int64,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Void>,
+          )
+        >
+      >('frbgen_openmls_wire__crate__api__provider__group_members');
+  late final _wire__crate__api__provider__group_members =
+      _wire__crate__api__provider__group_membersPtr
+          .asFunction<
+            void Function(
+              int,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Void>,
+            )
+          >();
+
+  void wire__crate__api__provider__group_own_index(
+    int port_,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> group_id_bytes,
+    ffi.Pointer<ffi.Void> storage_read,
+    ffi.Pointer<ffi.Void> storage_write,
+    ffi.Pointer<ffi.Void> storage_delete,
+  ) {
+    return _wire__crate__api__provider__group_own_index(
+      port_,
+      group_id_bytes,
+      storage_read,
+      storage_write,
+      storage_delete,
+    );
+  }
+
+  late final _wire__crate__api__provider__group_own_indexPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Int64,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Void>,
+          )
+        >
+      >('frbgen_openmls_wire__crate__api__provider__group_own_index');
+  late final _wire__crate__api__provider__group_own_index =
+      _wire__crate__api__provider__group_own_indexPtr
+          .asFunction<
+            void Function(
+              int,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Void>,
+            )
+          >();
+
+  void wire__crate__api__provider__group_own_leaf_node(
+    int port_,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> group_id_bytes,
+    ffi.Pointer<ffi.Void> storage_read,
+    ffi.Pointer<ffi.Void> storage_write,
+    ffi.Pointer<ffi.Void> storage_delete,
+  ) {
+    return _wire__crate__api__provider__group_own_leaf_node(
+      port_,
+      group_id_bytes,
+      storage_read,
+      storage_write,
+      storage_delete,
+    );
+  }
+
+  late final _wire__crate__api__provider__group_own_leaf_nodePtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Int64,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Void>,
+          )
+        >
+      >('frbgen_openmls_wire__crate__api__provider__group_own_leaf_node');
+  late final _wire__crate__api__provider__group_own_leaf_node =
+      _wire__crate__api__provider__group_own_leaf_nodePtr
+          .asFunction<
+            void Function(
+              int,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Void>,
+            )
+          >();
+
+  void wire__crate__api__provider__group_pending_proposals(
+    int port_,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> group_id_bytes,
+    ffi.Pointer<ffi.Void> storage_read,
+    ffi.Pointer<ffi.Void> storage_write,
+    ffi.Pointer<ffi.Void> storage_delete,
+  ) {
+    return _wire__crate__api__provider__group_pending_proposals(
+      port_,
+      group_id_bytes,
+      storage_read,
+      storage_write,
+      storage_delete,
+    );
+  }
+
+  late final _wire__crate__api__provider__group_pending_proposalsPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Int64,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Void>,
+          )
+        >
+      >('frbgen_openmls_wire__crate__api__provider__group_pending_proposals');
+  late final _wire__crate__api__provider__group_pending_proposals =
+      _wire__crate__api__provider__group_pending_proposalsPtr
+          .asFunction<
+            void Function(
+              int,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Void>,
+            )
+          >();
+
   WireSyncRust2DartDco wire__crate__api__init__init_openmls(
     ffi.Pointer<wire_cst_list_prim_u_8_strict> _library_path,
   ) {
@@ -157,6 +3390,50 @@ class RustLibWire implements BaseWire {
             )
           >();
 
+  void wire__crate__api__provider__inspect_welcome(
+    int port_,
+    ffi.Pointer<wire_cst_mls_group_config> config,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> welcome_bytes,
+    ffi.Pointer<ffi.Void> storage_read,
+    ffi.Pointer<ffi.Void> storage_write,
+    ffi.Pointer<ffi.Void> storage_delete,
+  ) {
+    return _wire__crate__api__provider__inspect_welcome(
+      port_,
+      config,
+      welcome_bytes,
+      storage_read,
+      storage_write,
+      storage_delete,
+    );
+  }
+
+  late final _wire__crate__api__provider__inspect_welcomePtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Int64,
+            ffi.Pointer<wire_cst_mls_group_config>,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Void>,
+          )
+        >
+      >('frbgen_openmls_wire__crate__api__provider__inspect_welcome');
+  late final _wire__crate__api__provider__inspect_welcome =
+      _wire__crate__api__provider__inspect_welcomePtr
+          .asFunction<
+            void Function(
+              int,
+              ffi.Pointer<wire_cst_mls_group_config>,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Void>,
+            )
+          >();
+
   WireSyncRust2DartDco wire__crate__api__init__is_openmls_initialized() {
     return _wire__crate__api__init__is_openmls_initialized();
   }
@@ -168,6 +3445,1561 @@ class RustLibWire implements BaseWire {
   late final _wire__crate__api__init__is_openmls_initialized =
       _wire__crate__api__init__is_openmls_initializedPtr
           .asFunction<WireSyncRust2DartDco Function()>();
+
+  void wire__crate__api__provider__join_group_external_commit(
+    int port_,
+    ffi.Pointer<wire_cst_mls_group_config> config,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> group_info_bytes,
+    ffi.Pointer<wire_cst_list_prim_u_8_strict> ratchet_tree_bytes,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> signer_bytes,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> credential_identity,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> signer_public_key,
+    ffi.Pointer<ffi.Void> storage_read,
+    ffi.Pointer<ffi.Void> storage_write,
+    ffi.Pointer<ffi.Void> storage_delete,
+  ) {
+    return _wire__crate__api__provider__join_group_external_commit(
+      port_,
+      config,
+      group_info_bytes,
+      ratchet_tree_bytes,
+      signer_bytes,
+      credential_identity,
+      signer_public_key,
+      storage_read,
+      storage_write,
+      storage_delete,
+    );
+  }
+
+  late final _wire__crate__api__provider__join_group_external_commitPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Int64,
+            ffi.Pointer<wire_cst_mls_group_config>,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Pointer<wire_cst_list_prim_u_8_strict>,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Void>,
+          )
+        >
+      >(
+        'frbgen_openmls_wire__crate__api__provider__join_group_external_commit',
+      );
+  late final _wire__crate__api__provider__join_group_external_commit =
+      _wire__crate__api__provider__join_group_external_commitPtr
+          .asFunction<
+            void Function(
+              int,
+              ffi.Pointer<wire_cst_mls_group_config>,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              ffi.Pointer<wire_cst_list_prim_u_8_strict>,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Void>,
+            )
+          >();
+
+  void wire__crate__api__provider__join_group_external_commit_v2(
+    int port_,
+    ffi.Pointer<wire_cst_mls_group_config> config,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> group_info_bytes,
+    ffi.Pointer<wire_cst_list_prim_u_8_strict> ratchet_tree_bytes,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> signer_bytes,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> credential_identity,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> signer_public_key,
+    ffi.Pointer<wire_cst_list_prim_u_8_strict> aad,
+    bool skip_lifetime_validation,
+    ffi.Pointer<ffi.Void> storage_read,
+    ffi.Pointer<ffi.Void> storage_write,
+    ffi.Pointer<ffi.Void> storage_delete,
+  ) {
+    return _wire__crate__api__provider__join_group_external_commit_v2(
+      port_,
+      config,
+      group_info_bytes,
+      ratchet_tree_bytes,
+      signer_bytes,
+      credential_identity,
+      signer_public_key,
+      aad,
+      skip_lifetime_validation,
+      storage_read,
+      storage_write,
+      storage_delete,
+    );
+  }
+
+  late final _wire__crate__api__provider__join_group_external_commit_v2Ptr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Int64,
+            ffi.Pointer<wire_cst_mls_group_config>,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Pointer<wire_cst_list_prim_u_8_strict>,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Pointer<wire_cst_list_prim_u_8_strict>,
+            ffi.Bool,
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Void>,
+          )
+        >
+      >(
+        'frbgen_openmls_wire__crate__api__provider__join_group_external_commit_v2',
+      );
+  late final _wire__crate__api__provider__join_group_external_commit_v2 =
+      _wire__crate__api__provider__join_group_external_commit_v2Ptr
+          .asFunction<
+            void Function(
+              int,
+              ffi.Pointer<wire_cst_mls_group_config>,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              ffi.Pointer<wire_cst_list_prim_u_8_strict>,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              ffi.Pointer<wire_cst_list_prim_u_8_strict>,
+              bool,
+              ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Void>,
+            )
+          >();
+
+  void wire__crate__api__provider__join_group_from_welcome(
+    int port_,
+    ffi.Pointer<wire_cst_mls_group_config> config,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> welcome_bytes,
+    ffi.Pointer<wire_cst_list_prim_u_8_strict> ratchet_tree_bytes,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> signer_bytes,
+    ffi.Pointer<ffi.Void> storage_read,
+    ffi.Pointer<ffi.Void> storage_write,
+    ffi.Pointer<ffi.Void> storage_delete,
+  ) {
+    return _wire__crate__api__provider__join_group_from_welcome(
+      port_,
+      config,
+      welcome_bytes,
+      ratchet_tree_bytes,
+      signer_bytes,
+      storage_read,
+      storage_write,
+      storage_delete,
+    );
+  }
+
+  late final _wire__crate__api__provider__join_group_from_welcomePtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Int64,
+            ffi.Pointer<wire_cst_mls_group_config>,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Pointer<wire_cst_list_prim_u_8_strict>,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Void>,
+          )
+        >
+      >('frbgen_openmls_wire__crate__api__provider__join_group_from_welcome');
+  late final _wire__crate__api__provider__join_group_from_welcome =
+      _wire__crate__api__provider__join_group_from_welcomePtr
+          .asFunction<
+            void Function(
+              int,
+              ffi.Pointer<wire_cst_mls_group_config>,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              ffi.Pointer<wire_cst_list_prim_u_8_strict>,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Void>,
+            )
+          >();
+
+  void wire__crate__api__provider__join_group_from_welcome_with_options(
+    int port_,
+    ffi.Pointer<wire_cst_mls_group_config> config,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> welcome_bytes,
+    ffi.Pointer<wire_cst_list_prim_u_8_strict> ratchet_tree_bytes,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> signer_bytes,
+    bool skip_lifetime_validation,
+    ffi.Pointer<ffi.Void> storage_read,
+    ffi.Pointer<ffi.Void> storage_write,
+    ffi.Pointer<ffi.Void> storage_delete,
+  ) {
+    return _wire__crate__api__provider__join_group_from_welcome_with_options(
+      port_,
+      config,
+      welcome_bytes,
+      ratchet_tree_bytes,
+      signer_bytes,
+      skip_lifetime_validation,
+      storage_read,
+      storage_write,
+      storage_delete,
+    );
+  }
+
+  late final _wire__crate__api__provider__join_group_from_welcome_with_optionsPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Int64,
+            ffi.Pointer<wire_cst_mls_group_config>,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Pointer<wire_cst_list_prim_u_8_strict>,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Bool,
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Void>,
+          )
+        >
+      >(
+        'frbgen_openmls_wire__crate__api__provider__join_group_from_welcome_with_options',
+      );
+  late final _wire__crate__api__provider__join_group_from_welcome_with_options =
+      _wire__crate__api__provider__join_group_from_welcome_with_optionsPtr
+          .asFunction<
+            void Function(
+              int,
+              ffi.Pointer<wire_cst_mls_group_config>,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              ffi.Pointer<wire_cst_list_prim_u_8_strict>,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              bool,
+              ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Void>,
+            )
+          >();
+
+  void wire__crate__api__provider__leave_group(
+    int port_,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> group_id_bytes,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> signer_bytes,
+    ffi.Pointer<ffi.Void> storage_read,
+    ffi.Pointer<ffi.Void> storage_write,
+    ffi.Pointer<ffi.Void> storage_delete,
+  ) {
+    return _wire__crate__api__provider__leave_group(
+      port_,
+      group_id_bytes,
+      signer_bytes,
+      storage_read,
+      storage_write,
+      storage_delete,
+    );
+  }
+
+  late final _wire__crate__api__provider__leave_groupPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Int64,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Void>,
+          )
+        >
+      >('frbgen_openmls_wire__crate__api__provider__leave_group');
+  late final _wire__crate__api__provider__leave_group =
+      _wire__crate__api__provider__leave_groupPtr
+          .asFunction<
+            void Function(
+              int,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Void>,
+            )
+          >();
+
+  void wire__crate__api__provider__leave_group_via_self_remove(
+    int port_,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> group_id_bytes,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> signer_bytes,
+    ffi.Pointer<ffi.Void> storage_read,
+    ffi.Pointer<ffi.Void> storage_write,
+    ffi.Pointer<ffi.Void> storage_delete,
+  ) {
+    return _wire__crate__api__provider__leave_group_via_self_remove(
+      port_,
+      group_id_bytes,
+      signer_bytes,
+      storage_read,
+      storage_write,
+      storage_delete,
+    );
+  }
+
+  late final _wire__crate__api__provider__leave_group_via_self_removePtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Int64,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Void>,
+          )
+        >
+      >(
+        'frbgen_openmls_wire__crate__api__provider__leave_group_via_self_remove',
+      );
+  late final _wire__crate__api__provider__leave_group_via_self_remove =
+      _wire__crate__api__provider__leave_group_via_self_removePtr
+          .asFunction<
+            void Function(
+              int,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Void>,
+            )
+          >();
+
+  void wire__crate__api__provider__merge_pending_commit(
+    int port_,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> group_id_bytes,
+    ffi.Pointer<ffi.Void> storage_read,
+    ffi.Pointer<ffi.Void> storage_write,
+    ffi.Pointer<ffi.Void> storage_delete,
+  ) {
+    return _wire__crate__api__provider__merge_pending_commit(
+      port_,
+      group_id_bytes,
+      storage_read,
+      storage_write,
+      storage_delete,
+    );
+  }
+
+  late final _wire__crate__api__provider__merge_pending_commitPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Int64,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Void>,
+          )
+        >
+      >('frbgen_openmls_wire__crate__api__provider__merge_pending_commit');
+  late final _wire__crate__api__provider__merge_pending_commit =
+      _wire__crate__api__provider__merge_pending_commitPtr
+          .asFunction<
+            void Function(
+              int,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Void>,
+            )
+          >();
+
+  WireSyncRust2DartDco
+  wire__crate__api__config__mls_group_config_default_config(int ciphersuite) {
+    return _wire__crate__api__config__mls_group_config_default_config(
+      ciphersuite,
+    );
+  }
+
+  late final _wire__crate__api__config__mls_group_config_default_configPtr =
+      _lookup<ffi.NativeFunction<WireSyncRust2DartDco Function(ffi.Int32)>>(
+        'frbgen_openmls_wire__crate__api__config__mls_group_config_default_config',
+      );
+  late final _wire__crate__api__config__mls_group_config_default_config =
+      _wire__crate__api__config__mls_group_config_default_configPtr
+          .asFunction<WireSyncRust2DartDco Function(int)>();
+
+  WireSyncRust2DartDco wire__crate__api__provider__mls_message_content_type(
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> message_bytes,
+  ) {
+    return _wire__crate__api__provider__mls_message_content_type(message_bytes);
+  }
+
+  late final _wire__crate__api__provider__mls_message_content_typePtr =
+      _lookup<
+        ffi.NativeFunction<
+          WireSyncRust2DartDco Function(
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+          )
+        >
+      >('frbgen_openmls_wire__crate__api__provider__mls_message_content_type');
+  late final _wire__crate__api__provider__mls_message_content_type =
+      _wire__crate__api__provider__mls_message_content_typePtr
+          .asFunction<
+            WireSyncRust2DartDco Function(
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            )
+          >();
+
+  WireSyncRust2DartDco wire__crate__api__provider__mls_message_extract_epoch(
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> message_bytes,
+  ) {
+    return _wire__crate__api__provider__mls_message_extract_epoch(
+      message_bytes,
+    );
+  }
+
+  late final _wire__crate__api__provider__mls_message_extract_epochPtr =
+      _lookup<
+        ffi.NativeFunction<
+          WireSyncRust2DartDco Function(
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+          )
+        >
+      >('frbgen_openmls_wire__crate__api__provider__mls_message_extract_epoch');
+  late final _wire__crate__api__provider__mls_message_extract_epoch =
+      _wire__crate__api__provider__mls_message_extract_epochPtr
+          .asFunction<
+            WireSyncRust2DartDco Function(
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            )
+          >();
+
+  WireSyncRust2DartDco wire__crate__api__provider__mls_message_extract_group_id(
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> message_bytes,
+  ) {
+    return _wire__crate__api__provider__mls_message_extract_group_id(
+      message_bytes,
+    );
+  }
+
+  late final _wire__crate__api__provider__mls_message_extract_group_idPtr =
+      _lookup<
+        ffi.NativeFunction<
+          WireSyncRust2DartDco Function(
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+          )
+        >
+      >(
+        'frbgen_openmls_wire__crate__api__provider__mls_message_extract_group_id',
+      );
+  late final _wire__crate__api__provider__mls_message_extract_group_id =
+      _wire__crate__api__provider__mls_message_extract_group_idPtr
+          .asFunction<
+            WireSyncRust2DartDco Function(
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            )
+          >();
+
+  void wire__crate__api__provider__process_message(
+    int port_,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> group_id_bytes,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> message_bytes,
+    ffi.Pointer<ffi.Void> storage_read,
+    ffi.Pointer<ffi.Void> storage_write,
+    ffi.Pointer<ffi.Void> storage_delete,
+  ) {
+    return _wire__crate__api__provider__process_message(
+      port_,
+      group_id_bytes,
+      message_bytes,
+      storage_read,
+      storage_write,
+      storage_delete,
+    );
+  }
+
+  late final _wire__crate__api__provider__process_messagePtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Int64,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Void>,
+          )
+        >
+      >('frbgen_openmls_wire__crate__api__provider__process_message');
+  late final _wire__crate__api__provider__process_message =
+      _wire__crate__api__provider__process_messagePtr
+          .asFunction<
+            void Function(
+              int,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Void>,
+            )
+          >();
+
+  void wire__crate__api__provider__process_message_with_inspect(
+    int port_,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> group_id_bytes,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> message_bytes,
+    ffi.Pointer<ffi.Void> storage_read,
+    ffi.Pointer<ffi.Void> storage_write,
+    ffi.Pointer<ffi.Void> storage_delete,
+  ) {
+    return _wire__crate__api__provider__process_message_with_inspect(
+      port_,
+      group_id_bytes,
+      message_bytes,
+      storage_read,
+      storage_write,
+      storage_delete,
+    );
+  }
+
+  late final _wire__crate__api__provider__process_message_with_inspectPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Int64,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Void>,
+          )
+        >
+      >(
+        'frbgen_openmls_wire__crate__api__provider__process_message_with_inspect',
+      );
+  late final _wire__crate__api__provider__process_message_with_inspect =
+      _wire__crate__api__provider__process_message_with_inspectPtr
+          .asFunction<
+            void Function(
+              int,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Void>,
+            )
+          >();
+
+  void wire__crate__api__provider__propose_add(
+    int port_,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> group_id_bytes,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> signer_bytes,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> key_package_bytes,
+    ffi.Pointer<ffi.Void> storage_read,
+    ffi.Pointer<ffi.Void> storage_write,
+    ffi.Pointer<ffi.Void> storage_delete,
+  ) {
+    return _wire__crate__api__provider__propose_add(
+      port_,
+      group_id_bytes,
+      signer_bytes,
+      key_package_bytes,
+      storage_read,
+      storage_write,
+      storage_delete,
+    );
+  }
+
+  late final _wire__crate__api__provider__propose_addPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Int64,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Void>,
+          )
+        >
+      >('frbgen_openmls_wire__crate__api__provider__propose_add');
+  late final _wire__crate__api__provider__propose_add =
+      _wire__crate__api__provider__propose_addPtr
+          .asFunction<
+            void Function(
+              int,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Void>,
+            )
+          >();
+
+  void wire__crate__api__provider__propose_custom_proposal(
+    int port_,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> group_id_bytes,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> signer_bytes,
+    int proposal_type,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> payload,
+    ffi.Pointer<ffi.Void> storage_read,
+    ffi.Pointer<ffi.Void> storage_write,
+    ffi.Pointer<ffi.Void> storage_delete,
+  ) {
+    return _wire__crate__api__provider__propose_custom_proposal(
+      port_,
+      group_id_bytes,
+      signer_bytes,
+      proposal_type,
+      payload,
+      storage_read,
+      storage_write,
+      storage_delete,
+    );
+  }
+
+  late final _wire__crate__api__provider__propose_custom_proposalPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Int64,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Uint16,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Void>,
+          )
+        >
+      >('frbgen_openmls_wire__crate__api__provider__propose_custom_proposal');
+  late final _wire__crate__api__provider__propose_custom_proposal =
+      _wire__crate__api__provider__propose_custom_proposalPtr
+          .asFunction<
+            void Function(
+              int,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              int,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Void>,
+            )
+          >();
+
+  void wire__crate__api__provider__propose_external_psk(
+    int port_,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> group_id_bytes,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> signer_bytes,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> psk_id,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> psk_nonce,
+    ffi.Pointer<ffi.Void> storage_read,
+    ffi.Pointer<ffi.Void> storage_write,
+    ffi.Pointer<ffi.Void> storage_delete,
+  ) {
+    return _wire__crate__api__provider__propose_external_psk(
+      port_,
+      group_id_bytes,
+      signer_bytes,
+      psk_id,
+      psk_nonce,
+      storage_read,
+      storage_write,
+      storage_delete,
+    );
+  }
+
+  late final _wire__crate__api__provider__propose_external_pskPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Int64,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Void>,
+          )
+        >
+      >('frbgen_openmls_wire__crate__api__provider__propose_external_psk');
+  late final _wire__crate__api__provider__propose_external_psk =
+      _wire__crate__api__provider__propose_external_pskPtr
+          .asFunction<
+            void Function(
+              int,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Void>,
+            )
+          >();
+
+  void wire__crate__api__provider__propose_group_context_extensions(
+    int port_,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> group_id_bytes,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> signer_bytes,
+    ffi.Pointer<wire_cst_list_mls_extension> extensions,
+    ffi.Pointer<ffi.Void> storage_read,
+    ffi.Pointer<ffi.Void> storage_write,
+    ffi.Pointer<ffi.Void> storage_delete,
+  ) {
+    return _wire__crate__api__provider__propose_group_context_extensions(
+      port_,
+      group_id_bytes,
+      signer_bytes,
+      extensions,
+      storage_read,
+      storage_write,
+      storage_delete,
+    );
+  }
+
+  late final _wire__crate__api__provider__propose_group_context_extensionsPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Int64,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Pointer<wire_cst_list_mls_extension>,
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Void>,
+          )
+        >
+      >(
+        'frbgen_openmls_wire__crate__api__provider__propose_group_context_extensions',
+      );
+  late final _wire__crate__api__provider__propose_group_context_extensions =
+      _wire__crate__api__provider__propose_group_context_extensionsPtr
+          .asFunction<
+            void Function(
+              int,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              ffi.Pointer<wire_cst_list_mls_extension>,
+              ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Void>,
+            )
+          >();
+
+  void wire__crate__api__provider__propose_remove(
+    int port_,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> group_id_bytes,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> signer_bytes,
+    int member_index,
+    ffi.Pointer<ffi.Void> storage_read,
+    ffi.Pointer<ffi.Void> storage_write,
+    ffi.Pointer<ffi.Void> storage_delete,
+  ) {
+    return _wire__crate__api__provider__propose_remove(
+      port_,
+      group_id_bytes,
+      signer_bytes,
+      member_index,
+      storage_read,
+      storage_write,
+      storage_delete,
+    );
+  }
+
+  late final _wire__crate__api__provider__propose_removePtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Int64,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Uint32,
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Void>,
+          )
+        >
+      >('frbgen_openmls_wire__crate__api__provider__propose_remove');
+  late final _wire__crate__api__provider__propose_remove =
+      _wire__crate__api__provider__propose_removePtr
+          .asFunction<
+            void Function(
+              int,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              int,
+              ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Void>,
+            )
+          >();
+
+  void wire__crate__api__provider__propose_remove_member_by_credential(
+    int port_,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> group_id_bytes,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> signer_bytes,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> credential_identity,
+    ffi.Pointer<ffi.Void> storage_read,
+    ffi.Pointer<ffi.Void> storage_write,
+    ffi.Pointer<ffi.Void> storage_delete,
+  ) {
+    return _wire__crate__api__provider__propose_remove_member_by_credential(
+      port_,
+      group_id_bytes,
+      signer_bytes,
+      credential_identity,
+      storage_read,
+      storage_write,
+      storage_delete,
+    );
+  }
+
+  late final _wire__crate__api__provider__propose_remove_member_by_credentialPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Int64,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Void>,
+          )
+        >
+      >(
+        'frbgen_openmls_wire__crate__api__provider__propose_remove_member_by_credential',
+      );
+  late final _wire__crate__api__provider__propose_remove_member_by_credential =
+      _wire__crate__api__provider__propose_remove_member_by_credentialPtr
+          .asFunction<
+            void Function(
+              int,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Void>,
+            )
+          >();
+
+  void wire__crate__api__provider__propose_self_update(
+    int port_,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> group_id_bytes,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> signer_bytes,
+    ffi.Pointer<ffi.Void> storage_read,
+    ffi.Pointer<ffi.Void> storage_write,
+    ffi.Pointer<ffi.Void> storage_delete,
+  ) {
+    return _wire__crate__api__provider__propose_self_update(
+      port_,
+      group_id_bytes,
+      signer_bytes,
+      storage_read,
+      storage_write,
+      storage_delete,
+    );
+  }
+
+  late final _wire__crate__api__provider__propose_self_updatePtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Int64,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Void>,
+          )
+        >
+      >('frbgen_openmls_wire__crate__api__provider__propose_self_update');
+  late final _wire__crate__api__provider__propose_self_update =
+      _wire__crate__api__provider__propose_self_updatePtr
+          .asFunction<
+            void Function(
+              int,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Void>,
+            )
+          >();
+
+  void wire__crate__api__provider__remove_members(
+    int port_,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> group_id_bytes,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> signer_bytes,
+    ffi.Pointer<wire_cst_list_prim_u_32_loose> member_indices,
+    ffi.Pointer<ffi.Void> storage_read,
+    ffi.Pointer<ffi.Void> storage_write,
+    ffi.Pointer<ffi.Void> storage_delete,
+  ) {
+    return _wire__crate__api__provider__remove_members(
+      port_,
+      group_id_bytes,
+      signer_bytes,
+      member_indices,
+      storage_read,
+      storage_write,
+      storage_delete,
+    );
+  }
+
+  late final _wire__crate__api__provider__remove_membersPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Int64,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Pointer<wire_cst_list_prim_u_32_loose>,
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Void>,
+          )
+        >
+      >('frbgen_openmls_wire__crate__api__provider__remove_members');
+  late final _wire__crate__api__provider__remove_members =
+      _wire__crate__api__provider__remove_membersPtr
+          .asFunction<
+            void Function(
+              int,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              ffi.Pointer<wire_cst_list_prim_u_32_loose>,
+              ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Void>,
+            )
+          >();
+
+  void wire__crate__api__provider__self_update(
+    int port_,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> group_id_bytes,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> signer_bytes,
+    ffi.Pointer<ffi.Void> storage_read,
+    ffi.Pointer<ffi.Void> storage_write,
+    ffi.Pointer<ffi.Void> storage_delete,
+  ) {
+    return _wire__crate__api__provider__self_update(
+      port_,
+      group_id_bytes,
+      signer_bytes,
+      storage_read,
+      storage_write,
+      storage_delete,
+    );
+  }
+
+  late final _wire__crate__api__provider__self_updatePtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Int64,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Void>,
+          )
+        >
+      >('frbgen_openmls_wire__crate__api__provider__self_update');
+  late final _wire__crate__api__provider__self_update =
+      _wire__crate__api__provider__self_updatePtr
+          .asFunction<
+            void Function(
+              int,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Void>,
+            )
+          >();
+
+  void wire__crate__api__provider__self_update_with_new_signer(
+    int port_,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> group_id_bytes,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> old_signer_bytes,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> new_signer_bytes,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> new_credential_identity,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> new_signer_public_key,
+    ffi.Pointer<ffi.Void> storage_read,
+    ffi.Pointer<ffi.Void> storage_write,
+    ffi.Pointer<ffi.Void> storage_delete,
+  ) {
+    return _wire__crate__api__provider__self_update_with_new_signer(
+      port_,
+      group_id_bytes,
+      old_signer_bytes,
+      new_signer_bytes,
+      new_credential_identity,
+      new_signer_public_key,
+      storage_read,
+      storage_write,
+      storage_delete,
+    );
+  }
+
+  late final _wire__crate__api__provider__self_update_with_new_signerPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Int64,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Void>,
+          )
+        >
+      >(
+        'frbgen_openmls_wire__crate__api__provider__self_update_with_new_signer',
+      );
+  late final _wire__crate__api__provider__self_update_with_new_signer =
+      _wire__crate__api__provider__self_update_with_new_signerPtr
+          .asFunction<
+            void Function(
+              int,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Void>,
+            )
+          >();
+
+  WireSyncRust2DartDco wire__crate__api__keys__serialize_signer(
+    int ciphersuite,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> private_key,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> public_key,
+  ) {
+    return _wire__crate__api__keys__serialize_signer(
+      ciphersuite,
+      private_key,
+      public_key,
+    );
+  }
+
+  late final _wire__crate__api__keys__serialize_signerPtr =
+      _lookup<
+        ffi.NativeFunction<
+          WireSyncRust2DartDco Function(
+            ffi.Int32,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+          )
+        >
+      >('frbgen_openmls_wire__crate__api__keys__serialize_signer');
+  late final _wire__crate__api__keys__serialize_signer =
+      _wire__crate__api__keys__serialize_signerPtr
+          .asFunction<
+            WireSyncRust2DartDco Function(
+              int,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            )
+          >();
+
+  void wire__crate__api__provider__set_configuration(
+    int port_,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> group_id_bytes,
+    ffi.Pointer<wire_cst_mls_group_config> config,
+    ffi.Pointer<ffi.Void> storage_read,
+    ffi.Pointer<ffi.Void> storage_write,
+    ffi.Pointer<ffi.Void> storage_delete,
+  ) {
+    return _wire__crate__api__provider__set_configuration(
+      port_,
+      group_id_bytes,
+      config,
+      storage_read,
+      storage_write,
+      storage_delete,
+    );
+  }
+
+  late final _wire__crate__api__provider__set_configurationPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Int64,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Pointer<wire_cst_mls_group_config>,
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Void>,
+          )
+        >
+      >('frbgen_openmls_wire__crate__api__provider__set_configuration');
+  late final _wire__crate__api__provider__set_configuration =
+      _wire__crate__api__provider__set_configurationPtr
+          .asFunction<
+            void Function(
+              int,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              ffi.Pointer<wire_cst_mls_group_config>,
+              ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Void>,
+            )
+          >();
+
+  WireSyncRust2DartDco wire__crate__api__types__supported_ciphersuites() {
+    return _wire__crate__api__types__supported_ciphersuites();
+  }
+
+  late final _wire__crate__api__types__supported_ciphersuitesPtr =
+      _lookup<ffi.NativeFunction<WireSyncRust2DartDco Function()>>(
+        'frbgen_openmls_wire__crate__api__types__supported_ciphersuites',
+      );
+  late final _wire__crate__api__types__supported_ciphersuites =
+      _wire__crate__api__types__supported_ciphersuitesPtr
+          .asFunction<WireSyncRust2DartDco Function()>();
+
+  void wire__crate__api__provider__swap_members(
+    int port_,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> group_id_bytes,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> signer_bytes,
+    ffi.Pointer<wire_cst_list_prim_u_32_loose> remove_indices,
+    ffi.Pointer<wire_cst_list_list_prim_u_8_strict> add_key_packages_bytes,
+    ffi.Pointer<ffi.Void> storage_read,
+    ffi.Pointer<ffi.Void> storage_write,
+    ffi.Pointer<ffi.Void> storage_delete,
+  ) {
+    return _wire__crate__api__provider__swap_members(
+      port_,
+      group_id_bytes,
+      signer_bytes,
+      remove_indices,
+      add_key_packages_bytes,
+      storage_read,
+      storage_write,
+      storage_delete,
+    );
+  }
+
+  late final _wire__crate__api__provider__swap_membersPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Int64,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Pointer<wire_cst_list_prim_u_32_loose>,
+            ffi.Pointer<wire_cst_list_list_prim_u_8_strict>,
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Void>,
+          )
+        >
+      >('frbgen_openmls_wire__crate__api__provider__swap_members');
+  late final _wire__crate__api__provider__swap_members =
+      _wire__crate__api__provider__swap_membersPtr
+          .asFunction<
+            void Function(
+              int,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              ffi.Pointer<wire_cst_list_prim_u_32_loose>,
+              ffi.Pointer<wire_cst_list_list_prim_u_8_strict>,
+              ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Void>,
+            )
+          >();
+
+  void wire__crate__api__provider__update_group_context_extensions(
+    int port_,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> group_id_bytes,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> signer_bytes,
+    ffi.Pointer<wire_cst_list_mls_extension> extensions,
+    ffi.Pointer<ffi.Void> storage_read,
+    ffi.Pointer<ffi.Void> storage_write,
+    ffi.Pointer<ffi.Void> storage_delete,
+  ) {
+    return _wire__crate__api__provider__update_group_context_extensions(
+      port_,
+      group_id_bytes,
+      signer_bytes,
+      extensions,
+      storage_read,
+      storage_write,
+      storage_delete,
+    );
+  }
+
+  late final _wire__crate__api__provider__update_group_context_extensionsPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Int64,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Pointer<wire_cst_list_mls_extension>,
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Void>,
+          )
+        >
+      >(
+        'frbgen_openmls_wire__crate__api__provider__update_group_context_extensions',
+      );
+  late final _wire__crate__api__provider__update_group_context_extensions =
+      _wire__crate__api__provider__update_group_context_extensionsPtr
+          .asFunction<
+            void Function(
+              int,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              ffi.Pointer<wire_cst_list_mls_extension>,
+              ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Void>,
+              ffi.Pointer<ffi.Void>,
+            )
+          >();
+
+  void
+  rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsCredential(
+    ffi.Pointer<ffi.Void> ptr,
+  ) {
+    return _rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsCredential(
+      ptr,
+    );
+  }
+
+  late final _rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsCredentialPtr =
+      _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Pointer<ffi.Void>)>>(
+        'frbgen_openmls_rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsCredential',
+      );
+  late final _rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsCredential =
+      _rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsCredentialPtr
+          .asFunction<void Function(ffi.Pointer<ffi.Void>)>();
+
+  void
+  rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsCredential(
+    ffi.Pointer<ffi.Void> ptr,
+  ) {
+    return _rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsCredential(
+      ptr,
+    );
+  }
+
+  late final _rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsCredentialPtr =
+      _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Pointer<ffi.Void>)>>(
+        'frbgen_openmls_rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsCredential',
+      );
+  late final _rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsCredential =
+      _rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsCredentialPtr
+          .asFunction<void Function(ffi.Pointer<ffi.Void>)>();
+
+  void
+  rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsSignatureKeyPair(
+    ffi.Pointer<ffi.Void> ptr,
+  ) {
+    return _rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsSignatureKeyPair(
+      ptr,
+    );
+  }
+
+  late final _rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsSignatureKeyPairPtr =
+      _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Pointer<ffi.Void>)>>(
+        'frbgen_openmls_rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsSignatureKeyPair',
+      );
+  late final _rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsSignatureKeyPair =
+      _rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsSignatureKeyPairPtr
+          .asFunction<void Function(ffi.Pointer<ffi.Void>)>();
+
+  void
+  rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsSignatureKeyPair(
+    ffi.Pointer<ffi.Void> ptr,
+  ) {
+    return _rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsSignatureKeyPair(
+      ptr,
+    );
+  }
+
+  late final _rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsSignatureKeyPairPtr =
+      _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Pointer<ffi.Void>)>>(
+        'frbgen_openmls_rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsSignatureKeyPair',
+      );
+  late final _rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsSignatureKeyPair =
+      _rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsSignatureKeyPairPtr
+          .asFunction<void Function(ffi.Pointer<ffi.Void>)>();
+
+  ffi.Pointer<wire_cst_flexible_commit_options>
+  cst_new_box_autoadd_flexible_commit_options() {
+    return _cst_new_box_autoadd_flexible_commit_options();
+  }
+
+  late final _cst_new_box_autoadd_flexible_commit_optionsPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Pointer<wire_cst_flexible_commit_options> Function()
+        >
+      >('frbgen_openmls_cst_new_box_autoadd_flexible_commit_options');
+  late final _cst_new_box_autoadd_flexible_commit_options =
+      _cst_new_box_autoadd_flexible_commit_optionsPtr
+          .asFunction<
+            ffi.Pointer<wire_cst_flexible_commit_options> Function()
+          >();
+
+  ffi.Pointer<wire_cst_key_package_options>
+  cst_new_box_autoadd_key_package_options() {
+    return _cst_new_box_autoadd_key_package_options();
+  }
+
+  late final _cst_new_box_autoadd_key_package_optionsPtr =
+      _lookup<
+        ffi.NativeFunction<ffi.Pointer<wire_cst_key_package_options> Function()>
+      >('frbgen_openmls_cst_new_box_autoadd_key_package_options');
+  late final _cst_new_box_autoadd_key_package_options =
+      _cst_new_box_autoadd_key_package_optionsPtr
+          .asFunction<ffi.Pointer<wire_cst_key_package_options> Function()>();
+
+  ffi.Pointer<wire_cst_mls_capabilities>
+  cst_new_box_autoadd_mls_capabilities() {
+    return _cst_new_box_autoadd_mls_capabilities();
+  }
+
+  late final _cst_new_box_autoadd_mls_capabilitiesPtr =
+      _lookup<
+        ffi.NativeFunction<ffi.Pointer<wire_cst_mls_capabilities> Function()>
+      >('frbgen_openmls_cst_new_box_autoadd_mls_capabilities');
+  late final _cst_new_box_autoadd_mls_capabilities =
+      _cst_new_box_autoadd_mls_capabilitiesPtr
+          .asFunction<ffi.Pointer<wire_cst_mls_capabilities> Function()>();
+
+  ffi.Pointer<wire_cst_mls_group_config>
+  cst_new_box_autoadd_mls_group_config() {
+    return _cst_new_box_autoadd_mls_group_config();
+  }
+
+  late final _cst_new_box_autoadd_mls_group_configPtr =
+      _lookup<
+        ffi.NativeFunction<ffi.Pointer<wire_cst_mls_group_config> Function()>
+      >('frbgen_openmls_cst_new_box_autoadd_mls_group_config');
+  late final _cst_new_box_autoadd_mls_group_config =
+      _cst_new_box_autoadd_mls_group_configPtr
+          .asFunction<ffi.Pointer<wire_cst_mls_group_config> Function()>();
+
+  ffi.Pointer<wire_cst_mls_member_info> cst_new_box_autoadd_mls_member_info() {
+    return _cst_new_box_autoadd_mls_member_info();
+  }
+
+  late final _cst_new_box_autoadd_mls_member_infoPtr =
+      _lookup<
+        ffi.NativeFunction<ffi.Pointer<wire_cst_mls_member_info> Function()>
+      >('frbgen_openmls_cst_new_box_autoadd_mls_member_info');
+  late final _cst_new_box_autoadd_mls_member_info =
+      _cst_new_box_autoadd_mls_member_infoPtr
+          .asFunction<ffi.Pointer<wire_cst_mls_member_info> Function()>();
+
+  ffi.Pointer<ffi.Int32> cst_new_box_autoadd_mls_proposal_type(int value) {
+    return _cst_new_box_autoadd_mls_proposal_type(value);
+  }
+
+  late final _cst_new_box_autoadd_mls_proposal_typePtr =
+      _lookup<ffi.NativeFunction<ffi.Pointer<ffi.Int32> Function(ffi.Int32)>>(
+        'frbgen_openmls_cst_new_box_autoadd_mls_proposal_type',
+      );
+  late final _cst_new_box_autoadd_mls_proposal_type =
+      _cst_new_box_autoadd_mls_proposal_typePtr
+          .asFunction<ffi.Pointer<ffi.Int32> Function(int)>();
+
+  ffi.Pointer<wire_cst_staged_commit_info>
+  cst_new_box_autoadd_staged_commit_info() {
+    return _cst_new_box_autoadd_staged_commit_info();
+  }
+
+  late final _cst_new_box_autoadd_staged_commit_infoPtr =
+      _lookup<
+        ffi.NativeFunction<ffi.Pointer<wire_cst_staged_commit_info> Function()>
+      >('frbgen_openmls_cst_new_box_autoadd_staged_commit_info');
+  late final _cst_new_box_autoadd_staged_commit_info =
+      _cst_new_box_autoadd_staged_commit_infoPtr
+          .asFunction<ffi.Pointer<wire_cst_staged_commit_info> Function()>();
+
+  ffi.Pointer<ffi.Uint32> cst_new_box_autoadd_u_32(int value) {
+    return _cst_new_box_autoadd_u_32(value);
+  }
+
+  late final _cst_new_box_autoadd_u_32Ptr =
+      _lookup<ffi.NativeFunction<ffi.Pointer<ffi.Uint32> Function(ffi.Uint32)>>(
+        'frbgen_openmls_cst_new_box_autoadd_u_32',
+      );
+  late final _cst_new_box_autoadd_u_32 = _cst_new_box_autoadd_u_32Ptr
+      .asFunction<ffi.Pointer<ffi.Uint32> Function(int)>();
+
+  ffi.Pointer<ffi.Uint64> cst_new_box_autoadd_u_64(int value) {
+    return _cst_new_box_autoadd_u_64(value);
+  }
+
+  late final _cst_new_box_autoadd_u_64Ptr =
+      _lookup<ffi.NativeFunction<ffi.Pointer<ffi.Uint64> Function(ffi.Uint64)>>(
+        'frbgen_openmls_cst_new_box_autoadd_u_64',
+      );
+  late final _cst_new_box_autoadd_u_64 = _cst_new_box_autoadd_u_64Ptr
+      .asFunction<ffi.Pointer<ffi.Uint64> Function(int)>();
+
+  ffi.Pointer<wire_cst_list_list_prim_u_8_strict>
+  cst_new_list_list_prim_u_8_strict(int len) {
+    return _cst_new_list_list_prim_u_8_strict(len);
+  }
+
+  late final _cst_new_list_list_prim_u_8_strictPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Pointer<wire_cst_list_list_prim_u_8_strict> Function(ffi.Int32)
+        >
+      >('frbgen_openmls_cst_new_list_list_prim_u_8_strict');
+  late final _cst_new_list_list_prim_u_8_strict =
+      _cst_new_list_list_prim_u_8_strictPtr
+          .asFunction<
+            ffi.Pointer<wire_cst_list_list_prim_u_8_strict> Function(int)
+          >();
+
+  ffi.Pointer<wire_cst_list_mls_ciphersuite> cst_new_list_mls_ciphersuite(
+    int len,
+  ) {
+    return _cst_new_list_mls_ciphersuite(len);
+  }
+
+  late final _cst_new_list_mls_ciphersuitePtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Pointer<wire_cst_list_mls_ciphersuite> Function(ffi.Int32)
+        >
+      >('frbgen_openmls_cst_new_list_mls_ciphersuite');
+  late final _cst_new_list_mls_ciphersuite = _cst_new_list_mls_ciphersuitePtr
+      .asFunction<ffi.Pointer<wire_cst_list_mls_ciphersuite> Function(int)>();
+
+  ffi.Pointer<wire_cst_list_mls_extension> cst_new_list_mls_extension(int len) {
+    return _cst_new_list_mls_extension(len);
+  }
+
+  late final _cst_new_list_mls_extensionPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Pointer<wire_cst_list_mls_extension> Function(ffi.Int32)
+        >
+      >('frbgen_openmls_cst_new_list_mls_extension');
+  late final _cst_new_list_mls_extension = _cst_new_list_mls_extensionPtr
+      .asFunction<ffi.Pointer<wire_cst_list_mls_extension> Function(int)>();
+
+  ffi.Pointer<wire_cst_list_mls_member_info> cst_new_list_mls_member_info(
+    int len,
+  ) {
+    return _cst_new_list_mls_member_info(len);
+  }
+
+  late final _cst_new_list_mls_member_infoPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Pointer<wire_cst_list_mls_member_info> Function(ffi.Int32)
+        >
+      >('frbgen_openmls_cst_new_list_mls_member_info');
+  late final _cst_new_list_mls_member_info = _cst_new_list_mls_member_infoPtr
+      .asFunction<ffi.Pointer<wire_cst_list_mls_member_info> Function(int)>();
+
+  ffi.Pointer<wire_cst_list_mls_pending_proposal_info>
+  cst_new_list_mls_pending_proposal_info(int len) {
+    return _cst_new_list_mls_pending_proposal_info(len);
+  }
+
+  late final _cst_new_list_mls_pending_proposal_infoPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Pointer<wire_cst_list_mls_pending_proposal_info> Function(
+            ffi.Int32,
+          )
+        >
+      >('frbgen_openmls_cst_new_list_mls_pending_proposal_info');
+  late final _cst_new_list_mls_pending_proposal_info =
+      _cst_new_list_mls_pending_proposal_infoPtr
+          .asFunction<
+            ffi.Pointer<wire_cst_list_mls_pending_proposal_info> Function(int)
+          >();
+
+  ffi.Pointer<wire_cst_list_prim_u_16_strict> cst_new_list_prim_u_16_strict(
+    int len,
+  ) {
+    return _cst_new_list_prim_u_16_strict(len);
+  }
+
+  late final _cst_new_list_prim_u_16_strictPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Pointer<wire_cst_list_prim_u_16_strict> Function(ffi.Int32)
+        >
+      >('frbgen_openmls_cst_new_list_prim_u_16_strict');
+  late final _cst_new_list_prim_u_16_strict = _cst_new_list_prim_u_16_strictPtr
+      .asFunction<ffi.Pointer<wire_cst_list_prim_u_16_strict> Function(int)>();
+
+  ffi.Pointer<wire_cst_list_prim_u_32_loose> cst_new_list_prim_u_32_loose(
+    int len,
+  ) {
+    return _cst_new_list_prim_u_32_loose(len);
+  }
+
+  late final _cst_new_list_prim_u_32_loosePtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Pointer<wire_cst_list_prim_u_32_loose> Function(ffi.Int32)
+        >
+      >('frbgen_openmls_cst_new_list_prim_u_32_loose');
+  late final _cst_new_list_prim_u_32_loose = _cst_new_list_prim_u_32_loosePtr
+      .asFunction<ffi.Pointer<wire_cst_list_prim_u_32_loose> Function(int)>();
+
+  ffi.Pointer<wire_cst_list_prim_u_32_strict> cst_new_list_prim_u_32_strict(
+    int len,
+  ) {
+    return _cst_new_list_prim_u_32_strict(len);
+  }
+
+  late final _cst_new_list_prim_u_32_strictPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Pointer<wire_cst_list_prim_u_32_strict> Function(ffi.Int32)
+        >
+      >('frbgen_openmls_cst_new_list_prim_u_32_strict');
+  late final _cst_new_list_prim_u_32_strict = _cst_new_list_prim_u_32_strictPtr
+      .asFunction<ffi.Pointer<wire_cst_list_prim_u_32_strict> Function(int)>();
+
+  ffi.Pointer<wire_cst_list_prim_u_8_loose> cst_new_list_prim_u_8_loose(
+    int len,
+  ) {
+    return _cst_new_list_prim_u_8_loose(len);
+  }
+
+  late final _cst_new_list_prim_u_8_loosePtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Pointer<wire_cst_list_prim_u_8_loose> Function(ffi.Int32)
+        >
+      >('frbgen_openmls_cst_new_list_prim_u_8_loose');
+  late final _cst_new_list_prim_u_8_loose = _cst_new_list_prim_u_8_loosePtr
+      .asFunction<ffi.Pointer<wire_cst_list_prim_u_8_loose> Function(int)>();
 
   ffi.Pointer<wire_cst_list_prim_u_8_strict> cst_new_list_prim_u_8_strict(
     int len,
@@ -205,9 +5037,310 @@ typedef DartDartPostCObjectFnTypeFunction =
 typedef DartPostCObjectFnType =
     ffi.Pointer<ffi.NativeFunction<DartPostCObjectFnTypeFunction>>;
 
+final class wire_cst_list_prim_u_8_loose extends ffi.Struct {
+  external ffi.Pointer<ffi.Uint8> ptr;
+
+  @ffi.Int32()
+  external int len;
+}
+
 final class wire_cst_list_prim_u_8_strict extends ffi.Struct {
   external ffi.Pointer<ffi.Uint8> ptr;
 
   @ffi.Int32()
   external int len;
+}
+
+final class wire_cst_list_list_prim_u_8_strict extends ffi.Struct {
+  external ffi.Pointer<ffi.Pointer<wire_cst_list_prim_u_8_strict>> ptr;
+
+  @ffi.Int32()
+  external int len;
+}
+
+final class wire_cst_mls_group_config extends ffi.Struct {
+  @ffi.Int32()
+  external int ciphersuite;
+
+  @ffi.Int32()
+  external int wire_format_policy;
+
+  @ffi.Bool()
+  external bool use_ratchet_tree_extension;
+
+  @ffi.Uint32()
+  external int max_past_epochs;
+
+  @ffi.Uint32()
+  external int padding_size;
+
+  @ffi.Uint32()
+  external int sender_ratchet_max_out_of_order;
+
+  @ffi.Uint32()
+  external int sender_ratchet_max_forward_distance;
+
+  @ffi.Uint32()
+  external int number_of_resumption_psks;
+}
+
+final class wire_cst_mls_extension extends ffi.Struct {
+  @ffi.Uint16()
+  external int extension_type;
+
+  external ffi.Pointer<wire_cst_list_prim_u_8_strict> data;
+}
+
+final class wire_cst_list_mls_extension extends ffi.Struct {
+  external ffi.Pointer<wire_cst_mls_extension> ptr;
+
+  @ffi.Int32()
+  external int len;
+}
+
+final class wire_cst_list_prim_u_16_strict extends ffi.Struct {
+  external ffi.Pointer<ffi.Uint16> ptr;
+
+  @ffi.Int32()
+  external int len;
+}
+
+final class wire_cst_mls_capabilities extends ffi.Struct {
+  external ffi.Pointer<wire_cst_list_prim_u_16_strict> versions;
+
+  external ffi.Pointer<wire_cst_list_prim_u_16_strict> ciphersuites;
+
+  external ffi.Pointer<wire_cst_list_prim_u_16_strict> extensions;
+
+  external ffi.Pointer<wire_cst_list_prim_u_16_strict> proposals;
+
+  external ffi.Pointer<wire_cst_list_prim_u_16_strict> credentials;
+}
+
+final class wire_cst_key_package_options extends ffi.Struct {
+  external ffi.Pointer<ffi.Uint64> lifetime_seconds;
+
+  @ffi.Bool()
+  external bool last_resort;
+
+  external ffi.Pointer<wire_cst_mls_capabilities> capabilities;
+
+  external ffi.Pointer<wire_cst_list_mls_extension> leaf_node_extensions;
+
+  external ffi.Pointer<wire_cst_list_mls_extension> key_package_extensions;
+}
+
+final class wire_cst_list_prim_u_32_strict extends ffi.Struct {
+  external ffi.Pointer<ffi.Uint32> ptr;
+
+  @ffi.Int32()
+  external int len;
+}
+
+final class wire_cst_flexible_commit_options extends ffi.Struct {
+  external ffi.Pointer<wire_cst_list_list_prim_u_8_strict> add_key_packages;
+
+  external ffi.Pointer<wire_cst_list_prim_u_32_strict> remove_indices;
+
+  @ffi.Bool()
+  external bool force_self_update;
+
+  @ffi.Bool()
+  external bool consume_pending_proposals;
+
+  external ffi.Pointer<wire_cst_list_mls_extension> group_context_extensions;
+
+  external ffi.Pointer<wire_cst_list_prim_u_8_strict> aad;
+
+  @ffi.Bool()
+  external bool create_group_info;
+
+  @ffi.Bool()
+  external bool use_ratchet_tree_extension;
+}
+
+final class wire_cst_list_prim_u_32_loose extends ffi.Struct {
+  external ffi.Pointer<ffi.Uint32> ptr;
+
+  @ffi.Int32()
+  external int len;
+}
+
+final class wire_cst_mls_member_info extends ffi.Struct {
+  @ffi.Uint32()
+  external int index;
+
+  external ffi.Pointer<wire_cst_list_prim_u_8_strict> credential_identity;
+
+  external ffi.Pointer<wire_cst_list_prim_u_8_strict> signature_key;
+}
+
+final class wire_cst_staged_commit_info extends ffi.Struct {
+  external ffi.Pointer<wire_cst_list_list_prim_u_8_strict>
+  add_credential_identities;
+
+  external ffi.Pointer<wire_cst_list_prim_u_32_strict> remove_indices;
+
+  @ffi.Bool()
+  external bool has_update;
+
+  @ffi.Bool()
+  external bool self_removed;
+
+  @ffi.Uint32()
+  external int psk_count;
+}
+
+final class wire_cst_list_mls_ciphersuite extends ffi.Struct {
+  external ffi.Pointer<ffi.Int32> ptr;
+
+  @ffi.Int32()
+  external int len;
+}
+
+final class wire_cst_list_mls_member_info extends ffi.Struct {
+  external ffi.Pointer<wire_cst_mls_member_info> ptr;
+
+  @ffi.Int32()
+  external int len;
+}
+
+final class wire_cst_mls_pending_proposal_info extends ffi.Struct {
+  @ffi.Int32()
+  external int proposal_type;
+
+  external ffi.Pointer<ffi.Uint32> sender_index;
+}
+
+final class wire_cst_list_mls_pending_proposal_info extends ffi.Struct {
+  external ffi.Pointer<wire_cst_mls_pending_proposal_info> ptr;
+
+  @ffi.Int32()
+  external int len;
+}
+
+final class wire_cst_add_members_provider_result extends ffi.Struct {
+  external ffi.Pointer<wire_cst_list_prim_u_8_strict> commit;
+
+  external ffi.Pointer<wire_cst_list_prim_u_8_strict> welcome;
+
+  external ffi.Pointer<wire_cst_list_prim_u_8_strict> group_info;
+}
+
+final class wire_cst_commit_provider_result extends ffi.Struct {
+  external ffi.Pointer<wire_cst_list_prim_u_8_strict> commit;
+
+  external ffi.Pointer<wire_cst_list_prim_u_8_strict> welcome;
+
+  external ffi.Pointer<wire_cst_list_prim_u_8_strict> group_info;
+}
+
+final class wire_cst_create_group_provider_result extends ffi.Struct {
+  external ffi.Pointer<wire_cst_list_prim_u_8_strict> group_id;
+}
+
+final class wire_cst_create_message_provider_result extends ffi.Struct {
+  external ffi.Pointer<wire_cst_list_prim_u_8_strict> ciphertext;
+}
+
+final class wire_cst_external_join_provider_result extends ffi.Struct {
+  external ffi.Pointer<wire_cst_list_prim_u_8_strict> group_id;
+
+  external ffi.Pointer<wire_cst_list_prim_u_8_strict> commit;
+
+  external ffi.Pointer<wire_cst_list_prim_u_8_strict> group_info;
+}
+
+final class wire_cst_join_group_provider_result extends ffi.Struct {
+  external ffi.Pointer<wire_cst_list_prim_u_8_strict> group_id;
+}
+
+final class wire_cst_key_package_provider_result extends ffi.Struct {
+  external ffi.Pointer<wire_cst_list_prim_u_8_strict> key_package_bytes;
+}
+
+final class wire_cst_leave_group_provider_result extends ffi.Struct {
+  external ffi.Pointer<wire_cst_list_prim_u_8_strict> message;
+}
+
+final class wire_cst_mls_group_context_info extends ffi.Struct {
+  external ffi.Pointer<wire_cst_list_prim_u_8_strict> group_id;
+
+  @ffi.Uint64()
+  external int epoch;
+
+  @ffi.Int32()
+  external int ciphersuite;
+
+  external ffi.Pointer<wire_cst_list_prim_u_8_strict> tree_hash;
+
+  external ffi.Pointer<wire_cst_list_prim_u_8_strict> confirmed_transcript_hash;
+
+  external ffi.Pointer<wire_cst_list_prim_u_8_strict> extensions;
+}
+
+final class wire_cst_mls_leaf_node_info extends ffi.Struct {
+  external ffi.Pointer<wire_cst_list_prim_u_8_strict> credential_identity;
+
+  external ffi.Pointer<wire_cst_list_prim_u_8_strict> signature_key;
+
+  external ffi.Pointer<wire_cst_list_prim_u_8_strict> encryption_key;
+
+  external wire_cst_mls_capabilities capabilities;
+
+  external ffi.Pointer<wire_cst_list_mls_extension> extensions;
+}
+
+final class wire_cst_processed_message_inspect_provider_result
+    extends ffi.Struct {
+  @ffi.Int32()
+  external int message_type;
+
+  external ffi.Pointer<ffi.Uint32> sender_index;
+
+  @ffi.Uint64()
+  external int epoch;
+
+  external ffi.Pointer<wire_cst_list_prim_u_8_strict> application_message;
+
+  external ffi.Pointer<wire_cst_staged_commit_info> staged_commit_info;
+
+  external ffi.Pointer<ffi.Int32> proposal_type;
+}
+
+final class wire_cst_processed_message_provider_result extends ffi.Struct {
+  @ffi.Int32()
+  external int message_type;
+
+  external ffi.Pointer<ffi.Uint32> sender_index;
+
+  @ffi.Uint64()
+  external int epoch;
+
+  external ffi.Pointer<wire_cst_list_prim_u_8_strict> application_message;
+
+  @ffi.Bool()
+  external bool has_staged_commit;
+
+  @ffi.Bool()
+  external bool has_proposal;
+
+  external ffi.Pointer<ffi.Int32> proposal_type;
+}
+
+final class wire_cst_proposal_provider_result extends ffi.Struct {
+  external ffi.Pointer<wire_cst_list_prim_u_8_strict> proposal_message;
+}
+
+final class wire_cst_welcome_inspect_result extends ffi.Struct {
+  external ffi.Pointer<wire_cst_list_prim_u_8_strict> group_id;
+
+  @ffi.Int32()
+  external int ciphersuite;
+
+  @ffi.Uint32()
+  external int psk_count;
+
+  @ffi.Uint64()
+  external int epoch;
 }

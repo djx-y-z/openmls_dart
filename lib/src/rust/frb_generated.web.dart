@@ -6,7 +6,12 @@
 // Static analysis wrongly picks the IO variant, thus ignore this
 // ignore_for_file: argument_type_not_assignable
 
+import 'api/config.dart';
+import 'api/credential.dart';
 import 'api/init.dart';
+import 'api/keys.dart';
+import 'api/provider.dart';
+import 'api/types.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'frb_generated.dart';
@@ -20,14 +25,263 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
     required super.portManager,
   });
 
+  CrossPlatformFinalizerArg
+  get rust_arc_decrement_strong_count_MlsCredentialPtr => wire
+      .rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsCredential;
+
+  CrossPlatformFinalizerArg
+  get rust_arc_decrement_strong_count_MlsSignatureKeyPairPtr => wire
+      .rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsSignatureKeyPair;
+
+  @protected
+  AnyhowException dco_decode_AnyhowException(dynamic raw);
+
+  @protected
+  MlsCredential
+  dco_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsCredential(
+    dynamic raw,
+  );
+
+  @protected
+  MlsSignatureKeyPair
+  dco_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsSignatureKeyPair(
+    dynamic raw,
+  );
+
+  @protected
+  MlsCredential
+  dco_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsCredential(
+    dynamic raw,
+  );
+
+  @protected
+  MlsSignatureKeyPair
+  dco_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsSignatureKeyPair(
+    dynamic raw,
+  );
+
+  @protected
+  FutureOr<Uint8List?> Function(Uint8List)
+  dco_decode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
+    dynamic raw,
+  );
+
+  @protected
+  FutureOr<void> Function(Uint8List)
+  dco_decode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
+    dynamic raw,
+  );
+
+  @protected
+  FutureOr<void> Function(Uint8List, Uint8List)
+  dco_decode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
+    dynamic raw,
+  );
+
+  @protected
+  Object dco_decode_DartOpaque(dynamic raw);
+
+  @protected
+  MlsCredential
+  dco_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsCredential(
+    dynamic raw,
+  );
+
+  @protected
+  MlsSignatureKeyPair
+  dco_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsSignatureKeyPair(
+    dynamic raw,
+  );
+
   @protected
   String dco_decode_String(dynamic raw);
+
+  @protected
+  AddMembersProviderResult dco_decode_add_members_provider_result(dynamic raw);
 
   @protected
   bool dco_decode_bool(dynamic raw);
 
   @protected
+  FlexibleCommitOptions dco_decode_box_autoadd_flexible_commit_options(
+    dynamic raw,
+  );
+
+  @protected
+  KeyPackageOptions dco_decode_box_autoadd_key_package_options(dynamic raw);
+
+  @protected
+  MlsCapabilities dco_decode_box_autoadd_mls_capabilities(dynamic raw);
+
+  @protected
+  MlsGroupConfig dco_decode_box_autoadd_mls_group_config(dynamic raw);
+
+  @protected
+  MlsMemberInfo dco_decode_box_autoadd_mls_member_info(dynamic raw);
+
+  @protected
+  MlsProposalType dco_decode_box_autoadd_mls_proposal_type(dynamic raw);
+
+  @protected
+  StagedCommitInfo dco_decode_box_autoadd_staged_commit_info(dynamic raw);
+
+  @protected
+  int dco_decode_box_autoadd_u_32(dynamic raw);
+
+  @protected
+  BigInt dco_decode_box_autoadd_u_64(dynamic raw);
+
+  @protected
+  CommitProviderResult dco_decode_commit_provider_result(dynamic raw);
+
+  @protected
+  CreateGroupProviderResult dco_decode_create_group_provider_result(
+    dynamic raw,
+  );
+
+  @protected
+  CreateMessageProviderResult dco_decode_create_message_provider_result(
+    dynamic raw,
+  );
+
+  @protected
+  ExternalJoinProviderResult dco_decode_external_join_provider_result(
+    dynamic raw,
+  );
+
+  @protected
+  FlexibleCommitOptions dco_decode_flexible_commit_options(dynamic raw);
+
+  @protected
+  int dco_decode_i_32(dynamic raw);
+
+  @protected
+  PlatformInt64 dco_decode_isize(dynamic raw);
+
+  @protected
+  JoinGroupProviderResult dco_decode_join_group_provider_result(dynamic raw);
+
+  @protected
+  KeyPackageOptions dco_decode_key_package_options(dynamic raw);
+
+  @protected
+  KeyPackageProviderResult dco_decode_key_package_provider_result(dynamic raw);
+
+  @protected
+  LeaveGroupProviderResult dco_decode_leave_group_provider_result(dynamic raw);
+
+  @protected
+  List<Uint8List> dco_decode_list_list_prim_u_8_strict(dynamic raw);
+
+  @protected
+  List<MlsCiphersuite> dco_decode_list_mls_ciphersuite(dynamic raw);
+
+  @protected
+  List<MlsExtension> dco_decode_list_mls_extension(dynamic raw);
+
+  @protected
+  List<MlsMemberInfo> dco_decode_list_mls_member_info(dynamic raw);
+
+  @protected
+  List<MlsPendingProposalInfo> dco_decode_list_mls_pending_proposal_info(
+    dynamic raw,
+  );
+
+  @protected
+  Uint16List dco_decode_list_prim_u_16_strict(dynamic raw);
+
+  @protected
+  List<int> dco_decode_list_prim_u_32_loose(dynamic raw);
+
+  @protected
+  Uint32List dco_decode_list_prim_u_32_strict(dynamic raw);
+
+  @protected
+  List<int> dco_decode_list_prim_u_8_loose(dynamic raw);
+
+  @protected
   Uint8List dco_decode_list_prim_u_8_strict(dynamic raw);
+
+  @protected
+  MlsCapabilities dco_decode_mls_capabilities(dynamic raw);
+
+  @protected
+  MlsCiphersuite dco_decode_mls_ciphersuite(dynamic raw);
+
+  @protected
+  MlsExtension dco_decode_mls_extension(dynamic raw);
+
+  @protected
+  MlsGroupConfig dco_decode_mls_group_config(dynamic raw);
+
+  @protected
+  MlsGroupContextInfo dco_decode_mls_group_context_info(dynamic raw);
+
+  @protected
+  MlsLeafNodeInfo dco_decode_mls_leaf_node_info(dynamic raw);
+
+  @protected
+  MlsMemberInfo dco_decode_mls_member_info(dynamic raw);
+
+  @protected
+  MlsPendingProposalInfo dco_decode_mls_pending_proposal_info(dynamic raw);
+
+  @protected
+  MlsProposalType dco_decode_mls_proposal_type(dynamic raw);
+
+  @protected
+  MlsWireFormatPolicy dco_decode_mls_wire_format_policy(dynamic raw);
+
+  @protected
+  MlsCapabilities? dco_decode_opt_box_autoadd_mls_capabilities(dynamic raw);
+
+  @protected
+  MlsMemberInfo? dco_decode_opt_box_autoadd_mls_member_info(dynamic raw);
+
+  @protected
+  MlsProposalType? dco_decode_opt_box_autoadd_mls_proposal_type(dynamic raw);
+
+  @protected
+  StagedCommitInfo? dco_decode_opt_box_autoadd_staged_commit_info(dynamic raw);
+
+  @protected
+  int? dco_decode_opt_box_autoadd_u_32(dynamic raw);
+
+  @protected
+  BigInt? dco_decode_opt_box_autoadd_u_64(dynamic raw);
+
+  @protected
+  List<MlsExtension>? dco_decode_opt_list_mls_extension(dynamic raw);
+
+  @protected
+  Uint8List? dco_decode_opt_list_prim_u_8_strict(dynamic raw);
+
+  @protected
+  ProcessedMessageInspectProviderResult
+  dco_decode_processed_message_inspect_provider_result(dynamic raw);
+
+  @protected
+  ProcessedMessageProviderResult dco_decode_processed_message_provider_result(
+    dynamic raw,
+  );
+
+  @protected
+  ProcessedMessageType dco_decode_processed_message_type(dynamic raw);
+
+  @protected
+  ProposalProviderResult dco_decode_proposal_provider_result(dynamic raw);
+
+  @protected
+  StagedCommitInfo dco_decode_staged_commit_info(dynamic raw);
+
+  @protected
+  int dco_decode_u_16(dynamic raw);
+
+  @protected
+  int dco_decode_u_32(dynamic raw);
+
+  @protected
+  BigInt dco_decode_u_64(dynamic raw);
 
   @protected
   int dco_decode_u_8(dynamic raw);
@@ -36,13 +290,298 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void dco_decode_unit(dynamic raw);
 
   @protected
+  BigInt dco_decode_usize(dynamic raw);
+
+  @protected
+  WelcomeInspectResult dco_decode_welcome_inspect_result(dynamic raw);
+
+  @protected
+  AnyhowException sse_decode_AnyhowException(SseDeserializer deserializer);
+
+  @protected
+  MlsCredential
+  sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsCredential(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  MlsSignatureKeyPair
+  sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsSignatureKeyPair(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  MlsCredential
+  sse_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsCredential(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  MlsSignatureKeyPair
+  sse_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsSignatureKeyPair(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  Object sse_decode_DartOpaque(SseDeserializer deserializer);
+
+  @protected
+  MlsCredential
+  sse_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsCredential(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  MlsSignatureKeyPair
+  sse_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsSignatureKeyPair(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   String sse_decode_String(SseDeserializer deserializer);
+
+  @protected
+  AddMembersProviderResult sse_decode_add_members_provider_result(
+    SseDeserializer deserializer,
+  );
 
   @protected
   bool sse_decode_bool(SseDeserializer deserializer);
 
   @protected
+  FlexibleCommitOptions sse_decode_box_autoadd_flexible_commit_options(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  KeyPackageOptions sse_decode_box_autoadd_key_package_options(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  MlsCapabilities sse_decode_box_autoadd_mls_capabilities(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  MlsGroupConfig sse_decode_box_autoadd_mls_group_config(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  MlsMemberInfo sse_decode_box_autoadd_mls_member_info(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  MlsProposalType sse_decode_box_autoadd_mls_proposal_type(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  StagedCommitInfo sse_decode_box_autoadd_staged_commit_info(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  int sse_decode_box_autoadd_u_32(SseDeserializer deserializer);
+
+  @protected
+  BigInt sse_decode_box_autoadd_u_64(SseDeserializer deserializer);
+
+  @protected
+  CommitProviderResult sse_decode_commit_provider_result(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  CreateGroupProviderResult sse_decode_create_group_provider_result(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  CreateMessageProviderResult sse_decode_create_message_provider_result(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  ExternalJoinProviderResult sse_decode_external_join_provider_result(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  FlexibleCommitOptions sse_decode_flexible_commit_options(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  int sse_decode_i_32(SseDeserializer deserializer);
+
+  @protected
+  PlatformInt64 sse_decode_isize(SseDeserializer deserializer);
+
+  @protected
+  JoinGroupProviderResult sse_decode_join_group_provider_result(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  KeyPackageOptions sse_decode_key_package_options(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  KeyPackageProviderResult sse_decode_key_package_provider_result(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  LeaveGroupProviderResult sse_decode_leave_group_provider_result(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<Uint8List> sse_decode_list_list_prim_u_8_strict(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<MlsCiphersuite> sse_decode_list_mls_ciphersuite(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<MlsExtension> sse_decode_list_mls_extension(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<MlsMemberInfo> sse_decode_list_mls_member_info(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<MlsPendingProposalInfo> sse_decode_list_mls_pending_proposal_info(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  Uint16List sse_decode_list_prim_u_16_strict(SseDeserializer deserializer);
+
+  @protected
+  List<int> sse_decode_list_prim_u_32_loose(SseDeserializer deserializer);
+
+  @protected
+  Uint32List sse_decode_list_prim_u_32_strict(SseDeserializer deserializer);
+
+  @protected
+  List<int> sse_decode_list_prim_u_8_loose(SseDeserializer deserializer);
+
+  @protected
   Uint8List sse_decode_list_prim_u_8_strict(SseDeserializer deserializer);
+
+  @protected
+  MlsCapabilities sse_decode_mls_capabilities(SseDeserializer deserializer);
+
+  @protected
+  MlsCiphersuite sse_decode_mls_ciphersuite(SseDeserializer deserializer);
+
+  @protected
+  MlsExtension sse_decode_mls_extension(SseDeserializer deserializer);
+
+  @protected
+  MlsGroupConfig sse_decode_mls_group_config(SseDeserializer deserializer);
+
+  @protected
+  MlsGroupContextInfo sse_decode_mls_group_context_info(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  MlsLeafNodeInfo sse_decode_mls_leaf_node_info(SseDeserializer deserializer);
+
+  @protected
+  MlsMemberInfo sse_decode_mls_member_info(SseDeserializer deserializer);
+
+  @protected
+  MlsPendingProposalInfo sse_decode_mls_pending_proposal_info(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  MlsProposalType sse_decode_mls_proposal_type(SseDeserializer deserializer);
+
+  @protected
+  MlsWireFormatPolicy sse_decode_mls_wire_format_policy(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  MlsCapabilities? sse_decode_opt_box_autoadd_mls_capabilities(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  MlsMemberInfo? sse_decode_opt_box_autoadd_mls_member_info(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  MlsProposalType? sse_decode_opt_box_autoadd_mls_proposal_type(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  StagedCommitInfo? sse_decode_opt_box_autoadd_staged_commit_info(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  int? sse_decode_opt_box_autoadd_u_32(SseDeserializer deserializer);
+
+  @protected
+  BigInt? sse_decode_opt_box_autoadd_u_64(SseDeserializer deserializer);
+
+  @protected
+  List<MlsExtension>? sse_decode_opt_list_mls_extension(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  Uint8List? sse_decode_opt_list_prim_u_8_strict(SseDeserializer deserializer);
+
+  @protected
+  ProcessedMessageInspectProviderResult
+  sse_decode_processed_message_inspect_provider_result(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  ProcessedMessageProviderResult sse_decode_processed_message_provider_result(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  ProcessedMessageType sse_decode_processed_message_type(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  ProposalProviderResult sse_decode_proposal_provider_result(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  StagedCommitInfo sse_decode_staged_commit_info(SseDeserializer deserializer);
+
+  @protected
+  int sse_decode_u_16(SseDeserializer deserializer);
+
+  @protected
+  int sse_decode_u_32(SseDeserializer deserializer);
+
+  @protected
+  BigInt sse_decode_u_64(SseDeserializer deserializer);
 
   @protected
   int sse_decode_u_8(SseDeserializer deserializer);
@@ -51,12 +590,232 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_decode_unit(SseDeserializer deserializer);
 
   @protected
-  int sse_decode_i_32(SseDeserializer deserializer);
+  BigInt sse_decode_usize(SseDeserializer deserializer);
+
+  @protected
+  WelcomeInspectResult sse_decode_welcome_inspect_result(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  String cst_encode_AnyhowException(AnyhowException raw) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    throw UnimplementedError();
+  }
 
   @protected
   String cst_encode_String(String raw) {
     // Codec=Cst (C-struct based), see doc to use other codecs
     return raw;
+  }
+
+  @protected
+  JSAny cst_encode_add_members_provider_result(AddMembersProviderResult raw) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return [
+      cst_encode_list_prim_u_8_strict(raw.commit),
+      cst_encode_list_prim_u_8_strict(raw.welcome),
+      cst_encode_opt_list_prim_u_8_strict(raw.groupInfo),
+    ].jsify()!;
+  }
+
+  @protected
+  JSAny cst_encode_box_autoadd_flexible_commit_options(
+    FlexibleCommitOptions raw,
+  ) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return cst_encode_flexible_commit_options(raw);
+  }
+
+  @protected
+  JSAny cst_encode_box_autoadd_key_package_options(KeyPackageOptions raw) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return cst_encode_key_package_options(raw);
+  }
+
+  @protected
+  JSAny cst_encode_box_autoadd_mls_capabilities(MlsCapabilities raw) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return cst_encode_mls_capabilities(raw);
+  }
+
+  @protected
+  JSAny cst_encode_box_autoadd_mls_group_config(MlsGroupConfig raw) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return cst_encode_mls_group_config(raw);
+  }
+
+  @protected
+  JSAny cst_encode_box_autoadd_mls_member_info(MlsMemberInfo raw) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return cst_encode_mls_member_info(raw);
+  }
+
+  @protected
+  int cst_encode_box_autoadd_mls_proposal_type(MlsProposalType raw) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return cst_encode_mls_proposal_type(raw);
+  }
+
+  @protected
+  JSAny cst_encode_box_autoadd_staged_commit_info(StagedCommitInfo raw) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return cst_encode_staged_commit_info(raw);
+  }
+
+  @protected
+  int cst_encode_box_autoadd_u_32(int raw) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return cst_encode_u_32(raw);
+  }
+
+  @protected
+  JSAny cst_encode_box_autoadd_u_64(BigInt raw) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return cst_encode_u_64(raw);
+  }
+
+  @protected
+  JSAny cst_encode_commit_provider_result(CommitProviderResult raw) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return [
+      cst_encode_list_prim_u_8_strict(raw.commit),
+      cst_encode_opt_list_prim_u_8_strict(raw.welcome),
+      cst_encode_opt_list_prim_u_8_strict(raw.groupInfo),
+    ].jsify()!;
+  }
+
+  @protected
+  JSAny cst_encode_create_group_provider_result(CreateGroupProviderResult raw) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return [cst_encode_list_prim_u_8_strict(raw.groupId)].jsify()!;
+  }
+
+  @protected
+  JSAny cst_encode_create_message_provider_result(
+    CreateMessageProviderResult raw,
+  ) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return [cst_encode_list_prim_u_8_strict(raw.ciphertext)].jsify()!;
+  }
+
+  @protected
+  JSAny cst_encode_external_join_provider_result(
+    ExternalJoinProviderResult raw,
+  ) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return [
+      cst_encode_list_prim_u_8_strict(raw.groupId),
+      cst_encode_list_prim_u_8_strict(raw.commit),
+      cst_encode_opt_list_prim_u_8_strict(raw.groupInfo),
+    ].jsify()!;
+  }
+
+  @protected
+  JSAny cst_encode_flexible_commit_options(FlexibleCommitOptions raw) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return [
+      cst_encode_list_list_prim_u_8_strict(raw.addKeyPackages),
+      cst_encode_list_prim_u_32_strict(raw.removeIndices),
+      cst_encode_bool(raw.forceSelfUpdate),
+      cst_encode_bool(raw.consumePendingProposals),
+      cst_encode_opt_list_mls_extension(raw.groupContextExtensions),
+      cst_encode_opt_list_prim_u_8_strict(raw.aad),
+      cst_encode_bool(raw.createGroupInfo),
+      cst_encode_bool(raw.useRatchetTreeExtension),
+    ].jsify()!;
+  }
+
+  @protected
+  JSAny cst_encode_isize(PlatformInt64 raw) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return castNativeBigInt(raw);
+  }
+
+  @protected
+  JSAny cst_encode_join_group_provider_result(JoinGroupProviderResult raw) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return [cst_encode_list_prim_u_8_strict(raw.groupId)].jsify()!;
+  }
+
+  @protected
+  JSAny cst_encode_key_package_options(KeyPackageOptions raw) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return [
+      cst_encode_opt_box_autoadd_u_64(raw.lifetimeSeconds),
+      cst_encode_bool(raw.lastResort),
+      cst_encode_opt_box_autoadd_mls_capabilities(raw.capabilities),
+      cst_encode_opt_list_mls_extension(raw.leafNodeExtensions),
+      cst_encode_opt_list_mls_extension(raw.keyPackageExtensions),
+    ].jsify()!;
+  }
+
+  @protected
+  JSAny cst_encode_key_package_provider_result(KeyPackageProviderResult raw) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return [cst_encode_list_prim_u_8_strict(raw.keyPackageBytes)].jsify()!;
+  }
+
+  @protected
+  JSAny cst_encode_leave_group_provider_result(LeaveGroupProviderResult raw) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return [cst_encode_list_prim_u_8_strict(raw.message)].jsify()!;
+  }
+
+  @protected
+  JSAny cst_encode_list_list_prim_u_8_strict(List<Uint8List> raw) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return raw.map(cst_encode_list_prim_u_8_strict).toList().jsify()!;
+  }
+
+  @protected
+  JSAny cst_encode_list_mls_ciphersuite(List<MlsCiphersuite> raw) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return raw.map(cst_encode_mls_ciphersuite).toList().jsify()!;
+  }
+
+  @protected
+  JSAny cst_encode_list_mls_extension(List<MlsExtension> raw) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return raw.map(cst_encode_mls_extension).toList().jsify()!;
+  }
+
+  @protected
+  JSAny cst_encode_list_mls_member_info(List<MlsMemberInfo> raw) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return raw.map(cst_encode_mls_member_info).toList().jsify()!;
+  }
+
+  @protected
+  JSAny cst_encode_list_mls_pending_proposal_info(
+    List<MlsPendingProposalInfo> raw,
+  ) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return raw.map(cst_encode_mls_pending_proposal_info).toList().jsify()!;
+  }
+
+  @protected
+  JSAny cst_encode_list_prim_u_16_strict(Uint16List raw) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return raw.jsify()!;
+  }
+
+  @protected
+  JSAny cst_encode_list_prim_u_32_loose(List<int> raw) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return raw.jsify()!;
+  }
+
+  @protected
+  JSAny cst_encode_list_prim_u_32_strict(Uint32List raw) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return raw.jsify()!;
+  }
+
+  @protected
+  JSAny cst_encode_list_prim_u_8_loose(List<int> raw) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return raw.jsify()!;
   }
 
   @protected
@@ -66,7 +825,285 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   }
 
   @protected
+  JSAny cst_encode_mls_capabilities(MlsCapabilities raw) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return [
+      cst_encode_list_prim_u_16_strict(raw.versions),
+      cst_encode_list_prim_u_16_strict(raw.ciphersuites),
+      cst_encode_list_prim_u_16_strict(raw.extensions),
+      cst_encode_list_prim_u_16_strict(raw.proposals),
+      cst_encode_list_prim_u_16_strict(raw.credentials),
+    ].jsify()!;
+  }
+
+  @protected
+  JSAny cst_encode_mls_extension(MlsExtension raw) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return [
+      cst_encode_u_16(raw.extensionType),
+      cst_encode_list_prim_u_8_strict(raw.data),
+    ].jsify()!;
+  }
+
+  @protected
+  JSAny cst_encode_mls_group_config(MlsGroupConfig raw) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return [
+      cst_encode_mls_ciphersuite(raw.ciphersuite),
+      cst_encode_mls_wire_format_policy(raw.wireFormatPolicy),
+      cst_encode_bool(raw.useRatchetTreeExtension),
+      cst_encode_u_32(raw.maxPastEpochs),
+      cst_encode_u_32(raw.paddingSize),
+      cst_encode_u_32(raw.senderRatchetMaxOutOfOrder),
+      cst_encode_u_32(raw.senderRatchetMaxForwardDistance),
+      cst_encode_u_32(raw.numberOfResumptionPsks),
+    ].jsify()!;
+  }
+
+  @protected
+  JSAny cst_encode_mls_group_context_info(MlsGroupContextInfo raw) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return [
+      cst_encode_list_prim_u_8_strict(raw.groupId),
+      cst_encode_u_64(raw.epoch),
+      cst_encode_mls_ciphersuite(raw.ciphersuite),
+      cst_encode_list_prim_u_8_strict(raw.treeHash),
+      cst_encode_list_prim_u_8_strict(raw.confirmedTranscriptHash),
+      cst_encode_list_prim_u_8_strict(raw.extensions),
+    ].jsify()!;
+  }
+
+  @protected
+  JSAny cst_encode_mls_leaf_node_info(MlsLeafNodeInfo raw) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return [
+      cst_encode_list_prim_u_8_strict(raw.credentialIdentity),
+      cst_encode_list_prim_u_8_strict(raw.signatureKey),
+      cst_encode_list_prim_u_8_strict(raw.encryptionKey),
+      cst_encode_mls_capabilities(raw.capabilities),
+      cst_encode_list_mls_extension(raw.extensions),
+    ].jsify()!;
+  }
+
+  @protected
+  JSAny cst_encode_mls_member_info(MlsMemberInfo raw) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return [
+      cst_encode_u_32(raw.index),
+      cst_encode_list_prim_u_8_strict(raw.credentialIdentity),
+      cst_encode_list_prim_u_8_strict(raw.signatureKey),
+    ].jsify()!;
+  }
+
+  @protected
+  JSAny cst_encode_mls_pending_proposal_info(MlsPendingProposalInfo raw) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return [
+      cst_encode_mls_proposal_type(raw.proposalType),
+      cst_encode_opt_box_autoadd_u_32(raw.senderIndex),
+    ].jsify()!;
+  }
+
+  @protected
+  JSAny? cst_encode_opt_box_autoadd_mls_capabilities(MlsCapabilities? raw) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return raw == null ? null : cst_encode_box_autoadd_mls_capabilities(raw);
+  }
+
+  @protected
+  JSAny? cst_encode_opt_box_autoadd_mls_member_info(MlsMemberInfo? raw) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return raw == null ? null : cst_encode_box_autoadd_mls_member_info(raw);
+  }
+
+  @protected
+  int? cst_encode_opt_box_autoadd_mls_proposal_type(MlsProposalType? raw) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return raw == null ? null : cst_encode_box_autoadd_mls_proposal_type(raw);
+  }
+
+  @protected
+  JSAny? cst_encode_opt_box_autoadd_staged_commit_info(StagedCommitInfo? raw) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return raw == null ? null : cst_encode_box_autoadd_staged_commit_info(raw);
+  }
+
+  @protected
+  int? cst_encode_opt_box_autoadd_u_32(int? raw) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return raw == null ? null : cst_encode_box_autoadd_u_32(raw);
+  }
+
+  @protected
+  JSAny? cst_encode_opt_box_autoadd_u_64(BigInt? raw) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return raw == null ? null : cst_encode_box_autoadd_u_64(raw);
+  }
+
+  @protected
+  JSAny? cst_encode_opt_list_mls_extension(List<MlsExtension>? raw) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return raw == null ? null : cst_encode_list_mls_extension(raw);
+  }
+
+  @protected
+  JSAny? cst_encode_opt_list_prim_u_8_strict(Uint8List? raw) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return raw == null ? null : cst_encode_list_prim_u_8_strict(raw);
+  }
+
+  @protected
+  JSAny cst_encode_processed_message_inspect_provider_result(
+    ProcessedMessageInspectProviderResult raw,
+  ) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return [
+      cst_encode_processed_message_type(raw.messageType),
+      cst_encode_opt_box_autoadd_u_32(raw.senderIndex),
+      cst_encode_u_64(raw.epoch),
+      cst_encode_opt_list_prim_u_8_strict(raw.applicationMessage),
+      cst_encode_opt_box_autoadd_staged_commit_info(raw.stagedCommitInfo),
+      cst_encode_opt_box_autoadd_mls_proposal_type(raw.proposalType),
+    ].jsify()!;
+  }
+
+  @protected
+  JSAny cst_encode_processed_message_provider_result(
+    ProcessedMessageProviderResult raw,
+  ) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return [
+      cst_encode_processed_message_type(raw.messageType),
+      cst_encode_opt_box_autoadd_u_32(raw.senderIndex),
+      cst_encode_u_64(raw.epoch),
+      cst_encode_opt_list_prim_u_8_strict(raw.applicationMessage),
+      cst_encode_bool(raw.hasStagedCommit),
+      cst_encode_bool(raw.hasProposal),
+      cst_encode_opt_box_autoadd_mls_proposal_type(raw.proposalType),
+    ].jsify()!;
+  }
+
+  @protected
+  JSAny cst_encode_proposal_provider_result(ProposalProviderResult raw) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return [cst_encode_list_prim_u_8_strict(raw.proposalMessage)].jsify()!;
+  }
+
+  @protected
+  JSAny cst_encode_staged_commit_info(StagedCommitInfo raw) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return [
+      cst_encode_list_list_prim_u_8_strict(raw.addCredentialIdentities),
+      cst_encode_list_prim_u_32_strict(raw.removeIndices),
+      cst_encode_bool(raw.hasUpdate),
+      cst_encode_bool(raw.selfRemoved),
+      cst_encode_u_32(raw.pskCount),
+    ].jsify()!;
+  }
+
+  @protected
+  JSAny cst_encode_u_64(BigInt raw) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return castNativeBigInt(raw);
+  }
+
+  @protected
+  JSAny cst_encode_usize(BigInt raw) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return castNativeBigInt(raw);
+  }
+
+  @protected
+  JSAny cst_encode_welcome_inspect_result(WelcomeInspectResult raw) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return [
+      cst_encode_list_prim_u_8_strict(raw.groupId),
+      cst_encode_mls_ciphersuite(raw.ciphersuite),
+      cst_encode_u_32(raw.pskCount),
+      cst_encode_u_64(raw.epoch),
+    ].jsify()!;
+  }
+
+  @protected
+  int
+  cst_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsCredential(
+    MlsCredential raw,
+  );
+
+  @protected
+  int
+  cst_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsSignatureKeyPair(
+    MlsSignatureKeyPair raw,
+  );
+
+  @protected
+  int
+  cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsCredential(
+    MlsCredential raw,
+  );
+
+  @protected
+  int
+  cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsSignatureKeyPair(
+    MlsSignatureKeyPair raw,
+  );
+
+  @protected
+  PlatformPointer
+  cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
+    FutureOr<Uint8List?> Function(Uint8List) raw,
+  );
+
+  @protected
+  PlatformPointer
+  cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
+    FutureOr<void> Function(Uint8List) raw,
+  );
+
+  @protected
+  PlatformPointer
+  cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
+    FutureOr<void> Function(Uint8List, Uint8List) raw,
+  );
+
+  @protected
+  PlatformPointer cst_encode_DartOpaque(Object raw);
+
+  @protected
+  int
+  cst_encode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsCredential(
+    MlsCredential raw,
+  );
+
+  @protected
+  int
+  cst_encode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsSignatureKeyPair(
+    MlsSignatureKeyPair raw,
+  );
+
+  @protected
   bool cst_encode_bool(bool raw);
+
+  @protected
+  int cst_encode_i_32(int raw);
+
+  @protected
+  int cst_encode_mls_ciphersuite(MlsCiphersuite raw);
+
+  @protected
+  int cst_encode_mls_proposal_type(MlsProposalType raw);
+
+  @protected
+  int cst_encode_mls_wire_format_policy(MlsWireFormatPolicy raw);
+
+  @protected
+  int cst_encode_processed_message_type(ProcessedMessageType raw);
+
+  @protected
+  int cst_encode_u_16(int raw);
+
+  @protected
+  int cst_encode_u_32(int raw);
 
   @protected
   int cst_encode_u_8(int raw);
@@ -75,10 +1112,247 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void cst_encode_unit(void raw);
 
   @protected
+  void sse_encode_AnyhowException(
+    AnyhowException self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void
+  sse_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsCredential(
+    MlsCredential self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void
+  sse_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsSignatureKeyPair(
+    MlsSignatureKeyPair self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void
+  sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsCredential(
+    MlsCredential self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void
+  sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsSignatureKeyPair(
+    MlsSignatureKeyPair self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void
+  sse_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
+    FutureOr<Uint8List?> Function(Uint8List) self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void
+  sse_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
+    FutureOr<void> Function(Uint8List) self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void
+  sse_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
+    FutureOr<void> Function(Uint8List, Uint8List) self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_DartOpaque(Object self, SseSerializer serializer);
+
+  @protected
+  void
+  sse_encode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsCredential(
+    MlsCredential self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void
+  sse_encode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsSignatureKeyPair(
+    MlsSignatureKeyPair self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_String(String self, SseSerializer serializer);
 
   @protected
+  void sse_encode_add_members_provider_result(
+    AddMembersProviderResult self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_bool(bool self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_box_autoadd_flexible_commit_options(
+    FlexibleCommitOptions self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_key_package_options(
+    KeyPackageOptions self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_mls_capabilities(
+    MlsCapabilities self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_mls_group_config(
+    MlsGroupConfig self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_mls_member_info(
+    MlsMemberInfo self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_mls_proposal_type(
+    MlsProposalType self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_staged_commit_info(
+    StagedCommitInfo self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_u_32(int self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_box_autoadd_u_64(BigInt self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_commit_provider_result(
+    CommitProviderResult self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_create_group_provider_result(
+    CreateGroupProviderResult self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_create_message_provider_result(
+    CreateMessageProviderResult self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_external_join_provider_result(
+    ExternalJoinProviderResult self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_flexible_commit_options(
+    FlexibleCommitOptions self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_i_32(int self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_isize(PlatformInt64 self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_join_group_provider_result(
+    JoinGroupProviderResult self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_key_package_options(
+    KeyPackageOptions self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_key_package_provider_result(
+    KeyPackageProviderResult self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_leave_group_provider_result(
+    LeaveGroupProviderResult self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_list_prim_u_8_strict(
+    List<Uint8List> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_mls_ciphersuite(
+    List<MlsCiphersuite> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_mls_extension(
+    List<MlsExtension> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_mls_member_info(
+    List<MlsMemberInfo> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_mls_pending_proposal_info(
+    List<MlsPendingProposalInfo> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_prim_u_16_strict(
+    Uint16List self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_prim_u_32_loose(
+    List<int> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_prim_u_32_strict(
+    Uint32List self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_prim_u_8_loose(List<int> self, SseSerializer serializer);
 
   @protected
   void sse_encode_list_prim_u_8_strict(
@@ -87,13 +1361,154 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_mls_capabilities(
+    MlsCapabilities self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_mls_ciphersuite(
+    MlsCiphersuite self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_mls_extension(MlsExtension self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_mls_group_config(
+    MlsGroupConfig self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_mls_group_context_info(
+    MlsGroupContextInfo self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_mls_leaf_node_info(
+    MlsLeafNodeInfo self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_mls_member_info(MlsMemberInfo self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_mls_pending_proposal_info(
+    MlsPendingProposalInfo self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_mls_proposal_type(
+    MlsProposalType self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_mls_wire_format_policy(
+    MlsWireFormatPolicy self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_box_autoadd_mls_capabilities(
+    MlsCapabilities? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_box_autoadd_mls_member_info(
+    MlsMemberInfo? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_box_autoadd_mls_proposal_type(
+    MlsProposalType? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_box_autoadd_staged_commit_info(
+    StagedCommitInfo? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_box_autoadd_u_32(int? self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_opt_box_autoadd_u_64(BigInt? self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_opt_list_mls_extension(
+    List<MlsExtension>? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_list_prim_u_8_strict(
+    Uint8List? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_processed_message_inspect_provider_result(
+    ProcessedMessageInspectProviderResult self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_processed_message_provider_result(
+    ProcessedMessageProviderResult self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_processed_message_type(
+    ProcessedMessageType self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_proposal_provider_result(
+    ProposalProviderResult self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_staged_commit_info(
+    StagedCommitInfo self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_u_16(int self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_u_32(int self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_u_64(BigInt self, SseSerializer serializer);
+
+  @protected
   void sse_encode_u_8(int self, SseSerializer serializer);
 
   @protected
   void sse_encode_unit(void self, SseSerializer serializer);
 
   @protected
-  void sse_encode_i_32(int self, SseSerializer serializer);
+  void sse_encode_usize(BigInt self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_welcome_inspect_result(
+    WelcomeInspectResult self,
+    SseSerializer serializer,
+  );
 }
 
 // Section: wire_class
@@ -102,12 +1517,1083 @@ class RustLibWire implements BaseWire {
   RustLibWire.fromExternalLibrary(ExternalLibrary lib);
 
   JSAny? /* flutter_rust_bridge::for_generated::WireSyncRust2DartDco */
+  wire__crate__api__credential__MlsCredential_basic(JSAny identity) =>
+      wasmModule.wire__crate__api__credential__MlsCredential_basic(identity);
+
+  JSAny? /* flutter_rust_bridge::for_generated::WireSyncRust2DartDco */
+  wire__crate__api__credential__MlsCredential_certificates(int that) =>
+      wasmModule.wire__crate__api__credential__MlsCredential_certificates(that);
+
+  JSAny? /* flutter_rust_bridge::for_generated::WireSyncRust2DartDco */
+  wire__crate__api__credential__MlsCredential_credential_type(int that) =>
+      wasmModule.wire__crate__api__credential__MlsCredential_credential_type(
+        that,
+      );
+
+  JSAny? /* flutter_rust_bridge::for_generated::WireSyncRust2DartDco */
+  wire__crate__api__credential__MlsCredential_deserialize(JSAny bytes) =>
+      wasmModule.wire__crate__api__credential__MlsCredential_deserialize(bytes);
+
+  JSAny? /* flutter_rust_bridge::for_generated::WireSyncRust2DartDco */
+  wire__crate__api__credential__MlsCredential_identity(int that) =>
+      wasmModule.wire__crate__api__credential__MlsCredential_identity(that);
+
+  JSAny? /* flutter_rust_bridge::for_generated::WireSyncRust2DartDco */
+  wire__crate__api__credential__MlsCredential_serialize(int that) =>
+      wasmModule.wire__crate__api__credential__MlsCredential_serialize(that);
+
+  JSAny? /* flutter_rust_bridge::for_generated::WireSyncRust2DartDco */
+  wire__crate__api__credential__MlsCredential_serialized_content(int that) =>
+      wasmModule.wire__crate__api__credential__MlsCredential_serialized_content(
+        that,
+      );
+
+  JSAny? /* flutter_rust_bridge::for_generated::WireSyncRust2DartDco */
+  wire__crate__api__credential__MlsCredential_x509(JSAny certificate_chain) =>
+      wasmModule.wire__crate__api__credential__MlsCredential_x509(
+        certificate_chain,
+      );
+
+  JSAny? /* flutter_rust_bridge::for_generated::WireSyncRust2DartDco */
+  wire__crate__api__keys__MlsSignatureKeyPair_deserialize_public(JSAny bytes) =>
+      wasmModule.wire__crate__api__keys__MlsSignatureKeyPair_deserialize_public(
+        bytes,
+      );
+
+  JSAny? /* flutter_rust_bridge::for_generated::WireSyncRust2DartDco */
+  wire__crate__api__keys__MlsSignatureKeyPair_from_raw(
+    int ciphersuite,
+    JSAny private_key,
+    JSAny public_key,
+  ) => wasmModule.wire__crate__api__keys__MlsSignatureKeyPair_from_raw(
+    ciphersuite,
+    private_key,
+    public_key,
+  );
+
+  JSAny? /* flutter_rust_bridge::for_generated::WireSyncRust2DartDco */
+  wire__crate__api__keys__MlsSignatureKeyPair_generate(int ciphersuite) =>
+      wasmModule.wire__crate__api__keys__MlsSignatureKeyPair_generate(
+        ciphersuite,
+      );
+
+  JSAny? /* flutter_rust_bridge::for_generated::WireSyncRust2DartDco */
+  wire__crate__api__keys__MlsSignatureKeyPair_private_key(int that) =>
+      wasmModule.wire__crate__api__keys__MlsSignatureKeyPair_private_key(that);
+
+  JSAny? /* flutter_rust_bridge::for_generated::WireSyncRust2DartDco */
+  wire__crate__api__keys__MlsSignatureKeyPair_public_key(int that) =>
+      wasmModule.wire__crate__api__keys__MlsSignatureKeyPair_public_key(that);
+
+  JSAny? /* flutter_rust_bridge::for_generated::WireSyncRust2DartDco */
+  wire__crate__api__keys__MlsSignatureKeyPair_serialize(int that) =>
+      wasmModule.wire__crate__api__keys__MlsSignatureKeyPair_serialize(that);
+
+  JSAny? /* flutter_rust_bridge::for_generated::WireSyncRust2DartDco */
+  wire__crate__api__keys__MlsSignatureKeyPair_signature_scheme(int that) =>
+      wasmModule.wire__crate__api__keys__MlsSignatureKeyPair_signature_scheme(
+        that,
+      );
+
+  void wire__crate__api__provider__add_members(
+    NativePortType port_,
+    JSAny group_id_bytes,
+    JSAny signer_bytes,
+    JSAny key_packages_bytes,
+    PlatformPointer storage_read,
+    PlatformPointer storage_write,
+    PlatformPointer storage_delete,
+  ) => wasmModule.wire__crate__api__provider__add_members(
+    port_,
+    group_id_bytes,
+    signer_bytes,
+    key_packages_bytes,
+    storage_read,
+    storage_write,
+    storage_delete,
+  );
+
+  void wire__crate__api__provider__add_members_without_update(
+    NativePortType port_,
+    JSAny group_id_bytes,
+    JSAny signer_bytes,
+    JSAny key_packages_bytes,
+    PlatformPointer storage_read,
+    PlatformPointer storage_write,
+    PlatformPointer storage_delete,
+  ) => wasmModule.wire__crate__api__provider__add_members_without_update(
+    port_,
+    group_id_bytes,
+    signer_bytes,
+    key_packages_bytes,
+    storage_read,
+    storage_write,
+    storage_delete,
+  );
+
+  void wire__crate__api__provider__clear_pending_commit(
+    NativePortType port_,
+    JSAny group_id_bytes,
+    PlatformPointer storage_read,
+    PlatformPointer storage_write,
+    PlatformPointer storage_delete,
+  ) => wasmModule.wire__crate__api__provider__clear_pending_commit(
+    port_,
+    group_id_bytes,
+    storage_read,
+    storage_write,
+    storage_delete,
+  );
+
+  void wire__crate__api__provider__clear_pending_proposals(
+    NativePortType port_,
+    JSAny group_id_bytes,
+    PlatformPointer storage_read,
+    PlatformPointer storage_write,
+    PlatformPointer storage_delete,
+  ) => wasmModule.wire__crate__api__provider__clear_pending_proposals(
+    port_,
+    group_id_bytes,
+    storage_read,
+    storage_write,
+    storage_delete,
+  );
+
+  void wire__crate__api__provider__commit_to_pending_proposals(
+    NativePortType port_,
+    JSAny group_id_bytes,
+    JSAny signer_bytes,
+    PlatformPointer storage_read,
+    PlatformPointer storage_write,
+    PlatformPointer storage_delete,
+  ) => wasmModule.wire__crate__api__provider__commit_to_pending_proposals(
+    port_,
+    group_id_bytes,
+    signer_bytes,
+    storage_read,
+    storage_write,
+    storage_delete,
+  );
+
+  void wire__crate__api__provider__create_group(
+    NativePortType port_,
+    JSAny config,
+    JSAny signer_bytes,
+    JSAny credential_identity,
+    JSAny signer_public_key,
+    JSAny? group_id,
+    PlatformPointer storage_read,
+    PlatformPointer storage_write,
+    PlatformPointer storage_delete,
+  ) => wasmModule.wire__crate__api__provider__create_group(
+    port_,
+    config,
+    signer_bytes,
+    credential_identity,
+    signer_public_key,
+    group_id,
+    storage_read,
+    storage_write,
+    storage_delete,
+  );
+
+  void wire__crate__api__provider__create_group_with_builder(
+    NativePortType port_,
+    JSAny config,
+    JSAny signer_bytes,
+    JSAny credential_identity,
+    JSAny signer_public_key,
+    JSAny? group_id,
+    JSAny? lifetime_seconds,
+    JSAny? group_context_extensions,
+    JSAny? leaf_node_extensions,
+    JSAny? capabilities,
+    PlatformPointer storage_read,
+    PlatformPointer storage_write,
+    PlatformPointer storage_delete,
+  ) => wasmModule.wire__crate__api__provider__create_group_with_builder(
+    port_,
+    config,
+    signer_bytes,
+    credential_identity,
+    signer_public_key,
+    group_id,
+    lifetime_seconds,
+    group_context_extensions,
+    leaf_node_extensions,
+    capabilities,
+    storage_read,
+    storage_write,
+    storage_delete,
+  );
+
+  void wire__crate__api__provider__create_key_package(
+    NativePortType port_,
+    int ciphersuite,
+    JSAny signer_bytes,
+    JSAny credential_identity,
+    JSAny signer_public_key,
+    PlatformPointer storage_read,
+    PlatformPointer storage_write,
+    PlatformPointer storage_delete,
+  ) => wasmModule.wire__crate__api__provider__create_key_package(
+    port_,
+    ciphersuite,
+    signer_bytes,
+    credential_identity,
+    signer_public_key,
+    storage_read,
+    storage_write,
+    storage_delete,
+  );
+
+  void wire__crate__api__provider__create_key_package_with_options(
+    NativePortType port_,
+    int ciphersuite,
+    JSAny signer_bytes,
+    JSAny credential_identity,
+    JSAny signer_public_key,
+    JSAny options,
+    PlatformPointer storage_read,
+    PlatformPointer storage_write,
+    PlatformPointer storage_delete,
+  ) => wasmModule.wire__crate__api__provider__create_key_package_with_options(
+    port_,
+    ciphersuite,
+    signer_bytes,
+    credential_identity,
+    signer_public_key,
+    options,
+    storage_read,
+    storage_write,
+    storage_delete,
+  );
+
+  void wire__crate__api__provider__create_message(
+    NativePortType port_,
+    JSAny group_id_bytes,
+    JSAny signer_bytes,
+    JSAny message,
+    JSAny? aad,
+    PlatformPointer storage_read,
+    PlatformPointer storage_write,
+    PlatformPointer storage_delete,
+  ) => wasmModule.wire__crate__api__provider__create_message(
+    port_,
+    group_id_bytes,
+    signer_bytes,
+    message,
+    aad,
+    storage_read,
+    storage_write,
+    storage_delete,
+  );
+
+  void wire__crate__api__provider__export_group_context(
+    NativePortType port_,
+    JSAny group_id_bytes,
+    PlatformPointer storage_read,
+    PlatformPointer storage_write,
+    PlatformPointer storage_delete,
+  ) => wasmModule.wire__crate__api__provider__export_group_context(
+    port_,
+    group_id_bytes,
+    storage_read,
+    storage_write,
+    storage_delete,
+  );
+
+  void wire__crate__api__provider__export_group_info(
+    NativePortType port_,
+    JSAny group_id_bytes,
+    JSAny signer_bytes,
+    PlatformPointer storage_read,
+    PlatformPointer storage_write,
+    PlatformPointer storage_delete,
+  ) => wasmModule.wire__crate__api__provider__export_group_info(
+    port_,
+    group_id_bytes,
+    signer_bytes,
+    storage_read,
+    storage_write,
+    storage_delete,
+  );
+
+  void wire__crate__api__provider__export_ratchet_tree(
+    NativePortType port_,
+    JSAny group_id_bytes,
+    PlatformPointer storage_read,
+    PlatformPointer storage_write,
+    PlatformPointer storage_delete,
+  ) => wasmModule.wire__crate__api__provider__export_ratchet_tree(
+    port_,
+    group_id_bytes,
+    storage_read,
+    storage_write,
+    storage_delete,
+  );
+
+  void wire__crate__api__provider__export_secret(
+    NativePortType port_,
+    JSAny group_id_bytes,
+    String label,
+    JSAny context,
+    int key_length,
+    PlatformPointer storage_read,
+    PlatformPointer storage_write,
+    PlatformPointer storage_delete,
+  ) => wasmModule.wire__crate__api__provider__export_secret(
+    port_,
+    group_id_bytes,
+    label,
+    context,
+    key_length,
+    storage_read,
+    storage_write,
+    storage_delete,
+  );
+
+  void wire__crate__api__provider__flexible_commit(
+    NativePortType port_,
+    JSAny group_id_bytes,
+    JSAny signer_bytes,
+    JSAny options,
+    PlatformPointer storage_read,
+    PlatformPointer storage_write,
+    PlatformPointer storage_delete,
+  ) => wasmModule.wire__crate__api__provider__flexible_commit(
+    port_,
+    group_id_bytes,
+    signer_bytes,
+    options,
+    storage_read,
+    storage_write,
+    storage_delete,
+  );
+
+  void wire__crate__api__provider__get_past_resumption_psk(
+    NativePortType port_,
+    JSAny group_id_bytes,
+    JSAny epoch,
+    PlatformPointer storage_read,
+    PlatformPointer storage_write,
+    PlatformPointer storage_delete,
+  ) => wasmModule.wire__crate__api__provider__get_past_resumption_psk(
+    port_,
+    group_id_bytes,
+    epoch,
+    storage_read,
+    storage_write,
+    storage_delete,
+  );
+
+  void wire__crate__api__provider__group_ciphersuite(
+    NativePortType port_,
+    JSAny group_id_bytes,
+    PlatformPointer storage_read,
+    PlatformPointer storage_write,
+    PlatformPointer storage_delete,
+  ) => wasmModule.wire__crate__api__provider__group_ciphersuite(
+    port_,
+    group_id_bytes,
+    storage_read,
+    storage_write,
+    storage_delete,
+  );
+
+  void wire__crate__api__provider__group_confirmation_tag(
+    NativePortType port_,
+    JSAny group_id_bytes,
+    PlatformPointer storage_read,
+    PlatformPointer storage_write,
+    PlatformPointer storage_delete,
+  ) => wasmModule.wire__crate__api__provider__group_confirmation_tag(
+    port_,
+    group_id_bytes,
+    storage_read,
+    storage_write,
+    storage_delete,
+  );
+
+  void wire__crate__api__provider__group_credential(
+    NativePortType port_,
+    JSAny group_id_bytes,
+    PlatformPointer storage_read,
+    PlatformPointer storage_write,
+    PlatformPointer storage_delete,
+  ) => wasmModule.wire__crate__api__provider__group_credential(
+    port_,
+    group_id_bytes,
+    storage_read,
+    storage_write,
+    storage_delete,
+  );
+
+  void wire__crate__api__provider__group_epoch(
+    NativePortType port_,
+    JSAny group_id_bytes,
+    PlatformPointer storage_read,
+    PlatformPointer storage_write,
+    PlatformPointer storage_delete,
+  ) => wasmModule.wire__crate__api__provider__group_epoch(
+    port_,
+    group_id_bytes,
+    storage_read,
+    storage_write,
+    storage_delete,
+  );
+
+  void wire__crate__api__provider__group_extensions(
+    NativePortType port_,
+    JSAny group_id_bytes,
+    PlatformPointer storage_read,
+    PlatformPointer storage_write,
+    PlatformPointer storage_delete,
+  ) => wasmModule.wire__crate__api__provider__group_extensions(
+    port_,
+    group_id_bytes,
+    storage_read,
+    storage_write,
+    storage_delete,
+  );
+
+  void wire__crate__api__provider__group_has_pending_proposals(
+    NativePortType port_,
+    JSAny group_id_bytes,
+    PlatformPointer storage_read,
+    PlatformPointer storage_write,
+    PlatformPointer storage_delete,
+  ) => wasmModule.wire__crate__api__provider__group_has_pending_proposals(
+    port_,
+    group_id_bytes,
+    storage_read,
+    storage_write,
+    storage_delete,
+  );
+
+  void wire__crate__api__provider__group_id(
+    NativePortType port_,
+    JSAny group_id_bytes,
+    PlatformPointer storage_read,
+    PlatformPointer storage_write,
+    PlatformPointer storage_delete,
+  ) => wasmModule.wire__crate__api__provider__group_id(
+    port_,
+    group_id_bytes,
+    storage_read,
+    storage_write,
+    storage_delete,
+  );
+
+  void wire__crate__api__provider__group_is_active(
+    NativePortType port_,
+    JSAny group_id_bytes,
+    PlatformPointer storage_read,
+    PlatformPointer storage_write,
+    PlatformPointer storage_delete,
+  ) => wasmModule.wire__crate__api__provider__group_is_active(
+    port_,
+    group_id_bytes,
+    storage_read,
+    storage_write,
+    storage_delete,
+  );
+
+  void wire__crate__api__provider__group_member_at(
+    NativePortType port_,
+    JSAny group_id_bytes,
+    int leaf_index,
+    PlatformPointer storage_read,
+    PlatformPointer storage_write,
+    PlatformPointer storage_delete,
+  ) => wasmModule.wire__crate__api__provider__group_member_at(
+    port_,
+    group_id_bytes,
+    leaf_index,
+    storage_read,
+    storage_write,
+    storage_delete,
+  );
+
+  void wire__crate__api__provider__group_member_leaf_index(
+    NativePortType port_,
+    JSAny group_id_bytes,
+    JSAny credential_identity,
+    PlatformPointer storage_read,
+    PlatformPointer storage_write,
+    PlatformPointer storage_delete,
+  ) => wasmModule.wire__crate__api__provider__group_member_leaf_index(
+    port_,
+    group_id_bytes,
+    credential_identity,
+    storage_read,
+    storage_write,
+    storage_delete,
+  );
+
+  void wire__crate__api__provider__group_members(
+    NativePortType port_,
+    JSAny group_id_bytes,
+    PlatformPointer storage_read,
+    PlatformPointer storage_write,
+    PlatformPointer storage_delete,
+  ) => wasmModule.wire__crate__api__provider__group_members(
+    port_,
+    group_id_bytes,
+    storage_read,
+    storage_write,
+    storage_delete,
+  );
+
+  void wire__crate__api__provider__group_own_index(
+    NativePortType port_,
+    JSAny group_id_bytes,
+    PlatformPointer storage_read,
+    PlatformPointer storage_write,
+    PlatformPointer storage_delete,
+  ) => wasmModule.wire__crate__api__provider__group_own_index(
+    port_,
+    group_id_bytes,
+    storage_read,
+    storage_write,
+    storage_delete,
+  );
+
+  void wire__crate__api__provider__group_own_leaf_node(
+    NativePortType port_,
+    JSAny group_id_bytes,
+    PlatformPointer storage_read,
+    PlatformPointer storage_write,
+    PlatformPointer storage_delete,
+  ) => wasmModule.wire__crate__api__provider__group_own_leaf_node(
+    port_,
+    group_id_bytes,
+    storage_read,
+    storage_write,
+    storage_delete,
+  );
+
+  void wire__crate__api__provider__group_pending_proposals(
+    NativePortType port_,
+    JSAny group_id_bytes,
+    PlatformPointer storage_read,
+    PlatformPointer storage_write,
+    PlatformPointer storage_delete,
+  ) => wasmModule.wire__crate__api__provider__group_pending_proposals(
+    port_,
+    group_id_bytes,
+    storage_read,
+    storage_write,
+    storage_delete,
+  );
+
+  JSAny? /* flutter_rust_bridge::for_generated::WireSyncRust2DartDco */
   wire__crate__api__init__init_openmls(String _library_path) =>
       wasmModule.wire__crate__api__init__init_openmls(_library_path);
+
+  void wire__crate__api__provider__inspect_welcome(
+    NativePortType port_,
+    JSAny config,
+    JSAny welcome_bytes,
+    PlatformPointer storage_read,
+    PlatformPointer storage_write,
+    PlatformPointer storage_delete,
+  ) => wasmModule.wire__crate__api__provider__inspect_welcome(
+    port_,
+    config,
+    welcome_bytes,
+    storage_read,
+    storage_write,
+    storage_delete,
+  );
 
   JSAny? /* flutter_rust_bridge::for_generated::WireSyncRust2DartDco */
   wire__crate__api__init__is_openmls_initialized() =>
       wasmModule.wire__crate__api__init__is_openmls_initialized();
+
+  void wire__crate__api__provider__join_group_external_commit(
+    NativePortType port_,
+    JSAny config,
+    JSAny group_info_bytes,
+    JSAny? ratchet_tree_bytes,
+    JSAny signer_bytes,
+    JSAny credential_identity,
+    JSAny signer_public_key,
+    PlatformPointer storage_read,
+    PlatformPointer storage_write,
+    PlatformPointer storage_delete,
+  ) => wasmModule.wire__crate__api__provider__join_group_external_commit(
+    port_,
+    config,
+    group_info_bytes,
+    ratchet_tree_bytes,
+    signer_bytes,
+    credential_identity,
+    signer_public_key,
+    storage_read,
+    storage_write,
+    storage_delete,
+  );
+
+  void wire__crate__api__provider__join_group_external_commit_v2(
+    NativePortType port_,
+    JSAny config,
+    JSAny group_info_bytes,
+    JSAny? ratchet_tree_bytes,
+    JSAny signer_bytes,
+    JSAny credential_identity,
+    JSAny signer_public_key,
+    JSAny? aad,
+    bool skip_lifetime_validation,
+    PlatformPointer storage_read,
+    PlatformPointer storage_write,
+    PlatformPointer storage_delete,
+  ) => wasmModule.wire__crate__api__provider__join_group_external_commit_v2(
+    port_,
+    config,
+    group_info_bytes,
+    ratchet_tree_bytes,
+    signer_bytes,
+    credential_identity,
+    signer_public_key,
+    aad,
+    skip_lifetime_validation,
+    storage_read,
+    storage_write,
+    storage_delete,
+  );
+
+  void wire__crate__api__provider__join_group_from_welcome(
+    NativePortType port_,
+    JSAny config,
+    JSAny welcome_bytes,
+    JSAny? ratchet_tree_bytes,
+    JSAny signer_bytes,
+    PlatformPointer storage_read,
+    PlatformPointer storage_write,
+    PlatformPointer storage_delete,
+  ) => wasmModule.wire__crate__api__provider__join_group_from_welcome(
+    port_,
+    config,
+    welcome_bytes,
+    ratchet_tree_bytes,
+    signer_bytes,
+    storage_read,
+    storage_write,
+    storage_delete,
+  );
+
+  void wire__crate__api__provider__join_group_from_welcome_with_options(
+    NativePortType port_,
+    JSAny config,
+    JSAny welcome_bytes,
+    JSAny? ratchet_tree_bytes,
+    JSAny signer_bytes,
+    bool skip_lifetime_validation,
+    PlatformPointer storage_read,
+    PlatformPointer storage_write,
+    PlatformPointer storage_delete,
+  ) => wasmModule
+      .wire__crate__api__provider__join_group_from_welcome_with_options(
+        port_,
+        config,
+        welcome_bytes,
+        ratchet_tree_bytes,
+        signer_bytes,
+        skip_lifetime_validation,
+        storage_read,
+        storage_write,
+        storage_delete,
+      );
+
+  void wire__crate__api__provider__leave_group(
+    NativePortType port_,
+    JSAny group_id_bytes,
+    JSAny signer_bytes,
+    PlatformPointer storage_read,
+    PlatformPointer storage_write,
+    PlatformPointer storage_delete,
+  ) => wasmModule.wire__crate__api__provider__leave_group(
+    port_,
+    group_id_bytes,
+    signer_bytes,
+    storage_read,
+    storage_write,
+    storage_delete,
+  );
+
+  void wire__crate__api__provider__leave_group_via_self_remove(
+    NativePortType port_,
+    JSAny group_id_bytes,
+    JSAny signer_bytes,
+    PlatformPointer storage_read,
+    PlatformPointer storage_write,
+    PlatformPointer storage_delete,
+  ) => wasmModule.wire__crate__api__provider__leave_group_via_self_remove(
+    port_,
+    group_id_bytes,
+    signer_bytes,
+    storage_read,
+    storage_write,
+    storage_delete,
+  );
+
+  void wire__crate__api__provider__merge_pending_commit(
+    NativePortType port_,
+    JSAny group_id_bytes,
+    PlatformPointer storage_read,
+    PlatformPointer storage_write,
+    PlatformPointer storage_delete,
+  ) => wasmModule.wire__crate__api__provider__merge_pending_commit(
+    port_,
+    group_id_bytes,
+    storage_read,
+    storage_write,
+    storage_delete,
+  );
+
+  JSAny? /* flutter_rust_bridge::for_generated::WireSyncRust2DartDco */
+  wire__crate__api__config__mls_group_config_default_config(int ciphersuite) =>
+      wasmModule.wire__crate__api__config__mls_group_config_default_config(
+        ciphersuite,
+      );
+
+  JSAny? /* flutter_rust_bridge::for_generated::WireSyncRust2DartDco */
+  wire__crate__api__provider__mls_message_content_type(JSAny message_bytes) =>
+      wasmModule.wire__crate__api__provider__mls_message_content_type(
+        message_bytes,
+      );
+
+  JSAny? /* flutter_rust_bridge::for_generated::WireSyncRust2DartDco */
+  wire__crate__api__provider__mls_message_extract_epoch(JSAny message_bytes) =>
+      wasmModule.wire__crate__api__provider__mls_message_extract_epoch(
+        message_bytes,
+      );
+
+  JSAny? /* flutter_rust_bridge::for_generated::WireSyncRust2DartDco */
+  wire__crate__api__provider__mls_message_extract_group_id(
+    JSAny message_bytes,
+  ) => wasmModule.wire__crate__api__provider__mls_message_extract_group_id(
+    message_bytes,
+  );
+
+  void wire__crate__api__provider__process_message(
+    NativePortType port_,
+    JSAny group_id_bytes,
+    JSAny message_bytes,
+    PlatformPointer storage_read,
+    PlatformPointer storage_write,
+    PlatformPointer storage_delete,
+  ) => wasmModule.wire__crate__api__provider__process_message(
+    port_,
+    group_id_bytes,
+    message_bytes,
+    storage_read,
+    storage_write,
+    storage_delete,
+  );
+
+  void wire__crate__api__provider__process_message_with_inspect(
+    NativePortType port_,
+    JSAny group_id_bytes,
+    JSAny message_bytes,
+    PlatformPointer storage_read,
+    PlatformPointer storage_write,
+    PlatformPointer storage_delete,
+  ) => wasmModule.wire__crate__api__provider__process_message_with_inspect(
+    port_,
+    group_id_bytes,
+    message_bytes,
+    storage_read,
+    storage_write,
+    storage_delete,
+  );
+
+  void wire__crate__api__provider__propose_add(
+    NativePortType port_,
+    JSAny group_id_bytes,
+    JSAny signer_bytes,
+    JSAny key_package_bytes,
+    PlatformPointer storage_read,
+    PlatformPointer storage_write,
+    PlatformPointer storage_delete,
+  ) => wasmModule.wire__crate__api__provider__propose_add(
+    port_,
+    group_id_bytes,
+    signer_bytes,
+    key_package_bytes,
+    storage_read,
+    storage_write,
+    storage_delete,
+  );
+
+  void wire__crate__api__provider__propose_custom_proposal(
+    NativePortType port_,
+    JSAny group_id_bytes,
+    JSAny signer_bytes,
+    int proposal_type,
+    JSAny payload,
+    PlatformPointer storage_read,
+    PlatformPointer storage_write,
+    PlatformPointer storage_delete,
+  ) => wasmModule.wire__crate__api__provider__propose_custom_proposal(
+    port_,
+    group_id_bytes,
+    signer_bytes,
+    proposal_type,
+    payload,
+    storage_read,
+    storage_write,
+    storage_delete,
+  );
+
+  void wire__crate__api__provider__propose_external_psk(
+    NativePortType port_,
+    JSAny group_id_bytes,
+    JSAny signer_bytes,
+    JSAny psk_id,
+    JSAny psk_nonce,
+    PlatformPointer storage_read,
+    PlatformPointer storage_write,
+    PlatformPointer storage_delete,
+  ) => wasmModule.wire__crate__api__provider__propose_external_psk(
+    port_,
+    group_id_bytes,
+    signer_bytes,
+    psk_id,
+    psk_nonce,
+    storage_read,
+    storage_write,
+    storage_delete,
+  );
+
+  void wire__crate__api__provider__propose_group_context_extensions(
+    NativePortType port_,
+    JSAny group_id_bytes,
+    JSAny signer_bytes,
+    JSAny extensions,
+    PlatformPointer storage_read,
+    PlatformPointer storage_write,
+    PlatformPointer storage_delete,
+  ) => wasmModule.wire__crate__api__provider__propose_group_context_extensions(
+    port_,
+    group_id_bytes,
+    signer_bytes,
+    extensions,
+    storage_read,
+    storage_write,
+    storage_delete,
+  );
+
+  void wire__crate__api__provider__propose_remove(
+    NativePortType port_,
+    JSAny group_id_bytes,
+    JSAny signer_bytes,
+    int member_index,
+    PlatformPointer storage_read,
+    PlatformPointer storage_write,
+    PlatformPointer storage_delete,
+  ) => wasmModule.wire__crate__api__provider__propose_remove(
+    port_,
+    group_id_bytes,
+    signer_bytes,
+    member_index,
+    storage_read,
+    storage_write,
+    storage_delete,
+  );
+
+  void wire__crate__api__provider__propose_remove_member_by_credential(
+    NativePortType port_,
+    JSAny group_id_bytes,
+    JSAny signer_bytes,
+    JSAny credential_identity,
+    PlatformPointer storage_read,
+    PlatformPointer storage_write,
+    PlatformPointer storage_delete,
+  ) => wasmModule
+      .wire__crate__api__provider__propose_remove_member_by_credential(
+        port_,
+        group_id_bytes,
+        signer_bytes,
+        credential_identity,
+        storage_read,
+        storage_write,
+        storage_delete,
+      );
+
+  void wire__crate__api__provider__propose_self_update(
+    NativePortType port_,
+    JSAny group_id_bytes,
+    JSAny signer_bytes,
+    PlatformPointer storage_read,
+    PlatformPointer storage_write,
+    PlatformPointer storage_delete,
+  ) => wasmModule.wire__crate__api__provider__propose_self_update(
+    port_,
+    group_id_bytes,
+    signer_bytes,
+    storage_read,
+    storage_write,
+    storage_delete,
+  );
+
+  void wire__crate__api__provider__remove_members(
+    NativePortType port_,
+    JSAny group_id_bytes,
+    JSAny signer_bytes,
+    JSAny member_indices,
+    PlatformPointer storage_read,
+    PlatformPointer storage_write,
+    PlatformPointer storage_delete,
+  ) => wasmModule.wire__crate__api__provider__remove_members(
+    port_,
+    group_id_bytes,
+    signer_bytes,
+    member_indices,
+    storage_read,
+    storage_write,
+    storage_delete,
+  );
+
+  void wire__crate__api__provider__self_update(
+    NativePortType port_,
+    JSAny group_id_bytes,
+    JSAny signer_bytes,
+    PlatformPointer storage_read,
+    PlatformPointer storage_write,
+    PlatformPointer storage_delete,
+  ) => wasmModule.wire__crate__api__provider__self_update(
+    port_,
+    group_id_bytes,
+    signer_bytes,
+    storage_read,
+    storage_write,
+    storage_delete,
+  );
+
+  void wire__crate__api__provider__self_update_with_new_signer(
+    NativePortType port_,
+    JSAny group_id_bytes,
+    JSAny old_signer_bytes,
+    JSAny new_signer_bytes,
+    JSAny new_credential_identity,
+    JSAny new_signer_public_key,
+    PlatformPointer storage_read,
+    PlatformPointer storage_write,
+    PlatformPointer storage_delete,
+  ) => wasmModule.wire__crate__api__provider__self_update_with_new_signer(
+    port_,
+    group_id_bytes,
+    old_signer_bytes,
+    new_signer_bytes,
+    new_credential_identity,
+    new_signer_public_key,
+    storage_read,
+    storage_write,
+    storage_delete,
+  );
+
+  JSAny? /* flutter_rust_bridge::for_generated::WireSyncRust2DartDco */
+  wire__crate__api__keys__serialize_signer(
+    int ciphersuite,
+    JSAny private_key,
+    JSAny public_key,
+  ) => wasmModule.wire__crate__api__keys__serialize_signer(
+    ciphersuite,
+    private_key,
+    public_key,
+  );
+
+  void wire__crate__api__provider__set_configuration(
+    NativePortType port_,
+    JSAny group_id_bytes,
+    JSAny config,
+    PlatformPointer storage_read,
+    PlatformPointer storage_write,
+    PlatformPointer storage_delete,
+  ) => wasmModule.wire__crate__api__provider__set_configuration(
+    port_,
+    group_id_bytes,
+    config,
+    storage_read,
+    storage_write,
+    storage_delete,
+  );
+
+  JSAny? /* flutter_rust_bridge::for_generated::WireSyncRust2DartDco */
+  wire__crate__api__types__supported_ciphersuites() =>
+      wasmModule.wire__crate__api__types__supported_ciphersuites();
+
+  void wire__crate__api__provider__swap_members(
+    NativePortType port_,
+    JSAny group_id_bytes,
+    JSAny signer_bytes,
+    JSAny remove_indices,
+    JSAny add_key_packages_bytes,
+    PlatformPointer storage_read,
+    PlatformPointer storage_write,
+    PlatformPointer storage_delete,
+  ) => wasmModule.wire__crate__api__provider__swap_members(
+    port_,
+    group_id_bytes,
+    signer_bytes,
+    remove_indices,
+    add_key_packages_bytes,
+    storage_read,
+    storage_write,
+    storage_delete,
+  );
+
+  void wire__crate__api__provider__update_group_context_extensions(
+    NativePortType port_,
+    JSAny group_id_bytes,
+    JSAny signer_bytes,
+    JSAny extensions,
+    PlatformPointer storage_read,
+    PlatformPointer storage_write,
+    PlatformPointer storage_delete,
+  ) => wasmModule.wire__crate__api__provider__update_group_context_extensions(
+    port_,
+    group_id_bytes,
+    signer_bytes,
+    extensions,
+    storage_read,
+    storage_write,
+    storage_delete,
+  );
+
+  void
+  rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsCredential(
+    int ptr,
+  ) => wasmModule
+      .rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsCredential(
+        ptr,
+      );
+
+  void
+  rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsCredential(
+    int ptr,
+  ) => wasmModule
+      .rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsCredential(
+        ptr,
+      );
+
+  void
+  rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsSignatureKeyPair(
+    int ptr,
+  ) => wasmModule
+      .rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsSignatureKeyPair(
+        ptr,
+      );
+
+  void
+  rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsSignatureKeyPair(
+    int ptr,
+  ) => wasmModule
+      .rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsSignatureKeyPair(
+        ptr,
+      );
 }
 
 @JS('wasm_bindgen')
@@ -117,8 +2603,612 @@ external RustLibWasmModule get wasmModule;
 @anonymous
 extension type RustLibWasmModule._(JSObject _) implements JSObject {
   external JSAny? /* flutter_rust_bridge::for_generated::WireSyncRust2DartDco */
+  wire__crate__api__credential__MlsCredential_basic(JSAny identity);
+
+  external JSAny? /* flutter_rust_bridge::for_generated::WireSyncRust2DartDco */
+  wire__crate__api__credential__MlsCredential_certificates(int that);
+
+  external JSAny? /* flutter_rust_bridge::for_generated::WireSyncRust2DartDco */
+  wire__crate__api__credential__MlsCredential_credential_type(int that);
+
+  external JSAny? /* flutter_rust_bridge::for_generated::WireSyncRust2DartDco */
+  wire__crate__api__credential__MlsCredential_deserialize(JSAny bytes);
+
+  external JSAny? /* flutter_rust_bridge::for_generated::WireSyncRust2DartDco */
+  wire__crate__api__credential__MlsCredential_identity(int that);
+
+  external JSAny? /* flutter_rust_bridge::for_generated::WireSyncRust2DartDco */
+  wire__crate__api__credential__MlsCredential_serialize(int that);
+
+  external JSAny? /* flutter_rust_bridge::for_generated::WireSyncRust2DartDco */
+  wire__crate__api__credential__MlsCredential_serialized_content(int that);
+
+  external JSAny? /* flutter_rust_bridge::for_generated::WireSyncRust2DartDco */
+  wire__crate__api__credential__MlsCredential_x509(JSAny certificate_chain);
+
+  external JSAny? /* flutter_rust_bridge::for_generated::WireSyncRust2DartDco */
+  wire__crate__api__keys__MlsSignatureKeyPair_deserialize_public(JSAny bytes);
+
+  external JSAny? /* flutter_rust_bridge::for_generated::WireSyncRust2DartDco */
+  wire__crate__api__keys__MlsSignatureKeyPair_from_raw(
+    int ciphersuite,
+    JSAny private_key,
+    JSAny public_key,
+  );
+
+  external JSAny? /* flutter_rust_bridge::for_generated::WireSyncRust2DartDco */
+  wire__crate__api__keys__MlsSignatureKeyPair_generate(int ciphersuite);
+
+  external JSAny? /* flutter_rust_bridge::for_generated::WireSyncRust2DartDco */
+  wire__crate__api__keys__MlsSignatureKeyPair_private_key(int that);
+
+  external JSAny? /* flutter_rust_bridge::for_generated::WireSyncRust2DartDco */
+  wire__crate__api__keys__MlsSignatureKeyPair_public_key(int that);
+
+  external JSAny? /* flutter_rust_bridge::for_generated::WireSyncRust2DartDco */
+  wire__crate__api__keys__MlsSignatureKeyPair_serialize(int that);
+
+  external JSAny? /* flutter_rust_bridge::for_generated::WireSyncRust2DartDco */
+  wire__crate__api__keys__MlsSignatureKeyPair_signature_scheme(int that);
+
+  external void wire__crate__api__provider__add_members(
+    NativePortType port_,
+    JSAny group_id_bytes,
+    JSAny signer_bytes,
+    JSAny key_packages_bytes,
+    PlatformPointer storage_read,
+    PlatformPointer storage_write,
+    PlatformPointer storage_delete,
+  );
+
+  external void wire__crate__api__provider__add_members_without_update(
+    NativePortType port_,
+    JSAny group_id_bytes,
+    JSAny signer_bytes,
+    JSAny key_packages_bytes,
+    PlatformPointer storage_read,
+    PlatformPointer storage_write,
+    PlatformPointer storage_delete,
+  );
+
+  external void wire__crate__api__provider__clear_pending_commit(
+    NativePortType port_,
+    JSAny group_id_bytes,
+    PlatformPointer storage_read,
+    PlatformPointer storage_write,
+    PlatformPointer storage_delete,
+  );
+
+  external void wire__crate__api__provider__clear_pending_proposals(
+    NativePortType port_,
+    JSAny group_id_bytes,
+    PlatformPointer storage_read,
+    PlatformPointer storage_write,
+    PlatformPointer storage_delete,
+  );
+
+  external void wire__crate__api__provider__commit_to_pending_proposals(
+    NativePortType port_,
+    JSAny group_id_bytes,
+    JSAny signer_bytes,
+    PlatformPointer storage_read,
+    PlatformPointer storage_write,
+    PlatformPointer storage_delete,
+  );
+
+  external void wire__crate__api__provider__create_group(
+    NativePortType port_,
+    JSAny config,
+    JSAny signer_bytes,
+    JSAny credential_identity,
+    JSAny signer_public_key,
+    JSAny? group_id,
+    PlatformPointer storage_read,
+    PlatformPointer storage_write,
+    PlatformPointer storage_delete,
+  );
+
+  external void wire__crate__api__provider__create_group_with_builder(
+    NativePortType port_,
+    JSAny config,
+    JSAny signer_bytes,
+    JSAny credential_identity,
+    JSAny signer_public_key,
+    JSAny? group_id,
+    JSAny? lifetime_seconds,
+    JSAny? group_context_extensions,
+    JSAny? leaf_node_extensions,
+    JSAny? capabilities,
+    PlatformPointer storage_read,
+    PlatformPointer storage_write,
+    PlatformPointer storage_delete,
+  );
+
+  external void wire__crate__api__provider__create_key_package(
+    NativePortType port_,
+    int ciphersuite,
+    JSAny signer_bytes,
+    JSAny credential_identity,
+    JSAny signer_public_key,
+    PlatformPointer storage_read,
+    PlatformPointer storage_write,
+    PlatformPointer storage_delete,
+  );
+
+  external void wire__crate__api__provider__create_key_package_with_options(
+    NativePortType port_,
+    int ciphersuite,
+    JSAny signer_bytes,
+    JSAny credential_identity,
+    JSAny signer_public_key,
+    JSAny options,
+    PlatformPointer storage_read,
+    PlatformPointer storage_write,
+    PlatformPointer storage_delete,
+  );
+
+  external void wire__crate__api__provider__create_message(
+    NativePortType port_,
+    JSAny group_id_bytes,
+    JSAny signer_bytes,
+    JSAny message,
+    JSAny? aad,
+    PlatformPointer storage_read,
+    PlatformPointer storage_write,
+    PlatformPointer storage_delete,
+  );
+
+  external void wire__crate__api__provider__export_group_context(
+    NativePortType port_,
+    JSAny group_id_bytes,
+    PlatformPointer storage_read,
+    PlatformPointer storage_write,
+    PlatformPointer storage_delete,
+  );
+
+  external void wire__crate__api__provider__export_group_info(
+    NativePortType port_,
+    JSAny group_id_bytes,
+    JSAny signer_bytes,
+    PlatformPointer storage_read,
+    PlatformPointer storage_write,
+    PlatformPointer storage_delete,
+  );
+
+  external void wire__crate__api__provider__export_ratchet_tree(
+    NativePortType port_,
+    JSAny group_id_bytes,
+    PlatformPointer storage_read,
+    PlatformPointer storage_write,
+    PlatformPointer storage_delete,
+  );
+
+  external void wire__crate__api__provider__export_secret(
+    NativePortType port_,
+    JSAny group_id_bytes,
+    String label,
+    JSAny context,
+    int key_length,
+    PlatformPointer storage_read,
+    PlatformPointer storage_write,
+    PlatformPointer storage_delete,
+  );
+
+  external void wire__crate__api__provider__flexible_commit(
+    NativePortType port_,
+    JSAny group_id_bytes,
+    JSAny signer_bytes,
+    JSAny options,
+    PlatformPointer storage_read,
+    PlatformPointer storage_write,
+    PlatformPointer storage_delete,
+  );
+
+  external void wire__crate__api__provider__get_past_resumption_psk(
+    NativePortType port_,
+    JSAny group_id_bytes,
+    JSAny epoch,
+    PlatformPointer storage_read,
+    PlatformPointer storage_write,
+    PlatformPointer storage_delete,
+  );
+
+  external void wire__crate__api__provider__group_ciphersuite(
+    NativePortType port_,
+    JSAny group_id_bytes,
+    PlatformPointer storage_read,
+    PlatformPointer storage_write,
+    PlatformPointer storage_delete,
+  );
+
+  external void wire__crate__api__provider__group_confirmation_tag(
+    NativePortType port_,
+    JSAny group_id_bytes,
+    PlatformPointer storage_read,
+    PlatformPointer storage_write,
+    PlatformPointer storage_delete,
+  );
+
+  external void wire__crate__api__provider__group_credential(
+    NativePortType port_,
+    JSAny group_id_bytes,
+    PlatformPointer storage_read,
+    PlatformPointer storage_write,
+    PlatformPointer storage_delete,
+  );
+
+  external void wire__crate__api__provider__group_epoch(
+    NativePortType port_,
+    JSAny group_id_bytes,
+    PlatformPointer storage_read,
+    PlatformPointer storage_write,
+    PlatformPointer storage_delete,
+  );
+
+  external void wire__crate__api__provider__group_extensions(
+    NativePortType port_,
+    JSAny group_id_bytes,
+    PlatformPointer storage_read,
+    PlatformPointer storage_write,
+    PlatformPointer storage_delete,
+  );
+
+  external void wire__crate__api__provider__group_has_pending_proposals(
+    NativePortType port_,
+    JSAny group_id_bytes,
+    PlatformPointer storage_read,
+    PlatformPointer storage_write,
+    PlatformPointer storage_delete,
+  );
+
+  external void wire__crate__api__provider__group_id(
+    NativePortType port_,
+    JSAny group_id_bytes,
+    PlatformPointer storage_read,
+    PlatformPointer storage_write,
+    PlatformPointer storage_delete,
+  );
+
+  external void wire__crate__api__provider__group_is_active(
+    NativePortType port_,
+    JSAny group_id_bytes,
+    PlatformPointer storage_read,
+    PlatformPointer storage_write,
+    PlatformPointer storage_delete,
+  );
+
+  external void wire__crate__api__provider__group_member_at(
+    NativePortType port_,
+    JSAny group_id_bytes,
+    int leaf_index,
+    PlatformPointer storage_read,
+    PlatformPointer storage_write,
+    PlatformPointer storage_delete,
+  );
+
+  external void wire__crate__api__provider__group_member_leaf_index(
+    NativePortType port_,
+    JSAny group_id_bytes,
+    JSAny credential_identity,
+    PlatformPointer storage_read,
+    PlatformPointer storage_write,
+    PlatformPointer storage_delete,
+  );
+
+  external void wire__crate__api__provider__group_members(
+    NativePortType port_,
+    JSAny group_id_bytes,
+    PlatformPointer storage_read,
+    PlatformPointer storage_write,
+    PlatformPointer storage_delete,
+  );
+
+  external void wire__crate__api__provider__group_own_index(
+    NativePortType port_,
+    JSAny group_id_bytes,
+    PlatformPointer storage_read,
+    PlatformPointer storage_write,
+    PlatformPointer storage_delete,
+  );
+
+  external void wire__crate__api__provider__group_own_leaf_node(
+    NativePortType port_,
+    JSAny group_id_bytes,
+    PlatformPointer storage_read,
+    PlatformPointer storage_write,
+    PlatformPointer storage_delete,
+  );
+
+  external void wire__crate__api__provider__group_pending_proposals(
+    NativePortType port_,
+    JSAny group_id_bytes,
+    PlatformPointer storage_read,
+    PlatformPointer storage_write,
+    PlatformPointer storage_delete,
+  );
+
+  external JSAny? /* flutter_rust_bridge::for_generated::WireSyncRust2DartDco */
   wire__crate__api__init__init_openmls(String _library_path);
+
+  external void wire__crate__api__provider__inspect_welcome(
+    NativePortType port_,
+    JSAny config,
+    JSAny welcome_bytes,
+    PlatformPointer storage_read,
+    PlatformPointer storage_write,
+    PlatformPointer storage_delete,
+  );
 
   external JSAny? /* flutter_rust_bridge::for_generated::WireSyncRust2DartDco */
   wire__crate__api__init__is_openmls_initialized();
+
+  external void wire__crate__api__provider__join_group_external_commit(
+    NativePortType port_,
+    JSAny config,
+    JSAny group_info_bytes,
+    JSAny? ratchet_tree_bytes,
+    JSAny signer_bytes,
+    JSAny credential_identity,
+    JSAny signer_public_key,
+    PlatformPointer storage_read,
+    PlatformPointer storage_write,
+    PlatformPointer storage_delete,
+  );
+
+  external void wire__crate__api__provider__join_group_external_commit_v2(
+    NativePortType port_,
+    JSAny config,
+    JSAny group_info_bytes,
+    JSAny? ratchet_tree_bytes,
+    JSAny signer_bytes,
+    JSAny credential_identity,
+    JSAny signer_public_key,
+    JSAny? aad,
+    bool skip_lifetime_validation,
+    PlatformPointer storage_read,
+    PlatformPointer storage_write,
+    PlatformPointer storage_delete,
+  );
+
+  external void wire__crate__api__provider__join_group_from_welcome(
+    NativePortType port_,
+    JSAny config,
+    JSAny welcome_bytes,
+    JSAny? ratchet_tree_bytes,
+    JSAny signer_bytes,
+    PlatformPointer storage_read,
+    PlatformPointer storage_write,
+    PlatformPointer storage_delete,
+  );
+
+  external void
+  wire__crate__api__provider__join_group_from_welcome_with_options(
+    NativePortType port_,
+    JSAny config,
+    JSAny welcome_bytes,
+    JSAny? ratchet_tree_bytes,
+    JSAny signer_bytes,
+    bool skip_lifetime_validation,
+    PlatformPointer storage_read,
+    PlatformPointer storage_write,
+    PlatformPointer storage_delete,
+  );
+
+  external void wire__crate__api__provider__leave_group(
+    NativePortType port_,
+    JSAny group_id_bytes,
+    JSAny signer_bytes,
+    PlatformPointer storage_read,
+    PlatformPointer storage_write,
+    PlatformPointer storage_delete,
+  );
+
+  external void wire__crate__api__provider__leave_group_via_self_remove(
+    NativePortType port_,
+    JSAny group_id_bytes,
+    JSAny signer_bytes,
+    PlatformPointer storage_read,
+    PlatformPointer storage_write,
+    PlatformPointer storage_delete,
+  );
+
+  external void wire__crate__api__provider__merge_pending_commit(
+    NativePortType port_,
+    JSAny group_id_bytes,
+    PlatformPointer storage_read,
+    PlatformPointer storage_write,
+    PlatformPointer storage_delete,
+  );
+
+  external JSAny? /* flutter_rust_bridge::for_generated::WireSyncRust2DartDco */
+  wire__crate__api__config__mls_group_config_default_config(int ciphersuite);
+
+  external JSAny? /* flutter_rust_bridge::for_generated::WireSyncRust2DartDco */
+  wire__crate__api__provider__mls_message_content_type(JSAny message_bytes);
+
+  external JSAny? /* flutter_rust_bridge::for_generated::WireSyncRust2DartDco */
+  wire__crate__api__provider__mls_message_extract_epoch(JSAny message_bytes);
+
+  external JSAny? /* flutter_rust_bridge::for_generated::WireSyncRust2DartDco */
+  wire__crate__api__provider__mls_message_extract_group_id(JSAny message_bytes);
+
+  external void wire__crate__api__provider__process_message(
+    NativePortType port_,
+    JSAny group_id_bytes,
+    JSAny message_bytes,
+    PlatformPointer storage_read,
+    PlatformPointer storage_write,
+    PlatformPointer storage_delete,
+  );
+
+  external void wire__crate__api__provider__process_message_with_inspect(
+    NativePortType port_,
+    JSAny group_id_bytes,
+    JSAny message_bytes,
+    PlatformPointer storage_read,
+    PlatformPointer storage_write,
+    PlatformPointer storage_delete,
+  );
+
+  external void wire__crate__api__provider__propose_add(
+    NativePortType port_,
+    JSAny group_id_bytes,
+    JSAny signer_bytes,
+    JSAny key_package_bytes,
+    PlatformPointer storage_read,
+    PlatformPointer storage_write,
+    PlatformPointer storage_delete,
+  );
+
+  external void wire__crate__api__provider__propose_custom_proposal(
+    NativePortType port_,
+    JSAny group_id_bytes,
+    JSAny signer_bytes,
+    int proposal_type,
+    JSAny payload,
+    PlatformPointer storage_read,
+    PlatformPointer storage_write,
+    PlatformPointer storage_delete,
+  );
+
+  external void wire__crate__api__provider__propose_external_psk(
+    NativePortType port_,
+    JSAny group_id_bytes,
+    JSAny signer_bytes,
+    JSAny psk_id,
+    JSAny psk_nonce,
+    PlatformPointer storage_read,
+    PlatformPointer storage_write,
+    PlatformPointer storage_delete,
+  );
+
+  external void wire__crate__api__provider__propose_group_context_extensions(
+    NativePortType port_,
+    JSAny group_id_bytes,
+    JSAny signer_bytes,
+    JSAny extensions,
+    PlatformPointer storage_read,
+    PlatformPointer storage_write,
+    PlatformPointer storage_delete,
+  );
+
+  external void wire__crate__api__provider__propose_remove(
+    NativePortType port_,
+    JSAny group_id_bytes,
+    JSAny signer_bytes,
+    int member_index,
+    PlatformPointer storage_read,
+    PlatformPointer storage_write,
+    PlatformPointer storage_delete,
+  );
+
+  external void wire__crate__api__provider__propose_remove_member_by_credential(
+    NativePortType port_,
+    JSAny group_id_bytes,
+    JSAny signer_bytes,
+    JSAny credential_identity,
+    PlatformPointer storage_read,
+    PlatformPointer storage_write,
+    PlatformPointer storage_delete,
+  );
+
+  external void wire__crate__api__provider__propose_self_update(
+    NativePortType port_,
+    JSAny group_id_bytes,
+    JSAny signer_bytes,
+    PlatformPointer storage_read,
+    PlatformPointer storage_write,
+    PlatformPointer storage_delete,
+  );
+
+  external void wire__crate__api__provider__remove_members(
+    NativePortType port_,
+    JSAny group_id_bytes,
+    JSAny signer_bytes,
+    JSAny member_indices,
+    PlatformPointer storage_read,
+    PlatformPointer storage_write,
+    PlatformPointer storage_delete,
+  );
+
+  external void wire__crate__api__provider__self_update(
+    NativePortType port_,
+    JSAny group_id_bytes,
+    JSAny signer_bytes,
+    PlatformPointer storage_read,
+    PlatformPointer storage_write,
+    PlatformPointer storage_delete,
+  );
+
+  external void wire__crate__api__provider__self_update_with_new_signer(
+    NativePortType port_,
+    JSAny group_id_bytes,
+    JSAny old_signer_bytes,
+    JSAny new_signer_bytes,
+    JSAny new_credential_identity,
+    JSAny new_signer_public_key,
+    PlatformPointer storage_read,
+    PlatformPointer storage_write,
+    PlatformPointer storage_delete,
+  );
+
+  external JSAny? /* flutter_rust_bridge::for_generated::WireSyncRust2DartDco */
+  wire__crate__api__keys__serialize_signer(
+    int ciphersuite,
+    JSAny private_key,
+    JSAny public_key,
+  );
+
+  external void wire__crate__api__provider__set_configuration(
+    NativePortType port_,
+    JSAny group_id_bytes,
+    JSAny config,
+    PlatformPointer storage_read,
+    PlatformPointer storage_write,
+    PlatformPointer storage_delete,
+  );
+
+  external JSAny? /* flutter_rust_bridge::for_generated::WireSyncRust2DartDco */
+  wire__crate__api__types__supported_ciphersuites();
+
+  external void wire__crate__api__provider__swap_members(
+    NativePortType port_,
+    JSAny group_id_bytes,
+    JSAny signer_bytes,
+    JSAny remove_indices,
+    JSAny add_key_packages_bytes,
+    PlatformPointer storage_read,
+    PlatformPointer storage_write,
+    PlatformPointer storage_delete,
+  );
+
+  external void wire__crate__api__provider__update_group_context_extensions(
+    NativePortType port_,
+    JSAny group_id_bytes,
+    JSAny signer_bytes,
+    JSAny extensions,
+    PlatformPointer storage_read,
+    PlatformPointer storage_write,
+    PlatformPointer storage_delete,
+  );
+
+  external void
+  rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsCredential(
+    int ptr,
+  );
+
+  external void
+  rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsCredential(
+    int ptr,
+  );
+
+  external void
+  rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsSignatureKeyPair(
+    int ptr,
+  );
+
+  external void
+  rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsSignatureKeyPair(
+    int ptr,
+  );
 }

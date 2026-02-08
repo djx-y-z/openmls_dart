@@ -35,11 +35,11 @@
 
 library;
 
-// Core initialization
+export 'src/in_memory_mls_storage.dart';
+export 'src/mls_client.dart';
 export 'src/openmls.dart';
-
-// FRB-generated API (uncomment after running `make codegen`)
-// export 'src/rust/api/greeting.dart';
-
-// Export your custom Dart wrappers
-// export 'src/api.dart';
+export 'src/rust/api/config.dart';
+export 'src/rust/api/credential.dart';
+export 'src/rust/api/keys.dart';
+export 'src/rust/api/provider.dart';
+export 'src/rust/api/types.dart';
