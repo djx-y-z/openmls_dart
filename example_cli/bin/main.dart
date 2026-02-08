@@ -1,26 +1,33 @@
-// ignore: unused_import
 import 'package:openmls/openmls.dart';
+import 'package:openmls_example_cli/demos/groups_demo.dart';
+import 'package:openmls_example_cli/demos/keys_demo.dart';
+import 'package:openmls_example_cli/demos/proposals_demo.dart';
+import 'package:openmls_example_cli/demos/state_demo.dart';
 
-Future<void> main() async {
-  print('=== openmls CLI Example ===\n');
+void main() async {
+  print('');
+  print('╔══════════════════════════════════════╗');
+  print('║       openmls CLI Example            ║');
+  print('╚══════════════════════════════════════╝');
 
-  // TODO: Initialize the library
-  // await Openmls.init();
+  await Openmls.init();
 
-  // TODO: Add your demo code here
-  await _runDemo();
+  try {
+    await runKeysDemo();
+    await runGroupsDemo();
+    await runStateDemo();
+    await runProposalsDemo();
 
-  // TODO: Cleanup the library
-  // Openmls.cleanup();
-}
-
-Future<void> _runDemo() async {
-  print('Running demo...');
-
-  // TODO: Add your library operations here
-  // Example:
-  // final result = await Openmls.someOperation();
-  // print('Result: $result');
-
-  print('Demo completed successfully!');
+    print('');
+    print('All demos completed successfully!');
+    print('');
+  } catch (e, stackTrace) {
+    print('');
+    print('Error: $e');
+    print('Stack trace: $stackTrace');
+    print('');
+  } finally {
+    // dispose: true is required for CLI apps to allow the process to exit
+    Openmls.cleanup(dispose: true);
+  }
 }
