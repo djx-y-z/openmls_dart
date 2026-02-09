@@ -194,10 +194,7 @@ void main() {
         groupIdBytes: result.groupId,
       );
       expect(config.ciphersuite, equals(ciphersuite));
-      expect(
-        config.wireFormatPolicy,
-        equals(MlsWireFormatPolicy.ciphertext),
-      );
+      expect(config.wireFormatPolicy, equals(MlsWireFormatPolicy.ciphertext));
       expect(config.paddingSize, equals(0));
     });
 
@@ -223,10 +220,7 @@ void main() {
       final readBack = await alice.groupConfiguration(
         groupIdBytes: result.groupId,
       );
-      expect(
-        readBack.wireFormatPolicy,
-        equals(MlsWireFormatPolicy.plaintext),
-      );
+      expect(readBack.wireFormatPolicy, equals(MlsWireFormatPolicy.plaintext));
       expect(readBack.paddingSize, equals(128));
       expect(readBack.senderRatchetMaxOutOfOrder, equals(10));
       expect(readBack.senderRatchetMaxForwardDistance, equals(500));
@@ -257,17 +251,19 @@ void main() {
   });
 
   group('X.509 credential support', () {
-    test('createKeyPackage with null credentialBytes uses BasicCredential',
-        () async {
-      // Default behavior: passing null credentialBytes should still work
-      final kpResult = await alice.createKeyPackage(
-        ciphersuite: ciphersuite,
-        signerBytes: aliceId.signerBytes,
-        credentialIdentity: aliceId.credentialIdentity,
-        signerPublicKey: aliceId.publicKey,
-      );
-      expect(kpResult.keyPackageBytes, isNotEmpty);
-    });
+    test(
+      'createKeyPackage with null credentialBytes uses BasicCredential',
+      () async {
+        // Default behavior: passing null credentialBytes should still work
+        final kpResult = await alice.createKeyPackage(
+          ciphersuite: ciphersuite,
+          signerBytes: aliceId.signerBytes,
+          credentialIdentity: aliceId.credentialIdentity,
+          signerPublicKey: aliceId.publicKey,
+        );
+        expect(kpResult.keyPackageBytes, isNotEmpty);
+      },
+    );
 
     test('createGroup with explicit BasicCredential bytes', () async {
       // Serialize a BasicCredential and pass it explicitly
