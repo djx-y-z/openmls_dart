@@ -71,9 +71,9 @@ impl MlsSignatureKeyPair {
 
     /// Serialize the key pair to bytes for storage.
     ///
-    /// # Security
-    /// The returned bytes contain private key material. The caller is responsible
-    /// for securely storing and zeroing these bytes when done.
+    /// The returned bytes contain the **public key and signature scheme only** —
+    /// no private key material. To reconstruct a full key pair with private key,
+    /// use `from_raw()` with the original private key bytes.
     #[flutter_rust_bridge::frb(sync)]
     pub fn serialize(&self) -> Result<Vec<u8>, String> {
         // SignatureKeyPair doesn't expose private key bytes directly.
@@ -144,11 +144,12 @@ pub fn serialize_signer(
 }
 
 /// Reconstruct a `SignatureKeyPair` from raw signer bytes (JSON-serialized).
-/// Zeroizes the input bytes.
+/// Zeroizes the input bytes regardless of success or failure.
 pub(crate) fn signer_from_bytes(mut signer_bytes: Vec<u8>) -> Result<SignatureKeyPair, String> {
-    let mut skp: SerializableSigner =
-        serde_json::from_slice(&signer_bytes).map_err(|e| format!("Failed to deserialize signer: {}", e))?;
-    signer_bytes.zeroize();
+    let result = serde_json::from_slice::<SerializableSigner>(&signer_bytes)
+        .map_err(|e| format!("Failed to deserialize signer: {}", e));
+    signer_bytes.zeroize(); // Always zeroize, even on error
+    let mut skp = result?;
     let scheme = SignatureScheme::try_from(skp.scheme)
         .map_err(|_| format!("Invalid signature scheme: {}", skp.scheme))?;
     Ok(SignatureKeyPair::from_raw(

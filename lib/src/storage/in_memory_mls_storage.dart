@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+import '../security/secure_uint8list.dart';
 import 'mls_storage.dart';
 
 /// In-memory implementation of [MlsStorage] backed by a [Map].
@@ -45,9 +46,14 @@ class InMemoryMlsStorage implements MlsStorage {
   /// Whether the storage is not empty.
   bool get isNotEmpty => _store.isNotEmpty;
 
-  /// Removes all entries from the storage.
+  /// Removes all entries from the storage after zeroing all values.
   ///
-  /// Note: values are not explicitly zeroed before removal. For production use,
-  /// implement [MlsStorage] with a backend that zeroizes sensitive data.
-  void clear() => _store.clear();
+  /// Values are zeroized before removal as a defence-in-depth measure.
+  /// Note that Dart's garbage collector may have already copied data.
+  void clear() {
+    for (final value in _store.values) {
+      value.zeroize();
+    }
+    _store.clear();
+  }
 }

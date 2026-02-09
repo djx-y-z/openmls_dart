@@ -31,6 +31,9 @@
 - No `unsafe` code in the wrapper layer
 - `SerializableSigner` now derives `ZeroizeOnDrop` — private key bytes zeroed on drop
 - Eliminated clone-then-zeroize pattern in `from_raw()` and `serialize_signer()` — private keys moved, not copied
-- Documented known limitations: storage callback timeout, concurrency, storage atomicity
+- `signer_from_bytes()` zeroizes input bytes on all code paths, including deserialization errors
+- `InMemoryMlsStorage.clear()` zeroizes stored values before clearing
+- X.509 `x509()` documents that application layer must validate certificate chains
+- SECURITY.md: sensitive API table, known limitations #7–#11, vulnerability reporting via GitHub Security Advisories
 
 [1.0.0]: https://github.com/djx-y-z/openmls_dart/releases/tag/v1.0.0

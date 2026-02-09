@@ -35,6 +35,11 @@ impl MlsCredential {
     /// Each entry in `certificate_chain` is a DER-encoded X.509 certificate.
     /// The first certificate should be the end-entity (leaf) certificate,
     /// followed by intermediate certificates in order toward the root.
+    ///
+    /// # Security
+    /// This function does **not** validate the certificate chain (expiration,
+    /// signatures, revocation, or trust anchors). The application layer is
+    /// responsible for verifying the X.509 chain before passing it here.
     #[flutter_rust_bridge::frb(sync)]
     pub fn x509(certificate_chain: Vec<Vec<u8>>) -> Result<MlsCredential, String> {
         // MLS wire format for X.509: Certificate chain<V>
