@@ -68,9 +68,9 @@ abstract class MlsSignatureKeyPair implements RustOpaqueInterface {
 
   /// Serialize the key pair to bytes for storage.
   ///
-  /// # Security
-  /// The returned bytes contain private key material. The caller is responsible
-  /// for securely storing and zeroing these bytes when done.
+  /// The returned bytes contain the **public key and signature scheme only** —
+  /// no private key material. To reconstruct a full key pair with private key,
+  /// use `from_raw()` with the original private key bytes.
   Uint8List serialize();
 
   /// Returns the signature scheme as a u16.

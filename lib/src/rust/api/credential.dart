@@ -50,6 +50,11 @@ abstract class MlsCredential implements RustOpaqueInterface {
   /// Each entry in `certificate_chain` is a DER-encoded X.509 certificate.
   /// The first certificate should be the end-entity (leaf) certificate,
   /// followed by intermediate certificates in order toward the root.
+  ///
+  /// # Security
+  /// This function does **not** validate the certificate chain (expiration,
+  /// signatures, revocation, or trust anchors). The application layer is
+  /// responsible for verifying the X.509 chain before passing it here.
   static MlsCredential x509({required List<Uint8List> certificateChain}) =>
       RustLib.instance.api.crateApiCredentialMlsCredentialX509(
         certificateChain: certificateChain,

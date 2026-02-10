@@ -12,6 +12,7 @@ import 'api/init.dart';
 import 'api/keys.dart';
 import 'api/provider.dart';
 import 'api/types.dart';
+import 'api/wasm_poc.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'frb_generated.dart';
@@ -2371,6 +2372,37 @@ class RustLibWire implements BaseWire {
     message_bytes,
   );
 
+  void wire__crate__api__wasm_poc__poc_encrypted_roundtrip(
+    NativePortType port_,
+    JSAny encryption_key,
+  ) => wasmModule.wire__crate__api__wasm_poc__poc_encrypted_roundtrip(
+    port_,
+    encryption_key,
+  );
+
+  void wire__crate__api__wasm_poc__poc_roundtrip_test(NativePortType port_) =>
+      wasmModule.wire__crate__api__wasm_poc__poc_roundtrip_test(port_);
+
+  void wire__crate__api__wasm_poc__poc_store_and_load(
+    NativePortType port_,
+    String key,
+    JSAny value,
+  ) => wasmModule.wire__crate__api__wasm_poc__poc_store_and_load(
+    port_,
+    key,
+    value,
+  );
+
+  void wire__crate__api__wasm_poc__poc_wrong_key_test(
+    NativePortType port_,
+    JSAny correct_key,
+    JSAny wrong_key,
+  ) => wasmModule.wire__crate__api__wasm_poc__poc_wrong_key_test(
+    port_,
+    correct_key,
+    wrong_key,
+  );
+
   void wire__crate__api__provider__process_message(
     NativePortType port_,
     JSAny group_id_bytes,
@@ -3185,6 +3217,27 @@ extension type RustLibWasmModule._(JSObject _) implements JSObject {
 
   external JSAny? /* flutter_rust_bridge::for_generated::WireSyncRust2DartDco */
   wire__crate__api__provider__mls_message_extract_group_id(JSAny message_bytes);
+
+  external void wire__crate__api__wasm_poc__poc_encrypted_roundtrip(
+    NativePortType port_,
+    JSAny encryption_key,
+  );
+
+  external void wire__crate__api__wasm_poc__poc_roundtrip_test(
+    NativePortType port_,
+  );
+
+  external void wire__crate__api__wasm_poc__poc_store_and_load(
+    NativePortType port_,
+    String key,
+    JSAny value,
+  );
+
+  external void wire__crate__api__wasm_poc__poc_wrong_key_test(
+    NativePortType port_,
+    JSAny correct_key,
+    JSAny wrong_key,
+  );
 
   external void wire__crate__api__provider__process_message(
     NativePortType port_,

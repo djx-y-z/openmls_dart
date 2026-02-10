@@ -9,6 +9,7 @@ import 'api/init.dart';
 import 'api/keys.dart';
 import 'api/provider.dart';
 import 'api/types.dart';
+import 'api/wasm_poc.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'frb_generated.dart';
@@ -69,7 +70,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.11.1';
 
   @override
-  int get rustContentHash => -1503167156;
+  int get rustContentHash => -626819674;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -519,6 +520,22 @@ abstract class RustLibApi extends BaseApi {
 
   Uint8List crateApiProviderMlsMessageExtractGroupId({
     required List<int> messageBytes,
+  });
+
+  Future<String> crateApiWasmPocPocEncryptedRoundtrip({
+    required List<int> encryptionKey,
+  });
+
+  Future<String> crateApiWasmPocPocRoundtripTest();
+
+  Future<Uint8List> crateApiWasmPocPocStoreAndLoad({
+    required String key,
+    required List<int> value,
+  });
+
+  Future<String> crateApiWasmPocPocWrongKeyTest({
+    required List<int> correctKey,
+    required List<int> wrongKey,
   });
 
   Future<ProcessedMessageProviderResult> crateApiProviderProcessMessage({
@@ -3982,6 +3999,123 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       const TaskConstMeta(
         debugName: "mls_message_extract_group_id",
         argNames: ["messageBytes"],
+      );
+
+  @override
+  Future<String> crateApiWasmPocPocEncryptedRoundtrip({
+    required List<int> encryptionKey,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 = cst_encode_list_prim_u_8_loose(encryptionKey);
+          return wire.wire__crate__api__wasm_poc__poc_encrypted_roundtrip(
+            port_,
+            arg0,
+          );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_String,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiWasmPocPocEncryptedRoundtripConstMeta,
+        argValues: [encryptionKey],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiWasmPocPocEncryptedRoundtripConstMeta =>
+      const TaskConstMeta(
+        debugName: "poc_encrypted_roundtrip",
+        argNames: ["encryptionKey"],
+      );
+
+  @override
+  Future<String> crateApiWasmPocPocRoundtripTest() {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          return wire.wire__crate__api__wasm_poc__poc_roundtrip_test(port_);
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_String,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiWasmPocPocRoundtripTestConstMeta,
+        argValues: [],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiWasmPocPocRoundtripTestConstMeta =>
+      const TaskConstMeta(debugName: "poc_roundtrip_test", argNames: []);
+
+  @override
+  Future<Uint8List> crateApiWasmPocPocStoreAndLoad({
+    required String key,
+    required List<int> value,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 = cst_encode_String(key);
+          var arg1 = cst_encode_list_prim_u_8_loose(value);
+          return wire.wire__crate__api__wasm_poc__poc_store_and_load(
+            port_,
+            arg0,
+            arg1,
+          );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_list_prim_u_8_strict,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiWasmPocPocStoreAndLoadConstMeta,
+        argValues: [key, value],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiWasmPocPocStoreAndLoadConstMeta =>
+      const TaskConstMeta(
+        debugName: "poc_store_and_load",
+        argNames: ["key", "value"],
+      );
+
+  @override
+  Future<String> crateApiWasmPocPocWrongKeyTest({
+    required List<int> correctKey,
+    required List<int> wrongKey,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 = cst_encode_list_prim_u_8_loose(correctKey);
+          var arg1 = cst_encode_list_prim_u_8_loose(wrongKey);
+          return wire.wire__crate__api__wasm_poc__poc_wrong_key_test(
+            port_,
+            arg0,
+            arg1,
+          );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_String,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiWasmPocPocWrongKeyTestConstMeta,
+        argValues: [correctKey, wrongKey],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiWasmPocPocWrongKeyTestConstMeta =>
+      const TaskConstMeta(
+        debugName: "poc_wrong_key_test",
+        argNames: ["correctKey", "wrongKey"],
       );
 
   @override
@@ -7817,9 +7951,9 @@ class MlsSignatureKeyPairImpl extends RustOpaque
 
   /// Serialize the key pair to bytes for storage.
   ///
-  /// # Security
-  /// The returned bytes contain private key material. The caller is responsible
-  /// for securely storing and zeroing these bytes when done.
+  /// The returned bytes contain the **public key and signature scheme only** —
+  /// no private key material. To reconstruct a full key pair with private key,
+  /// use `from_raw()` with the original private key bytes.
   Uint8List serialize() =>
       RustLib.instance.api.crateApiKeysMlsSignatureKeyPairSerialize(that: this);
 

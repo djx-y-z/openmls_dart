@@ -242,19 +242,20 @@ Future<void> _handleWebBuild(BuildInput input, Uri packageRoot) async {
 
   final webPkgDir = Directory.fromUri(appRoot.resolve('web/pkg/'));
 
-  // Check if WASM files already exist in destination
-  if (_wasmFilesExist(webPkgDir)) {
-    // ignore: avoid_print
-    print('WASM files already exist in ${webPkgDir.path}');
-    return;
-  }
-
-  // Check for local WASM build (development mode)
+  // Check for local WASM build first (development mode) — takes priority
+  // over cached/downloaded files to avoid stale content hash mismatches.
   final localWasmDir = _findLocalWasmBuild(packageRoot);
   if (localWasmDir != null) {
     // ignore: avoid_print
     print('Using local WASM build from ${localWasmDir.path}');
     await _copyWasmFilesToAppRoot(localWasmDir.uri, webPkgDir);
+    return;
+  }
+
+  // Check if WASM files already exist in destination (downloaded previously)
+  if (_wasmFilesExist(webPkgDir)) {
+    // ignore: avoid_print
+    print('WASM files already exist in ${webPkgDir.path}');
     return;
   }
 

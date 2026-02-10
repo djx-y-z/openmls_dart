@@ -5,6 +5,7 @@ import 'demos/advanced_groups_demo.dart';
 import 'demos/advanced_proposals_demo.dart';
 import 'demos/groups_demo.dart';
 import 'demos/keys_demo.dart';
+import 'demos/poc_test_demo.dart';
 import 'demos/proposals_demo.dart';
 import 'demos/state_demo.dart';
 
@@ -26,7 +27,7 @@ class _MyAppState extends State<MyApp> with SingleTickerProviderStateMixin {
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 6, vsync: this);
+    _tabController = TabController(length: 7, vsync: this);
     _initOpenmls();
   }
 
@@ -64,6 +65,7 @@ class _MyAppState extends State<MyApp> with SingleTickerProviderStateMixin {
               Tab(icon: Icon(Icons.send), text: 'Proposals'),
               Tab(icon: Icon(Icons.group_work), text: 'Adv Groups'),
               Tab(icon: Icon(Icons.tune), text: 'Adv Proposals'),
+              Tab(icon: Icon(Icons.science), text: 'PoC Test'),
             ],
           ),
         ),
@@ -77,6 +79,7 @@ class _MyAppState extends State<MyApp> with SingleTickerProviderStateMixin {
                   ProposalsDemoTab(),
                   AdvancedGroupsDemoTab(),
                   AdvancedProposalsDemoTab(),
+                  PocTestDemoTab(),
                 ],
               )
             : const Center(child: CircularProgressIndicator()),

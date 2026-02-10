@@ -42,6 +42,7 @@ export 'src/rust/api/credential.dart';
 export 'src/rust/api/keys.dart';
 export 'src/rust/api/provider.dart';
 export 'src/rust/api/types.dart';
+export 'src/rust/api/wasm_poc.dart';
 export 'src/security/secure_bytes.dart';
 export 'src/security/secure_uint8list.dart';
 export 'src/storage/in_memory_mls_storage.dart';

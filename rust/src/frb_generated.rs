@@ -39,7 +39,7 @@ flutter_rust_bridge::frb_generated_boilerplate!(
     default_rust_auto_opaque = RustAutoOpaqueNom,
 );
 pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.11.1";
-pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -1503167156;
+pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -626819674;
 
 // Section: executor
 
@@ -1197,6 +1197,111 @@ fn wire__crate__api__provider__mls_message_extract_group_id_impl(
                     crate::api::provider::mls_message_extract_group_id(api_message_bytes)?;
                 Ok(output_ok)
             })())
+        },
+    )
+}
+fn wire__crate__api__wasm_poc__poc_encrypted_roundtrip_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    encryption_key: impl CstDecode<Vec<u8>>,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::DcoCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "poc_encrypted_roundtrip",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let api_encryption_key = encryption_key.cst_decode();
+            move |context| async move {
+                transform_result_dco::<_, _, String>(
+                    (move || async move {
+                        let output_ok =
+                            crate::api::wasm_poc::poc_encrypted_roundtrip(api_encryption_key)
+                                .await?;
+                        Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
+fn wire__crate__api__wasm_poc__poc_roundtrip_test_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::DcoCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "poc_roundtrip_test",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            move |context| async move {
+                transform_result_dco::<_, _, String>(
+                    (move || async move {
+                        let output_ok = crate::api::wasm_poc::poc_roundtrip_test().await?;
+                        Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
+fn wire__crate__api__wasm_poc__poc_store_and_load_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    key: impl CstDecode<String>,
+    value: impl CstDecode<Vec<u8>>,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::DcoCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "poc_store_and_load",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let api_key = key.cst_decode();
+            let api_value = value.cst_decode();
+            move |context| async move {
+                transform_result_dco::<_, _, String>(
+                    (move || async move {
+                        let output_ok =
+                            crate::api::wasm_poc::poc_store_and_load(api_key, api_value).await?;
+                        Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
+fn wire__crate__api__wasm_poc__poc_wrong_key_test_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    correct_key: impl CstDecode<Vec<u8>>,
+    wrong_key: impl CstDecode<Vec<u8>>,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::DcoCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "poc_wrong_key_test",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let api_correct_key = correct_key.cst_decode();
+            let api_wrong_key = wrong_key.cst_decode();
+            move |context| async move {
+                transform_result_dco::<_, _, String>(
+                    (move || async move {
+                        let output_ok = crate::api::wasm_poc::poc_wrong_key_test(
+                            api_correct_key,
+                            api_wrong_key,
+                        )
+                        .await?;
+                        Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
         },
     )
 }
@@ -5545,6 +5650,37 @@ mod io {
     }
 
     #[unsafe(no_mangle)]
+    pub extern "C" fn frbgen_openmls_wire__crate__api__wasm_poc__poc_encrypted_roundtrip(
+        port_: i64,
+        encryption_key: *mut wire_cst_list_prim_u_8_loose,
+    ) {
+        wire__crate__api__wasm_poc__poc_encrypted_roundtrip_impl(port_, encryption_key)
+    }
+
+    #[unsafe(no_mangle)]
+    pub extern "C" fn frbgen_openmls_wire__crate__api__wasm_poc__poc_roundtrip_test(port_: i64) {
+        wire__crate__api__wasm_poc__poc_roundtrip_test_impl(port_)
+    }
+
+    #[unsafe(no_mangle)]
+    pub extern "C" fn frbgen_openmls_wire__crate__api__wasm_poc__poc_store_and_load(
+        port_: i64,
+        key: *mut wire_cst_list_prim_u_8_strict,
+        value: *mut wire_cst_list_prim_u_8_loose,
+    ) {
+        wire__crate__api__wasm_poc__poc_store_and_load_impl(port_, key, value)
+    }
+
+    #[unsafe(no_mangle)]
+    pub extern "C" fn frbgen_openmls_wire__crate__api__wasm_poc__poc_wrong_key_test(
+        port_: i64,
+        correct_key: *mut wire_cst_list_prim_u_8_loose,
+        wrong_key: *mut wire_cst_list_prim_u_8_loose,
+    ) {
+        wire__crate__api__wasm_poc__poc_wrong_key_test_impl(port_, correct_key, wrong_key)
+    }
+
+    #[unsafe(no_mangle)]
     pub extern "C" fn frbgen_openmls_wire__crate__api__provider__process_message(
         port_: i64,
         group_id_bytes: *mut wire_cst_list_prim_u_8_loose,
@@ -8161,6 +8297,39 @@ mod web {
         message_bytes: Box<[u8]>,
     ) -> flutter_rust_bridge::for_generated::WireSyncRust2DartDco {
         wire__crate__api__provider__mls_message_extract_group_id_impl(message_bytes)
+    }
+
+    #[wasm_bindgen]
+    pub fn wire__crate__api__wasm_poc__poc_encrypted_roundtrip(
+        port_: flutter_rust_bridge::for_generated::MessagePort,
+        encryption_key: Box<[u8]>,
+    ) {
+        wire__crate__api__wasm_poc__poc_encrypted_roundtrip_impl(port_, encryption_key)
+    }
+
+    #[wasm_bindgen]
+    pub fn wire__crate__api__wasm_poc__poc_roundtrip_test(
+        port_: flutter_rust_bridge::for_generated::MessagePort,
+    ) {
+        wire__crate__api__wasm_poc__poc_roundtrip_test_impl(port_)
+    }
+
+    #[wasm_bindgen]
+    pub fn wire__crate__api__wasm_poc__poc_store_and_load(
+        port_: flutter_rust_bridge::for_generated::MessagePort,
+        key: String,
+        value: Box<[u8]>,
+    ) {
+        wire__crate__api__wasm_poc__poc_store_and_load_impl(port_, key, value)
+    }
+
+    #[wasm_bindgen]
+    pub fn wire__crate__api__wasm_poc__poc_wrong_key_test(
+        port_: flutter_rust_bridge::for_generated::MessagePort,
+        correct_key: Box<[u8]>,
+        wrong_key: Box<[u8]>,
+    ) {
+        wire__crate__api__wasm_poc__poc_wrong_key_test_impl(port_, correct_key, wrong_key)
     }
 
     #[wasm_bindgen]
