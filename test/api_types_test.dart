@@ -454,144 +454,144 @@ void main() {
     });
   });
 
-  // --- provider.dart result types ---
+  // --- engine.dart result types ---
 
-  group('AddMembersProviderResult equality', () {
+  group('AddMembersResult equality', () {
     test('equal results', () {
-      final r1 = AddMembersProviderResult(commit: b1, welcome: b2);
-      final r2 = AddMembersProviderResult(commit: b1, welcome: b2);
+      final r1 = AddMembersResult(commit: b1, welcome: b2);
+      final r2 = AddMembersResult(commit: b1, welcome: b2);
       expect(r1, equals(r2));
       expect(r1.hashCode, equals(r2.hashCode));
       expect(r1, equals(r1));
     });
 
     test('unequal results', () {
-      final r1 = AddMembersProviderResult(commit: b1, welcome: b2);
-      final r2 = AddMembersProviderResult(commit: bOther, welcome: b2);
+      final r1 = AddMembersResult(commit: b1, welcome: b2);
+      final r2 = AddMembersResult(commit: bOther, welcome: b2);
       expect(r1, isNot(equals(r2)));
     });
   });
 
-  group('CommitProviderResult equality', () {
+  group('CommitResult equality', () {
     test('equal results', () {
-      final r1 = CommitProviderResult(commit: b1);
-      final r2 = CommitProviderResult(commit: b1);
+      final r1 = CommitResult(commit: b1);
+      final r2 = CommitResult(commit: b1);
       expect(r1, equals(r2));
       expect(r1.hashCode, equals(r2.hashCode));
       expect(r1, equals(r1));
     });
 
     test('unequal results', () {
-      final r1 = CommitProviderResult(commit: b1);
-      final r2 = CommitProviderResult(commit: bOther);
+      final r1 = CommitResult(commit: b1);
+      final r2 = CommitResult(commit: bOther);
       expect(r1, isNot(equals(r2)));
     });
   });
 
-  group('CreateGroupProviderResult equality', () {
+  group('CreateGroupResult equality', () {
     test('equal results', () {
-      final r1 = CreateGroupProviderResult(groupId: b1);
-      final r2 = CreateGroupProviderResult(groupId: b1);
+      final r1 = CreateGroupResult(groupId: b1);
+      final r2 = CreateGroupResult(groupId: b1);
       expect(r1, equals(r2));
       expect(r1.hashCode, equals(r2.hashCode));
       expect(r1, equals(r1));
     });
 
     test('unequal results', () {
-      final r1 = CreateGroupProviderResult(groupId: b1);
-      final r2 = CreateGroupProviderResult(groupId: bOther);
+      final r1 = CreateGroupResult(groupId: b1);
+      final r2 = CreateGroupResult(groupId: bOther);
       expect(r1, isNot(equals(r2)));
     });
   });
 
-  group('CreateMessageProviderResult equality', () {
+  group('CreateMessageResult equality', () {
     test('equal results', () {
-      final r1 = CreateMessageProviderResult(ciphertext: b1);
-      final r2 = CreateMessageProviderResult(ciphertext: b1);
+      final r1 = CreateMessageResult(ciphertext: b1);
+      final r2 = CreateMessageResult(ciphertext: b1);
       expect(r1, equals(r2));
       expect(r1.hashCode, equals(r2.hashCode));
       expect(r1, equals(r1));
     });
 
     test('unequal results', () {
-      final r1 = CreateMessageProviderResult(ciphertext: b1);
-      final r2 = CreateMessageProviderResult(ciphertext: bOther);
+      final r1 = CreateMessageResult(ciphertext: b1);
+      final r2 = CreateMessageResult(ciphertext: bOther);
       expect(r1, isNot(equals(r2)));
     });
   });
 
-  group('ExternalJoinProviderResult equality', () {
+  group('ExternalJoinResult equality', () {
     test('equal results', () {
-      final r1 = ExternalJoinProviderResult(groupId: b1, commit: b2);
-      final r2 = ExternalJoinProviderResult(groupId: b1, commit: b2);
+      final r1 = ExternalJoinResult(groupId: b1, commit: b2);
+      final r2 = ExternalJoinResult(groupId: b1, commit: b2);
       expect(r1, equals(r2));
       expect(r1.hashCode, equals(r2.hashCode));
       expect(r1, equals(r1));
     });
 
     test('unequal results', () {
-      final r1 = ExternalJoinProviderResult(groupId: b1, commit: b2);
-      final r2 = ExternalJoinProviderResult(groupId: bOther, commit: b2);
+      final r1 = ExternalJoinResult(groupId: b1, commit: b2);
+      final r2 = ExternalJoinResult(groupId: bOther, commit: b2);
       expect(r1, isNot(equals(r2)));
     });
   });
 
-  group('JoinGroupProviderResult equality', () {
+  group('JoinGroupResult equality', () {
     test('equal results', () {
-      final r1 = JoinGroupProviderResult(groupId: b1);
-      final r2 = JoinGroupProviderResult(groupId: b1);
+      final r1 = JoinGroupResult(groupId: b1);
+      final r2 = JoinGroupResult(groupId: b1);
       expect(r1, equals(r2));
       expect(r1.hashCode, equals(r2.hashCode));
       expect(r1, equals(r1));
     });
 
     test('unequal results', () {
-      final r1 = JoinGroupProviderResult(groupId: b1);
-      final r2 = JoinGroupProviderResult(groupId: bOther);
+      final r1 = JoinGroupResult(groupId: b1);
+      final r2 = JoinGroupResult(groupId: bOther);
       expect(r1, isNot(equals(r2)));
     });
   });
 
-  group('KeyPackageProviderResult equality', () {
+  group('KeyPackageResult equality', () {
     test('equal results', () {
-      final r1 = KeyPackageProviderResult(keyPackageBytes: b1);
-      final r2 = KeyPackageProviderResult(keyPackageBytes: b1);
+      final r1 = KeyPackageResult(keyPackageBytes: b1);
+      final r2 = KeyPackageResult(keyPackageBytes: b1);
       expect(r1, equals(r2));
       expect(r1.hashCode, equals(r2.hashCode));
       expect(r1, equals(r1));
     });
 
     test('unequal results', () {
-      final r1 = KeyPackageProviderResult(keyPackageBytes: b1);
-      final r2 = KeyPackageProviderResult(keyPackageBytes: bOther);
+      final r1 = KeyPackageResult(keyPackageBytes: b1);
+      final r2 = KeyPackageResult(keyPackageBytes: bOther);
       expect(r1, isNot(equals(r2)));
     });
   });
 
-  group('LeaveGroupProviderResult equality', () {
+  group('LeaveGroupResult equality', () {
     test('equal results', () {
-      final r1 = LeaveGroupProviderResult(message: b1);
-      final r2 = LeaveGroupProviderResult(message: b1);
+      final r1 = LeaveGroupResult(message: b1);
+      final r2 = LeaveGroupResult(message: b1);
       expect(r1, equals(r2));
       expect(r1.hashCode, equals(r2.hashCode));
       expect(r1, equals(r1));
     });
 
     test('unequal results', () {
-      final r1 = LeaveGroupProviderResult(message: b1);
-      final r2 = LeaveGroupProviderResult(message: bOther);
+      final r1 = LeaveGroupResult(message: b1);
+      final r2 = LeaveGroupResult(message: bOther);
       expect(r1, isNot(equals(r2)));
     });
   });
 
-  group('ProcessedMessageInspectProviderResult equality', () {
+  group('ProcessedMessageInspectResult equality', () {
     test('equal results', () {
-      final r1 = ProcessedMessageInspectProviderResult(
+      final r1 = ProcessedMessageInspectResult(
         messageType: ProcessedMessageType.application,
         epoch: BigInt.one,
         applicationMessage: b1,
       );
-      final r2 = ProcessedMessageInspectProviderResult(
+      final r2 = ProcessedMessageInspectResult(
         messageType: ProcessedMessageType.application,
         epoch: BigInt.one,
         applicationMessage: b1,
@@ -602,11 +602,11 @@ void main() {
     });
 
     test('unequal results', () {
-      final r1 = ProcessedMessageInspectProviderResult(
+      final r1 = ProcessedMessageInspectResult(
         messageType: ProcessedMessageType.application,
         epoch: BigInt.one,
       );
-      final r2 = ProcessedMessageInspectProviderResult(
+      final r2 = ProcessedMessageInspectResult(
         messageType: ProcessedMessageType.stagedCommit,
         epoch: BigInt.one,
       );
@@ -614,15 +614,15 @@ void main() {
     });
   });
 
-  group('ProcessedMessageProviderResult equality', () {
+  group('ProcessedMessageResult equality', () {
     test('equal results', () {
-      final r1 = ProcessedMessageProviderResult(
+      final r1 = ProcessedMessageResult(
         messageType: ProcessedMessageType.application,
         epoch: BigInt.one,
         hasStagedCommit: false,
         hasProposal: false,
       );
-      final r2 = ProcessedMessageProviderResult(
+      final r2 = ProcessedMessageResult(
         messageType: ProcessedMessageType.application,
         epoch: BigInt.one,
         hasStagedCommit: false,
@@ -634,13 +634,13 @@ void main() {
     });
 
     test('unequal results', () {
-      final r1 = ProcessedMessageProviderResult(
+      final r1 = ProcessedMessageResult(
         messageType: ProcessedMessageType.application,
         epoch: BigInt.one,
         hasStagedCommit: false,
         hasProposal: false,
       );
-      final r2 = ProcessedMessageProviderResult(
+      final r2 = ProcessedMessageResult(
         messageType: ProcessedMessageType.application,
         epoch: BigInt.one,
         hasStagedCommit: true,
@@ -650,26 +650,26 @@ void main() {
     });
   });
 
-  group('ProposalProviderResult equality', () {
+  group('ProposalResult equality', () {
     test('equal results', () {
-      final r1 = ProposalProviderResult(proposalMessage: b1);
-      final r2 = ProposalProviderResult(proposalMessage: b1);
+      final r1 = ProposalResult(proposalMessage: b1);
+      final r2 = ProposalResult(proposalMessage: b1);
       expect(r1, equals(r2));
       expect(r1.hashCode, equals(r2.hashCode));
       expect(r1, equals(r1));
     });
 
     test('unequal results', () {
-      final r1 = ProposalProviderResult(proposalMessage: b1);
-      final r2 = ProposalProviderResult(proposalMessage: bOther);
+      final r1 = ProposalResult(proposalMessage: b1);
+      final r2 = ProposalResult(proposalMessage: bOther);
       expect(r1, isNot(equals(r2)));
     });
   });
 
   group('cross-type equality', () {
     test('different types are not equal', () {
-      final create = CreateGroupProviderResult(groupId: b1);
-      final join = JoinGroupProviderResult(groupId: b1);
+      final create = CreateGroupResult(groupId: b1);
+      final join = JoinGroupResult(groupId: b1);
       // ignore: unrelated_type_equality_checks
       expect(create == join, isFalse);
       // ignore: unrelated_type_equality_checks

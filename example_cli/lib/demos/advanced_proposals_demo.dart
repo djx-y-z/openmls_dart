@@ -1,9 +1,15 @@
 import 'dart:convert';
+import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:openmls/openmls.dart';
 
 import '../utils.dart';
+
+Uint8List _testKey() {
+  final rng = Random.secure();
+  return Uint8List.fromList(List.generate(32, (_) => rng.nextInt(256)));
+}
 
 /// Demonstrates advanced proposal types, commit variants, and group
 /// configuration: proposeAdd, proposeExternalPsk, proposeGroupContextExtensions,
@@ -18,7 +24,10 @@ Future<void> runAdvancedProposalsDemo() async {
 
   // Setup: Alice + Bob
   final aliceKp = MlsSignatureKeyPair.generate(ciphersuite: ciphersuite);
-  final aliceClient = MlsClient(InMemoryMlsStorage());
+  final aliceClient = await MlsEngine.create(
+    dbPath: ':memory:',
+    encryptionKey: _testKey(),
+  );
   final aliceSigner = serializeSigner(
     ciphersuite: ciphersuite,
     privateKey: aliceKp.privateKey(),
@@ -26,7 +35,10 @@ Future<void> runAdvancedProposalsDemo() async {
   );
 
   final bobKp = MlsSignatureKeyPair.generate(ciphersuite: ciphersuite);
-  final bobClient = MlsClient(InMemoryMlsStorage());
+  final bobClient = await MlsEngine.create(
+    dbPath: ':memory:',
+    encryptionKey: _testKey(),
+  );
   final bobSigner = serializeSigner(
     ciphersuite: ciphersuite,
     privateKey: bobKp.privateKey(),
@@ -63,7 +75,10 @@ Future<void> runAdvancedProposalsDemo() async {
 
   // 1. proposeAdd — propose adding Charlie
   final charlieKp = MlsSignatureKeyPair.generate(ciphersuite: ciphersuite);
-  final charlieClient = MlsClient(InMemoryMlsStorage());
+  final charlieClient = await MlsEngine.create(
+    dbPath: ':memory:',
+    encryptionKey: _testKey(),
+  );
   final charlieSigner = serializeSigner(
     ciphersuite: ciphersuite,
     privateKey: charlieKp.privateKey(),

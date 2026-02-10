@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:openmls/openmls.dart';
@@ -53,3 +54,13 @@ class TestIdentity {
   Uint8List get serializedCredential =>
       MlsCredential.basic(identity: credentialIdentity).serialize();
 }
+
+/// Generate a random 32-byte encryption key for test databases.
+Uint8List testEncryptionKey() {
+  final rng = Random.secure();
+  return Uint8List.fromList(List.generate(32, (_) => rng.nextInt(256)));
+}
+
+/// Create a test MlsEngine with an in-memory SQLCipher database.
+Future<MlsEngine> createTestEngine() async =>
+    MlsEngine.create(dbPath: ':memory:', encryptionKey: testEncryptionKey());

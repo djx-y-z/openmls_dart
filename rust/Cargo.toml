@@ -27,6 +27,9 @@ openmls_basic_credential = { git = "https://github.com/openmls/openmls", tag = "
 openmls_traits = { git = "https://github.com/openmls/openmls", tag = "openmls-v0.8.0" }
 
 
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+rusqlite = { version = "0.34", features = ["bundled-sqlcipher-vendored-openssl"] }
+
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 # OpenMLS requires `js` feature for WASM: enables fluvio_wasm_timer for time access
 # Cargo merges features from [dependencies] and [target.*.dependencies]

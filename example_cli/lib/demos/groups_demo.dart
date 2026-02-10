@@ -1,9 +1,15 @@
 import 'dart:convert';
+import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:openmls/openmls.dart';
 
 import '../utils.dart';
+
+Uint8List _testKey() {
+  final rng = Random.secure();
+  return Uint8List.fromList(List.generate(32, (_) => rng.nextInt(256)));
+}
 
 /// Demonstrates MLS group lifecycle: create, add member, send/receive messages.
 Future<void> runGroupsDemo() async {
@@ -12,9 +18,11 @@ Future<void> runGroupsDemo() async {
   final ciphersuite = MlsCiphersuite.mls128DhkemX25519Aes128GcmSha256Ed25519;
   final config = MlsGroupConfig.defaultConfig(ciphersuite: ciphersuite);
 
-  // Each participant has their own storage and signer
-  final aliceStorage = InMemoryMlsStorage();
-  final aliceClient = MlsClient(aliceStorage);
+  // Each participant has their own engine and signer
+  final aliceClient = await MlsEngine.create(
+    dbPath: ':memory:',
+    encryptionKey: _testKey(),
+  );
   final aliceKeyPair = MlsSignatureKeyPair.generate(ciphersuite: ciphersuite);
   final aliceSigner = serializeSigner(
     ciphersuite: ciphersuite,
@@ -22,8 +30,10 @@ Future<void> runGroupsDemo() async {
     publicKey: aliceKeyPair.publicKey(),
   );
 
-  final bobStorage = InMemoryMlsStorage();
-  final bobClient = MlsClient(bobStorage);
+  final bobClient = await MlsEngine.create(
+    dbPath: ':memory:',
+    encryptionKey: _testKey(),
+  );
   final bobKeyPair = MlsSignatureKeyPair.generate(ciphersuite: ciphersuite);
   final bobSigner = serializeSigner(
     ciphersuite: ciphersuite,

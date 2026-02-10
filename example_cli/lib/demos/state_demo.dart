@@ -1,8 +1,15 @@
 import 'dart:convert';
+import 'dart:math';
+import 'dart:typed_data';
 
 import 'package:openmls/openmls.dart';
 
 import '../utils.dart';
+
+Uint8List _testKey() {
+  final rng = Random.secure();
+  return Uint8List.fromList(List.generate(32, (_) => rng.nextInt(256)));
+}
 
 /// Demonstrates group state queries: members, epoch, extensions, exports.
 Future<void> runStateDemo() async {
@@ -12,8 +19,10 @@ Future<void> runStateDemo() async {
   final config = MlsGroupConfig.defaultConfig(ciphersuite: ciphersuite);
 
   // Setup: Alice creates group, adds Bob
-  final aliceStorage = InMemoryMlsStorage();
-  final aliceClient = MlsClient(aliceStorage);
+  final aliceClient = await MlsEngine.create(
+    dbPath: ':memory:',
+    encryptionKey: _testKey(),
+  );
   final aliceKeyPair = MlsSignatureKeyPair.generate(ciphersuite: ciphersuite);
   final aliceSigner = serializeSigner(
     ciphersuite: ciphersuite,
@@ -21,8 +30,10 @@ Future<void> runStateDemo() async {
     publicKey: aliceKeyPair.publicKey(),
   );
 
-  final bobStorage = InMemoryMlsStorage();
-  final bobClient = MlsClient(bobStorage);
+  final bobClient = await MlsEngine.create(
+    dbPath: ':memory:',
+    encryptionKey: _testKey(),
+  );
   final bobKeyPair = MlsSignatureKeyPair.generate(ciphersuite: ciphersuite);
   final bobSigner = serializeSigner(
     ciphersuite: ciphersuite,

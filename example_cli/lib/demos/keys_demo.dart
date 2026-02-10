@@ -1,9 +1,15 @@
 import 'dart:convert';
+import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:openmls/openmls.dart';
 
 import '../utils.dart';
+
+Uint8List _testKey() {
+  final rng = Random.secure();
+  return Uint8List.fromList(List.generate(32, (_) => rng.nextInt(256)));
+}
 
 /// Demonstrates key generation, serialization, and credentials.
 Future<void> runKeysDemo() async {
@@ -69,8 +75,10 @@ Future<void> runKeysDemo() async {
   print('');
 
   // 7. Create key package with options (lifetime, last-resort)
-  final storage = InMemoryMlsStorage();
-  final client = MlsClient(storage);
+  final client = await MlsEngine.create(
+    dbPath: ':memory:',
+    encryptionKey: _testKey(),
+  );
   final signerBytes = serializeSigner(
     ciphersuite: ciphersuite,
     privateKey: signer.privateKey(),

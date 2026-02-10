@@ -4,17 +4,15 @@ import 'package:test/test.dart';
 import 'test_helpers.dart';
 
 void main() {
-  late MlsClient alice;
-  late InMemoryMlsStorage aliceStorage;
+  late MlsEngine alice;
   late TestIdentity aliceId;
 
   setUpAll(() async {
     await Openmls.init();
   });
 
-  setUp(() {
-    aliceStorage = InMemoryMlsStorage();
-    alice = MlsClient(aliceStorage);
+  setUp(() async {
+    alice = await createTestEngine();
     aliceId = TestIdentity.create('alice');
   });
 
@@ -61,7 +59,6 @@ void main() {
         signerPublicKey: aliceId.publicKey,
       );
       expect(result.keyPackageBytes, isNotEmpty);
-      expect(aliceStorage.length, greaterThan(0));
     });
 
     test('creates key package with lifetime and last-resort', () async {

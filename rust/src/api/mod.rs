@@ -4,6 +4,6 @@ pub mod config;
 pub mod credential;
 pub mod init;
 pub mod keys;
-pub mod provider;
+pub mod engine;
 pub mod types;
 pub mod wasm_poc;

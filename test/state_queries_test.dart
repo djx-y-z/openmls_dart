@@ -7,15 +7,15 @@ import 'package:test/test.dart';
 import 'test_helpers.dart';
 
 void main() {
-  late MlsClient alice;
+  late MlsEngine alice;
   late TestIdentity aliceId;
 
   setUpAll(() async {
     await Openmls.init();
   });
 
-  setUp(() {
-    alice = MlsClient(InMemoryMlsStorage());
+  setUp(() async {
+    alice = await createTestEngine();
     aliceId = TestIdentity.create('alice');
   });
 

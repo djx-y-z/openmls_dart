@@ -35,15 +35,12 @@
 
 library;
 
-export 'src/mls_client.dart';
 export 'src/openmls.dart';
 export 'src/rust/api/config.dart';
 export 'src/rust/api/credential.dart';
+export 'src/rust/api/engine.dart';
 export 'src/rust/api/keys.dart';
-export 'src/rust/api/provider.dart';
 export 'src/rust/api/types.dart';
 export 'src/rust/api/wasm_poc.dart';
 export 'src/security/secure_bytes.dart';
 export 'src/security/secure_uint8list.dart';
-export 'src/storage/in_memory_mls_storage.dart';
-export 'src/storage/mls_storage.dart';

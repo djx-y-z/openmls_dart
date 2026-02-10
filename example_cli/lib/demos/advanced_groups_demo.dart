@@ -1,9 +1,15 @@
 import 'dart:convert';
+import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:openmls/openmls.dart';
 
 import '../utils.dart';
+
+Uint8List _testKey() {
+  final rng = Random.secure();
+  return Uint8List.fromList(List.generate(32, (_) => rng.nextInt(256)));
+}
 
 /// Demonstrates advanced group operations: builder, external commit,
 /// welcome options, member mutations, and self-remove.
@@ -14,12 +20,14 @@ Future<void> runAdvancedGroupsDemo() async {
   final config = MlsGroupConfig.defaultConfig(ciphersuite: ciphersuite);
 
   // Shared identity helper
-  ({MlsClient client, Uint8List signer, Uint8List publicKey}) makeIdentity(
-    String name,
-  ) {
+  Future<({MlsEngine client, Uint8List signer, Uint8List publicKey})>
+  makeIdentity(String name) async {
     final kp = MlsSignatureKeyPair.generate(ciphersuite: ciphersuite);
     return (
-      client: MlsClient(InMemoryMlsStorage()),
+      client: await MlsEngine.create(
+        dbPath: ':memory:',
+        encryptionKey: _testKey(),
+      ),
       signer: serializeSigner(
         ciphersuite: ciphersuite,
         privateKey: kp.privateKey(),
@@ -30,7 +38,7 @@ Future<void> runAdvancedGroupsDemo() async {
   }
 
   // 1. createGroupWithBuilder
-  final alice = makeIdentity('alice');
+  final alice = await makeIdentity('alice');
   final builderResult = await alice.client.createGroupWithBuilder(
     config: config,
     signerBytes: alice.signer,
@@ -44,7 +52,7 @@ Future<void> runAdvancedGroupsDemo() async {
 
   // 2. inspectWelcome — inspect before joining
   // Use a temporary group because inspectWelcome consumes the key package
-  final bob = makeIdentity('bob');
+  final bob = await makeIdentity('bob');
   final inspectGroupId = (await alice.client.createGroup(
     config: config,
     signerBytes: alice.signer,
@@ -111,7 +119,7 @@ Future<void> runAdvancedGroupsDemo() async {
   final ratchetTree = await alice.client.exportRatchetTree(
     groupIdBytes: groupId2,
   );
-  final charlie = makeIdentity('charlie');
+  final charlie = await makeIdentity('charlie');
   final extJoin = await charlie.client.joinGroupExternalCommit(
     config: config,
     groupInfoBytes: groupInfo,
@@ -143,7 +151,7 @@ Future<void> runAdvancedGroupsDemo() async {
     signerBytes: alice.signer,
   );
   final rt3 = await alice.client.exportRatchetTree(groupIdBytes: groupId3);
-  final dave = makeIdentity('dave');
+  final dave = await makeIdentity('dave');
   final extJoin2 = await dave.client.joinGroupExternalCommitV2(
     config: config,
     groupInfoBytes: gi3,
@@ -165,7 +173,7 @@ Future<void> runAdvancedGroupsDemo() async {
   print('');
 
   // 6. selfUpdateWithNewSigner
-  final aliceNew = makeIdentity('alice-rotated');
+  final aliceNew = await makeIdentity('alice-rotated');
   final updateResult = await alice.client.selfUpdateWithNewSigner(
     groupIdBytes: builderResult.groupId,
     oldSignerBytes: alice.signer,
@@ -193,7 +201,7 @@ Future<void> runAdvancedGroupsDemo() async {
     credentialIdentity: utf8.encode('alice'),
     signerPublicKey: aliceNew.publicKey,
   )).groupId;
-  final eve = makeIdentity('eve');
+  final eve = await makeIdentity('eve');
   final eveKp = await eve.client.createKeyPackage(
     ciphersuite: ciphersuite,
     signerBytes: eve.signer,
@@ -214,7 +222,7 @@ Future<void> runAdvancedGroupsDemo() async {
   print('');
 
   // 8. removeMembers
-  final frank = makeIdentity('frank');
+  final frank = await makeIdentity('frank');
   final frankKp = await frank.client.createKeyPackage(
     ciphersuite: ciphersuite,
     signerBytes: frank.signer,
@@ -251,7 +259,7 @@ Future<void> runAdvancedGroupsDemo() async {
     groupIdBytes: groupId4,
     credentialBytes: eveCred.serialize(),
   );
-  final grace = makeIdentity('grace');
+  final grace = await makeIdentity('grace');
   final graceKp = await grace.client.createKeyPackage(
     ciphersuite: ciphersuite,
     signerBytes: grace.signer,
@@ -287,8 +295,8 @@ Future<void> runAdvancedGroupsDemo() async {
     senderRatchetMaxForwardDistance: 1000,
     numberOfResumptionPsks: 0,
   );
-  final ptAlice = makeIdentity('pt-alice');
-  final ptBob = makeIdentity('pt-bob');
+  final ptAlice = await makeIdentity('pt-alice');
+  final ptBob = await makeIdentity('pt-bob');
   final ptGroup = await ptAlice.client.createGroup(
     config: ptConfig,
     signerBytes: ptAlice.signer,

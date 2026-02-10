@@ -1,8 +1,15 @@
 import 'dart:convert';
+import 'dart:math';
+import 'dart:typed_data';
 
 import 'package:openmls/openmls.dart';
 
 import '../utils.dart';
+
+Uint8List _testKey() {
+  final rng = Random.secure();
+  return Uint8List.fromList(List.generate(32, (_) => rng.nextInt(256)));
+}
 
 /// Demonstrates proposals, commits, self-update, and member removal.
 Future<void> runProposalsDemo() async {
@@ -12,8 +19,10 @@ Future<void> runProposalsDemo() async {
   final config = MlsGroupConfig.defaultConfig(ciphersuite: ciphersuite);
 
   // Setup: Alice + Bob + Charlie
-  final aliceStorage = InMemoryMlsStorage();
-  final aliceClient = MlsClient(aliceStorage);
+  final aliceClient = await MlsEngine.create(
+    dbPath: ':memory:',
+    encryptionKey: _testKey(),
+  );
   final aliceKeyPair = MlsSignatureKeyPair.generate(ciphersuite: ciphersuite);
   final aliceSigner = serializeSigner(
     ciphersuite: ciphersuite,
@@ -21,8 +30,10 @@ Future<void> runProposalsDemo() async {
     publicKey: aliceKeyPair.publicKey(),
   );
 
-  final bobStorage = InMemoryMlsStorage();
-  final bobClient = MlsClient(bobStorage);
+  final bobClient = await MlsEngine.create(
+    dbPath: ':memory:',
+    encryptionKey: _testKey(),
+  );
   final bobKeyPair = MlsSignatureKeyPair.generate(ciphersuite: ciphersuite);
   final bobSigner = serializeSigner(
     ciphersuite: ciphersuite,
@@ -30,8 +41,10 @@ Future<void> runProposalsDemo() async {
     publicKey: bobKeyPair.publicKey(),
   );
 
-  final charlieStorage = InMemoryMlsStorage();
-  final charlieClient = MlsClient(charlieStorage);
+  final charlieClient = await MlsEngine.create(
+    dbPath: ':memory:',
+    encryptionKey: _testKey(),
+  );
   final charlieKeyPair = MlsSignatureKeyPair.generate(ciphersuite: ciphersuite);
   final charlieSigner = serializeSigner(
     ciphersuite: ciphersuite,

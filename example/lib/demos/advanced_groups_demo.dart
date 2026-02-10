@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -6,6 +7,11 @@ import 'package:openmls/openmls.dart';
 
 import '../utils.dart';
 import '../widgets/demo_card.dart';
+
+Uint8List _testKey() {
+  final rng = Random.secure();
+  return Uint8List.fromList(List.generate(32, (_) => rng.nextInt(256)));
+}
 
 class AdvancedGroupsDemoTab extends StatefulWidget {
   const AdvancedGroupsDemoTab({super.key});
@@ -28,10 +34,14 @@ class _AdvancedGroupsDemoTabState extends State<AdvancedGroupsDemoTab> {
       final cs = MlsCiphersuite.mls128DhkemX25519Aes128GcmSha256Ed25519;
       final cfg = MlsGroupConfig.defaultConfig(ciphersuite: cs);
 
-      ({MlsClient client, Uint8List signer, Uint8List publicKey}) makeId() {
+      Future<({MlsEngine client, Uint8List signer, Uint8List publicKey})>
+      makeId() async {
         final kp = MlsSignatureKeyPair.generate(ciphersuite: cs);
         return (
-          client: MlsClient(InMemoryMlsStorage()),
+          client: await MlsEngine.create(
+            dbPath: ':memory:',
+            encryptionKey: _testKey(),
+          ),
           signer: serializeSigner(
             ciphersuite: cs,
             privateKey: kp.privateKey(),
@@ -42,7 +52,7 @@ class _AdvancedGroupsDemoTabState extends State<AdvancedGroupsDemoTab> {
       }
 
       // 1. createGroupWithBuilder
-      final alice = makeId();
+      final alice = await makeId();
       final builder = await alice.client.createGroupWithBuilder(
         config: cfg,
         signerBytes: alice.signer,
@@ -54,7 +64,7 @@ class _AdvancedGroupsDemoTabState extends State<AdvancedGroupsDemoTab> {
       r.writeln();
 
       // 2. inspectWelcome (temporary group)
-      final bob = makeId();
+      final bob = await makeId();
       final inspGid = (await alice.client.createGroup(
         config: cfg,
         signerBytes: alice.signer,
@@ -116,7 +126,7 @@ class _AdvancedGroupsDemoTabState extends State<AdvancedGroupsDemoTab> {
         signerBytes: alice.signer,
       );
       final rt2 = await alice.client.exportRatchetTree(groupIdBytes: gid2);
-      final charlie = makeId();
+      final charlie = await makeId();
       final ej1 = await charlie.client.joinGroupExternalCommit(
         config: cfg,
         groupInfoBytes: gi2,
@@ -147,7 +157,7 @@ class _AdvancedGroupsDemoTabState extends State<AdvancedGroupsDemoTab> {
         signerBytes: alice.signer,
       );
       final rt3 = await alice.client.exportRatchetTree(groupIdBytes: gid3);
-      final dave = makeId();
+      final dave = await makeId();
       final ej2 = await dave.client.joinGroupExternalCommitV2(
         config: cfg,
         groupInfoBytes: gi3,
@@ -170,7 +180,7 @@ class _AdvancedGroupsDemoTabState extends State<AdvancedGroupsDemoTab> {
       r.writeln();
 
       // 6. selfUpdateWithNewSigner
-      final aliceNew = makeId();
+      final aliceNew = await makeId();
       final updR = await alice.client.selfUpdateWithNewSigner(
         groupIdBytes: builder.groupId,
         oldSignerBytes: alice.signer,
@@ -196,7 +206,7 @@ class _AdvancedGroupsDemoTabState extends State<AdvancedGroupsDemoTab> {
         credentialIdentity: utf8.encode('alice'),
         signerPublicKey: aliceNew.publicKey,
       )).groupId;
-      final eve = makeId();
+      final eve = await makeId();
       final eveKp = await eve.client.createKeyPackage(
         ciphersuite: cs,
         signerBytes: eve.signer,
@@ -216,7 +226,7 @@ class _AdvancedGroupsDemoTabState extends State<AdvancedGroupsDemoTab> {
       r.writeln();
 
       // 8. removeMembers
-      final frank = makeId();
+      final frank = await makeId();
       final frankKp = await frank.client.createKeyPackage(
         ciphersuite: cs,
         signerBytes: frank.signer,
@@ -250,7 +260,7 @@ class _AdvancedGroupsDemoTabState extends State<AdvancedGroupsDemoTab> {
         groupIdBytes: gid4,
         credentialBytes: eCred.serialize(),
       );
-      final grace = makeId();
+      final grace = await makeId();
       final graceKp = await grace.client.createKeyPackage(
         ciphersuite: cs,
         signerBytes: grace.signer,
@@ -282,8 +292,8 @@ class _AdvancedGroupsDemoTabState extends State<AdvancedGroupsDemoTab> {
         senderRatchetMaxForwardDistance: 1000,
         numberOfResumptionPsks: 0,
       );
-      final ptA = makeId();
-      final ptB = makeId();
+      final ptA = await makeId();
+      final ptB = await makeId();
       final ptG = await ptA.client.createGroup(
         config: ptCfg,
         signerBytes: ptA.signer,

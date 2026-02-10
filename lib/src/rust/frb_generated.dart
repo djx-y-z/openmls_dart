@@ -5,9 +5,9 @@
 
 import 'api/config.dart';
 import 'api/credential.dart';
+import 'api/engine.dart';
 import 'api/init.dart';
 import 'api/keys.dart';
-import 'api/provider.dart';
 import 'api/types.dart';
 import 'api/wasm_poc.dart';
 import 'dart:async';
@@ -70,7 +70,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.11.1';
 
   @override
-  int get rustContentHash => -626819674;
+  int get rustContentHash => 975204478;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -113,6 +113,403 @@ abstract class RustLibApi extends BaseApi {
     required List<Uint8List> certificateChain,
   });
 
+  Future<AddMembersResult> crateApiEngineMlsEngineAddMembers({
+    required MlsEngine that,
+    required List<int> groupIdBytes,
+    required List<int> signerBytes,
+    required List<Uint8List> keyPackagesBytes,
+  });
+
+  Future<AddMembersResult> crateApiEngineMlsEngineAddMembersWithoutUpdate({
+    required MlsEngine that,
+    required List<int> groupIdBytes,
+    required List<int> signerBytes,
+    required List<Uint8List> keyPackagesBytes,
+  });
+
+  Future<void> crateApiEngineMlsEngineClearPendingCommit({
+    required MlsEngine that,
+    required List<int> groupIdBytes,
+  });
+
+  Future<void> crateApiEngineMlsEngineClearPendingProposals({
+    required MlsEngine that,
+    required List<int> groupIdBytes,
+  });
+
+  Future<CommitResult> crateApiEngineMlsEngineCommitToPendingProposals({
+    required MlsEngine that,
+    required List<int> groupIdBytes,
+    required List<int> signerBytes,
+  });
+
+  Future<MlsEngine> crateApiEngineMlsEngineCreate({
+    required String dbPath,
+    required List<int> encryptionKey,
+  });
+
+  Future<CreateGroupResult> crateApiEngineMlsEngineCreateGroup({
+    required MlsEngine that,
+    required MlsGroupConfig config,
+    required List<int> signerBytes,
+    required List<int> credentialIdentity,
+    required List<int> signerPublicKey,
+    Uint8List? groupId,
+    Uint8List? credentialBytes,
+  });
+
+  Future<CreateGroupResult> crateApiEngineMlsEngineCreateGroupWithBuilder({
+    required MlsEngine that,
+    required MlsGroupConfig config,
+    required List<int> signerBytes,
+    required List<int> credentialIdentity,
+    required List<int> signerPublicKey,
+    Uint8List? groupId,
+    BigInt? lifetimeSeconds,
+    List<MlsExtension>? groupContextExtensions,
+    List<MlsExtension>? leafNodeExtensions,
+    MlsCapabilities? capabilities,
+    Uint8List? credentialBytes,
+  });
+
+  Future<KeyPackageResult> crateApiEngineMlsEngineCreateKeyPackage({
+    required MlsEngine that,
+    required MlsCiphersuite ciphersuite,
+    required List<int> signerBytes,
+    required List<int> credentialIdentity,
+    required List<int> signerPublicKey,
+    Uint8List? credentialBytes,
+  });
+
+  Future<KeyPackageResult> crateApiEngineMlsEngineCreateKeyPackageWithOptions({
+    required MlsEngine that,
+    required MlsCiphersuite ciphersuite,
+    required List<int> signerBytes,
+    required List<int> credentialIdentity,
+    required List<int> signerPublicKey,
+    required KeyPackageOptions options,
+    Uint8List? credentialBytes,
+  });
+
+  Future<CreateMessageResult> crateApiEngineMlsEngineCreateMessage({
+    required MlsEngine that,
+    required List<int> groupIdBytes,
+    required List<int> signerBytes,
+    required List<int> message,
+    Uint8List? aad,
+  });
+
+  Future<void> crateApiEngineMlsEngineDeleteGroup({
+    required MlsEngine that,
+    required List<int> groupIdBytes,
+  });
+
+  Future<void> crateApiEngineMlsEngineDeleteKeyPackage({
+    required MlsEngine that,
+    required List<int> keyPackageRefBytes,
+  });
+
+  Future<MlsGroupContextInfo> crateApiEngineMlsEngineExportGroupContext({
+    required MlsEngine that,
+    required List<int> groupIdBytes,
+  });
+
+  Future<Uint8List> crateApiEngineMlsEngineExportGroupInfo({
+    required MlsEngine that,
+    required List<int> groupIdBytes,
+    required List<int> signerBytes,
+  });
+
+  Future<Uint8List> crateApiEngineMlsEngineExportRatchetTree({
+    required MlsEngine that,
+    required List<int> groupIdBytes,
+  });
+
+  Future<Uint8List> crateApiEngineMlsEngineExportSecret({
+    required MlsEngine that,
+    required List<int> groupIdBytes,
+    required String label,
+    required List<int> context,
+    required int keyLength,
+  });
+
+  Future<CommitResult> crateApiEngineMlsEngineFlexibleCommit({
+    required MlsEngine that,
+    required List<int> groupIdBytes,
+    required List<int> signerBytes,
+    required FlexibleCommitOptions options,
+  });
+
+  Future<Uint8List?> crateApiEngineMlsEngineGetPastResumptionPsk({
+    required MlsEngine that,
+    required List<int> groupIdBytes,
+    required BigInt epoch,
+  });
+
+  Future<MlsCiphersuite> crateApiEngineMlsEngineGroupCiphersuite({
+    required MlsEngine that,
+    required List<int> groupIdBytes,
+  });
+
+  Future<GroupConfigurationResult> crateApiEngineMlsEngineGroupConfiguration({
+    required MlsEngine that,
+    required List<int> groupIdBytes,
+  });
+
+  Future<Uint8List> crateApiEngineMlsEngineGroupConfirmationTag({
+    required MlsEngine that,
+    required List<int> groupIdBytes,
+  });
+
+  Future<Uint8List> crateApiEngineMlsEngineGroupCredential({
+    required MlsEngine that,
+    required List<int> groupIdBytes,
+  });
+
+  Future<BigInt> crateApiEngineMlsEngineGroupEpoch({
+    required MlsEngine that,
+    required List<int> groupIdBytes,
+  });
+
+  Future<Uint8List> crateApiEngineMlsEngineGroupEpochAuthenticator({
+    required MlsEngine that,
+    required List<int> groupIdBytes,
+  });
+
+  Future<Uint8List> crateApiEngineMlsEngineGroupExtensions({
+    required MlsEngine that,
+    required List<int> groupIdBytes,
+  });
+
+  Future<bool> crateApiEngineMlsEngineGroupHasPendingProposals({
+    required MlsEngine that,
+    required List<int> groupIdBytes,
+  });
+
+  Future<Uint8List> crateApiEngineMlsEngineGroupId({
+    required MlsEngine that,
+    required List<int> groupIdBytes,
+  });
+
+  Future<bool> crateApiEngineMlsEngineGroupIsActive({
+    required MlsEngine that,
+    required List<int> groupIdBytes,
+  });
+
+  Future<MlsMemberInfo?> crateApiEngineMlsEngineGroupMemberAt({
+    required MlsEngine that,
+    required List<int> groupIdBytes,
+    required int leafIndex,
+  });
+
+  Future<int?> crateApiEngineMlsEngineGroupMemberLeafIndex({
+    required MlsEngine that,
+    required List<int> groupIdBytes,
+    required List<int> credentialBytes,
+  });
+
+  Future<List<MlsMemberInfo>> crateApiEngineMlsEngineGroupMembers({
+    required MlsEngine that,
+    required List<int> groupIdBytes,
+  });
+
+  Future<int> crateApiEngineMlsEngineGroupOwnIndex({
+    required MlsEngine that,
+    required List<int> groupIdBytes,
+  });
+
+  Future<MlsLeafNodeInfo> crateApiEngineMlsEngineGroupOwnLeafNode({
+    required MlsEngine that,
+    required List<int> groupIdBytes,
+  });
+
+  Future<List<MlsPendingProposalInfo>>
+  crateApiEngineMlsEngineGroupPendingProposals({
+    required MlsEngine that,
+    required List<int> groupIdBytes,
+  });
+
+  Future<WelcomeInspectResult> crateApiEngineMlsEngineInspectWelcome({
+    required MlsEngine that,
+    required MlsGroupConfig config,
+    required List<int> welcomeBytes,
+  });
+
+  Future<ExternalJoinResult> crateApiEngineMlsEngineJoinGroupExternalCommit({
+    required MlsEngine that,
+    required MlsGroupConfig config,
+    required List<int> groupInfoBytes,
+    Uint8List? ratchetTreeBytes,
+    required List<int> signerBytes,
+    required List<int> credentialIdentity,
+    required List<int> signerPublicKey,
+    Uint8List? credentialBytes,
+  });
+
+  Future<ExternalJoinResult> crateApiEngineMlsEngineJoinGroupExternalCommitV2({
+    required MlsEngine that,
+    required MlsGroupConfig config,
+    required List<int> groupInfoBytes,
+    Uint8List? ratchetTreeBytes,
+    required List<int> signerBytes,
+    required List<int> credentialIdentity,
+    required List<int> signerPublicKey,
+    Uint8List? aad,
+    required bool skipLifetimeValidation,
+    Uint8List? credentialBytes,
+  });
+
+  Future<JoinGroupResult> crateApiEngineMlsEngineJoinGroupFromWelcome({
+    required MlsEngine that,
+    required MlsGroupConfig config,
+    required List<int> welcomeBytes,
+    Uint8List? ratchetTreeBytes,
+    required List<int> signerBytes,
+  });
+
+  Future<JoinGroupResult>
+  crateApiEngineMlsEngineJoinGroupFromWelcomeWithOptions({
+    required MlsEngine that,
+    required MlsGroupConfig config,
+    required List<int> welcomeBytes,
+    Uint8List? ratchetTreeBytes,
+    required List<int> signerBytes,
+    required bool skipLifetimeValidation,
+  });
+
+  Future<LeaveGroupResult> crateApiEngineMlsEngineLeaveGroup({
+    required MlsEngine that,
+    required List<int> groupIdBytes,
+    required List<int> signerBytes,
+  });
+
+  Future<LeaveGroupResult> crateApiEngineMlsEngineLeaveGroupViaSelfRemove({
+    required MlsEngine that,
+    required List<int> groupIdBytes,
+    required List<int> signerBytes,
+  });
+
+  Future<void> crateApiEngineMlsEngineMergePendingCommit({
+    required MlsEngine that,
+    required List<int> groupIdBytes,
+  });
+
+  Future<ProcessedMessageResult> crateApiEngineMlsEngineProcessMessage({
+    required MlsEngine that,
+    required List<int> groupIdBytes,
+    required List<int> messageBytes,
+  });
+
+  Future<ProcessedMessageInspectResult>
+  crateApiEngineMlsEngineProcessMessageWithInspect({
+    required MlsEngine that,
+    required List<int> groupIdBytes,
+    required List<int> messageBytes,
+  });
+
+  Future<ProposalResult> crateApiEngineMlsEngineProposeAdd({
+    required MlsEngine that,
+    required List<int> groupIdBytes,
+    required List<int> signerBytes,
+    required List<int> keyPackageBytes,
+  });
+
+  Future<ProposalResult> crateApiEngineMlsEngineProposeCustomProposal({
+    required MlsEngine that,
+    required List<int> groupIdBytes,
+    required List<int> signerBytes,
+    required int proposalType,
+    required List<int> payload,
+  });
+
+  Future<ProposalResult> crateApiEngineMlsEngineProposeExternalPsk({
+    required MlsEngine that,
+    required List<int> groupIdBytes,
+    required List<int> signerBytes,
+    required List<int> pskId,
+    required List<int> pskNonce,
+  });
+
+  Future<ProposalResult> crateApiEngineMlsEngineProposeGroupContextExtensions({
+    required MlsEngine that,
+    required List<int> groupIdBytes,
+    required List<int> signerBytes,
+    required List<MlsExtension> extensions,
+  });
+
+  Future<ProposalResult> crateApiEngineMlsEngineProposeRemove({
+    required MlsEngine that,
+    required List<int> groupIdBytes,
+    required List<int> signerBytes,
+    required int memberIndex,
+  });
+
+  Future<ProposalResult>
+  crateApiEngineMlsEngineProposeRemoveMemberByCredential({
+    required MlsEngine that,
+    required List<int> groupIdBytes,
+    required List<int> signerBytes,
+    required List<int> credentialBytes,
+  });
+
+  Future<ProposalResult> crateApiEngineMlsEngineProposeSelfUpdate({
+    required MlsEngine that,
+    required List<int> groupIdBytes,
+    required List<int> signerBytes,
+    MlsCapabilities? leafNodeCapabilities,
+    List<MlsExtension>? leafNodeExtensions,
+  });
+
+  Future<CommitResult> crateApiEngineMlsEngineRemoveMembers({
+    required MlsEngine that,
+    required List<int> groupIdBytes,
+    required List<int> signerBytes,
+    required List<int> memberIndices,
+  });
+
+  Future<void> crateApiEngineMlsEngineRemovePendingProposal({
+    required MlsEngine that,
+    required List<int> groupIdBytes,
+    required List<int> proposalRefBytes,
+  });
+
+  Future<CommitResult> crateApiEngineMlsEngineSelfUpdate({
+    required MlsEngine that,
+    required List<int> groupIdBytes,
+    required List<int> signerBytes,
+  });
+
+  Future<CommitResult> crateApiEngineMlsEngineSelfUpdateWithNewSigner({
+    required MlsEngine that,
+    required List<int> groupIdBytes,
+    required List<int> oldSignerBytes,
+    required List<int> newSignerBytes,
+    required List<int> newCredentialIdentity,
+    required List<int> newSignerPublicKey,
+    Uint8List? newCredentialBytes,
+  });
+
+  Future<void> crateApiEngineMlsEngineSetConfiguration({
+    required MlsEngine that,
+    required List<int> groupIdBytes,
+    required MlsGroupConfig config,
+  });
+
+  Future<AddMembersResult> crateApiEngineMlsEngineSwapMembers({
+    required MlsEngine that,
+    required List<int> groupIdBytes,
+    required List<int> signerBytes,
+    required List<int> removeIndices,
+    required List<Uint8List> addKeyPackagesBytes,
+  });
+
+  Future<CommitResult> crateApiEngineMlsEngineUpdateGroupContextExtensions({
+    required MlsEngine that,
+    required List<int> groupIdBytes,
+    required List<int> signerBytes,
+    required List<MlsExtension> extensions,
+  });
+
   MlsSignatureKeyPair crateApiKeysMlsSignatureKeyPairDeserializePublic({
     required List<int> bytes,
   });
@@ -143,382 +540,21 @@ abstract class RustLibApi extends BaseApi {
     required MlsSignatureKeyPair that,
   });
 
-  Future<AddMembersProviderResult> crateApiProviderAddMembers({
-    required List<int> groupIdBytes,
-    required List<int> signerBytes,
-    required List<Uint8List> keyPackagesBytes,
-    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
-    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
-    required FutureOr<void> Function(Uint8List) storageDelete,
-  });
-
-  Future<AddMembersProviderResult> crateApiProviderAddMembersWithoutUpdate({
-    required List<int> groupIdBytes,
-    required List<int> signerBytes,
-    required List<Uint8List> keyPackagesBytes,
-    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
-    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
-    required FutureOr<void> Function(Uint8List) storageDelete,
-  });
-
-  Future<void> crateApiProviderClearPendingCommit({
-    required List<int> groupIdBytes,
-    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
-    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
-    required FutureOr<void> Function(Uint8List) storageDelete,
-  });
-
-  Future<void> crateApiProviderClearPendingProposals({
-    required List<int> groupIdBytes,
-    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
-    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
-    required FutureOr<void> Function(Uint8List) storageDelete,
-  });
-
-  Future<CommitProviderResult> crateApiProviderCommitToPendingProposals({
-    required List<int> groupIdBytes,
-    required List<int> signerBytes,
-    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
-    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
-    required FutureOr<void> Function(Uint8List) storageDelete,
-  });
-
-  Future<CreateGroupProviderResult> crateApiProviderCreateGroup({
-    required MlsGroupConfig config,
-    required List<int> signerBytes,
-    required List<int> credentialIdentity,
-    required List<int> signerPublicKey,
-    Uint8List? groupId,
-    Uint8List? credentialBytes,
-    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
-    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
-    required FutureOr<void> Function(Uint8List) storageDelete,
-  });
-
-  Future<CreateGroupProviderResult> crateApiProviderCreateGroupWithBuilder({
-    required MlsGroupConfig config,
-    required List<int> signerBytes,
-    required List<int> credentialIdentity,
-    required List<int> signerPublicKey,
-    Uint8List? groupId,
-    BigInt? lifetimeSeconds,
-    List<MlsExtension>? groupContextExtensions,
-    List<MlsExtension>? leafNodeExtensions,
-    MlsCapabilities? capabilities,
-    Uint8List? credentialBytes,
-    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
-    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
-    required FutureOr<void> Function(Uint8List) storageDelete,
-  });
-
-  Future<KeyPackageProviderResult> crateApiProviderCreateKeyPackage({
-    required MlsCiphersuite ciphersuite,
-    required List<int> signerBytes,
-    required List<int> credentialIdentity,
-    required List<int> signerPublicKey,
-    Uint8List? credentialBytes,
-    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
-    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
-    required FutureOr<void> Function(Uint8List) storageDelete,
-  });
-
-  Future<KeyPackageProviderResult> crateApiProviderCreateKeyPackageWithOptions({
-    required MlsCiphersuite ciphersuite,
-    required List<int> signerBytes,
-    required List<int> credentialIdentity,
-    required List<int> signerPublicKey,
-    required KeyPackageOptions options,
-    Uint8List? credentialBytes,
-    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
-    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
-    required FutureOr<void> Function(Uint8List) storageDelete,
-  });
-
-  Future<CreateMessageProviderResult> crateApiProviderCreateMessage({
-    required List<int> groupIdBytes,
-    required List<int> signerBytes,
-    required List<int> message,
-    Uint8List? aad,
-    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
-    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
-    required FutureOr<void> Function(Uint8List) storageDelete,
-  });
-
-  Future<void> crateApiProviderDeleteGroup({
-    required List<int> groupIdBytes,
-    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
-    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
-    required FutureOr<void> Function(Uint8List) storageDelete,
-  });
-
-  Future<void> crateApiProviderDeleteKeyPackage({
-    required List<int> keyPackageRefBytes,
-    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
-    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
-    required FutureOr<void> Function(Uint8List) storageDelete,
-  });
-
-  Future<MlsGroupContextInfo> crateApiProviderExportGroupContext({
-    required List<int> groupIdBytes,
-    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
-    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
-    required FutureOr<void> Function(Uint8List) storageDelete,
-  });
-
-  Future<Uint8List> crateApiProviderExportGroupInfo({
-    required List<int> groupIdBytes,
-    required List<int> signerBytes,
-    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
-    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
-    required FutureOr<void> Function(Uint8List) storageDelete,
-  });
-
-  Future<Uint8List> crateApiProviderExportRatchetTree({
-    required List<int> groupIdBytes,
-    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
-    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
-    required FutureOr<void> Function(Uint8List) storageDelete,
-  });
-
-  Future<Uint8List> crateApiProviderExportSecret({
-    required List<int> groupIdBytes,
-    required String label,
-    required List<int> context,
-    required int keyLength,
-    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
-    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
-    required FutureOr<void> Function(Uint8List) storageDelete,
-  });
-
-  Future<CommitProviderResult> crateApiProviderFlexibleCommit({
-    required List<int> groupIdBytes,
-    required List<int> signerBytes,
-    required FlexibleCommitOptions options,
-    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
-    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
-    required FutureOr<void> Function(Uint8List) storageDelete,
-  });
-
-  Future<Uint8List?> crateApiProviderGetPastResumptionPsk({
-    required List<int> groupIdBytes,
-    required BigInt epoch,
-    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
-    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
-    required FutureOr<void> Function(Uint8List) storageDelete,
-  });
-
-  Future<MlsCiphersuite> crateApiProviderGroupCiphersuite({
-    required List<int> groupIdBytes,
-    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
-    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
-    required FutureOr<void> Function(Uint8List) storageDelete,
-  });
-
-  Future<GroupConfigurationResult> crateApiProviderGroupConfiguration({
-    required List<int> groupIdBytes,
-    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
-    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
-    required FutureOr<void> Function(Uint8List) storageDelete,
-  });
-
-  Future<Uint8List> crateApiProviderGroupConfirmationTag({
-    required List<int> groupIdBytes,
-    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
-    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
-    required FutureOr<void> Function(Uint8List) storageDelete,
-  });
-
-  Future<Uint8List> crateApiProviderGroupCredential({
-    required List<int> groupIdBytes,
-    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
-    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
-    required FutureOr<void> Function(Uint8List) storageDelete,
-  });
-
-  Future<BigInt> crateApiProviderGroupEpoch({
-    required List<int> groupIdBytes,
-    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
-    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
-    required FutureOr<void> Function(Uint8List) storageDelete,
-  });
-
-  Future<Uint8List> crateApiProviderGroupEpochAuthenticator({
-    required List<int> groupIdBytes,
-    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
-    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
-    required FutureOr<void> Function(Uint8List) storageDelete,
-  });
-
-  Future<Uint8List> crateApiProviderGroupExtensions({
-    required List<int> groupIdBytes,
-    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
-    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
-    required FutureOr<void> Function(Uint8List) storageDelete,
-  });
-
-  Future<bool> crateApiProviderGroupHasPendingProposals({
-    required List<int> groupIdBytes,
-    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
-    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
-    required FutureOr<void> Function(Uint8List) storageDelete,
-  });
-
-  Future<Uint8List> crateApiProviderGroupId({
-    required List<int> groupIdBytes,
-    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
-    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
-    required FutureOr<void> Function(Uint8List) storageDelete,
-  });
-
-  Future<bool> crateApiProviderGroupIsActive({
-    required List<int> groupIdBytes,
-    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
-    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
-    required FutureOr<void> Function(Uint8List) storageDelete,
-  });
-
-  Future<MlsMemberInfo?> crateApiProviderGroupMemberAt({
-    required List<int> groupIdBytes,
-    required int leafIndex,
-    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
-    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
-    required FutureOr<void> Function(Uint8List) storageDelete,
-  });
-
-  Future<int?> crateApiProviderGroupMemberLeafIndex({
-    required List<int> groupIdBytes,
-    required List<int> credentialBytes,
-    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
-    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
-    required FutureOr<void> Function(Uint8List) storageDelete,
-  });
-
-  Future<List<MlsMemberInfo>> crateApiProviderGroupMembers({
-    required List<int> groupIdBytes,
-    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
-    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
-    required FutureOr<void> Function(Uint8List) storageDelete,
-  });
-
-  Future<int> crateApiProviderGroupOwnIndex({
-    required List<int> groupIdBytes,
-    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
-    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
-    required FutureOr<void> Function(Uint8List) storageDelete,
-  });
-
-  Future<MlsLeafNodeInfo> crateApiProviderGroupOwnLeafNode({
-    required List<int> groupIdBytes,
-    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
-    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
-    required FutureOr<void> Function(Uint8List) storageDelete,
-  });
-
-  Future<List<MlsPendingProposalInfo>> crateApiProviderGroupPendingProposals({
-    required List<int> groupIdBytes,
-    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
-    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
-    required FutureOr<void> Function(Uint8List) storageDelete,
-  });
-
   void crateApiInitInitOpenmls({required String libraryPath});
 
-  Future<WelcomeInspectResult> crateApiProviderInspectWelcome({
-    required MlsGroupConfig config,
-    required List<int> welcomeBytes,
-    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
-    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
-    required FutureOr<void> Function(Uint8List) storageDelete,
-  });
-
   bool crateApiInitIsOpenmlsInitialized();
-
-  Future<ExternalJoinProviderResult> crateApiProviderJoinGroupExternalCommit({
-    required MlsGroupConfig config,
-    required List<int> groupInfoBytes,
-    Uint8List? ratchetTreeBytes,
-    required List<int> signerBytes,
-    required List<int> credentialIdentity,
-    required List<int> signerPublicKey,
-    Uint8List? credentialBytes,
-    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
-    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
-    required FutureOr<void> Function(Uint8List) storageDelete,
-  });
-
-  Future<ExternalJoinProviderResult> crateApiProviderJoinGroupExternalCommitV2({
-    required MlsGroupConfig config,
-    required List<int> groupInfoBytes,
-    Uint8List? ratchetTreeBytes,
-    required List<int> signerBytes,
-    required List<int> credentialIdentity,
-    required List<int> signerPublicKey,
-    Uint8List? aad,
-    required bool skipLifetimeValidation,
-    Uint8List? credentialBytes,
-    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
-    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
-    required FutureOr<void> Function(Uint8List) storageDelete,
-  });
-
-  Future<JoinGroupProviderResult> crateApiProviderJoinGroupFromWelcome({
-    required MlsGroupConfig config,
-    required List<int> welcomeBytes,
-    Uint8List? ratchetTreeBytes,
-    required List<int> signerBytes,
-    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
-    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
-    required FutureOr<void> Function(Uint8List) storageDelete,
-  });
-
-  Future<JoinGroupProviderResult>
-  crateApiProviderJoinGroupFromWelcomeWithOptions({
-    required MlsGroupConfig config,
-    required List<int> welcomeBytes,
-    Uint8List? ratchetTreeBytes,
-    required List<int> signerBytes,
-    required bool skipLifetimeValidation,
-    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
-    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
-    required FutureOr<void> Function(Uint8List) storageDelete,
-  });
-
-  Future<LeaveGroupProviderResult> crateApiProviderLeaveGroup({
-    required List<int> groupIdBytes,
-    required List<int> signerBytes,
-    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
-    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
-    required FutureOr<void> Function(Uint8List) storageDelete,
-  });
-
-  Future<LeaveGroupProviderResult> crateApiProviderLeaveGroupViaSelfRemove({
-    required List<int> groupIdBytes,
-    required List<int> signerBytes,
-    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
-    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
-    required FutureOr<void> Function(Uint8List) storageDelete,
-  });
-
-  Future<void> crateApiProviderMergePendingCommit({
-    required List<int> groupIdBytes,
-    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
-    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
-    required FutureOr<void> Function(Uint8List) storageDelete,
-  });
 
   MlsGroupConfig crateApiConfigMlsGroupConfigDefaultConfig({
     required MlsCiphersuite ciphersuite,
   });
 
-  String crateApiProviderMlsMessageContentType({
+  String crateApiEngineMlsMessageContentType({required List<int> messageBytes});
+
+  BigInt crateApiEngineMlsMessageExtractEpoch({
     required List<int> messageBytes,
   });
 
-  BigInt crateApiProviderMlsMessageExtractEpoch({
-    required List<int> messageBytes,
-  });
-
-  Uint8List crateApiProviderMlsMessageExtractGroupId({
+  Uint8List crateApiEngineMlsMessageExtractGroupId({
     required List<int> messageBytes,
   });
 
@@ -538,161 +574,13 @@ abstract class RustLibApi extends BaseApi {
     required List<int> wrongKey,
   });
 
-  Future<ProcessedMessageProviderResult> crateApiProviderProcessMessage({
-    required List<int> groupIdBytes,
-    required List<int> messageBytes,
-    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
-    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
-    required FutureOr<void> Function(Uint8List) storageDelete,
-  });
-
-  Future<ProcessedMessageInspectProviderResult>
-  crateApiProviderProcessMessageWithInspect({
-    required List<int> groupIdBytes,
-    required List<int> messageBytes,
-    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
-    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
-    required FutureOr<void> Function(Uint8List) storageDelete,
-  });
-
-  Future<ProposalProviderResult> crateApiProviderProposeAdd({
-    required List<int> groupIdBytes,
-    required List<int> signerBytes,
-    required List<int> keyPackageBytes,
-    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
-    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
-    required FutureOr<void> Function(Uint8List) storageDelete,
-  });
-
-  Future<ProposalProviderResult> crateApiProviderProposeCustomProposal({
-    required List<int> groupIdBytes,
-    required List<int> signerBytes,
-    required int proposalType,
-    required List<int> payload,
-    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
-    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
-    required FutureOr<void> Function(Uint8List) storageDelete,
-  });
-
-  Future<ProposalProviderResult> crateApiProviderProposeExternalPsk({
-    required List<int> groupIdBytes,
-    required List<int> signerBytes,
-    required List<int> pskId,
-    required List<int> pskNonce,
-    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
-    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
-    required FutureOr<void> Function(Uint8List) storageDelete,
-  });
-
-  Future<ProposalProviderResult> crateApiProviderProposeGroupContextExtensions({
-    required List<int> groupIdBytes,
-    required List<int> signerBytes,
-    required List<MlsExtension> extensions,
-    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
-    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
-    required FutureOr<void> Function(Uint8List) storageDelete,
-  });
-
-  Future<ProposalProviderResult> crateApiProviderProposeRemove({
-    required List<int> groupIdBytes,
-    required List<int> signerBytes,
-    required int memberIndex,
-    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
-    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
-    required FutureOr<void> Function(Uint8List) storageDelete,
-  });
-
-  Future<ProposalProviderResult>
-  crateApiProviderProposeRemoveMemberByCredential({
-    required List<int> groupIdBytes,
-    required List<int> signerBytes,
-    required List<int> credentialBytes,
-    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
-    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
-    required FutureOr<void> Function(Uint8List) storageDelete,
-  });
-
-  Future<ProposalProviderResult> crateApiProviderProposeSelfUpdate({
-    required List<int> groupIdBytes,
-    required List<int> signerBytes,
-    MlsCapabilities? leafNodeCapabilities,
-    List<MlsExtension>? leafNodeExtensions,
-    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
-    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
-    required FutureOr<void> Function(Uint8List) storageDelete,
-  });
-
-  Future<CommitProviderResult> crateApiProviderRemoveMembers({
-    required List<int> groupIdBytes,
-    required List<int> signerBytes,
-    required List<int> memberIndices,
-    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
-    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
-    required FutureOr<void> Function(Uint8List) storageDelete,
-  });
-
-  Future<void> crateApiProviderRemovePendingProposal({
-    required List<int> groupIdBytes,
-    required List<int> proposalRefBytes,
-    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
-    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
-    required FutureOr<void> Function(Uint8List) storageDelete,
-  });
-
-  Future<CommitProviderResult> crateApiProviderSelfUpdate({
-    required List<int> groupIdBytes,
-    required List<int> signerBytes,
-    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
-    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
-    required FutureOr<void> Function(Uint8List) storageDelete,
-  });
-
-  Future<CommitProviderResult> crateApiProviderSelfUpdateWithNewSigner({
-    required List<int> groupIdBytes,
-    required List<int> oldSignerBytes,
-    required List<int> newSignerBytes,
-    required List<int> newCredentialIdentity,
-    required List<int> newSignerPublicKey,
-    Uint8List? newCredentialBytes,
-    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
-    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
-    required FutureOr<void> Function(Uint8List) storageDelete,
-  });
-
   Uint8List crateApiKeysSerializeSigner({
     required MlsCiphersuite ciphersuite,
     required List<int> privateKey,
     required List<int> publicKey,
   });
 
-  Future<void> crateApiProviderSetConfiguration({
-    required List<int> groupIdBytes,
-    required MlsGroupConfig config,
-    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
-    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
-    required FutureOr<void> Function(Uint8List) storageDelete,
-  });
-
   List<MlsCiphersuite> crateApiTypesSupportedCiphersuites();
-
-  Future<AddMembersProviderResult> crateApiProviderSwapMembers({
-    required List<int> groupIdBytes,
-    required List<int> signerBytes,
-    required List<int> removeIndices,
-    required List<Uint8List> addKeyPackagesBytes,
-    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
-    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
-    required FutureOr<void> Function(Uint8List) storageDelete,
-  });
-
-  Future<CommitProviderResult> crateApiProviderUpdateGroupContextExtensions({
-    required List<int> groupIdBytes,
-    required List<int> signerBytes,
-    required List<MlsExtension> extensions,
-    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
-    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
-    required FutureOr<void> Function(Uint8List) storageDelete,
-  });
 
   RustArcIncrementStrongCountFnType
   get rust_arc_increment_strong_count_MlsCredential;
@@ -702,6 +590,14 @@ abstract class RustLibApi extends BaseApi {
 
   CrossPlatformFinalizerArg
   get rust_arc_decrement_strong_count_MlsCredentialPtr;
+
+  RustArcIncrementStrongCountFnType
+  get rust_arc_increment_strong_count_MlsEngine;
+
+  RustArcDecrementStrongCountFnType
+  get rust_arc_decrement_strong_count_MlsEngine;
+
+  CrossPlatformFinalizerArg get rust_arc_decrement_strong_count_MlsEnginePtr;
 
   RustArcIncrementStrongCountFnType
   get rust_arc_increment_strong_count_MlsSignatureKeyPair;
@@ -971,6 +867,2638 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
+  Future<AddMembersResult> crateApiEngineMlsEngineAddMembers({
+    required MlsEngine that,
+    required List<int> groupIdBytes,
+    required List<int> signerBytes,
+    required List<Uint8List> keyPackagesBytes,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 =
+              cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsEngine(
+                that,
+              );
+          var arg1 = cst_encode_list_prim_u_8_loose(groupIdBytes);
+          var arg2 = cst_encode_list_prim_u_8_loose(signerBytes);
+          var arg3 = cst_encode_list_list_prim_u_8_strict(keyPackagesBytes);
+          return wire.wire__crate__api__engine__MlsEngine_add_members(
+            port_,
+            arg0,
+            arg1,
+            arg2,
+            arg3,
+          );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_add_members_result,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiEngineMlsEngineAddMembersConstMeta,
+        argValues: [that, groupIdBytes, signerBytes, keyPackagesBytes],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiEngineMlsEngineAddMembersConstMeta =>
+      const TaskConstMeta(
+        debugName: "MlsEngine_add_members",
+        argNames: ["that", "groupIdBytes", "signerBytes", "keyPackagesBytes"],
+      );
+
+  @override
+  Future<AddMembersResult> crateApiEngineMlsEngineAddMembersWithoutUpdate({
+    required MlsEngine that,
+    required List<int> groupIdBytes,
+    required List<int> signerBytes,
+    required List<Uint8List> keyPackagesBytes,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 =
+              cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsEngine(
+                that,
+              );
+          var arg1 = cst_encode_list_prim_u_8_loose(groupIdBytes);
+          var arg2 = cst_encode_list_prim_u_8_loose(signerBytes);
+          var arg3 = cst_encode_list_list_prim_u_8_strict(keyPackagesBytes);
+          return wire
+              .wire__crate__api__engine__MlsEngine_add_members_without_update(
+                port_,
+                arg0,
+                arg1,
+                arg2,
+                arg3,
+              );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_add_members_result,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiEngineMlsEngineAddMembersWithoutUpdateConstMeta,
+        argValues: [that, groupIdBytes, signerBytes, keyPackagesBytes],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiEngineMlsEngineAddMembersWithoutUpdateConstMeta =>
+      const TaskConstMeta(
+        debugName: "MlsEngine_add_members_without_update",
+        argNames: ["that", "groupIdBytes", "signerBytes", "keyPackagesBytes"],
+      );
+
+  @override
+  Future<void> crateApiEngineMlsEngineClearPendingCommit({
+    required MlsEngine that,
+    required List<int> groupIdBytes,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 =
+              cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsEngine(
+                that,
+              );
+          var arg1 = cst_encode_list_prim_u_8_loose(groupIdBytes);
+          return wire.wire__crate__api__engine__MlsEngine_clear_pending_commit(
+            port_,
+            arg0,
+            arg1,
+          );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_unit,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiEngineMlsEngineClearPendingCommitConstMeta,
+        argValues: [that, groupIdBytes],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiEngineMlsEngineClearPendingCommitConstMeta =>
+      const TaskConstMeta(
+        debugName: "MlsEngine_clear_pending_commit",
+        argNames: ["that", "groupIdBytes"],
+      );
+
+  @override
+  Future<void> crateApiEngineMlsEngineClearPendingProposals({
+    required MlsEngine that,
+    required List<int> groupIdBytes,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 =
+              cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsEngine(
+                that,
+              );
+          var arg1 = cst_encode_list_prim_u_8_loose(groupIdBytes);
+          return wire
+              .wire__crate__api__engine__MlsEngine_clear_pending_proposals(
+                port_,
+                arg0,
+                arg1,
+              );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_unit,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiEngineMlsEngineClearPendingProposalsConstMeta,
+        argValues: [that, groupIdBytes],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiEngineMlsEngineClearPendingProposalsConstMeta =>
+      const TaskConstMeta(
+        debugName: "MlsEngine_clear_pending_proposals",
+        argNames: ["that", "groupIdBytes"],
+      );
+
+  @override
+  Future<CommitResult> crateApiEngineMlsEngineCommitToPendingProposals({
+    required MlsEngine that,
+    required List<int> groupIdBytes,
+    required List<int> signerBytes,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 =
+              cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsEngine(
+                that,
+              );
+          var arg1 = cst_encode_list_prim_u_8_loose(groupIdBytes);
+          var arg2 = cst_encode_list_prim_u_8_loose(signerBytes);
+          return wire
+              .wire__crate__api__engine__MlsEngine_commit_to_pending_proposals(
+                port_,
+                arg0,
+                arg1,
+                arg2,
+              );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_commit_result,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiEngineMlsEngineCommitToPendingProposalsConstMeta,
+        argValues: [that, groupIdBytes, signerBytes],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiEngineMlsEngineCommitToPendingProposalsConstMeta =>
+      const TaskConstMeta(
+        debugName: "MlsEngine_commit_to_pending_proposals",
+        argNames: ["that", "groupIdBytes", "signerBytes"],
+      );
+
+  @override
+  Future<MlsEngine> crateApiEngineMlsEngineCreate({
+    required String dbPath,
+    required List<int> encryptionKey,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 = cst_encode_String(dbPath);
+          var arg1 = cst_encode_list_prim_u_8_loose(encryptionKey);
+          return wire.wire__crate__api__engine__MlsEngine_create(
+            port_,
+            arg0,
+            arg1,
+          );
+        },
+        codec: DcoCodec(
+          decodeSuccessData:
+              dco_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsEngine,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiEngineMlsEngineCreateConstMeta,
+        argValues: [dbPath, encryptionKey],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiEngineMlsEngineCreateConstMeta =>
+      const TaskConstMeta(
+        debugName: "MlsEngine_create",
+        argNames: ["dbPath", "encryptionKey"],
+      );
+
+  @override
+  Future<CreateGroupResult> crateApiEngineMlsEngineCreateGroup({
+    required MlsEngine that,
+    required MlsGroupConfig config,
+    required List<int> signerBytes,
+    required List<int> credentialIdentity,
+    required List<int> signerPublicKey,
+    Uint8List? groupId,
+    Uint8List? credentialBytes,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 =
+              cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsEngine(
+                that,
+              );
+          var arg1 = cst_encode_box_autoadd_mls_group_config(config);
+          var arg2 = cst_encode_list_prim_u_8_loose(signerBytes);
+          var arg3 = cst_encode_list_prim_u_8_loose(credentialIdentity);
+          var arg4 = cst_encode_list_prim_u_8_loose(signerPublicKey);
+          var arg5 = cst_encode_opt_list_prim_u_8_strict(groupId);
+          var arg6 = cst_encode_opt_list_prim_u_8_strict(credentialBytes);
+          return wire.wire__crate__api__engine__MlsEngine_create_group(
+            port_,
+            arg0,
+            arg1,
+            arg2,
+            arg3,
+            arg4,
+            arg5,
+            arg6,
+          );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_create_group_result,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiEngineMlsEngineCreateGroupConstMeta,
+        argValues: [
+          that,
+          config,
+          signerBytes,
+          credentialIdentity,
+          signerPublicKey,
+          groupId,
+          credentialBytes,
+        ],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiEngineMlsEngineCreateGroupConstMeta =>
+      const TaskConstMeta(
+        debugName: "MlsEngine_create_group",
+        argNames: [
+          "that",
+          "config",
+          "signerBytes",
+          "credentialIdentity",
+          "signerPublicKey",
+          "groupId",
+          "credentialBytes",
+        ],
+      );
+
+  @override
+  Future<CreateGroupResult> crateApiEngineMlsEngineCreateGroupWithBuilder({
+    required MlsEngine that,
+    required MlsGroupConfig config,
+    required List<int> signerBytes,
+    required List<int> credentialIdentity,
+    required List<int> signerPublicKey,
+    Uint8List? groupId,
+    BigInt? lifetimeSeconds,
+    List<MlsExtension>? groupContextExtensions,
+    List<MlsExtension>? leafNodeExtensions,
+    MlsCapabilities? capabilities,
+    Uint8List? credentialBytes,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 =
+              cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsEngine(
+                that,
+              );
+          var arg1 = cst_encode_box_autoadd_mls_group_config(config);
+          var arg2 = cst_encode_list_prim_u_8_loose(signerBytes);
+          var arg3 = cst_encode_list_prim_u_8_loose(credentialIdentity);
+          var arg4 = cst_encode_list_prim_u_8_loose(signerPublicKey);
+          var arg5 = cst_encode_opt_list_prim_u_8_strict(groupId);
+          var arg6 = cst_encode_opt_box_autoadd_u_64(lifetimeSeconds);
+          var arg7 = cst_encode_opt_list_mls_extension(groupContextExtensions);
+          var arg8 = cst_encode_opt_list_mls_extension(leafNodeExtensions);
+          var arg9 = cst_encode_opt_box_autoadd_mls_capabilities(capabilities);
+          var arg10 = cst_encode_opt_list_prim_u_8_strict(credentialBytes);
+          return wire
+              .wire__crate__api__engine__MlsEngine_create_group_with_builder(
+                port_,
+                arg0,
+                arg1,
+                arg2,
+                arg3,
+                arg4,
+                arg5,
+                arg6,
+                arg7,
+                arg8,
+                arg9,
+                arg10,
+              );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_create_group_result,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiEngineMlsEngineCreateGroupWithBuilderConstMeta,
+        argValues: [
+          that,
+          config,
+          signerBytes,
+          credentialIdentity,
+          signerPublicKey,
+          groupId,
+          lifetimeSeconds,
+          groupContextExtensions,
+          leafNodeExtensions,
+          capabilities,
+          credentialBytes,
+        ],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiEngineMlsEngineCreateGroupWithBuilderConstMeta =>
+      const TaskConstMeta(
+        debugName: "MlsEngine_create_group_with_builder",
+        argNames: [
+          "that",
+          "config",
+          "signerBytes",
+          "credentialIdentity",
+          "signerPublicKey",
+          "groupId",
+          "lifetimeSeconds",
+          "groupContextExtensions",
+          "leafNodeExtensions",
+          "capabilities",
+          "credentialBytes",
+        ],
+      );
+
+  @override
+  Future<KeyPackageResult> crateApiEngineMlsEngineCreateKeyPackage({
+    required MlsEngine that,
+    required MlsCiphersuite ciphersuite,
+    required List<int> signerBytes,
+    required List<int> credentialIdentity,
+    required List<int> signerPublicKey,
+    Uint8List? credentialBytes,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 =
+              cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsEngine(
+                that,
+              );
+          var arg1 = cst_encode_mls_ciphersuite(ciphersuite);
+          var arg2 = cst_encode_list_prim_u_8_loose(signerBytes);
+          var arg3 = cst_encode_list_prim_u_8_loose(credentialIdentity);
+          var arg4 = cst_encode_list_prim_u_8_loose(signerPublicKey);
+          var arg5 = cst_encode_opt_list_prim_u_8_strict(credentialBytes);
+          return wire.wire__crate__api__engine__MlsEngine_create_key_package(
+            port_,
+            arg0,
+            arg1,
+            arg2,
+            arg3,
+            arg4,
+            arg5,
+          );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_key_package_result,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiEngineMlsEngineCreateKeyPackageConstMeta,
+        argValues: [
+          that,
+          ciphersuite,
+          signerBytes,
+          credentialIdentity,
+          signerPublicKey,
+          credentialBytes,
+        ],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiEngineMlsEngineCreateKeyPackageConstMeta =>
+      const TaskConstMeta(
+        debugName: "MlsEngine_create_key_package",
+        argNames: [
+          "that",
+          "ciphersuite",
+          "signerBytes",
+          "credentialIdentity",
+          "signerPublicKey",
+          "credentialBytes",
+        ],
+      );
+
+  @override
+  Future<KeyPackageResult> crateApiEngineMlsEngineCreateKeyPackageWithOptions({
+    required MlsEngine that,
+    required MlsCiphersuite ciphersuite,
+    required List<int> signerBytes,
+    required List<int> credentialIdentity,
+    required List<int> signerPublicKey,
+    required KeyPackageOptions options,
+    Uint8List? credentialBytes,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 =
+              cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsEngine(
+                that,
+              );
+          var arg1 = cst_encode_mls_ciphersuite(ciphersuite);
+          var arg2 = cst_encode_list_prim_u_8_loose(signerBytes);
+          var arg3 = cst_encode_list_prim_u_8_loose(credentialIdentity);
+          var arg4 = cst_encode_list_prim_u_8_loose(signerPublicKey);
+          var arg5 = cst_encode_box_autoadd_key_package_options(options);
+          var arg6 = cst_encode_opt_list_prim_u_8_strict(credentialBytes);
+          return wire
+              .wire__crate__api__engine__MlsEngine_create_key_package_with_options(
+                port_,
+                arg0,
+                arg1,
+                arg2,
+                arg3,
+                arg4,
+                arg5,
+                arg6,
+              );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_key_package_result,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiEngineMlsEngineCreateKeyPackageWithOptionsConstMeta,
+        argValues: [
+          that,
+          ciphersuite,
+          signerBytes,
+          credentialIdentity,
+          signerPublicKey,
+          options,
+          credentialBytes,
+        ],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta
+  get kCrateApiEngineMlsEngineCreateKeyPackageWithOptionsConstMeta =>
+      const TaskConstMeta(
+        debugName: "MlsEngine_create_key_package_with_options",
+        argNames: [
+          "that",
+          "ciphersuite",
+          "signerBytes",
+          "credentialIdentity",
+          "signerPublicKey",
+          "options",
+          "credentialBytes",
+        ],
+      );
+
+  @override
+  Future<CreateMessageResult> crateApiEngineMlsEngineCreateMessage({
+    required MlsEngine that,
+    required List<int> groupIdBytes,
+    required List<int> signerBytes,
+    required List<int> message,
+    Uint8List? aad,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 =
+              cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsEngine(
+                that,
+              );
+          var arg1 = cst_encode_list_prim_u_8_loose(groupIdBytes);
+          var arg2 = cst_encode_list_prim_u_8_loose(signerBytes);
+          var arg3 = cst_encode_list_prim_u_8_loose(message);
+          var arg4 = cst_encode_opt_list_prim_u_8_strict(aad);
+          return wire.wire__crate__api__engine__MlsEngine_create_message(
+            port_,
+            arg0,
+            arg1,
+            arg2,
+            arg3,
+            arg4,
+          );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_create_message_result,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiEngineMlsEngineCreateMessageConstMeta,
+        argValues: [that, groupIdBytes, signerBytes, message, aad],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiEngineMlsEngineCreateMessageConstMeta =>
+      const TaskConstMeta(
+        debugName: "MlsEngine_create_message",
+        argNames: ["that", "groupIdBytes", "signerBytes", "message", "aad"],
+      );
+
+  @override
+  Future<void> crateApiEngineMlsEngineDeleteGroup({
+    required MlsEngine that,
+    required List<int> groupIdBytes,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 =
+              cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsEngine(
+                that,
+              );
+          var arg1 = cst_encode_list_prim_u_8_loose(groupIdBytes);
+          return wire.wire__crate__api__engine__MlsEngine_delete_group(
+            port_,
+            arg0,
+            arg1,
+          );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_unit,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiEngineMlsEngineDeleteGroupConstMeta,
+        argValues: [that, groupIdBytes],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiEngineMlsEngineDeleteGroupConstMeta =>
+      const TaskConstMeta(
+        debugName: "MlsEngine_delete_group",
+        argNames: ["that", "groupIdBytes"],
+      );
+
+  @override
+  Future<void> crateApiEngineMlsEngineDeleteKeyPackage({
+    required MlsEngine that,
+    required List<int> keyPackageRefBytes,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 =
+              cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsEngine(
+                that,
+              );
+          var arg1 = cst_encode_list_prim_u_8_loose(keyPackageRefBytes);
+          return wire.wire__crate__api__engine__MlsEngine_delete_key_package(
+            port_,
+            arg0,
+            arg1,
+          );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_unit,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiEngineMlsEngineDeleteKeyPackageConstMeta,
+        argValues: [that, keyPackageRefBytes],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiEngineMlsEngineDeleteKeyPackageConstMeta =>
+      const TaskConstMeta(
+        debugName: "MlsEngine_delete_key_package",
+        argNames: ["that", "keyPackageRefBytes"],
+      );
+
+  @override
+  Future<MlsGroupContextInfo> crateApiEngineMlsEngineExportGroupContext({
+    required MlsEngine that,
+    required List<int> groupIdBytes,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 =
+              cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsEngine(
+                that,
+              );
+          var arg1 = cst_encode_list_prim_u_8_loose(groupIdBytes);
+          return wire.wire__crate__api__engine__MlsEngine_export_group_context(
+            port_,
+            arg0,
+            arg1,
+          );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_mls_group_context_info,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiEngineMlsEngineExportGroupContextConstMeta,
+        argValues: [that, groupIdBytes],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiEngineMlsEngineExportGroupContextConstMeta =>
+      const TaskConstMeta(
+        debugName: "MlsEngine_export_group_context",
+        argNames: ["that", "groupIdBytes"],
+      );
+
+  @override
+  Future<Uint8List> crateApiEngineMlsEngineExportGroupInfo({
+    required MlsEngine that,
+    required List<int> groupIdBytes,
+    required List<int> signerBytes,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 =
+              cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsEngine(
+                that,
+              );
+          var arg1 = cst_encode_list_prim_u_8_loose(groupIdBytes);
+          var arg2 = cst_encode_list_prim_u_8_loose(signerBytes);
+          return wire.wire__crate__api__engine__MlsEngine_export_group_info(
+            port_,
+            arg0,
+            arg1,
+            arg2,
+          );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_list_prim_u_8_strict,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiEngineMlsEngineExportGroupInfoConstMeta,
+        argValues: [that, groupIdBytes, signerBytes],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiEngineMlsEngineExportGroupInfoConstMeta =>
+      const TaskConstMeta(
+        debugName: "MlsEngine_export_group_info",
+        argNames: ["that", "groupIdBytes", "signerBytes"],
+      );
+
+  @override
+  Future<Uint8List> crateApiEngineMlsEngineExportRatchetTree({
+    required MlsEngine that,
+    required List<int> groupIdBytes,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 =
+              cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsEngine(
+                that,
+              );
+          var arg1 = cst_encode_list_prim_u_8_loose(groupIdBytes);
+          return wire.wire__crate__api__engine__MlsEngine_export_ratchet_tree(
+            port_,
+            arg0,
+            arg1,
+          );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_list_prim_u_8_strict,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiEngineMlsEngineExportRatchetTreeConstMeta,
+        argValues: [that, groupIdBytes],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiEngineMlsEngineExportRatchetTreeConstMeta =>
+      const TaskConstMeta(
+        debugName: "MlsEngine_export_ratchet_tree",
+        argNames: ["that", "groupIdBytes"],
+      );
+
+  @override
+  Future<Uint8List> crateApiEngineMlsEngineExportSecret({
+    required MlsEngine that,
+    required List<int> groupIdBytes,
+    required String label,
+    required List<int> context,
+    required int keyLength,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 =
+              cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsEngine(
+                that,
+              );
+          var arg1 = cst_encode_list_prim_u_8_loose(groupIdBytes);
+          var arg2 = cst_encode_String(label);
+          var arg3 = cst_encode_list_prim_u_8_loose(context);
+          var arg4 = cst_encode_u_32(keyLength);
+          return wire.wire__crate__api__engine__MlsEngine_export_secret(
+            port_,
+            arg0,
+            arg1,
+            arg2,
+            arg3,
+            arg4,
+          );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_list_prim_u_8_strict,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiEngineMlsEngineExportSecretConstMeta,
+        argValues: [that, groupIdBytes, label, context, keyLength],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiEngineMlsEngineExportSecretConstMeta =>
+      const TaskConstMeta(
+        debugName: "MlsEngine_export_secret",
+        argNames: ["that", "groupIdBytes", "label", "context", "keyLength"],
+      );
+
+  @override
+  Future<CommitResult> crateApiEngineMlsEngineFlexibleCommit({
+    required MlsEngine that,
+    required List<int> groupIdBytes,
+    required List<int> signerBytes,
+    required FlexibleCommitOptions options,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 =
+              cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsEngine(
+                that,
+              );
+          var arg1 = cst_encode_list_prim_u_8_loose(groupIdBytes);
+          var arg2 = cst_encode_list_prim_u_8_loose(signerBytes);
+          var arg3 = cst_encode_box_autoadd_flexible_commit_options(options);
+          return wire.wire__crate__api__engine__MlsEngine_flexible_commit(
+            port_,
+            arg0,
+            arg1,
+            arg2,
+            arg3,
+          );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_commit_result,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiEngineMlsEngineFlexibleCommitConstMeta,
+        argValues: [that, groupIdBytes, signerBytes, options],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiEngineMlsEngineFlexibleCommitConstMeta =>
+      const TaskConstMeta(
+        debugName: "MlsEngine_flexible_commit",
+        argNames: ["that", "groupIdBytes", "signerBytes", "options"],
+      );
+
+  @override
+  Future<Uint8List?> crateApiEngineMlsEngineGetPastResumptionPsk({
+    required MlsEngine that,
+    required List<int> groupIdBytes,
+    required BigInt epoch,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 =
+              cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsEngine(
+                that,
+              );
+          var arg1 = cst_encode_list_prim_u_8_loose(groupIdBytes);
+          var arg2 = cst_encode_u_64(epoch);
+          return wire
+              .wire__crate__api__engine__MlsEngine_get_past_resumption_psk(
+                port_,
+                arg0,
+                arg1,
+                arg2,
+              );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_opt_list_prim_u_8_strict,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiEngineMlsEngineGetPastResumptionPskConstMeta,
+        argValues: [that, groupIdBytes, epoch],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiEngineMlsEngineGetPastResumptionPskConstMeta =>
+      const TaskConstMeta(
+        debugName: "MlsEngine_get_past_resumption_psk",
+        argNames: ["that", "groupIdBytes", "epoch"],
+      );
+
+  @override
+  Future<MlsCiphersuite> crateApiEngineMlsEngineGroupCiphersuite({
+    required MlsEngine that,
+    required List<int> groupIdBytes,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 =
+              cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsEngine(
+                that,
+              );
+          var arg1 = cst_encode_list_prim_u_8_loose(groupIdBytes);
+          return wire.wire__crate__api__engine__MlsEngine_group_ciphersuite(
+            port_,
+            arg0,
+            arg1,
+          );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_mls_ciphersuite,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiEngineMlsEngineGroupCiphersuiteConstMeta,
+        argValues: [that, groupIdBytes],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiEngineMlsEngineGroupCiphersuiteConstMeta =>
+      const TaskConstMeta(
+        debugName: "MlsEngine_group_ciphersuite",
+        argNames: ["that", "groupIdBytes"],
+      );
+
+  @override
+  Future<GroupConfigurationResult> crateApiEngineMlsEngineGroupConfiguration({
+    required MlsEngine that,
+    required List<int> groupIdBytes,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 =
+              cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsEngine(
+                that,
+              );
+          var arg1 = cst_encode_list_prim_u_8_loose(groupIdBytes);
+          return wire.wire__crate__api__engine__MlsEngine_group_configuration(
+            port_,
+            arg0,
+            arg1,
+          );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_group_configuration_result,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiEngineMlsEngineGroupConfigurationConstMeta,
+        argValues: [that, groupIdBytes],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiEngineMlsEngineGroupConfigurationConstMeta =>
+      const TaskConstMeta(
+        debugName: "MlsEngine_group_configuration",
+        argNames: ["that", "groupIdBytes"],
+      );
+
+  @override
+  Future<Uint8List> crateApiEngineMlsEngineGroupConfirmationTag({
+    required MlsEngine that,
+    required List<int> groupIdBytes,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 =
+              cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsEngine(
+                that,
+              );
+          var arg1 = cst_encode_list_prim_u_8_loose(groupIdBytes);
+          return wire
+              .wire__crate__api__engine__MlsEngine_group_confirmation_tag(
+                port_,
+                arg0,
+                arg1,
+              );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_list_prim_u_8_strict,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiEngineMlsEngineGroupConfirmationTagConstMeta,
+        argValues: [that, groupIdBytes],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiEngineMlsEngineGroupConfirmationTagConstMeta =>
+      const TaskConstMeta(
+        debugName: "MlsEngine_group_confirmation_tag",
+        argNames: ["that", "groupIdBytes"],
+      );
+
+  @override
+  Future<Uint8List> crateApiEngineMlsEngineGroupCredential({
+    required MlsEngine that,
+    required List<int> groupIdBytes,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 =
+              cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsEngine(
+                that,
+              );
+          var arg1 = cst_encode_list_prim_u_8_loose(groupIdBytes);
+          return wire.wire__crate__api__engine__MlsEngine_group_credential(
+            port_,
+            arg0,
+            arg1,
+          );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_list_prim_u_8_strict,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiEngineMlsEngineGroupCredentialConstMeta,
+        argValues: [that, groupIdBytes],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiEngineMlsEngineGroupCredentialConstMeta =>
+      const TaskConstMeta(
+        debugName: "MlsEngine_group_credential",
+        argNames: ["that", "groupIdBytes"],
+      );
+
+  @override
+  Future<BigInt> crateApiEngineMlsEngineGroupEpoch({
+    required MlsEngine that,
+    required List<int> groupIdBytes,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 =
+              cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsEngine(
+                that,
+              );
+          var arg1 = cst_encode_list_prim_u_8_loose(groupIdBytes);
+          return wire.wire__crate__api__engine__MlsEngine_group_epoch(
+            port_,
+            arg0,
+            arg1,
+          );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_u_64,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiEngineMlsEngineGroupEpochConstMeta,
+        argValues: [that, groupIdBytes],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiEngineMlsEngineGroupEpochConstMeta =>
+      const TaskConstMeta(
+        debugName: "MlsEngine_group_epoch",
+        argNames: ["that", "groupIdBytes"],
+      );
+
+  @override
+  Future<Uint8List> crateApiEngineMlsEngineGroupEpochAuthenticator({
+    required MlsEngine that,
+    required List<int> groupIdBytes,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 =
+              cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsEngine(
+                that,
+              );
+          var arg1 = cst_encode_list_prim_u_8_loose(groupIdBytes);
+          return wire
+              .wire__crate__api__engine__MlsEngine_group_epoch_authenticator(
+                port_,
+                arg0,
+                arg1,
+              );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_list_prim_u_8_strict,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiEngineMlsEngineGroupEpochAuthenticatorConstMeta,
+        argValues: [that, groupIdBytes],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiEngineMlsEngineGroupEpochAuthenticatorConstMeta =>
+      const TaskConstMeta(
+        debugName: "MlsEngine_group_epoch_authenticator",
+        argNames: ["that", "groupIdBytes"],
+      );
+
+  @override
+  Future<Uint8List> crateApiEngineMlsEngineGroupExtensions({
+    required MlsEngine that,
+    required List<int> groupIdBytes,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 =
+              cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsEngine(
+                that,
+              );
+          var arg1 = cst_encode_list_prim_u_8_loose(groupIdBytes);
+          return wire.wire__crate__api__engine__MlsEngine_group_extensions(
+            port_,
+            arg0,
+            arg1,
+          );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_list_prim_u_8_strict,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiEngineMlsEngineGroupExtensionsConstMeta,
+        argValues: [that, groupIdBytes],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiEngineMlsEngineGroupExtensionsConstMeta =>
+      const TaskConstMeta(
+        debugName: "MlsEngine_group_extensions",
+        argNames: ["that", "groupIdBytes"],
+      );
+
+  @override
+  Future<bool> crateApiEngineMlsEngineGroupHasPendingProposals({
+    required MlsEngine that,
+    required List<int> groupIdBytes,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 =
+              cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsEngine(
+                that,
+              );
+          var arg1 = cst_encode_list_prim_u_8_loose(groupIdBytes);
+          return wire
+              .wire__crate__api__engine__MlsEngine_group_has_pending_proposals(
+                port_,
+                arg0,
+                arg1,
+              );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_bool,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiEngineMlsEngineGroupHasPendingProposalsConstMeta,
+        argValues: [that, groupIdBytes],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiEngineMlsEngineGroupHasPendingProposalsConstMeta =>
+      const TaskConstMeta(
+        debugName: "MlsEngine_group_has_pending_proposals",
+        argNames: ["that", "groupIdBytes"],
+      );
+
+  @override
+  Future<Uint8List> crateApiEngineMlsEngineGroupId({
+    required MlsEngine that,
+    required List<int> groupIdBytes,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 =
+              cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsEngine(
+                that,
+              );
+          var arg1 = cst_encode_list_prim_u_8_loose(groupIdBytes);
+          return wire.wire__crate__api__engine__MlsEngine_group_id(
+            port_,
+            arg0,
+            arg1,
+          );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_list_prim_u_8_strict,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiEngineMlsEngineGroupIdConstMeta,
+        argValues: [that, groupIdBytes],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiEngineMlsEngineGroupIdConstMeta =>
+      const TaskConstMeta(
+        debugName: "MlsEngine_group_id",
+        argNames: ["that", "groupIdBytes"],
+      );
+
+  @override
+  Future<bool> crateApiEngineMlsEngineGroupIsActive({
+    required MlsEngine that,
+    required List<int> groupIdBytes,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 =
+              cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsEngine(
+                that,
+              );
+          var arg1 = cst_encode_list_prim_u_8_loose(groupIdBytes);
+          return wire.wire__crate__api__engine__MlsEngine_group_is_active(
+            port_,
+            arg0,
+            arg1,
+          );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_bool,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiEngineMlsEngineGroupIsActiveConstMeta,
+        argValues: [that, groupIdBytes],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiEngineMlsEngineGroupIsActiveConstMeta =>
+      const TaskConstMeta(
+        debugName: "MlsEngine_group_is_active",
+        argNames: ["that", "groupIdBytes"],
+      );
+
+  @override
+  Future<MlsMemberInfo?> crateApiEngineMlsEngineGroupMemberAt({
+    required MlsEngine that,
+    required List<int> groupIdBytes,
+    required int leafIndex,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 =
+              cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsEngine(
+                that,
+              );
+          var arg1 = cst_encode_list_prim_u_8_loose(groupIdBytes);
+          var arg2 = cst_encode_u_32(leafIndex);
+          return wire.wire__crate__api__engine__MlsEngine_group_member_at(
+            port_,
+            arg0,
+            arg1,
+            arg2,
+          );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_opt_box_autoadd_mls_member_info,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiEngineMlsEngineGroupMemberAtConstMeta,
+        argValues: [that, groupIdBytes, leafIndex],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiEngineMlsEngineGroupMemberAtConstMeta =>
+      const TaskConstMeta(
+        debugName: "MlsEngine_group_member_at",
+        argNames: ["that", "groupIdBytes", "leafIndex"],
+      );
+
+  @override
+  Future<int?> crateApiEngineMlsEngineGroupMemberLeafIndex({
+    required MlsEngine that,
+    required List<int> groupIdBytes,
+    required List<int> credentialBytes,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 =
+              cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsEngine(
+                that,
+              );
+          var arg1 = cst_encode_list_prim_u_8_loose(groupIdBytes);
+          var arg2 = cst_encode_list_prim_u_8_loose(credentialBytes);
+          return wire
+              .wire__crate__api__engine__MlsEngine_group_member_leaf_index(
+                port_,
+                arg0,
+                arg1,
+                arg2,
+              );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_opt_box_autoadd_u_32,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiEngineMlsEngineGroupMemberLeafIndexConstMeta,
+        argValues: [that, groupIdBytes, credentialBytes],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiEngineMlsEngineGroupMemberLeafIndexConstMeta =>
+      const TaskConstMeta(
+        debugName: "MlsEngine_group_member_leaf_index",
+        argNames: ["that", "groupIdBytes", "credentialBytes"],
+      );
+
+  @override
+  Future<List<MlsMemberInfo>> crateApiEngineMlsEngineGroupMembers({
+    required MlsEngine that,
+    required List<int> groupIdBytes,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 =
+              cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsEngine(
+                that,
+              );
+          var arg1 = cst_encode_list_prim_u_8_loose(groupIdBytes);
+          return wire.wire__crate__api__engine__MlsEngine_group_members(
+            port_,
+            arg0,
+            arg1,
+          );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_list_mls_member_info,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiEngineMlsEngineGroupMembersConstMeta,
+        argValues: [that, groupIdBytes],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiEngineMlsEngineGroupMembersConstMeta =>
+      const TaskConstMeta(
+        debugName: "MlsEngine_group_members",
+        argNames: ["that", "groupIdBytes"],
+      );
+
+  @override
+  Future<int> crateApiEngineMlsEngineGroupOwnIndex({
+    required MlsEngine that,
+    required List<int> groupIdBytes,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 =
+              cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsEngine(
+                that,
+              );
+          var arg1 = cst_encode_list_prim_u_8_loose(groupIdBytes);
+          return wire.wire__crate__api__engine__MlsEngine_group_own_index(
+            port_,
+            arg0,
+            arg1,
+          );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_u_32,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiEngineMlsEngineGroupOwnIndexConstMeta,
+        argValues: [that, groupIdBytes],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiEngineMlsEngineGroupOwnIndexConstMeta =>
+      const TaskConstMeta(
+        debugName: "MlsEngine_group_own_index",
+        argNames: ["that", "groupIdBytes"],
+      );
+
+  @override
+  Future<MlsLeafNodeInfo> crateApiEngineMlsEngineGroupOwnLeafNode({
+    required MlsEngine that,
+    required List<int> groupIdBytes,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 =
+              cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsEngine(
+                that,
+              );
+          var arg1 = cst_encode_list_prim_u_8_loose(groupIdBytes);
+          return wire.wire__crate__api__engine__MlsEngine_group_own_leaf_node(
+            port_,
+            arg0,
+            arg1,
+          );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_mls_leaf_node_info,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiEngineMlsEngineGroupOwnLeafNodeConstMeta,
+        argValues: [that, groupIdBytes],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiEngineMlsEngineGroupOwnLeafNodeConstMeta =>
+      const TaskConstMeta(
+        debugName: "MlsEngine_group_own_leaf_node",
+        argNames: ["that", "groupIdBytes"],
+      );
+
+  @override
+  Future<List<MlsPendingProposalInfo>>
+  crateApiEngineMlsEngineGroupPendingProposals({
+    required MlsEngine that,
+    required List<int> groupIdBytes,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 =
+              cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsEngine(
+                that,
+              );
+          var arg1 = cst_encode_list_prim_u_8_loose(groupIdBytes);
+          return wire
+              .wire__crate__api__engine__MlsEngine_group_pending_proposals(
+                port_,
+                arg0,
+                arg1,
+              );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_list_mls_pending_proposal_info,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiEngineMlsEngineGroupPendingProposalsConstMeta,
+        argValues: [that, groupIdBytes],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiEngineMlsEngineGroupPendingProposalsConstMeta =>
+      const TaskConstMeta(
+        debugName: "MlsEngine_group_pending_proposals",
+        argNames: ["that", "groupIdBytes"],
+      );
+
+  @override
+  Future<WelcomeInspectResult> crateApiEngineMlsEngineInspectWelcome({
+    required MlsEngine that,
+    required MlsGroupConfig config,
+    required List<int> welcomeBytes,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 =
+              cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsEngine(
+                that,
+              );
+          var arg1 = cst_encode_box_autoadd_mls_group_config(config);
+          var arg2 = cst_encode_list_prim_u_8_loose(welcomeBytes);
+          return wire.wire__crate__api__engine__MlsEngine_inspect_welcome(
+            port_,
+            arg0,
+            arg1,
+            arg2,
+          );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_welcome_inspect_result,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiEngineMlsEngineInspectWelcomeConstMeta,
+        argValues: [that, config, welcomeBytes],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiEngineMlsEngineInspectWelcomeConstMeta =>
+      const TaskConstMeta(
+        debugName: "MlsEngine_inspect_welcome",
+        argNames: ["that", "config", "welcomeBytes"],
+      );
+
+  @override
+  Future<ExternalJoinResult> crateApiEngineMlsEngineJoinGroupExternalCommit({
+    required MlsEngine that,
+    required MlsGroupConfig config,
+    required List<int> groupInfoBytes,
+    Uint8List? ratchetTreeBytes,
+    required List<int> signerBytes,
+    required List<int> credentialIdentity,
+    required List<int> signerPublicKey,
+    Uint8List? credentialBytes,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 =
+              cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsEngine(
+                that,
+              );
+          var arg1 = cst_encode_box_autoadd_mls_group_config(config);
+          var arg2 = cst_encode_list_prim_u_8_loose(groupInfoBytes);
+          var arg3 = cst_encode_opt_list_prim_u_8_strict(ratchetTreeBytes);
+          var arg4 = cst_encode_list_prim_u_8_loose(signerBytes);
+          var arg5 = cst_encode_list_prim_u_8_loose(credentialIdentity);
+          var arg6 = cst_encode_list_prim_u_8_loose(signerPublicKey);
+          var arg7 = cst_encode_opt_list_prim_u_8_strict(credentialBytes);
+          return wire
+              .wire__crate__api__engine__MlsEngine_join_group_external_commit(
+                port_,
+                arg0,
+                arg1,
+                arg2,
+                arg3,
+                arg4,
+                arg5,
+                arg6,
+                arg7,
+              );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_external_join_result,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiEngineMlsEngineJoinGroupExternalCommitConstMeta,
+        argValues: [
+          that,
+          config,
+          groupInfoBytes,
+          ratchetTreeBytes,
+          signerBytes,
+          credentialIdentity,
+          signerPublicKey,
+          credentialBytes,
+        ],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiEngineMlsEngineJoinGroupExternalCommitConstMeta =>
+      const TaskConstMeta(
+        debugName: "MlsEngine_join_group_external_commit",
+        argNames: [
+          "that",
+          "config",
+          "groupInfoBytes",
+          "ratchetTreeBytes",
+          "signerBytes",
+          "credentialIdentity",
+          "signerPublicKey",
+          "credentialBytes",
+        ],
+      );
+
+  @override
+  Future<ExternalJoinResult> crateApiEngineMlsEngineJoinGroupExternalCommitV2({
+    required MlsEngine that,
+    required MlsGroupConfig config,
+    required List<int> groupInfoBytes,
+    Uint8List? ratchetTreeBytes,
+    required List<int> signerBytes,
+    required List<int> credentialIdentity,
+    required List<int> signerPublicKey,
+    Uint8List? aad,
+    required bool skipLifetimeValidation,
+    Uint8List? credentialBytes,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 =
+              cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsEngine(
+                that,
+              );
+          var arg1 = cst_encode_box_autoadd_mls_group_config(config);
+          var arg2 = cst_encode_list_prim_u_8_loose(groupInfoBytes);
+          var arg3 = cst_encode_opt_list_prim_u_8_strict(ratchetTreeBytes);
+          var arg4 = cst_encode_list_prim_u_8_loose(signerBytes);
+          var arg5 = cst_encode_list_prim_u_8_loose(credentialIdentity);
+          var arg6 = cst_encode_list_prim_u_8_loose(signerPublicKey);
+          var arg7 = cst_encode_opt_list_prim_u_8_strict(aad);
+          var arg8 = cst_encode_bool(skipLifetimeValidation);
+          var arg9 = cst_encode_opt_list_prim_u_8_strict(credentialBytes);
+          return wire
+              .wire__crate__api__engine__MlsEngine_join_group_external_commit_v2(
+                port_,
+                arg0,
+                arg1,
+                arg2,
+                arg3,
+                arg4,
+                arg5,
+                arg6,
+                arg7,
+                arg8,
+                arg9,
+              );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_external_join_result,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiEngineMlsEngineJoinGroupExternalCommitV2ConstMeta,
+        argValues: [
+          that,
+          config,
+          groupInfoBytes,
+          ratchetTreeBytes,
+          signerBytes,
+          credentialIdentity,
+          signerPublicKey,
+          aad,
+          skipLifetimeValidation,
+          credentialBytes,
+        ],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta
+  get kCrateApiEngineMlsEngineJoinGroupExternalCommitV2ConstMeta =>
+      const TaskConstMeta(
+        debugName: "MlsEngine_join_group_external_commit_v2",
+        argNames: [
+          "that",
+          "config",
+          "groupInfoBytes",
+          "ratchetTreeBytes",
+          "signerBytes",
+          "credentialIdentity",
+          "signerPublicKey",
+          "aad",
+          "skipLifetimeValidation",
+          "credentialBytes",
+        ],
+      );
+
+  @override
+  Future<JoinGroupResult> crateApiEngineMlsEngineJoinGroupFromWelcome({
+    required MlsEngine that,
+    required MlsGroupConfig config,
+    required List<int> welcomeBytes,
+    Uint8List? ratchetTreeBytes,
+    required List<int> signerBytes,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 =
+              cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsEngine(
+                that,
+              );
+          var arg1 = cst_encode_box_autoadd_mls_group_config(config);
+          var arg2 = cst_encode_list_prim_u_8_loose(welcomeBytes);
+          var arg3 = cst_encode_opt_list_prim_u_8_strict(ratchetTreeBytes);
+          var arg4 = cst_encode_list_prim_u_8_loose(signerBytes);
+          return wire
+              .wire__crate__api__engine__MlsEngine_join_group_from_welcome(
+                port_,
+                arg0,
+                arg1,
+                arg2,
+                arg3,
+                arg4,
+              );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_join_group_result,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiEngineMlsEngineJoinGroupFromWelcomeConstMeta,
+        argValues: [that, config, welcomeBytes, ratchetTreeBytes, signerBytes],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiEngineMlsEngineJoinGroupFromWelcomeConstMeta =>
+      const TaskConstMeta(
+        debugName: "MlsEngine_join_group_from_welcome",
+        argNames: [
+          "that",
+          "config",
+          "welcomeBytes",
+          "ratchetTreeBytes",
+          "signerBytes",
+        ],
+      );
+
+  @override
+  Future<JoinGroupResult>
+  crateApiEngineMlsEngineJoinGroupFromWelcomeWithOptions({
+    required MlsEngine that,
+    required MlsGroupConfig config,
+    required List<int> welcomeBytes,
+    Uint8List? ratchetTreeBytes,
+    required List<int> signerBytes,
+    required bool skipLifetimeValidation,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 =
+              cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsEngine(
+                that,
+              );
+          var arg1 = cst_encode_box_autoadd_mls_group_config(config);
+          var arg2 = cst_encode_list_prim_u_8_loose(welcomeBytes);
+          var arg3 = cst_encode_opt_list_prim_u_8_strict(ratchetTreeBytes);
+          var arg4 = cst_encode_list_prim_u_8_loose(signerBytes);
+          var arg5 = cst_encode_bool(skipLifetimeValidation);
+          return wire
+              .wire__crate__api__engine__MlsEngine_join_group_from_welcome_with_options(
+                port_,
+                arg0,
+                arg1,
+                arg2,
+                arg3,
+                arg4,
+                arg5,
+              );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_join_group_result,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta:
+            kCrateApiEngineMlsEngineJoinGroupFromWelcomeWithOptionsConstMeta,
+        argValues: [
+          that,
+          config,
+          welcomeBytes,
+          ratchetTreeBytes,
+          signerBytes,
+          skipLifetimeValidation,
+        ],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta
+  get kCrateApiEngineMlsEngineJoinGroupFromWelcomeWithOptionsConstMeta =>
+      const TaskConstMeta(
+        debugName: "MlsEngine_join_group_from_welcome_with_options",
+        argNames: [
+          "that",
+          "config",
+          "welcomeBytes",
+          "ratchetTreeBytes",
+          "signerBytes",
+          "skipLifetimeValidation",
+        ],
+      );
+
+  @override
+  Future<LeaveGroupResult> crateApiEngineMlsEngineLeaveGroup({
+    required MlsEngine that,
+    required List<int> groupIdBytes,
+    required List<int> signerBytes,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 =
+              cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsEngine(
+                that,
+              );
+          var arg1 = cst_encode_list_prim_u_8_loose(groupIdBytes);
+          var arg2 = cst_encode_list_prim_u_8_loose(signerBytes);
+          return wire.wire__crate__api__engine__MlsEngine_leave_group(
+            port_,
+            arg0,
+            arg1,
+            arg2,
+          );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_leave_group_result,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiEngineMlsEngineLeaveGroupConstMeta,
+        argValues: [that, groupIdBytes, signerBytes],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiEngineMlsEngineLeaveGroupConstMeta =>
+      const TaskConstMeta(
+        debugName: "MlsEngine_leave_group",
+        argNames: ["that", "groupIdBytes", "signerBytes"],
+      );
+
+  @override
+  Future<LeaveGroupResult> crateApiEngineMlsEngineLeaveGroupViaSelfRemove({
+    required MlsEngine that,
+    required List<int> groupIdBytes,
+    required List<int> signerBytes,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 =
+              cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsEngine(
+                that,
+              );
+          var arg1 = cst_encode_list_prim_u_8_loose(groupIdBytes);
+          var arg2 = cst_encode_list_prim_u_8_loose(signerBytes);
+          return wire
+              .wire__crate__api__engine__MlsEngine_leave_group_via_self_remove(
+                port_,
+                arg0,
+                arg1,
+                arg2,
+              );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_leave_group_result,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiEngineMlsEngineLeaveGroupViaSelfRemoveConstMeta,
+        argValues: [that, groupIdBytes, signerBytes],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiEngineMlsEngineLeaveGroupViaSelfRemoveConstMeta =>
+      const TaskConstMeta(
+        debugName: "MlsEngine_leave_group_via_self_remove",
+        argNames: ["that", "groupIdBytes", "signerBytes"],
+      );
+
+  @override
+  Future<void> crateApiEngineMlsEngineMergePendingCommit({
+    required MlsEngine that,
+    required List<int> groupIdBytes,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 =
+              cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsEngine(
+                that,
+              );
+          var arg1 = cst_encode_list_prim_u_8_loose(groupIdBytes);
+          return wire.wire__crate__api__engine__MlsEngine_merge_pending_commit(
+            port_,
+            arg0,
+            arg1,
+          );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_unit,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiEngineMlsEngineMergePendingCommitConstMeta,
+        argValues: [that, groupIdBytes],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiEngineMlsEngineMergePendingCommitConstMeta =>
+      const TaskConstMeta(
+        debugName: "MlsEngine_merge_pending_commit",
+        argNames: ["that", "groupIdBytes"],
+      );
+
+  @override
+  Future<ProcessedMessageResult> crateApiEngineMlsEngineProcessMessage({
+    required MlsEngine that,
+    required List<int> groupIdBytes,
+    required List<int> messageBytes,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 =
+              cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsEngine(
+                that,
+              );
+          var arg1 = cst_encode_list_prim_u_8_loose(groupIdBytes);
+          var arg2 = cst_encode_list_prim_u_8_loose(messageBytes);
+          return wire.wire__crate__api__engine__MlsEngine_process_message(
+            port_,
+            arg0,
+            arg1,
+            arg2,
+          );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_processed_message_result,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiEngineMlsEngineProcessMessageConstMeta,
+        argValues: [that, groupIdBytes, messageBytes],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiEngineMlsEngineProcessMessageConstMeta =>
+      const TaskConstMeta(
+        debugName: "MlsEngine_process_message",
+        argNames: ["that", "groupIdBytes", "messageBytes"],
+      );
+
+  @override
+  Future<ProcessedMessageInspectResult>
+  crateApiEngineMlsEngineProcessMessageWithInspect({
+    required MlsEngine that,
+    required List<int> groupIdBytes,
+    required List<int> messageBytes,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 =
+              cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsEngine(
+                that,
+              );
+          var arg1 = cst_encode_list_prim_u_8_loose(groupIdBytes);
+          var arg2 = cst_encode_list_prim_u_8_loose(messageBytes);
+          return wire
+              .wire__crate__api__engine__MlsEngine_process_message_with_inspect(
+                port_,
+                arg0,
+                arg1,
+                arg2,
+              );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_processed_message_inspect_result,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiEngineMlsEngineProcessMessageWithInspectConstMeta,
+        argValues: [that, groupIdBytes, messageBytes],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta
+  get kCrateApiEngineMlsEngineProcessMessageWithInspectConstMeta =>
+      const TaskConstMeta(
+        debugName: "MlsEngine_process_message_with_inspect",
+        argNames: ["that", "groupIdBytes", "messageBytes"],
+      );
+
+  @override
+  Future<ProposalResult> crateApiEngineMlsEngineProposeAdd({
+    required MlsEngine that,
+    required List<int> groupIdBytes,
+    required List<int> signerBytes,
+    required List<int> keyPackageBytes,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 =
+              cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsEngine(
+                that,
+              );
+          var arg1 = cst_encode_list_prim_u_8_loose(groupIdBytes);
+          var arg2 = cst_encode_list_prim_u_8_loose(signerBytes);
+          var arg3 = cst_encode_list_prim_u_8_loose(keyPackageBytes);
+          return wire.wire__crate__api__engine__MlsEngine_propose_add(
+            port_,
+            arg0,
+            arg1,
+            arg2,
+            arg3,
+          );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_proposal_result,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiEngineMlsEngineProposeAddConstMeta,
+        argValues: [that, groupIdBytes, signerBytes, keyPackageBytes],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiEngineMlsEngineProposeAddConstMeta =>
+      const TaskConstMeta(
+        debugName: "MlsEngine_propose_add",
+        argNames: ["that", "groupIdBytes", "signerBytes", "keyPackageBytes"],
+      );
+
+  @override
+  Future<ProposalResult> crateApiEngineMlsEngineProposeCustomProposal({
+    required MlsEngine that,
+    required List<int> groupIdBytes,
+    required List<int> signerBytes,
+    required int proposalType,
+    required List<int> payload,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 =
+              cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsEngine(
+                that,
+              );
+          var arg1 = cst_encode_list_prim_u_8_loose(groupIdBytes);
+          var arg2 = cst_encode_list_prim_u_8_loose(signerBytes);
+          var arg3 = cst_encode_u_16(proposalType);
+          var arg4 = cst_encode_list_prim_u_8_loose(payload);
+          return wire
+              .wire__crate__api__engine__MlsEngine_propose_custom_proposal(
+                port_,
+                arg0,
+                arg1,
+                arg2,
+                arg3,
+                arg4,
+              );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_proposal_result,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiEngineMlsEngineProposeCustomProposalConstMeta,
+        argValues: [that, groupIdBytes, signerBytes, proposalType, payload],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiEngineMlsEngineProposeCustomProposalConstMeta =>
+      const TaskConstMeta(
+        debugName: "MlsEngine_propose_custom_proposal",
+        argNames: [
+          "that",
+          "groupIdBytes",
+          "signerBytes",
+          "proposalType",
+          "payload",
+        ],
+      );
+
+  @override
+  Future<ProposalResult> crateApiEngineMlsEngineProposeExternalPsk({
+    required MlsEngine that,
+    required List<int> groupIdBytes,
+    required List<int> signerBytes,
+    required List<int> pskId,
+    required List<int> pskNonce,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 =
+              cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsEngine(
+                that,
+              );
+          var arg1 = cst_encode_list_prim_u_8_loose(groupIdBytes);
+          var arg2 = cst_encode_list_prim_u_8_loose(signerBytes);
+          var arg3 = cst_encode_list_prim_u_8_loose(pskId);
+          var arg4 = cst_encode_list_prim_u_8_loose(pskNonce);
+          return wire.wire__crate__api__engine__MlsEngine_propose_external_psk(
+            port_,
+            arg0,
+            arg1,
+            arg2,
+            arg3,
+            arg4,
+          );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_proposal_result,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiEngineMlsEngineProposeExternalPskConstMeta,
+        argValues: [that, groupIdBytes, signerBytes, pskId, pskNonce],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiEngineMlsEngineProposeExternalPskConstMeta =>
+      const TaskConstMeta(
+        debugName: "MlsEngine_propose_external_psk",
+        argNames: ["that", "groupIdBytes", "signerBytes", "pskId", "pskNonce"],
+      );
+
+  @override
+  Future<ProposalResult> crateApiEngineMlsEngineProposeGroupContextExtensions({
+    required MlsEngine that,
+    required List<int> groupIdBytes,
+    required List<int> signerBytes,
+    required List<MlsExtension> extensions,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 =
+              cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsEngine(
+                that,
+              );
+          var arg1 = cst_encode_list_prim_u_8_loose(groupIdBytes);
+          var arg2 = cst_encode_list_prim_u_8_loose(signerBytes);
+          var arg3 = cst_encode_list_mls_extension(extensions);
+          return wire
+              .wire__crate__api__engine__MlsEngine_propose_group_context_extensions(
+                port_,
+                arg0,
+                arg1,
+                arg2,
+                arg3,
+              );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_proposal_result,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta:
+            kCrateApiEngineMlsEngineProposeGroupContextExtensionsConstMeta,
+        argValues: [that, groupIdBytes, signerBytes, extensions],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta
+  get kCrateApiEngineMlsEngineProposeGroupContextExtensionsConstMeta =>
+      const TaskConstMeta(
+        debugName: "MlsEngine_propose_group_context_extensions",
+        argNames: ["that", "groupIdBytes", "signerBytes", "extensions"],
+      );
+
+  @override
+  Future<ProposalResult> crateApiEngineMlsEngineProposeRemove({
+    required MlsEngine that,
+    required List<int> groupIdBytes,
+    required List<int> signerBytes,
+    required int memberIndex,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 =
+              cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsEngine(
+                that,
+              );
+          var arg1 = cst_encode_list_prim_u_8_loose(groupIdBytes);
+          var arg2 = cst_encode_list_prim_u_8_loose(signerBytes);
+          var arg3 = cst_encode_u_32(memberIndex);
+          return wire.wire__crate__api__engine__MlsEngine_propose_remove(
+            port_,
+            arg0,
+            arg1,
+            arg2,
+            arg3,
+          );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_proposal_result,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiEngineMlsEngineProposeRemoveConstMeta,
+        argValues: [that, groupIdBytes, signerBytes, memberIndex],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiEngineMlsEngineProposeRemoveConstMeta =>
+      const TaskConstMeta(
+        debugName: "MlsEngine_propose_remove",
+        argNames: ["that", "groupIdBytes", "signerBytes", "memberIndex"],
+      );
+
+  @override
+  Future<ProposalResult>
+  crateApiEngineMlsEngineProposeRemoveMemberByCredential({
+    required MlsEngine that,
+    required List<int> groupIdBytes,
+    required List<int> signerBytes,
+    required List<int> credentialBytes,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 =
+              cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsEngine(
+                that,
+              );
+          var arg1 = cst_encode_list_prim_u_8_loose(groupIdBytes);
+          var arg2 = cst_encode_list_prim_u_8_loose(signerBytes);
+          var arg3 = cst_encode_list_prim_u_8_loose(credentialBytes);
+          return wire
+              .wire__crate__api__engine__MlsEngine_propose_remove_member_by_credential(
+                port_,
+                arg0,
+                arg1,
+                arg2,
+                arg3,
+              );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_proposal_result,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta:
+            kCrateApiEngineMlsEngineProposeRemoveMemberByCredentialConstMeta,
+        argValues: [that, groupIdBytes, signerBytes, credentialBytes],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta
+  get kCrateApiEngineMlsEngineProposeRemoveMemberByCredentialConstMeta =>
+      const TaskConstMeta(
+        debugName: "MlsEngine_propose_remove_member_by_credential",
+        argNames: ["that", "groupIdBytes", "signerBytes", "credentialBytes"],
+      );
+
+  @override
+  Future<ProposalResult> crateApiEngineMlsEngineProposeSelfUpdate({
+    required MlsEngine that,
+    required List<int> groupIdBytes,
+    required List<int> signerBytes,
+    MlsCapabilities? leafNodeCapabilities,
+    List<MlsExtension>? leafNodeExtensions,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 =
+              cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsEngine(
+                that,
+              );
+          var arg1 = cst_encode_list_prim_u_8_loose(groupIdBytes);
+          var arg2 = cst_encode_list_prim_u_8_loose(signerBytes);
+          var arg3 = cst_encode_opt_box_autoadd_mls_capabilities(
+            leafNodeCapabilities,
+          );
+          var arg4 = cst_encode_opt_list_mls_extension(leafNodeExtensions);
+          return wire.wire__crate__api__engine__MlsEngine_propose_self_update(
+            port_,
+            arg0,
+            arg1,
+            arg2,
+            arg3,
+            arg4,
+          );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_proposal_result,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiEngineMlsEngineProposeSelfUpdateConstMeta,
+        argValues: [
+          that,
+          groupIdBytes,
+          signerBytes,
+          leafNodeCapabilities,
+          leafNodeExtensions,
+        ],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiEngineMlsEngineProposeSelfUpdateConstMeta =>
+      const TaskConstMeta(
+        debugName: "MlsEngine_propose_self_update",
+        argNames: [
+          "that",
+          "groupIdBytes",
+          "signerBytes",
+          "leafNodeCapabilities",
+          "leafNodeExtensions",
+        ],
+      );
+
+  @override
+  Future<CommitResult> crateApiEngineMlsEngineRemoveMembers({
+    required MlsEngine that,
+    required List<int> groupIdBytes,
+    required List<int> signerBytes,
+    required List<int> memberIndices,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 =
+              cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsEngine(
+                that,
+              );
+          var arg1 = cst_encode_list_prim_u_8_loose(groupIdBytes);
+          var arg2 = cst_encode_list_prim_u_8_loose(signerBytes);
+          var arg3 = cst_encode_list_prim_u_32_loose(memberIndices);
+          return wire.wire__crate__api__engine__MlsEngine_remove_members(
+            port_,
+            arg0,
+            arg1,
+            arg2,
+            arg3,
+          );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_commit_result,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiEngineMlsEngineRemoveMembersConstMeta,
+        argValues: [that, groupIdBytes, signerBytes, memberIndices],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiEngineMlsEngineRemoveMembersConstMeta =>
+      const TaskConstMeta(
+        debugName: "MlsEngine_remove_members",
+        argNames: ["that", "groupIdBytes", "signerBytes", "memberIndices"],
+      );
+
+  @override
+  Future<void> crateApiEngineMlsEngineRemovePendingProposal({
+    required MlsEngine that,
+    required List<int> groupIdBytes,
+    required List<int> proposalRefBytes,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 =
+              cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsEngine(
+                that,
+              );
+          var arg1 = cst_encode_list_prim_u_8_loose(groupIdBytes);
+          var arg2 = cst_encode_list_prim_u_8_loose(proposalRefBytes);
+          return wire
+              .wire__crate__api__engine__MlsEngine_remove_pending_proposal(
+                port_,
+                arg0,
+                arg1,
+                arg2,
+              );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_unit,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiEngineMlsEngineRemovePendingProposalConstMeta,
+        argValues: [that, groupIdBytes, proposalRefBytes],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiEngineMlsEngineRemovePendingProposalConstMeta =>
+      const TaskConstMeta(
+        debugName: "MlsEngine_remove_pending_proposal",
+        argNames: ["that", "groupIdBytes", "proposalRefBytes"],
+      );
+
+  @override
+  Future<CommitResult> crateApiEngineMlsEngineSelfUpdate({
+    required MlsEngine that,
+    required List<int> groupIdBytes,
+    required List<int> signerBytes,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 =
+              cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsEngine(
+                that,
+              );
+          var arg1 = cst_encode_list_prim_u_8_loose(groupIdBytes);
+          var arg2 = cst_encode_list_prim_u_8_loose(signerBytes);
+          return wire.wire__crate__api__engine__MlsEngine_self_update(
+            port_,
+            arg0,
+            arg1,
+            arg2,
+          );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_commit_result,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiEngineMlsEngineSelfUpdateConstMeta,
+        argValues: [that, groupIdBytes, signerBytes],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiEngineMlsEngineSelfUpdateConstMeta =>
+      const TaskConstMeta(
+        debugName: "MlsEngine_self_update",
+        argNames: ["that", "groupIdBytes", "signerBytes"],
+      );
+
+  @override
+  Future<CommitResult> crateApiEngineMlsEngineSelfUpdateWithNewSigner({
+    required MlsEngine that,
+    required List<int> groupIdBytes,
+    required List<int> oldSignerBytes,
+    required List<int> newSignerBytes,
+    required List<int> newCredentialIdentity,
+    required List<int> newSignerPublicKey,
+    Uint8List? newCredentialBytes,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 =
+              cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsEngine(
+                that,
+              );
+          var arg1 = cst_encode_list_prim_u_8_loose(groupIdBytes);
+          var arg2 = cst_encode_list_prim_u_8_loose(oldSignerBytes);
+          var arg3 = cst_encode_list_prim_u_8_loose(newSignerBytes);
+          var arg4 = cst_encode_list_prim_u_8_loose(newCredentialIdentity);
+          var arg5 = cst_encode_list_prim_u_8_loose(newSignerPublicKey);
+          var arg6 = cst_encode_opt_list_prim_u_8_strict(newCredentialBytes);
+          return wire
+              .wire__crate__api__engine__MlsEngine_self_update_with_new_signer(
+                port_,
+                arg0,
+                arg1,
+                arg2,
+                arg3,
+                arg4,
+                arg5,
+                arg6,
+              );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_commit_result,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiEngineMlsEngineSelfUpdateWithNewSignerConstMeta,
+        argValues: [
+          that,
+          groupIdBytes,
+          oldSignerBytes,
+          newSignerBytes,
+          newCredentialIdentity,
+          newSignerPublicKey,
+          newCredentialBytes,
+        ],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiEngineMlsEngineSelfUpdateWithNewSignerConstMeta =>
+      const TaskConstMeta(
+        debugName: "MlsEngine_self_update_with_new_signer",
+        argNames: [
+          "that",
+          "groupIdBytes",
+          "oldSignerBytes",
+          "newSignerBytes",
+          "newCredentialIdentity",
+          "newSignerPublicKey",
+          "newCredentialBytes",
+        ],
+      );
+
+  @override
+  Future<void> crateApiEngineMlsEngineSetConfiguration({
+    required MlsEngine that,
+    required List<int> groupIdBytes,
+    required MlsGroupConfig config,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 =
+              cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsEngine(
+                that,
+              );
+          var arg1 = cst_encode_list_prim_u_8_loose(groupIdBytes);
+          var arg2 = cst_encode_box_autoadd_mls_group_config(config);
+          return wire.wire__crate__api__engine__MlsEngine_set_configuration(
+            port_,
+            arg0,
+            arg1,
+            arg2,
+          );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_unit,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiEngineMlsEngineSetConfigurationConstMeta,
+        argValues: [that, groupIdBytes, config],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiEngineMlsEngineSetConfigurationConstMeta =>
+      const TaskConstMeta(
+        debugName: "MlsEngine_set_configuration",
+        argNames: ["that", "groupIdBytes", "config"],
+      );
+
+  @override
+  Future<AddMembersResult> crateApiEngineMlsEngineSwapMembers({
+    required MlsEngine that,
+    required List<int> groupIdBytes,
+    required List<int> signerBytes,
+    required List<int> removeIndices,
+    required List<Uint8List> addKeyPackagesBytes,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 =
+              cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsEngine(
+                that,
+              );
+          var arg1 = cst_encode_list_prim_u_8_loose(groupIdBytes);
+          var arg2 = cst_encode_list_prim_u_8_loose(signerBytes);
+          var arg3 = cst_encode_list_prim_u_32_loose(removeIndices);
+          var arg4 = cst_encode_list_list_prim_u_8_strict(addKeyPackagesBytes);
+          return wire.wire__crate__api__engine__MlsEngine_swap_members(
+            port_,
+            arg0,
+            arg1,
+            arg2,
+            arg3,
+            arg4,
+          );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_add_members_result,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiEngineMlsEngineSwapMembersConstMeta,
+        argValues: [
+          that,
+          groupIdBytes,
+          signerBytes,
+          removeIndices,
+          addKeyPackagesBytes,
+        ],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiEngineMlsEngineSwapMembersConstMeta =>
+      const TaskConstMeta(
+        debugName: "MlsEngine_swap_members",
+        argNames: [
+          "that",
+          "groupIdBytes",
+          "signerBytes",
+          "removeIndices",
+          "addKeyPackagesBytes",
+        ],
+      );
+
+  @override
+  Future<CommitResult> crateApiEngineMlsEngineUpdateGroupContextExtensions({
+    required MlsEngine that,
+    required List<int> groupIdBytes,
+    required List<int> signerBytes,
+    required List<MlsExtension> extensions,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 =
+              cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsEngine(
+                that,
+              );
+          var arg1 = cst_encode_list_prim_u_8_loose(groupIdBytes);
+          var arg2 = cst_encode_list_prim_u_8_loose(signerBytes);
+          var arg3 = cst_encode_list_mls_extension(extensions);
+          return wire
+              .wire__crate__api__engine__MlsEngine_update_group_context_extensions(
+                port_,
+                arg0,
+                arg1,
+                arg2,
+                arg3,
+              );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_commit_result,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta:
+            kCrateApiEngineMlsEngineUpdateGroupContextExtensionsConstMeta,
+        argValues: [that, groupIdBytes, signerBytes, extensions],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta
+  get kCrateApiEngineMlsEngineUpdateGroupContextExtensionsConstMeta =>
+      const TaskConstMeta(
+        debugName: "MlsEngine_update_group_context_extensions",
+        argNames: ["that", "groupIdBytes", "signerBytes", "extensions"],
+      );
+
+  @override
   MlsSignatureKeyPair crateApiKeysMlsSignatureKeyPairDeserializePublic({
     required List<int> bytes,
   }) {
@@ -1198,2071 +3726,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
-  Future<AddMembersProviderResult> crateApiProviderAddMembers({
-    required List<int> groupIdBytes,
-    required List<int> signerBytes,
-    required List<Uint8List> keyPackagesBytes,
-    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
-    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
-    required FutureOr<void> Function(Uint8List) storageDelete,
-  }) {
-    return handler.executeNormal(
-      NormalTask(
-        callFfi: (port_) {
-          var arg0 = cst_encode_list_prim_u_8_loose(groupIdBytes);
-          var arg1 = cst_encode_list_prim_u_8_loose(signerBytes);
-          var arg2 = cst_encode_list_list_prim_u_8_strict(keyPackagesBytes);
-          var arg3 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
-                storageRead,
-              );
-          var arg4 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
-                storageWrite,
-              );
-          var arg5 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
-                storageDelete,
-              );
-          return wire.wire__crate__api__provider__add_members(
-            port_,
-            arg0,
-            arg1,
-            arg2,
-            arg3,
-            arg4,
-            arg5,
-          );
-        },
-        codec: DcoCodec(
-          decodeSuccessData: dco_decode_add_members_provider_result,
-          decodeErrorData: dco_decode_String,
-        ),
-        constMeta: kCrateApiProviderAddMembersConstMeta,
-        argValues: [
-          groupIdBytes,
-          signerBytes,
-          keyPackagesBytes,
-          storageRead,
-          storageWrite,
-          storageDelete,
-        ],
-        apiImpl: this,
-      ),
-    );
-  }
-
-  TaskConstMeta get kCrateApiProviderAddMembersConstMeta => const TaskConstMeta(
-    debugName: "add_members",
-    argNames: [
-      "groupIdBytes",
-      "signerBytes",
-      "keyPackagesBytes",
-      "storageRead",
-      "storageWrite",
-      "storageDelete",
-    ],
-  );
-
-  @override
-  Future<AddMembersProviderResult> crateApiProviderAddMembersWithoutUpdate({
-    required List<int> groupIdBytes,
-    required List<int> signerBytes,
-    required List<Uint8List> keyPackagesBytes,
-    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
-    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
-    required FutureOr<void> Function(Uint8List) storageDelete,
-  }) {
-    return handler.executeNormal(
-      NormalTask(
-        callFfi: (port_) {
-          var arg0 = cst_encode_list_prim_u_8_loose(groupIdBytes);
-          var arg1 = cst_encode_list_prim_u_8_loose(signerBytes);
-          var arg2 = cst_encode_list_list_prim_u_8_strict(keyPackagesBytes);
-          var arg3 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
-                storageRead,
-              );
-          var arg4 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
-                storageWrite,
-              );
-          var arg5 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
-                storageDelete,
-              );
-          return wire.wire__crate__api__provider__add_members_without_update(
-            port_,
-            arg0,
-            arg1,
-            arg2,
-            arg3,
-            arg4,
-            arg5,
-          );
-        },
-        codec: DcoCodec(
-          decodeSuccessData: dco_decode_add_members_provider_result,
-          decodeErrorData: dco_decode_String,
-        ),
-        constMeta: kCrateApiProviderAddMembersWithoutUpdateConstMeta,
-        argValues: [
-          groupIdBytes,
-          signerBytes,
-          keyPackagesBytes,
-          storageRead,
-          storageWrite,
-          storageDelete,
-        ],
-        apiImpl: this,
-      ),
-    );
-  }
-
-  TaskConstMeta get kCrateApiProviderAddMembersWithoutUpdateConstMeta =>
-      const TaskConstMeta(
-        debugName: "add_members_without_update",
-        argNames: [
-          "groupIdBytes",
-          "signerBytes",
-          "keyPackagesBytes",
-          "storageRead",
-          "storageWrite",
-          "storageDelete",
-        ],
-      );
-
-  @override
-  Future<void> crateApiProviderClearPendingCommit({
-    required List<int> groupIdBytes,
-    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
-    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
-    required FutureOr<void> Function(Uint8List) storageDelete,
-  }) {
-    return handler.executeNormal(
-      NormalTask(
-        callFfi: (port_) {
-          var arg0 = cst_encode_list_prim_u_8_loose(groupIdBytes);
-          var arg1 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
-                storageRead,
-              );
-          var arg2 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
-                storageWrite,
-              );
-          var arg3 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
-                storageDelete,
-              );
-          return wire.wire__crate__api__provider__clear_pending_commit(
-            port_,
-            arg0,
-            arg1,
-            arg2,
-            arg3,
-          );
-        },
-        codec: DcoCodec(
-          decodeSuccessData: dco_decode_unit,
-          decodeErrorData: dco_decode_String,
-        ),
-        constMeta: kCrateApiProviderClearPendingCommitConstMeta,
-        argValues: [groupIdBytes, storageRead, storageWrite, storageDelete],
-        apiImpl: this,
-      ),
-    );
-  }
-
-  TaskConstMeta get kCrateApiProviderClearPendingCommitConstMeta =>
-      const TaskConstMeta(
-        debugName: "clear_pending_commit",
-        argNames: [
-          "groupIdBytes",
-          "storageRead",
-          "storageWrite",
-          "storageDelete",
-        ],
-      );
-
-  @override
-  Future<void> crateApiProviderClearPendingProposals({
-    required List<int> groupIdBytes,
-    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
-    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
-    required FutureOr<void> Function(Uint8List) storageDelete,
-  }) {
-    return handler.executeNormal(
-      NormalTask(
-        callFfi: (port_) {
-          var arg0 = cst_encode_list_prim_u_8_loose(groupIdBytes);
-          var arg1 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
-                storageRead,
-              );
-          var arg2 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
-                storageWrite,
-              );
-          var arg3 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
-                storageDelete,
-              );
-          return wire.wire__crate__api__provider__clear_pending_proposals(
-            port_,
-            arg0,
-            arg1,
-            arg2,
-            arg3,
-          );
-        },
-        codec: DcoCodec(
-          decodeSuccessData: dco_decode_unit,
-          decodeErrorData: dco_decode_String,
-        ),
-        constMeta: kCrateApiProviderClearPendingProposalsConstMeta,
-        argValues: [groupIdBytes, storageRead, storageWrite, storageDelete],
-        apiImpl: this,
-      ),
-    );
-  }
-
-  TaskConstMeta get kCrateApiProviderClearPendingProposalsConstMeta =>
-      const TaskConstMeta(
-        debugName: "clear_pending_proposals",
-        argNames: [
-          "groupIdBytes",
-          "storageRead",
-          "storageWrite",
-          "storageDelete",
-        ],
-      );
-
-  @override
-  Future<CommitProviderResult> crateApiProviderCommitToPendingProposals({
-    required List<int> groupIdBytes,
-    required List<int> signerBytes,
-    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
-    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
-    required FutureOr<void> Function(Uint8List) storageDelete,
-  }) {
-    return handler.executeNormal(
-      NormalTask(
-        callFfi: (port_) {
-          var arg0 = cst_encode_list_prim_u_8_loose(groupIdBytes);
-          var arg1 = cst_encode_list_prim_u_8_loose(signerBytes);
-          var arg2 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
-                storageRead,
-              );
-          var arg3 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
-                storageWrite,
-              );
-          var arg4 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
-                storageDelete,
-              );
-          return wire.wire__crate__api__provider__commit_to_pending_proposals(
-            port_,
-            arg0,
-            arg1,
-            arg2,
-            arg3,
-            arg4,
-          );
-        },
-        codec: DcoCodec(
-          decodeSuccessData: dco_decode_commit_provider_result,
-          decodeErrorData: dco_decode_String,
-        ),
-        constMeta: kCrateApiProviderCommitToPendingProposalsConstMeta,
-        argValues: [
-          groupIdBytes,
-          signerBytes,
-          storageRead,
-          storageWrite,
-          storageDelete,
-        ],
-        apiImpl: this,
-      ),
-    );
-  }
-
-  TaskConstMeta get kCrateApiProviderCommitToPendingProposalsConstMeta =>
-      const TaskConstMeta(
-        debugName: "commit_to_pending_proposals",
-        argNames: [
-          "groupIdBytes",
-          "signerBytes",
-          "storageRead",
-          "storageWrite",
-          "storageDelete",
-        ],
-      );
-
-  @override
-  Future<CreateGroupProviderResult> crateApiProviderCreateGroup({
-    required MlsGroupConfig config,
-    required List<int> signerBytes,
-    required List<int> credentialIdentity,
-    required List<int> signerPublicKey,
-    Uint8List? groupId,
-    Uint8List? credentialBytes,
-    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
-    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
-    required FutureOr<void> Function(Uint8List) storageDelete,
-  }) {
-    return handler.executeNormal(
-      NormalTask(
-        callFfi: (port_) {
-          var arg0 = cst_encode_box_autoadd_mls_group_config(config);
-          var arg1 = cst_encode_list_prim_u_8_loose(signerBytes);
-          var arg2 = cst_encode_list_prim_u_8_loose(credentialIdentity);
-          var arg3 = cst_encode_list_prim_u_8_loose(signerPublicKey);
-          var arg4 = cst_encode_opt_list_prim_u_8_strict(groupId);
-          var arg5 = cst_encode_opt_list_prim_u_8_strict(credentialBytes);
-          var arg6 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
-                storageRead,
-              );
-          var arg7 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
-                storageWrite,
-              );
-          var arg8 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
-                storageDelete,
-              );
-          return wire.wire__crate__api__provider__create_group(
-            port_,
-            arg0,
-            arg1,
-            arg2,
-            arg3,
-            arg4,
-            arg5,
-            arg6,
-            arg7,
-            arg8,
-          );
-        },
-        codec: DcoCodec(
-          decodeSuccessData: dco_decode_create_group_provider_result,
-          decodeErrorData: dco_decode_String,
-        ),
-        constMeta: kCrateApiProviderCreateGroupConstMeta,
-        argValues: [
-          config,
-          signerBytes,
-          credentialIdentity,
-          signerPublicKey,
-          groupId,
-          credentialBytes,
-          storageRead,
-          storageWrite,
-          storageDelete,
-        ],
-        apiImpl: this,
-      ),
-    );
-  }
-
-  TaskConstMeta get kCrateApiProviderCreateGroupConstMeta =>
-      const TaskConstMeta(
-        debugName: "create_group",
-        argNames: [
-          "config",
-          "signerBytes",
-          "credentialIdentity",
-          "signerPublicKey",
-          "groupId",
-          "credentialBytes",
-          "storageRead",
-          "storageWrite",
-          "storageDelete",
-        ],
-      );
-
-  @override
-  Future<CreateGroupProviderResult> crateApiProviderCreateGroupWithBuilder({
-    required MlsGroupConfig config,
-    required List<int> signerBytes,
-    required List<int> credentialIdentity,
-    required List<int> signerPublicKey,
-    Uint8List? groupId,
-    BigInt? lifetimeSeconds,
-    List<MlsExtension>? groupContextExtensions,
-    List<MlsExtension>? leafNodeExtensions,
-    MlsCapabilities? capabilities,
-    Uint8List? credentialBytes,
-    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
-    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
-    required FutureOr<void> Function(Uint8List) storageDelete,
-  }) {
-    return handler.executeNormal(
-      NormalTask(
-        callFfi: (port_) {
-          var arg0 = cst_encode_box_autoadd_mls_group_config(config);
-          var arg1 = cst_encode_list_prim_u_8_loose(signerBytes);
-          var arg2 = cst_encode_list_prim_u_8_loose(credentialIdentity);
-          var arg3 = cst_encode_list_prim_u_8_loose(signerPublicKey);
-          var arg4 = cst_encode_opt_list_prim_u_8_strict(groupId);
-          var arg5 = cst_encode_opt_box_autoadd_u_64(lifetimeSeconds);
-          var arg6 = cst_encode_opt_list_mls_extension(groupContextExtensions);
-          var arg7 = cst_encode_opt_list_mls_extension(leafNodeExtensions);
-          var arg8 = cst_encode_opt_box_autoadd_mls_capabilities(capabilities);
-          var arg9 = cst_encode_opt_list_prim_u_8_strict(credentialBytes);
-          var arg10 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
-                storageRead,
-              );
-          var arg11 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
-                storageWrite,
-              );
-          var arg12 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
-                storageDelete,
-              );
-          return wire.wire__crate__api__provider__create_group_with_builder(
-            port_,
-            arg0,
-            arg1,
-            arg2,
-            arg3,
-            arg4,
-            arg5,
-            arg6,
-            arg7,
-            arg8,
-            arg9,
-            arg10,
-            arg11,
-            arg12,
-          );
-        },
-        codec: DcoCodec(
-          decodeSuccessData: dco_decode_create_group_provider_result,
-          decodeErrorData: dco_decode_String,
-        ),
-        constMeta: kCrateApiProviderCreateGroupWithBuilderConstMeta,
-        argValues: [
-          config,
-          signerBytes,
-          credentialIdentity,
-          signerPublicKey,
-          groupId,
-          lifetimeSeconds,
-          groupContextExtensions,
-          leafNodeExtensions,
-          capabilities,
-          credentialBytes,
-          storageRead,
-          storageWrite,
-          storageDelete,
-        ],
-        apiImpl: this,
-      ),
-    );
-  }
-
-  TaskConstMeta get kCrateApiProviderCreateGroupWithBuilderConstMeta =>
-      const TaskConstMeta(
-        debugName: "create_group_with_builder",
-        argNames: [
-          "config",
-          "signerBytes",
-          "credentialIdentity",
-          "signerPublicKey",
-          "groupId",
-          "lifetimeSeconds",
-          "groupContextExtensions",
-          "leafNodeExtensions",
-          "capabilities",
-          "credentialBytes",
-          "storageRead",
-          "storageWrite",
-          "storageDelete",
-        ],
-      );
-
-  @override
-  Future<KeyPackageProviderResult> crateApiProviderCreateKeyPackage({
-    required MlsCiphersuite ciphersuite,
-    required List<int> signerBytes,
-    required List<int> credentialIdentity,
-    required List<int> signerPublicKey,
-    Uint8List? credentialBytes,
-    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
-    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
-    required FutureOr<void> Function(Uint8List) storageDelete,
-  }) {
-    return handler.executeNormal(
-      NormalTask(
-        callFfi: (port_) {
-          var arg0 = cst_encode_mls_ciphersuite(ciphersuite);
-          var arg1 = cst_encode_list_prim_u_8_loose(signerBytes);
-          var arg2 = cst_encode_list_prim_u_8_loose(credentialIdentity);
-          var arg3 = cst_encode_list_prim_u_8_loose(signerPublicKey);
-          var arg4 = cst_encode_opt_list_prim_u_8_strict(credentialBytes);
-          var arg5 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
-                storageRead,
-              );
-          var arg6 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
-                storageWrite,
-              );
-          var arg7 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
-                storageDelete,
-              );
-          return wire.wire__crate__api__provider__create_key_package(
-            port_,
-            arg0,
-            arg1,
-            arg2,
-            arg3,
-            arg4,
-            arg5,
-            arg6,
-            arg7,
-          );
-        },
-        codec: DcoCodec(
-          decodeSuccessData: dco_decode_key_package_provider_result,
-          decodeErrorData: dco_decode_String,
-        ),
-        constMeta: kCrateApiProviderCreateKeyPackageConstMeta,
-        argValues: [
-          ciphersuite,
-          signerBytes,
-          credentialIdentity,
-          signerPublicKey,
-          credentialBytes,
-          storageRead,
-          storageWrite,
-          storageDelete,
-        ],
-        apiImpl: this,
-      ),
-    );
-  }
-
-  TaskConstMeta get kCrateApiProviderCreateKeyPackageConstMeta =>
-      const TaskConstMeta(
-        debugName: "create_key_package",
-        argNames: [
-          "ciphersuite",
-          "signerBytes",
-          "credentialIdentity",
-          "signerPublicKey",
-          "credentialBytes",
-          "storageRead",
-          "storageWrite",
-          "storageDelete",
-        ],
-      );
-
-  @override
-  Future<KeyPackageProviderResult> crateApiProviderCreateKeyPackageWithOptions({
-    required MlsCiphersuite ciphersuite,
-    required List<int> signerBytes,
-    required List<int> credentialIdentity,
-    required List<int> signerPublicKey,
-    required KeyPackageOptions options,
-    Uint8List? credentialBytes,
-    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
-    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
-    required FutureOr<void> Function(Uint8List) storageDelete,
-  }) {
-    return handler.executeNormal(
-      NormalTask(
-        callFfi: (port_) {
-          var arg0 = cst_encode_mls_ciphersuite(ciphersuite);
-          var arg1 = cst_encode_list_prim_u_8_loose(signerBytes);
-          var arg2 = cst_encode_list_prim_u_8_loose(credentialIdentity);
-          var arg3 = cst_encode_list_prim_u_8_loose(signerPublicKey);
-          var arg4 = cst_encode_box_autoadd_key_package_options(options);
-          var arg5 = cst_encode_opt_list_prim_u_8_strict(credentialBytes);
-          var arg6 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
-                storageRead,
-              );
-          var arg7 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
-                storageWrite,
-              );
-          var arg8 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
-                storageDelete,
-              );
-          return wire
-              .wire__crate__api__provider__create_key_package_with_options(
-                port_,
-                arg0,
-                arg1,
-                arg2,
-                arg3,
-                arg4,
-                arg5,
-                arg6,
-                arg7,
-                arg8,
-              );
-        },
-        codec: DcoCodec(
-          decodeSuccessData: dco_decode_key_package_provider_result,
-          decodeErrorData: dco_decode_String,
-        ),
-        constMeta: kCrateApiProviderCreateKeyPackageWithOptionsConstMeta,
-        argValues: [
-          ciphersuite,
-          signerBytes,
-          credentialIdentity,
-          signerPublicKey,
-          options,
-          credentialBytes,
-          storageRead,
-          storageWrite,
-          storageDelete,
-        ],
-        apiImpl: this,
-      ),
-    );
-  }
-
-  TaskConstMeta get kCrateApiProviderCreateKeyPackageWithOptionsConstMeta =>
-      const TaskConstMeta(
-        debugName: "create_key_package_with_options",
-        argNames: [
-          "ciphersuite",
-          "signerBytes",
-          "credentialIdentity",
-          "signerPublicKey",
-          "options",
-          "credentialBytes",
-          "storageRead",
-          "storageWrite",
-          "storageDelete",
-        ],
-      );
-
-  @override
-  Future<CreateMessageProviderResult> crateApiProviderCreateMessage({
-    required List<int> groupIdBytes,
-    required List<int> signerBytes,
-    required List<int> message,
-    Uint8List? aad,
-    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
-    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
-    required FutureOr<void> Function(Uint8List) storageDelete,
-  }) {
-    return handler.executeNormal(
-      NormalTask(
-        callFfi: (port_) {
-          var arg0 = cst_encode_list_prim_u_8_loose(groupIdBytes);
-          var arg1 = cst_encode_list_prim_u_8_loose(signerBytes);
-          var arg2 = cst_encode_list_prim_u_8_loose(message);
-          var arg3 = cst_encode_opt_list_prim_u_8_strict(aad);
-          var arg4 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
-                storageRead,
-              );
-          var arg5 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
-                storageWrite,
-              );
-          var arg6 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
-                storageDelete,
-              );
-          return wire.wire__crate__api__provider__create_message(
-            port_,
-            arg0,
-            arg1,
-            arg2,
-            arg3,
-            arg4,
-            arg5,
-            arg6,
-          );
-        },
-        codec: DcoCodec(
-          decodeSuccessData: dco_decode_create_message_provider_result,
-          decodeErrorData: dco_decode_String,
-        ),
-        constMeta: kCrateApiProviderCreateMessageConstMeta,
-        argValues: [
-          groupIdBytes,
-          signerBytes,
-          message,
-          aad,
-          storageRead,
-          storageWrite,
-          storageDelete,
-        ],
-        apiImpl: this,
-      ),
-    );
-  }
-
-  TaskConstMeta get kCrateApiProviderCreateMessageConstMeta =>
-      const TaskConstMeta(
-        debugName: "create_message",
-        argNames: [
-          "groupIdBytes",
-          "signerBytes",
-          "message",
-          "aad",
-          "storageRead",
-          "storageWrite",
-          "storageDelete",
-        ],
-      );
-
-  @override
-  Future<void> crateApiProviderDeleteGroup({
-    required List<int> groupIdBytes,
-    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
-    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
-    required FutureOr<void> Function(Uint8List) storageDelete,
-  }) {
-    return handler.executeNormal(
-      NormalTask(
-        callFfi: (port_) {
-          var arg0 = cst_encode_list_prim_u_8_loose(groupIdBytes);
-          var arg1 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
-                storageRead,
-              );
-          var arg2 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
-                storageWrite,
-              );
-          var arg3 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
-                storageDelete,
-              );
-          return wire.wire__crate__api__provider__delete_group(
-            port_,
-            arg0,
-            arg1,
-            arg2,
-            arg3,
-          );
-        },
-        codec: DcoCodec(
-          decodeSuccessData: dco_decode_unit,
-          decodeErrorData: dco_decode_String,
-        ),
-        constMeta: kCrateApiProviderDeleteGroupConstMeta,
-        argValues: [groupIdBytes, storageRead, storageWrite, storageDelete],
-        apiImpl: this,
-      ),
-    );
-  }
-
-  TaskConstMeta get kCrateApiProviderDeleteGroupConstMeta =>
-      const TaskConstMeta(
-        debugName: "delete_group",
-        argNames: [
-          "groupIdBytes",
-          "storageRead",
-          "storageWrite",
-          "storageDelete",
-        ],
-      );
-
-  @override
-  Future<void> crateApiProviderDeleteKeyPackage({
-    required List<int> keyPackageRefBytes,
-    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
-    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
-    required FutureOr<void> Function(Uint8List) storageDelete,
-  }) {
-    return handler.executeNormal(
-      NormalTask(
-        callFfi: (port_) {
-          var arg0 = cst_encode_list_prim_u_8_loose(keyPackageRefBytes);
-          var arg1 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
-                storageRead,
-              );
-          var arg2 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
-                storageWrite,
-              );
-          var arg3 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
-                storageDelete,
-              );
-          return wire.wire__crate__api__provider__delete_key_package(
-            port_,
-            arg0,
-            arg1,
-            arg2,
-            arg3,
-          );
-        },
-        codec: DcoCodec(
-          decodeSuccessData: dco_decode_unit,
-          decodeErrorData: dco_decode_String,
-        ),
-        constMeta: kCrateApiProviderDeleteKeyPackageConstMeta,
-        argValues: [
-          keyPackageRefBytes,
-          storageRead,
-          storageWrite,
-          storageDelete,
-        ],
-        apiImpl: this,
-      ),
-    );
-  }
-
-  TaskConstMeta get kCrateApiProviderDeleteKeyPackageConstMeta =>
-      const TaskConstMeta(
-        debugName: "delete_key_package",
-        argNames: [
-          "keyPackageRefBytes",
-          "storageRead",
-          "storageWrite",
-          "storageDelete",
-        ],
-      );
-
-  @override
-  Future<MlsGroupContextInfo> crateApiProviderExportGroupContext({
-    required List<int> groupIdBytes,
-    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
-    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
-    required FutureOr<void> Function(Uint8List) storageDelete,
-  }) {
-    return handler.executeNormal(
-      NormalTask(
-        callFfi: (port_) {
-          var arg0 = cst_encode_list_prim_u_8_loose(groupIdBytes);
-          var arg1 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
-                storageRead,
-              );
-          var arg2 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
-                storageWrite,
-              );
-          var arg3 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
-                storageDelete,
-              );
-          return wire.wire__crate__api__provider__export_group_context(
-            port_,
-            arg0,
-            arg1,
-            arg2,
-            arg3,
-          );
-        },
-        codec: DcoCodec(
-          decodeSuccessData: dco_decode_mls_group_context_info,
-          decodeErrorData: dco_decode_String,
-        ),
-        constMeta: kCrateApiProviderExportGroupContextConstMeta,
-        argValues: [groupIdBytes, storageRead, storageWrite, storageDelete],
-        apiImpl: this,
-      ),
-    );
-  }
-
-  TaskConstMeta get kCrateApiProviderExportGroupContextConstMeta =>
-      const TaskConstMeta(
-        debugName: "export_group_context",
-        argNames: [
-          "groupIdBytes",
-          "storageRead",
-          "storageWrite",
-          "storageDelete",
-        ],
-      );
-
-  @override
-  Future<Uint8List> crateApiProviderExportGroupInfo({
-    required List<int> groupIdBytes,
-    required List<int> signerBytes,
-    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
-    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
-    required FutureOr<void> Function(Uint8List) storageDelete,
-  }) {
-    return handler.executeNormal(
-      NormalTask(
-        callFfi: (port_) {
-          var arg0 = cst_encode_list_prim_u_8_loose(groupIdBytes);
-          var arg1 = cst_encode_list_prim_u_8_loose(signerBytes);
-          var arg2 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
-                storageRead,
-              );
-          var arg3 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
-                storageWrite,
-              );
-          var arg4 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
-                storageDelete,
-              );
-          return wire.wire__crate__api__provider__export_group_info(
-            port_,
-            arg0,
-            arg1,
-            arg2,
-            arg3,
-            arg4,
-          );
-        },
-        codec: DcoCodec(
-          decodeSuccessData: dco_decode_list_prim_u_8_strict,
-          decodeErrorData: dco_decode_String,
-        ),
-        constMeta: kCrateApiProviderExportGroupInfoConstMeta,
-        argValues: [
-          groupIdBytes,
-          signerBytes,
-          storageRead,
-          storageWrite,
-          storageDelete,
-        ],
-        apiImpl: this,
-      ),
-    );
-  }
-
-  TaskConstMeta get kCrateApiProviderExportGroupInfoConstMeta =>
-      const TaskConstMeta(
-        debugName: "export_group_info",
-        argNames: [
-          "groupIdBytes",
-          "signerBytes",
-          "storageRead",
-          "storageWrite",
-          "storageDelete",
-        ],
-      );
-
-  @override
-  Future<Uint8List> crateApiProviderExportRatchetTree({
-    required List<int> groupIdBytes,
-    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
-    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
-    required FutureOr<void> Function(Uint8List) storageDelete,
-  }) {
-    return handler.executeNormal(
-      NormalTask(
-        callFfi: (port_) {
-          var arg0 = cst_encode_list_prim_u_8_loose(groupIdBytes);
-          var arg1 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
-                storageRead,
-              );
-          var arg2 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
-                storageWrite,
-              );
-          var arg3 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
-                storageDelete,
-              );
-          return wire.wire__crate__api__provider__export_ratchet_tree(
-            port_,
-            arg0,
-            arg1,
-            arg2,
-            arg3,
-          );
-        },
-        codec: DcoCodec(
-          decodeSuccessData: dco_decode_list_prim_u_8_strict,
-          decodeErrorData: dco_decode_String,
-        ),
-        constMeta: kCrateApiProviderExportRatchetTreeConstMeta,
-        argValues: [groupIdBytes, storageRead, storageWrite, storageDelete],
-        apiImpl: this,
-      ),
-    );
-  }
-
-  TaskConstMeta get kCrateApiProviderExportRatchetTreeConstMeta =>
-      const TaskConstMeta(
-        debugName: "export_ratchet_tree",
-        argNames: [
-          "groupIdBytes",
-          "storageRead",
-          "storageWrite",
-          "storageDelete",
-        ],
-      );
-
-  @override
-  Future<Uint8List> crateApiProviderExportSecret({
-    required List<int> groupIdBytes,
-    required String label,
-    required List<int> context,
-    required int keyLength,
-    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
-    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
-    required FutureOr<void> Function(Uint8List) storageDelete,
-  }) {
-    return handler.executeNormal(
-      NormalTask(
-        callFfi: (port_) {
-          var arg0 = cst_encode_list_prim_u_8_loose(groupIdBytes);
-          var arg1 = cst_encode_String(label);
-          var arg2 = cst_encode_list_prim_u_8_loose(context);
-          var arg3 = cst_encode_u_32(keyLength);
-          var arg4 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
-                storageRead,
-              );
-          var arg5 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
-                storageWrite,
-              );
-          var arg6 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
-                storageDelete,
-              );
-          return wire.wire__crate__api__provider__export_secret(
-            port_,
-            arg0,
-            arg1,
-            arg2,
-            arg3,
-            arg4,
-            arg5,
-            arg6,
-          );
-        },
-        codec: DcoCodec(
-          decodeSuccessData: dco_decode_list_prim_u_8_strict,
-          decodeErrorData: dco_decode_String,
-        ),
-        constMeta: kCrateApiProviderExportSecretConstMeta,
-        argValues: [
-          groupIdBytes,
-          label,
-          context,
-          keyLength,
-          storageRead,
-          storageWrite,
-          storageDelete,
-        ],
-        apiImpl: this,
-      ),
-    );
-  }
-
-  TaskConstMeta get kCrateApiProviderExportSecretConstMeta =>
-      const TaskConstMeta(
-        debugName: "export_secret",
-        argNames: [
-          "groupIdBytes",
-          "label",
-          "context",
-          "keyLength",
-          "storageRead",
-          "storageWrite",
-          "storageDelete",
-        ],
-      );
-
-  @override
-  Future<CommitProviderResult> crateApiProviderFlexibleCommit({
-    required List<int> groupIdBytes,
-    required List<int> signerBytes,
-    required FlexibleCommitOptions options,
-    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
-    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
-    required FutureOr<void> Function(Uint8List) storageDelete,
-  }) {
-    return handler.executeNormal(
-      NormalTask(
-        callFfi: (port_) {
-          var arg0 = cst_encode_list_prim_u_8_loose(groupIdBytes);
-          var arg1 = cst_encode_list_prim_u_8_loose(signerBytes);
-          var arg2 = cst_encode_box_autoadd_flexible_commit_options(options);
-          var arg3 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
-                storageRead,
-              );
-          var arg4 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
-                storageWrite,
-              );
-          var arg5 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
-                storageDelete,
-              );
-          return wire.wire__crate__api__provider__flexible_commit(
-            port_,
-            arg0,
-            arg1,
-            arg2,
-            arg3,
-            arg4,
-            arg5,
-          );
-        },
-        codec: DcoCodec(
-          decodeSuccessData: dco_decode_commit_provider_result,
-          decodeErrorData: dco_decode_String,
-        ),
-        constMeta: kCrateApiProviderFlexibleCommitConstMeta,
-        argValues: [
-          groupIdBytes,
-          signerBytes,
-          options,
-          storageRead,
-          storageWrite,
-          storageDelete,
-        ],
-        apiImpl: this,
-      ),
-    );
-  }
-
-  TaskConstMeta get kCrateApiProviderFlexibleCommitConstMeta =>
-      const TaskConstMeta(
-        debugName: "flexible_commit",
-        argNames: [
-          "groupIdBytes",
-          "signerBytes",
-          "options",
-          "storageRead",
-          "storageWrite",
-          "storageDelete",
-        ],
-      );
-
-  @override
-  Future<Uint8List?> crateApiProviderGetPastResumptionPsk({
-    required List<int> groupIdBytes,
-    required BigInt epoch,
-    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
-    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
-    required FutureOr<void> Function(Uint8List) storageDelete,
-  }) {
-    return handler.executeNormal(
-      NormalTask(
-        callFfi: (port_) {
-          var arg0 = cst_encode_list_prim_u_8_loose(groupIdBytes);
-          var arg1 = cst_encode_u_64(epoch);
-          var arg2 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
-                storageRead,
-              );
-          var arg3 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
-                storageWrite,
-              );
-          var arg4 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
-                storageDelete,
-              );
-          return wire.wire__crate__api__provider__get_past_resumption_psk(
-            port_,
-            arg0,
-            arg1,
-            arg2,
-            arg3,
-            arg4,
-          );
-        },
-        codec: DcoCodec(
-          decodeSuccessData: dco_decode_opt_list_prim_u_8_strict,
-          decodeErrorData: dco_decode_String,
-        ),
-        constMeta: kCrateApiProviderGetPastResumptionPskConstMeta,
-        argValues: [
-          groupIdBytes,
-          epoch,
-          storageRead,
-          storageWrite,
-          storageDelete,
-        ],
-        apiImpl: this,
-      ),
-    );
-  }
-
-  TaskConstMeta get kCrateApiProviderGetPastResumptionPskConstMeta =>
-      const TaskConstMeta(
-        debugName: "get_past_resumption_psk",
-        argNames: [
-          "groupIdBytes",
-          "epoch",
-          "storageRead",
-          "storageWrite",
-          "storageDelete",
-        ],
-      );
-
-  @override
-  Future<MlsCiphersuite> crateApiProviderGroupCiphersuite({
-    required List<int> groupIdBytes,
-    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
-    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
-    required FutureOr<void> Function(Uint8List) storageDelete,
-  }) {
-    return handler.executeNormal(
-      NormalTask(
-        callFfi: (port_) {
-          var arg0 = cst_encode_list_prim_u_8_loose(groupIdBytes);
-          var arg1 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
-                storageRead,
-              );
-          var arg2 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
-                storageWrite,
-              );
-          var arg3 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
-                storageDelete,
-              );
-          return wire.wire__crate__api__provider__group_ciphersuite(
-            port_,
-            arg0,
-            arg1,
-            arg2,
-            arg3,
-          );
-        },
-        codec: DcoCodec(
-          decodeSuccessData: dco_decode_mls_ciphersuite,
-          decodeErrorData: dco_decode_String,
-        ),
-        constMeta: kCrateApiProviderGroupCiphersuiteConstMeta,
-        argValues: [groupIdBytes, storageRead, storageWrite, storageDelete],
-        apiImpl: this,
-      ),
-    );
-  }
-
-  TaskConstMeta get kCrateApiProviderGroupCiphersuiteConstMeta =>
-      const TaskConstMeta(
-        debugName: "group_ciphersuite",
-        argNames: [
-          "groupIdBytes",
-          "storageRead",
-          "storageWrite",
-          "storageDelete",
-        ],
-      );
-
-  @override
-  Future<GroupConfigurationResult> crateApiProviderGroupConfiguration({
-    required List<int> groupIdBytes,
-    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
-    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
-    required FutureOr<void> Function(Uint8List) storageDelete,
-  }) {
-    return handler.executeNormal(
-      NormalTask(
-        callFfi: (port_) {
-          var arg0 = cst_encode_list_prim_u_8_loose(groupIdBytes);
-          var arg1 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
-                storageRead,
-              );
-          var arg2 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
-                storageWrite,
-              );
-          var arg3 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
-                storageDelete,
-              );
-          return wire.wire__crate__api__provider__group_configuration(
-            port_,
-            arg0,
-            arg1,
-            arg2,
-            arg3,
-          );
-        },
-        codec: DcoCodec(
-          decodeSuccessData: dco_decode_group_configuration_result,
-          decodeErrorData: dco_decode_String,
-        ),
-        constMeta: kCrateApiProviderGroupConfigurationConstMeta,
-        argValues: [groupIdBytes, storageRead, storageWrite, storageDelete],
-        apiImpl: this,
-      ),
-    );
-  }
-
-  TaskConstMeta get kCrateApiProviderGroupConfigurationConstMeta =>
-      const TaskConstMeta(
-        debugName: "group_configuration",
-        argNames: [
-          "groupIdBytes",
-          "storageRead",
-          "storageWrite",
-          "storageDelete",
-        ],
-      );
-
-  @override
-  Future<Uint8List> crateApiProviderGroupConfirmationTag({
-    required List<int> groupIdBytes,
-    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
-    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
-    required FutureOr<void> Function(Uint8List) storageDelete,
-  }) {
-    return handler.executeNormal(
-      NormalTask(
-        callFfi: (port_) {
-          var arg0 = cst_encode_list_prim_u_8_loose(groupIdBytes);
-          var arg1 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
-                storageRead,
-              );
-          var arg2 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
-                storageWrite,
-              );
-          var arg3 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
-                storageDelete,
-              );
-          return wire.wire__crate__api__provider__group_confirmation_tag(
-            port_,
-            arg0,
-            arg1,
-            arg2,
-            arg3,
-          );
-        },
-        codec: DcoCodec(
-          decodeSuccessData: dco_decode_list_prim_u_8_strict,
-          decodeErrorData: dco_decode_String,
-        ),
-        constMeta: kCrateApiProviderGroupConfirmationTagConstMeta,
-        argValues: [groupIdBytes, storageRead, storageWrite, storageDelete],
-        apiImpl: this,
-      ),
-    );
-  }
-
-  TaskConstMeta get kCrateApiProviderGroupConfirmationTagConstMeta =>
-      const TaskConstMeta(
-        debugName: "group_confirmation_tag",
-        argNames: [
-          "groupIdBytes",
-          "storageRead",
-          "storageWrite",
-          "storageDelete",
-        ],
-      );
-
-  @override
-  Future<Uint8List> crateApiProviderGroupCredential({
-    required List<int> groupIdBytes,
-    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
-    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
-    required FutureOr<void> Function(Uint8List) storageDelete,
-  }) {
-    return handler.executeNormal(
-      NormalTask(
-        callFfi: (port_) {
-          var arg0 = cst_encode_list_prim_u_8_loose(groupIdBytes);
-          var arg1 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
-                storageRead,
-              );
-          var arg2 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
-                storageWrite,
-              );
-          var arg3 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
-                storageDelete,
-              );
-          return wire.wire__crate__api__provider__group_credential(
-            port_,
-            arg0,
-            arg1,
-            arg2,
-            arg3,
-          );
-        },
-        codec: DcoCodec(
-          decodeSuccessData: dco_decode_list_prim_u_8_strict,
-          decodeErrorData: dco_decode_String,
-        ),
-        constMeta: kCrateApiProviderGroupCredentialConstMeta,
-        argValues: [groupIdBytes, storageRead, storageWrite, storageDelete],
-        apiImpl: this,
-      ),
-    );
-  }
-
-  TaskConstMeta get kCrateApiProviderGroupCredentialConstMeta =>
-      const TaskConstMeta(
-        debugName: "group_credential",
-        argNames: [
-          "groupIdBytes",
-          "storageRead",
-          "storageWrite",
-          "storageDelete",
-        ],
-      );
-
-  @override
-  Future<BigInt> crateApiProviderGroupEpoch({
-    required List<int> groupIdBytes,
-    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
-    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
-    required FutureOr<void> Function(Uint8List) storageDelete,
-  }) {
-    return handler.executeNormal(
-      NormalTask(
-        callFfi: (port_) {
-          var arg0 = cst_encode_list_prim_u_8_loose(groupIdBytes);
-          var arg1 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
-                storageRead,
-              );
-          var arg2 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
-                storageWrite,
-              );
-          var arg3 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
-                storageDelete,
-              );
-          return wire.wire__crate__api__provider__group_epoch(
-            port_,
-            arg0,
-            arg1,
-            arg2,
-            arg3,
-          );
-        },
-        codec: DcoCodec(
-          decodeSuccessData: dco_decode_u_64,
-          decodeErrorData: dco_decode_String,
-        ),
-        constMeta: kCrateApiProviderGroupEpochConstMeta,
-        argValues: [groupIdBytes, storageRead, storageWrite, storageDelete],
-        apiImpl: this,
-      ),
-    );
-  }
-
-  TaskConstMeta get kCrateApiProviderGroupEpochConstMeta => const TaskConstMeta(
-    debugName: "group_epoch",
-    argNames: ["groupIdBytes", "storageRead", "storageWrite", "storageDelete"],
-  );
-
-  @override
-  Future<Uint8List> crateApiProviderGroupEpochAuthenticator({
-    required List<int> groupIdBytes,
-    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
-    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
-    required FutureOr<void> Function(Uint8List) storageDelete,
-  }) {
-    return handler.executeNormal(
-      NormalTask(
-        callFfi: (port_) {
-          var arg0 = cst_encode_list_prim_u_8_loose(groupIdBytes);
-          var arg1 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
-                storageRead,
-              );
-          var arg2 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
-                storageWrite,
-              );
-          var arg3 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
-                storageDelete,
-              );
-          return wire.wire__crate__api__provider__group_epoch_authenticator(
-            port_,
-            arg0,
-            arg1,
-            arg2,
-            arg3,
-          );
-        },
-        codec: DcoCodec(
-          decodeSuccessData: dco_decode_list_prim_u_8_strict,
-          decodeErrorData: dco_decode_String,
-        ),
-        constMeta: kCrateApiProviderGroupEpochAuthenticatorConstMeta,
-        argValues: [groupIdBytes, storageRead, storageWrite, storageDelete],
-        apiImpl: this,
-      ),
-    );
-  }
-
-  TaskConstMeta get kCrateApiProviderGroupEpochAuthenticatorConstMeta =>
-      const TaskConstMeta(
-        debugName: "group_epoch_authenticator",
-        argNames: [
-          "groupIdBytes",
-          "storageRead",
-          "storageWrite",
-          "storageDelete",
-        ],
-      );
-
-  @override
-  Future<Uint8List> crateApiProviderGroupExtensions({
-    required List<int> groupIdBytes,
-    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
-    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
-    required FutureOr<void> Function(Uint8List) storageDelete,
-  }) {
-    return handler.executeNormal(
-      NormalTask(
-        callFfi: (port_) {
-          var arg0 = cst_encode_list_prim_u_8_loose(groupIdBytes);
-          var arg1 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
-                storageRead,
-              );
-          var arg2 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
-                storageWrite,
-              );
-          var arg3 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
-                storageDelete,
-              );
-          return wire.wire__crate__api__provider__group_extensions(
-            port_,
-            arg0,
-            arg1,
-            arg2,
-            arg3,
-          );
-        },
-        codec: DcoCodec(
-          decodeSuccessData: dco_decode_list_prim_u_8_strict,
-          decodeErrorData: dco_decode_String,
-        ),
-        constMeta: kCrateApiProviderGroupExtensionsConstMeta,
-        argValues: [groupIdBytes, storageRead, storageWrite, storageDelete],
-        apiImpl: this,
-      ),
-    );
-  }
-
-  TaskConstMeta get kCrateApiProviderGroupExtensionsConstMeta =>
-      const TaskConstMeta(
-        debugName: "group_extensions",
-        argNames: [
-          "groupIdBytes",
-          "storageRead",
-          "storageWrite",
-          "storageDelete",
-        ],
-      );
-
-  @override
-  Future<bool> crateApiProviderGroupHasPendingProposals({
-    required List<int> groupIdBytes,
-    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
-    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
-    required FutureOr<void> Function(Uint8List) storageDelete,
-  }) {
-    return handler.executeNormal(
-      NormalTask(
-        callFfi: (port_) {
-          var arg0 = cst_encode_list_prim_u_8_loose(groupIdBytes);
-          var arg1 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
-                storageRead,
-              );
-          var arg2 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
-                storageWrite,
-              );
-          var arg3 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
-                storageDelete,
-              );
-          return wire.wire__crate__api__provider__group_has_pending_proposals(
-            port_,
-            arg0,
-            arg1,
-            arg2,
-            arg3,
-          );
-        },
-        codec: DcoCodec(
-          decodeSuccessData: dco_decode_bool,
-          decodeErrorData: dco_decode_String,
-        ),
-        constMeta: kCrateApiProviderGroupHasPendingProposalsConstMeta,
-        argValues: [groupIdBytes, storageRead, storageWrite, storageDelete],
-        apiImpl: this,
-      ),
-    );
-  }
-
-  TaskConstMeta get kCrateApiProviderGroupHasPendingProposalsConstMeta =>
-      const TaskConstMeta(
-        debugName: "group_has_pending_proposals",
-        argNames: [
-          "groupIdBytes",
-          "storageRead",
-          "storageWrite",
-          "storageDelete",
-        ],
-      );
-
-  @override
-  Future<Uint8List> crateApiProviderGroupId({
-    required List<int> groupIdBytes,
-    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
-    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
-    required FutureOr<void> Function(Uint8List) storageDelete,
-  }) {
-    return handler.executeNormal(
-      NormalTask(
-        callFfi: (port_) {
-          var arg0 = cst_encode_list_prim_u_8_loose(groupIdBytes);
-          var arg1 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
-                storageRead,
-              );
-          var arg2 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
-                storageWrite,
-              );
-          var arg3 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
-                storageDelete,
-              );
-          return wire.wire__crate__api__provider__group_id(
-            port_,
-            arg0,
-            arg1,
-            arg2,
-            arg3,
-          );
-        },
-        codec: DcoCodec(
-          decodeSuccessData: dco_decode_list_prim_u_8_strict,
-          decodeErrorData: dco_decode_String,
-        ),
-        constMeta: kCrateApiProviderGroupIdConstMeta,
-        argValues: [groupIdBytes, storageRead, storageWrite, storageDelete],
-        apiImpl: this,
-      ),
-    );
-  }
-
-  TaskConstMeta get kCrateApiProviderGroupIdConstMeta => const TaskConstMeta(
-    debugName: "group_id",
-    argNames: ["groupIdBytes", "storageRead", "storageWrite", "storageDelete"],
-  );
-
-  @override
-  Future<bool> crateApiProviderGroupIsActive({
-    required List<int> groupIdBytes,
-    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
-    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
-    required FutureOr<void> Function(Uint8List) storageDelete,
-  }) {
-    return handler.executeNormal(
-      NormalTask(
-        callFfi: (port_) {
-          var arg0 = cst_encode_list_prim_u_8_loose(groupIdBytes);
-          var arg1 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
-                storageRead,
-              );
-          var arg2 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
-                storageWrite,
-              );
-          var arg3 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
-                storageDelete,
-              );
-          return wire.wire__crate__api__provider__group_is_active(
-            port_,
-            arg0,
-            arg1,
-            arg2,
-            arg3,
-          );
-        },
-        codec: DcoCodec(
-          decodeSuccessData: dco_decode_bool,
-          decodeErrorData: dco_decode_String,
-        ),
-        constMeta: kCrateApiProviderGroupIsActiveConstMeta,
-        argValues: [groupIdBytes, storageRead, storageWrite, storageDelete],
-        apiImpl: this,
-      ),
-    );
-  }
-
-  TaskConstMeta get kCrateApiProviderGroupIsActiveConstMeta =>
-      const TaskConstMeta(
-        debugName: "group_is_active",
-        argNames: [
-          "groupIdBytes",
-          "storageRead",
-          "storageWrite",
-          "storageDelete",
-        ],
-      );
-
-  @override
-  Future<MlsMemberInfo?> crateApiProviderGroupMemberAt({
-    required List<int> groupIdBytes,
-    required int leafIndex,
-    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
-    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
-    required FutureOr<void> Function(Uint8List) storageDelete,
-  }) {
-    return handler.executeNormal(
-      NormalTask(
-        callFfi: (port_) {
-          var arg0 = cst_encode_list_prim_u_8_loose(groupIdBytes);
-          var arg1 = cst_encode_u_32(leafIndex);
-          var arg2 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
-                storageRead,
-              );
-          var arg3 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
-                storageWrite,
-              );
-          var arg4 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
-                storageDelete,
-              );
-          return wire.wire__crate__api__provider__group_member_at(
-            port_,
-            arg0,
-            arg1,
-            arg2,
-            arg3,
-            arg4,
-          );
-        },
-        codec: DcoCodec(
-          decodeSuccessData: dco_decode_opt_box_autoadd_mls_member_info,
-          decodeErrorData: dco_decode_String,
-        ),
-        constMeta: kCrateApiProviderGroupMemberAtConstMeta,
-        argValues: [
-          groupIdBytes,
-          leafIndex,
-          storageRead,
-          storageWrite,
-          storageDelete,
-        ],
-        apiImpl: this,
-      ),
-    );
-  }
-
-  TaskConstMeta get kCrateApiProviderGroupMemberAtConstMeta =>
-      const TaskConstMeta(
-        debugName: "group_member_at",
-        argNames: [
-          "groupIdBytes",
-          "leafIndex",
-          "storageRead",
-          "storageWrite",
-          "storageDelete",
-        ],
-      );
-
-  @override
-  Future<int?> crateApiProviderGroupMemberLeafIndex({
-    required List<int> groupIdBytes,
-    required List<int> credentialBytes,
-    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
-    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
-    required FutureOr<void> Function(Uint8List) storageDelete,
-  }) {
-    return handler.executeNormal(
-      NormalTask(
-        callFfi: (port_) {
-          var arg0 = cst_encode_list_prim_u_8_loose(groupIdBytes);
-          var arg1 = cst_encode_list_prim_u_8_loose(credentialBytes);
-          var arg2 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
-                storageRead,
-              );
-          var arg3 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
-                storageWrite,
-              );
-          var arg4 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
-                storageDelete,
-              );
-          return wire.wire__crate__api__provider__group_member_leaf_index(
-            port_,
-            arg0,
-            arg1,
-            arg2,
-            arg3,
-            arg4,
-          );
-        },
-        codec: DcoCodec(
-          decodeSuccessData: dco_decode_opt_box_autoadd_u_32,
-          decodeErrorData: dco_decode_String,
-        ),
-        constMeta: kCrateApiProviderGroupMemberLeafIndexConstMeta,
-        argValues: [
-          groupIdBytes,
-          credentialBytes,
-          storageRead,
-          storageWrite,
-          storageDelete,
-        ],
-        apiImpl: this,
-      ),
-    );
-  }
-
-  TaskConstMeta get kCrateApiProviderGroupMemberLeafIndexConstMeta =>
-      const TaskConstMeta(
-        debugName: "group_member_leaf_index",
-        argNames: [
-          "groupIdBytes",
-          "credentialBytes",
-          "storageRead",
-          "storageWrite",
-          "storageDelete",
-        ],
-      );
-
-  @override
-  Future<List<MlsMemberInfo>> crateApiProviderGroupMembers({
-    required List<int> groupIdBytes,
-    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
-    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
-    required FutureOr<void> Function(Uint8List) storageDelete,
-  }) {
-    return handler.executeNormal(
-      NormalTask(
-        callFfi: (port_) {
-          var arg0 = cst_encode_list_prim_u_8_loose(groupIdBytes);
-          var arg1 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
-                storageRead,
-              );
-          var arg2 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
-                storageWrite,
-              );
-          var arg3 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
-                storageDelete,
-              );
-          return wire.wire__crate__api__provider__group_members(
-            port_,
-            arg0,
-            arg1,
-            arg2,
-            arg3,
-          );
-        },
-        codec: DcoCodec(
-          decodeSuccessData: dco_decode_list_mls_member_info,
-          decodeErrorData: dco_decode_String,
-        ),
-        constMeta: kCrateApiProviderGroupMembersConstMeta,
-        argValues: [groupIdBytes, storageRead, storageWrite, storageDelete],
-        apiImpl: this,
-      ),
-    );
-  }
-
-  TaskConstMeta get kCrateApiProviderGroupMembersConstMeta =>
-      const TaskConstMeta(
-        debugName: "group_members",
-        argNames: [
-          "groupIdBytes",
-          "storageRead",
-          "storageWrite",
-          "storageDelete",
-        ],
-      );
-
-  @override
-  Future<int> crateApiProviderGroupOwnIndex({
-    required List<int> groupIdBytes,
-    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
-    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
-    required FutureOr<void> Function(Uint8List) storageDelete,
-  }) {
-    return handler.executeNormal(
-      NormalTask(
-        callFfi: (port_) {
-          var arg0 = cst_encode_list_prim_u_8_loose(groupIdBytes);
-          var arg1 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
-                storageRead,
-              );
-          var arg2 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
-                storageWrite,
-              );
-          var arg3 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
-                storageDelete,
-              );
-          return wire.wire__crate__api__provider__group_own_index(
-            port_,
-            arg0,
-            arg1,
-            arg2,
-            arg3,
-          );
-        },
-        codec: DcoCodec(
-          decodeSuccessData: dco_decode_u_32,
-          decodeErrorData: dco_decode_String,
-        ),
-        constMeta: kCrateApiProviderGroupOwnIndexConstMeta,
-        argValues: [groupIdBytes, storageRead, storageWrite, storageDelete],
-        apiImpl: this,
-      ),
-    );
-  }
-
-  TaskConstMeta get kCrateApiProviderGroupOwnIndexConstMeta =>
-      const TaskConstMeta(
-        debugName: "group_own_index",
-        argNames: [
-          "groupIdBytes",
-          "storageRead",
-          "storageWrite",
-          "storageDelete",
-        ],
-      );
-
-  @override
-  Future<MlsLeafNodeInfo> crateApiProviderGroupOwnLeafNode({
-    required List<int> groupIdBytes,
-    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
-    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
-    required FutureOr<void> Function(Uint8List) storageDelete,
-  }) {
-    return handler.executeNormal(
-      NormalTask(
-        callFfi: (port_) {
-          var arg0 = cst_encode_list_prim_u_8_loose(groupIdBytes);
-          var arg1 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
-                storageRead,
-              );
-          var arg2 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
-                storageWrite,
-              );
-          var arg3 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
-                storageDelete,
-              );
-          return wire.wire__crate__api__provider__group_own_leaf_node(
-            port_,
-            arg0,
-            arg1,
-            arg2,
-            arg3,
-          );
-        },
-        codec: DcoCodec(
-          decodeSuccessData: dco_decode_mls_leaf_node_info,
-          decodeErrorData: dco_decode_String,
-        ),
-        constMeta: kCrateApiProviderGroupOwnLeafNodeConstMeta,
-        argValues: [groupIdBytes, storageRead, storageWrite, storageDelete],
-        apiImpl: this,
-      ),
-    );
-  }
-
-  TaskConstMeta get kCrateApiProviderGroupOwnLeafNodeConstMeta =>
-      const TaskConstMeta(
-        debugName: "group_own_leaf_node",
-        argNames: [
-          "groupIdBytes",
-          "storageRead",
-          "storageWrite",
-          "storageDelete",
-        ],
-      );
-
-  @override
-  Future<List<MlsPendingProposalInfo>> crateApiProviderGroupPendingProposals({
-    required List<int> groupIdBytes,
-    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
-    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
-    required FutureOr<void> Function(Uint8List) storageDelete,
-  }) {
-    return handler.executeNormal(
-      NormalTask(
-        callFfi: (port_) {
-          var arg0 = cst_encode_list_prim_u_8_loose(groupIdBytes);
-          var arg1 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
-                storageRead,
-              );
-          var arg2 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
-                storageWrite,
-              );
-          var arg3 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
-                storageDelete,
-              );
-          return wire.wire__crate__api__provider__group_pending_proposals(
-            port_,
-            arg0,
-            arg1,
-            arg2,
-            arg3,
-          );
-        },
-        codec: DcoCodec(
-          decodeSuccessData: dco_decode_list_mls_pending_proposal_info,
-          decodeErrorData: dco_decode_String,
-        ),
-        constMeta: kCrateApiProviderGroupPendingProposalsConstMeta,
-        argValues: [groupIdBytes, storageRead, storageWrite, storageDelete],
-        apiImpl: this,
-      ),
-    );
-  }
-
-  TaskConstMeta get kCrateApiProviderGroupPendingProposalsConstMeta =>
-      const TaskConstMeta(
-        debugName: "group_pending_proposals",
-        argNames: [
-          "groupIdBytes",
-          "storageRead",
-          "storageWrite",
-          "storageDelete",
-        ],
-      );
-
-  @override
   void crateApiInitInitOpenmls({required String libraryPath}) {
     return handler.executeSync(
       SyncTask(
@@ -3285,69 +3748,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       const TaskConstMeta(debugName: "init_openmls", argNames: ["libraryPath"]);
 
   @override
-  Future<WelcomeInspectResult> crateApiProviderInspectWelcome({
-    required MlsGroupConfig config,
-    required List<int> welcomeBytes,
-    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
-    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
-    required FutureOr<void> Function(Uint8List) storageDelete,
-  }) {
-    return handler.executeNormal(
-      NormalTask(
-        callFfi: (port_) {
-          var arg0 = cst_encode_box_autoadd_mls_group_config(config);
-          var arg1 = cst_encode_list_prim_u_8_loose(welcomeBytes);
-          var arg2 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
-                storageRead,
-              );
-          var arg3 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
-                storageWrite,
-              );
-          var arg4 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
-                storageDelete,
-              );
-          return wire.wire__crate__api__provider__inspect_welcome(
-            port_,
-            arg0,
-            arg1,
-            arg2,
-            arg3,
-            arg4,
-          );
-        },
-        codec: DcoCodec(
-          decodeSuccessData: dco_decode_welcome_inspect_result,
-          decodeErrorData: dco_decode_String,
-        ),
-        constMeta: kCrateApiProviderInspectWelcomeConstMeta,
-        argValues: [
-          config,
-          welcomeBytes,
-          storageRead,
-          storageWrite,
-          storageDelete,
-        ],
-        apiImpl: this,
-      ),
-    );
-  }
-
-  TaskConstMeta get kCrateApiProviderInspectWelcomeConstMeta =>
-      const TaskConstMeta(
-        debugName: "inspect_welcome",
-        argNames: [
-          "config",
-          "welcomeBytes",
-          "storageRead",
-          "storageWrite",
-          "storageDelete",
-        ],
-      );
-
-  @override
   bool crateApiInitIsOpenmlsInitialized() {
     return handler.executeSync(
       SyncTask(
@@ -3367,523 +3767,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   TaskConstMeta get kCrateApiInitIsOpenmlsInitializedConstMeta =>
       const TaskConstMeta(debugName: "is_openmls_initialized", argNames: []);
-
-  @override
-  Future<ExternalJoinProviderResult> crateApiProviderJoinGroupExternalCommit({
-    required MlsGroupConfig config,
-    required List<int> groupInfoBytes,
-    Uint8List? ratchetTreeBytes,
-    required List<int> signerBytes,
-    required List<int> credentialIdentity,
-    required List<int> signerPublicKey,
-    Uint8List? credentialBytes,
-    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
-    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
-    required FutureOr<void> Function(Uint8List) storageDelete,
-  }) {
-    return handler.executeNormal(
-      NormalTask(
-        callFfi: (port_) {
-          var arg0 = cst_encode_box_autoadd_mls_group_config(config);
-          var arg1 = cst_encode_list_prim_u_8_loose(groupInfoBytes);
-          var arg2 = cst_encode_opt_list_prim_u_8_strict(ratchetTreeBytes);
-          var arg3 = cst_encode_list_prim_u_8_loose(signerBytes);
-          var arg4 = cst_encode_list_prim_u_8_loose(credentialIdentity);
-          var arg5 = cst_encode_list_prim_u_8_loose(signerPublicKey);
-          var arg6 = cst_encode_opt_list_prim_u_8_strict(credentialBytes);
-          var arg7 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
-                storageRead,
-              );
-          var arg8 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
-                storageWrite,
-              );
-          var arg9 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
-                storageDelete,
-              );
-          return wire.wire__crate__api__provider__join_group_external_commit(
-            port_,
-            arg0,
-            arg1,
-            arg2,
-            arg3,
-            arg4,
-            arg5,
-            arg6,
-            arg7,
-            arg8,
-            arg9,
-          );
-        },
-        codec: DcoCodec(
-          decodeSuccessData: dco_decode_external_join_provider_result,
-          decodeErrorData: dco_decode_String,
-        ),
-        constMeta: kCrateApiProviderJoinGroupExternalCommitConstMeta,
-        argValues: [
-          config,
-          groupInfoBytes,
-          ratchetTreeBytes,
-          signerBytes,
-          credentialIdentity,
-          signerPublicKey,
-          credentialBytes,
-          storageRead,
-          storageWrite,
-          storageDelete,
-        ],
-        apiImpl: this,
-      ),
-    );
-  }
-
-  TaskConstMeta get kCrateApiProviderJoinGroupExternalCommitConstMeta =>
-      const TaskConstMeta(
-        debugName: "join_group_external_commit",
-        argNames: [
-          "config",
-          "groupInfoBytes",
-          "ratchetTreeBytes",
-          "signerBytes",
-          "credentialIdentity",
-          "signerPublicKey",
-          "credentialBytes",
-          "storageRead",
-          "storageWrite",
-          "storageDelete",
-        ],
-      );
-
-  @override
-  Future<ExternalJoinProviderResult> crateApiProviderJoinGroupExternalCommitV2({
-    required MlsGroupConfig config,
-    required List<int> groupInfoBytes,
-    Uint8List? ratchetTreeBytes,
-    required List<int> signerBytes,
-    required List<int> credentialIdentity,
-    required List<int> signerPublicKey,
-    Uint8List? aad,
-    required bool skipLifetimeValidation,
-    Uint8List? credentialBytes,
-    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
-    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
-    required FutureOr<void> Function(Uint8List) storageDelete,
-  }) {
-    return handler.executeNormal(
-      NormalTask(
-        callFfi: (port_) {
-          var arg0 = cst_encode_box_autoadd_mls_group_config(config);
-          var arg1 = cst_encode_list_prim_u_8_loose(groupInfoBytes);
-          var arg2 = cst_encode_opt_list_prim_u_8_strict(ratchetTreeBytes);
-          var arg3 = cst_encode_list_prim_u_8_loose(signerBytes);
-          var arg4 = cst_encode_list_prim_u_8_loose(credentialIdentity);
-          var arg5 = cst_encode_list_prim_u_8_loose(signerPublicKey);
-          var arg6 = cst_encode_opt_list_prim_u_8_strict(aad);
-          var arg7 = cst_encode_bool(skipLifetimeValidation);
-          var arg8 = cst_encode_opt_list_prim_u_8_strict(credentialBytes);
-          var arg9 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
-                storageRead,
-              );
-          var arg10 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
-                storageWrite,
-              );
-          var arg11 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
-                storageDelete,
-              );
-          return wire.wire__crate__api__provider__join_group_external_commit_v2(
-            port_,
-            arg0,
-            arg1,
-            arg2,
-            arg3,
-            arg4,
-            arg5,
-            arg6,
-            arg7,
-            arg8,
-            arg9,
-            arg10,
-            arg11,
-          );
-        },
-        codec: DcoCodec(
-          decodeSuccessData: dco_decode_external_join_provider_result,
-          decodeErrorData: dco_decode_String,
-        ),
-        constMeta: kCrateApiProviderJoinGroupExternalCommitV2ConstMeta,
-        argValues: [
-          config,
-          groupInfoBytes,
-          ratchetTreeBytes,
-          signerBytes,
-          credentialIdentity,
-          signerPublicKey,
-          aad,
-          skipLifetimeValidation,
-          credentialBytes,
-          storageRead,
-          storageWrite,
-          storageDelete,
-        ],
-        apiImpl: this,
-      ),
-    );
-  }
-
-  TaskConstMeta get kCrateApiProviderJoinGroupExternalCommitV2ConstMeta =>
-      const TaskConstMeta(
-        debugName: "join_group_external_commit_v2",
-        argNames: [
-          "config",
-          "groupInfoBytes",
-          "ratchetTreeBytes",
-          "signerBytes",
-          "credentialIdentity",
-          "signerPublicKey",
-          "aad",
-          "skipLifetimeValidation",
-          "credentialBytes",
-          "storageRead",
-          "storageWrite",
-          "storageDelete",
-        ],
-      );
-
-  @override
-  Future<JoinGroupProviderResult> crateApiProviderJoinGroupFromWelcome({
-    required MlsGroupConfig config,
-    required List<int> welcomeBytes,
-    Uint8List? ratchetTreeBytes,
-    required List<int> signerBytes,
-    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
-    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
-    required FutureOr<void> Function(Uint8List) storageDelete,
-  }) {
-    return handler.executeNormal(
-      NormalTask(
-        callFfi: (port_) {
-          var arg0 = cst_encode_box_autoadd_mls_group_config(config);
-          var arg1 = cst_encode_list_prim_u_8_loose(welcomeBytes);
-          var arg2 = cst_encode_opt_list_prim_u_8_strict(ratchetTreeBytes);
-          var arg3 = cst_encode_list_prim_u_8_loose(signerBytes);
-          var arg4 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
-                storageRead,
-              );
-          var arg5 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
-                storageWrite,
-              );
-          var arg6 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
-                storageDelete,
-              );
-          return wire.wire__crate__api__provider__join_group_from_welcome(
-            port_,
-            arg0,
-            arg1,
-            arg2,
-            arg3,
-            arg4,
-            arg5,
-            arg6,
-          );
-        },
-        codec: DcoCodec(
-          decodeSuccessData: dco_decode_join_group_provider_result,
-          decodeErrorData: dco_decode_String,
-        ),
-        constMeta: kCrateApiProviderJoinGroupFromWelcomeConstMeta,
-        argValues: [
-          config,
-          welcomeBytes,
-          ratchetTreeBytes,
-          signerBytes,
-          storageRead,
-          storageWrite,
-          storageDelete,
-        ],
-        apiImpl: this,
-      ),
-    );
-  }
-
-  TaskConstMeta get kCrateApiProviderJoinGroupFromWelcomeConstMeta =>
-      const TaskConstMeta(
-        debugName: "join_group_from_welcome",
-        argNames: [
-          "config",
-          "welcomeBytes",
-          "ratchetTreeBytes",
-          "signerBytes",
-          "storageRead",
-          "storageWrite",
-          "storageDelete",
-        ],
-      );
-
-  @override
-  Future<JoinGroupProviderResult>
-  crateApiProviderJoinGroupFromWelcomeWithOptions({
-    required MlsGroupConfig config,
-    required List<int> welcomeBytes,
-    Uint8List? ratchetTreeBytes,
-    required List<int> signerBytes,
-    required bool skipLifetimeValidation,
-    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
-    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
-    required FutureOr<void> Function(Uint8List) storageDelete,
-  }) {
-    return handler.executeNormal(
-      NormalTask(
-        callFfi: (port_) {
-          var arg0 = cst_encode_box_autoadd_mls_group_config(config);
-          var arg1 = cst_encode_list_prim_u_8_loose(welcomeBytes);
-          var arg2 = cst_encode_opt_list_prim_u_8_strict(ratchetTreeBytes);
-          var arg3 = cst_encode_list_prim_u_8_loose(signerBytes);
-          var arg4 = cst_encode_bool(skipLifetimeValidation);
-          var arg5 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
-                storageRead,
-              );
-          var arg6 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
-                storageWrite,
-              );
-          var arg7 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
-                storageDelete,
-              );
-          return wire
-              .wire__crate__api__provider__join_group_from_welcome_with_options(
-                port_,
-                arg0,
-                arg1,
-                arg2,
-                arg3,
-                arg4,
-                arg5,
-                arg6,
-                arg7,
-              );
-        },
-        codec: DcoCodec(
-          decodeSuccessData: dco_decode_join_group_provider_result,
-          decodeErrorData: dco_decode_String,
-        ),
-        constMeta: kCrateApiProviderJoinGroupFromWelcomeWithOptionsConstMeta,
-        argValues: [
-          config,
-          welcomeBytes,
-          ratchetTreeBytes,
-          signerBytes,
-          skipLifetimeValidation,
-          storageRead,
-          storageWrite,
-          storageDelete,
-        ],
-        apiImpl: this,
-      ),
-    );
-  }
-
-  TaskConstMeta get kCrateApiProviderJoinGroupFromWelcomeWithOptionsConstMeta =>
-      const TaskConstMeta(
-        debugName: "join_group_from_welcome_with_options",
-        argNames: [
-          "config",
-          "welcomeBytes",
-          "ratchetTreeBytes",
-          "signerBytes",
-          "skipLifetimeValidation",
-          "storageRead",
-          "storageWrite",
-          "storageDelete",
-        ],
-      );
-
-  @override
-  Future<LeaveGroupProviderResult> crateApiProviderLeaveGroup({
-    required List<int> groupIdBytes,
-    required List<int> signerBytes,
-    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
-    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
-    required FutureOr<void> Function(Uint8List) storageDelete,
-  }) {
-    return handler.executeNormal(
-      NormalTask(
-        callFfi: (port_) {
-          var arg0 = cst_encode_list_prim_u_8_loose(groupIdBytes);
-          var arg1 = cst_encode_list_prim_u_8_loose(signerBytes);
-          var arg2 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
-                storageRead,
-              );
-          var arg3 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
-                storageWrite,
-              );
-          var arg4 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
-                storageDelete,
-              );
-          return wire.wire__crate__api__provider__leave_group(
-            port_,
-            arg0,
-            arg1,
-            arg2,
-            arg3,
-            arg4,
-          );
-        },
-        codec: DcoCodec(
-          decodeSuccessData: dco_decode_leave_group_provider_result,
-          decodeErrorData: dco_decode_String,
-        ),
-        constMeta: kCrateApiProviderLeaveGroupConstMeta,
-        argValues: [
-          groupIdBytes,
-          signerBytes,
-          storageRead,
-          storageWrite,
-          storageDelete,
-        ],
-        apiImpl: this,
-      ),
-    );
-  }
-
-  TaskConstMeta get kCrateApiProviderLeaveGroupConstMeta => const TaskConstMeta(
-    debugName: "leave_group",
-    argNames: [
-      "groupIdBytes",
-      "signerBytes",
-      "storageRead",
-      "storageWrite",
-      "storageDelete",
-    ],
-  );
-
-  @override
-  Future<LeaveGroupProviderResult> crateApiProviderLeaveGroupViaSelfRemove({
-    required List<int> groupIdBytes,
-    required List<int> signerBytes,
-    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
-    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
-    required FutureOr<void> Function(Uint8List) storageDelete,
-  }) {
-    return handler.executeNormal(
-      NormalTask(
-        callFfi: (port_) {
-          var arg0 = cst_encode_list_prim_u_8_loose(groupIdBytes);
-          var arg1 = cst_encode_list_prim_u_8_loose(signerBytes);
-          var arg2 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
-                storageRead,
-              );
-          var arg3 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
-                storageWrite,
-              );
-          var arg4 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
-                storageDelete,
-              );
-          return wire.wire__crate__api__provider__leave_group_via_self_remove(
-            port_,
-            arg0,
-            arg1,
-            arg2,
-            arg3,
-            arg4,
-          );
-        },
-        codec: DcoCodec(
-          decodeSuccessData: dco_decode_leave_group_provider_result,
-          decodeErrorData: dco_decode_String,
-        ),
-        constMeta: kCrateApiProviderLeaveGroupViaSelfRemoveConstMeta,
-        argValues: [
-          groupIdBytes,
-          signerBytes,
-          storageRead,
-          storageWrite,
-          storageDelete,
-        ],
-        apiImpl: this,
-      ),
-    );
-  }
-
-  TaskConstMeta get kCrateApiProviderLeaveGroupViaSelfRemoveConstMeta =>
-      const TaskConstMeta(
-        debugName: "leave_group_via_self_remove",
-        argNames: [
-          "groupIdBytes",
-          "signerBytes",
-          "storageRead",
-          "storageWrite",
-          "storageDelete",
-        ],
-      );
-
-  @override
-  Future<void> crateApiProviderMergePendingCommit({
-    required List<int> groupIdBytes,
-    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
-    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
-    required FutureOr<void> Function(Uint8List) storageDelete,
-  }) {
-    return handler.executeNormal(
-      NormalTask(
-        callFfi: (port_) {
-          var arg0 = cst_encode_list_prim_u_8_loose(groupIdBytes);
-          var arg1 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
-                storageRead,
-              );
-          var arg2 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
-                storageWrite,
-              );
-          var arg3 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
-                storageDelete,
-              );
-          return wire.wire__crate__api__provider__merge_pending_commit(
-            port_,
-            arg0,
-            arg1,
-            arg2,
-            arg3,
-          );
-        },
-        codec: DcoCodec(
-          decodeSuccessData: dco_decode_unit,
-          decodeErrorData: dco_decode_String,
-        ),
-        constMeta: kCrateApiProviderMergePendingCommitConstMeta,
-        argValues: [groupIdBytes, storageRead, storageWrite, storageDelete],
-        apiImpl: this,
-      ),
-    );
-  }
-
-  TaskConstMeta get kCrateApiProviderMergePendingCommitConstMeta =>
-      const TaskConstMeta(
-        debugName: "merge_pending_commit",
-        argNames: [
-          "groupIdBytes",
-          "storageRead",
-          "storageWrite",
-          "storageDelete",
-        ],
-      );
 
   @override
   MlsGroupConfig crateApiConfigMlsGroupConfigDefaultConfig({
@@ -3915,72 +3798,68 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
-  String crateApiProviderMlsMessageContentType({
+  String crateApiEngineMlsMessageContentType({
     required List<int> messageBytes,
   }) {
     return handler.executeSync(
       SyncTask(
         callFfi: () {
           var arg0 = cst_encode_list_prim_u_8_loose(messageBytes);
-          return wire.wire__crate__api__provider__mls_message_content_type(
-            arg0,
-          );
+          return wire.wire__crate__api__engine__mls_message_content_type(arg0);
         },
         codec: DcoCodec(
           decodeSuccessData: dco_decode_String,
           decodeErrorData: dco_decode_String,
         ),
-        constMeta: kCrateApiProviderMlsMessageContentTypeConstMeta,
+        constMeta: kCrateApiEngineMlsMessageContentTypeConstMeta,
         argValues: [messageBytes],
         apiImpl: this,
       ),
     );
   }
 
-  TaskConstMeta get kCrateApiProviderMlsMessageContentTypeConstMeta =>
+  TaskConstMeta get kCrateApiEngineMlsMessageContentTypeConstMeta =>
       const TaskConstMeta(
         debugName: "mls_message_content_type",
         argNames: ["messageBytes"],
       );
 
   @override
-  BigInt crateApiProviderMlsMessageExtractEpoch({
+  BigInt crateApiEngineMlsMessageExtractEpoch({
     required List<int> messageBytes,
   }) {
     return handler.executeSync(
       SyncTask(
         callFfi: () {
           var arg0 = cst_encode_list_prim_u_8_loose(messageBytes);
-          return wire.wire__crate__api__provider__mls_message_extract_epoch(
-            arg0,
-          );
+          return wire.wire__crate__api__engine__mls_message_extract_epoch(arg0);
         },
         codec: DcoCodec(
           decodeSuccessData: dco_decode_u_64,
           decodeErrorData: dco_decode_String,
         ),
-        constMeta: kCrateApiProviderMlsMessageExtractEpochConstMeta,
+        constMeta: kCrateApiEngineMlsMessageExtractEpochConstMeta,
         argValues: [messageBytes],
         apiImpl: this,
       ),
     );
   }
 
-  TaskConstMeta get kCrateApiProviderMlsMessageExtractEpochConstMeta =>
+  TaskConstMeta get kCrateApiEngineMlsMessageExtractEpochConstMeta =>
       const TaskConstMeta(
         debugName: "mls_message_extract_epoch",
         argNames: ["messageBytes"],
       );
 
   @override
-  Uint8List crateApiProviderMlsMessageExtractGroupId({
+  Uint8List crateApiEngineMlsMessageExtractGroupId({
     required List<int> messageBytes,
   }) {
     return handler.executeSync(
       SyncTask(
         callFfi: () {
           var arg0 = cst_encode_list_prim_u_8_loose(messageBytes);
-          return wire.wire__crate__api__provider__mls_message_extract_group_id(
+          return wire.wire__crate__api__engine__mls_message_extract_group_id(
             arg0,
           );
         },
@@ -3988,14 +3867,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           decodeSuccessData: dco_decode_list_prim_u_8_strict,
           decodeErrorData: dco_decode_String,
         ),
-        constMeta: kCrateApiProviderMlsMessageExtractGroupIdConstMeta,
+        constMeta: kCrateApiEngineMlsMessageExtractGroupIdConstMeta,
         argValues: [messageBytes],
         apiImpl: this,
       ),
     );
   }
 
-  TaskConstMeta get kCrateApiProviderMlsMessageExtractGroupIdConstMeta =>
+  TaskConstMeta get kCrateApiEngineMlsMessageExtractGroupIdConstMeta =>
       const TaskConstMeta(
         debugName: "mls_message_extract_group_id",
         argNames: ["messageBytes"],
@@ -4119,905 +3998,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
-  Future<ProcessedMessageProviderResult> crateApiProviderProcessMessage({
-    required List<int> groupIdBytes,
-    required List<int> messageBytes,
-    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
-    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
-    required FutureOr<void> Function(Uint8List) storageDelete,
-  }) {
-    return handler.executeNormal(
-      NormalTask(
-        callFfi: (port_) {
-          var arg0 = cst_encode_list_prim_u_8_loose(groupIdBytes);
-          var arg1 = cst_encode_list_prim_u_8_loose(messageBytes);
-          var arg2 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
-                storageRead,
-              );
-          var arg3 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
-                storageWrite,
-              );
-          var arg4 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
-                storageDelete,
-              );
-          return wire.wire__crate__api__provider__process_message(
-            port_,
-            arg0,
-            arg1,
-            arg2,
-            arg3,
-            arg4,
-          );
-        },
-        codec: DcoCodec(
-          decodeSuccessData: dco_decode_processed_message_provider_result,
-          decodeErrorData: dco_decode_String,
-        ),
-        constMeta: kCrateApiProviderProcessMessageConstMeta,
-        argValues: [
-          groupIdBytes,
-          messageBytes,
-          storageRead,
-          storageWrite,
-          storageDelete,
-        ],
-        apiImpl: this,
-      ),
-    );
-  }
-
-  TaskConstMeta get kCrateApiProviderProcessMessageConstMeta =>
-      const TaskConstMeta(
-        debugName: "process_message",
-        argNames: [
-          "groupIdBytes",
-          "messageBytes",
-          "storageRead",
-          "storageWrite",
-          "storageDelete",
-        ],
-      );
-
-  @override
-  Future<ProcessedMessageInspectProviderResult>
-  crateApiProviderProcessMessageWithInspect({
-    required List<int> groupIdBytes,
-    required List<int> messageBytes,
-    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
-    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
-    required FutureOr<void> Function(Uint8List) storageDelete,
-  }) {
-    return handler.executeNormal(
-      NormalTask(
-        callFfi: (port_) {
-          var arg0 = cst_encode_list_prim_u_8_loose(groupIdBytes);
-          var arg1 = cst_encode_list_prim_u_8_loose(messageBytes);
-          var arg2 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
-                storageRead,
-              );
-          var arg3 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
-                storageWrite,
-              );
-          var arg4 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
-                storageDelete,
-              );
-          return wire.wire__crate__api__provider__process_message_with_inspect(
-            port_,
-            arg0,
-            arg1,
-            arg2,
-            arg3,
-            arg4,
-          );
-        },
-        codec: DcoCodec(
-          decodeSuccessData:
-              dco_decode_processed_message_inspect_provider_result,
-          decodeErrorData: dco_decode_String,
-        ),
-        constMeta: kCrateApiProviderProcessMessageWithInspectConstMeta,
-        argValues: [
-          groupIdBytes,
-          messageBytes,
-          storageRead,
-          storageWrite,
-          storageDelete,
-        ],
-        apiImpl: this,
-      ),
-    );
-  }
-
-  TaskConstMeta get kCrateApiProviderProcessMessageWithInspectConstMeta =>
-      const TaskConstMeta(
-        debugName: "process_message_with_inspect",
-        argNames: [
-          "groupIdBytes",
-          "messageBytes",
-          "storageRead",
-          "storageWrite",
-          "storageDelete",
-        ],
-      );
-
-  @override
-  Future<ProposalProviderResult> crateApiProviderProposeAdd({
-    required List<int> groupIdBytes,
-    required List<int> signerBytes,
-    required List<int> keyPackageBytes,
-    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
-    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
-    required FutureOr<void> Function(Uint8List) storageDelete,
-  }) {
-    return handler.executeNormal(
-      NormalTask(
-        callFfi: (port_) {
-          var arg0 = cst_encode_list_prim_u_8_loose(groupIdBytes);
-          var arg1 = cst_encode_list_prim_u_8_loose(signerBytes);
-          var arg2 = cst_encode_list_prim_u_8_loose(keyPackageBytes);
-          var arg3 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
-                storageRead,
-              );
-          var arg4 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
-                storageWrite,
-              );
-          var arg5 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
-                storageDelete,
-              );
-          return wire.wire__crate__api__provider__propose_add(
-            port_,
-            arg0,
-            arg1,
-            arg2,
-            arg3,
-            arg4,
-            arg5,
-          );
-        },
-        codec: DcoCodec(
-          decodeSuccessData: dco_decode_proposal_provider_result,
-          decodeErrorData: dco_decode_String,
-        ),
-        constMeta: kCrateApiProviderProposeAddConstMeta,
-        argValues: [
-          groupIdBytes,
-          signerBytes,
-          keyPackageBytes,
-          storageRead,
-          storageWrite,
-          storageDelete,
-        ],
-        apiImpl: this,
-      ),
-    );
-  }
-
-  TaskConstMeta get kCrateApiProviderProposeAddConstMeta => const TaskConstMeta(
-    debugName: "propose_add",
-    argNames: [
-      "groupIdBytes",
-      "signerBytes",
-      "keyPackageBytes",
-      "storageRead",
-      "storageWrite",
-      "storageDelete",
-    ],
-  );
-
-  @override
-  Future<ProposalProviderResult> crateApiProviderProposeCustomProposal({
-    required List<int> groupIdBytes,
-    required List<int> signerBytes,
-    required int proposalType,
-    required List<int> payload,
-    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
-    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
-    required FutureOr<void> Function(Uint8List) storageDelete,
-  }) {
-    return handler.executeNormal(
-      NormalTask(
-        callFfi: (port_) {
-          var arg0 = cst_encode_list_prim_u_8_loose(groupIdBytes);
-          var arg1 = cst_encode_list_prim_u_8_loose(signerBytes);
-          var arg2 = cst_encode_u_16(proposalType);
-          var arg3 = cst_encode_list_prim_u_8_loose(payload);
-          var arg4 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
-                storageRead,
-              );
-          var arg5 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
-                storageWrite,
-              );
-          var arg6 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
-                storageDelete,
-              );
-          return wire.wire__crate__api__provider__propose_custom_proposal(
-            port_,
-            arg0,
-            arg1,
-            arg2,
-            arg3,
-            arg4,
-            arg5,
-            arg6,
-          );
-        },
-        codec: DcoCodec(
-          decodeSuccessData: dco_decode_proposal_provider_result,
-          decodeErrorData: dco_decode_String,
-        ),
-        constMeta: kCrateApiProviderProposeCustomProposalConstMeta,
-        argValues: [
-          groupIdBytes,
-          signerBytes,
-          proposalType,
-          payload,
-          storageRead,
-          storageWrite,
-          storageDelete,
-        ],
-        apiImpl: this,
-      ),
-    );
-  }
-
-  TaskConstMeta get kCrateApiProviderProposeCustomProposalConstMeta =>
-      const TaskConstMeta(
-        debugName: "propose_custom_proposal",
-        argNames: [
-          "groupIdBytes",
-          "signerBytes",
-          "proposalType",
-          "payload",
-          "storageRead",
-          "storageWrite",
-          "storageDelete",
-        ],
-      );
-
-  @override
-  Future<ProposalProviderResult> crateApiProviderProposeExternalPsk({
-    required List<int> groupIdBytes,
-    required List<int> signerBytes,
-    required List<int> pskId,
-    required List<int> pskNonce,
-    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
-    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
-    required FutureOr<void> Function(Uint8List) storageDelete,
-  }) {
-    return handler.executeNormal(
-      NormalTask(
-        callFfi: (port_) {
-          var arg0 = cst_encode_list_prim_u_8_loose(groupIdBytes);
-          var arg1 = cst_encode_list_prim_u_8_loose(signerBytes);
-          var arg2 = cst_encode_list_prim_u_8_loose(pskId);
-          var arg3 = cst_encode_list_prim_u_8_loose(pskNonce);
-          var arg4 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
-                storageRead,
-              );
-          var arg5 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
-                storageWrite,
-              );
-          var arg6 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
-                storageDelete,
-              );
-          return wire.wire__crate__api__provider__propose_external_psk(
-            port_,
-            arg0,
-            arg1,
-            arg2,
-            arg3,
-            arg4,
-            arg5,
-            arg6,
-          );
-        },
-        codec: DcoCodec(
-          decodeSuccessData: dco_decode_proposal_provider_result,
-          decodeErrorData: dco_decode_String,
-        ),
-        constMeta: kCrateApiProviderProposeExternalPskConstMeta,
-        argValues: [
-          groupIdBytes,
-          signerBytes,
-          pskId,
-          pskNonce,
-          storageRead,
-          storageWrite,
-          storageDelete,
-        ],
-        apiImpl: this,
-      ),
-    );
-  }
-
-  TaskConstMeta get kCrateApiProviderProposeExternalPskConstMeta =>
-      const TaskConstMeta(
-        debugName: "propose_external_psk",
-        argNames: [
-          "groupIdBytes",
-          "signerBytes",
-          "pskId",
-          "pskNonce",
-          "storageRead",
-          "storageWrite",
-          "storageDelete",
-        ],
-      );
-
-  @override
-  Future<ProposalProviderResult> crateApiProviderProposeGroupContextExtensions({
-    required List<int> groupIdBytes,
-    required List<int> signerBytes,
-    required List<MlsExtension> extensions,
-    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
-    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
-    required FutureOr<void> Function(Uint8List) storageDelete,
-  }) {
-    return handler.executeNormal(
-      NormalTask(
-        callFfi: (port_) {
-          var arg0 = cst_encode_list_prim_u_8_loose(groupIdBytes);
-          var arg1 = cst_encode_list_prim_u_8_loose(signerBytes);
-          var arg2 = cst_encode_list_mls_extension(extensions);
-          var arg3 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
-                storageRead,
-              );
-          var arg4 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
-                storageWrite,
-              );
-          var arg5 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
-                storageDelete,
-              );
-          return wire
-              .wire__crate__api__provider__propose_group_context_extensions(
-                port_,
-                arg0,
-                arg1,
-                arg2,
-                arg3,
-                arg4,
-                arg5,
-              );
-        },
-        codec: DcoCodec(
-          decodeSuccessData: dco_decode_proposal_provider_result,
-          decodeErrorData: dco_decode_String,
-        ),
-        constMeta: kCrateApiProviderProposeGroupContextExtensionsConstMeta,
-        argValues: [
-          groupIdBytes,
-          signerBytes,
-          extensions,
-          storageRead,
-          storageWrite,
-          storageDelete,
-        ],
-        apiImpl: this,
-      ),
-    );
-  }
-
-  TaskConstMeta get kCrateApiProviderProposeGroupContextExtensionsConstMeta =>
-      const TaskConstMeta(
-        debugName: "propose_group_context_extensions",
-        argNames: [
-          "groupIdBytes",
-          "signerBytes",
-          "extensions",
-          "storageRead",
-          "storageWrite",
-          "storageDelete",
-        ],
-      );
-
-  @override
-  Future<ProposalProviderResult> crateApiProviderProposeRemove({
-    required List<int> groupIdBytes,
-    required List<int> signerBytes,
-    required int memberIndex,
-    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
-    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
-    required FutureOr<void> Function(Uint8List) storageDelete,
-  }) {
-    return handler.executeNormal(
-      NormalTask(
-        callFfi: (port_) {
-          var arg0 = cst_encode_list_prim_u_8_loose(groupIdBytes);
-          var arg1 = cst_encode_list_prim_u_8_loose(signerBytes);
-          var arg2 = cst_encode_u_32(memberIndex);
-          var arg3 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
-                storageRead,
-              );
-          var arg4 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
-                storageWrite,
-              );
-          var arg5 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
-                storageDelete,
-              );
-          return wire.wire__crate__api__provider__propose_remove(
-            port_,
-            arg0,
-            arg1,
-            arg2,
-            arg3,
-            arg4,
-            arg5,
-          );
-        },
-        codec: DcoCodec(
-          decodeSuccessData: dco_decode_proposal_provider_result,
-          decodeErrorData: dco_decode_String,
-        ),
-        constMeta: kCrateApiProviderProposeRemoveConstMeta,
-        argValues: [
-          groupIdBytes,
-          signerBytes,
-          memberIndex,
-          storageRead,
-          storageWrite,
-          storageDelete,
-        ],
-        apiImpl: this,
-      ),
-    );
-  }
-
-  TaskConstMeta get kCrateApiProviderProposeRemoveConstMeta =>
-      const TaskConstMeta(
-        debugName: "propose_remove",
-        argNames: [
-          "groupIdBytes",
-          "signerBytes",
-          "memberIndex",
-          "storageRead",
-          "storageWrite",
-          "storageDelete",
-        ],
-      );
-
-  @override
-  Future<ProposalProviderResult>
-  crateApiProviderProposeRemoveMemberByCredential({
-    required List<int> groupIdBytes,
-    required List<int> signerBytes,
-    required List<int> credentialBytes,
-    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
-    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
-    required FutureOr<void> Function(Uint8List) storageDelete,
-  }) {
-    return handler.executeNormal(
-      NormalTask(
-        callFfi: (port_) {
-          var arg0 = cst_encode_list_prim_u_8_loose(groupIdBytes);
-          var arg1 = cst_encode_list_prim_u_8_loose(signerBytes);
-          var arg2 = cst_encode_list_prim_u_8_loose(credentialBytes);
-          var arg3 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
-                storageRead,
-              );
-          var arg4 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
-                storageWrite,
-              );
-          var arg5 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
-                storageDelete,
-              );
-          return wire
-              .wire__crate__api__provider__propose_remove_member_by_credential(
-                port_,
-                arg0,
-                arg1,
-                arg2,
-                arg3,
-                arg4,
-                arg5,
-              );
-        },
-        codec: DcoCodec(
-          decodeSuccessData: dco_decode_proposal_provider_result,
-          decodeErrorData: dco_decode_String,
-        ),
-        constMeta: kCrateApiProviderProposeRemoveMemberByCredentialConstMeta,
-        argValues: [
-          groupIdBytes,
-          signerBytes,
-          credentialBytes,
-          storageRead,
-          storageWrite,
-          storageDelete,
-        ],
-        apiImpl: this,
-      ),
-    );
-  }
-
-  TaskConstMeta get kCrateApiProviderProposeRemoveMemberByCredentialConstMeta =>
-      const TaskConstMeta(
-        debugName: "propose_remove_member_by_credential",
-        argNames: [
-          "groupIdBytes",
-          "signerBytes",
-          "credentialBytes",
-          "storageRead",
-          "storageWrite",
-          "storageDelete",
-        ],
-      );
-
-  @override
-  Future<ProposalProviderResult> crateApiProviderProposeSelfUpdate({
-    required List<int> groupIdBytes,
-    required List<int> signerBytes,
-    MlsCapabilities? leafNodeCapabilities,
-    List<MlsExtension>? leafNodeExtensions,
-    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
-    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
-    required FutureOr<void> Function(Uint8List) storageDelete,
-  }) {
-    return handler.executeNormal(
-      NormalTask(
-        callFfi: (port_) {
-          var arg0 = cst_encode_list_prim_u_8_loose(groupIdBytes);
-          var arg1 = cst_encode_list_prim_u_8_loose(signerBytes);
-          var arg2 = cst_encode_opt_box_autoadd_mls_capabilities(
-            leafNodeCapabilities,
-          );
-          var arg3 = cst_encode_opt_list_mls_extension(leafNodeExtensions);
-          var arg4 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
-                storageRead,
-              );
-          var arg5 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
-                storageWrite,
-              );
-          var arg6 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
-                storageDelete,
-              );
-          return wire.wire__crate__api__provider__propose_self_update(
-            port_,
-            arg0,
-            arg1,
-            arg2,
-            arg3,
-            arg4,
-            arg5,
-            arg6,
-          );
-        },
-        codec: DcoCodec(
-          decodeSuccessData: dco_decode_proposal_provider_result,
-          decodeErrorData: dco_decode_String,
-        ),
-        constMeta: kCrateApiProviderProposeSelfUpdateConstMeta,
-        argValues: [
-          groupIdBytes,
-          signerBytes,
-          leafNodeCapabilities,
-          leafNodeExtensions,
-          storageRead,
-          storageWrite,
-          storageDelete,
-        ],
-        apiImpl: this,
-      ),
-    );
-  }
-
-  TaskConstMeta get kCrateApiProviderProposeSelfUpdateConstMeta =>
-      const TaskConstMeta(
-        debugName: "propose_self_update",
-        argNames: [
-          "groupIdBytes",
-          "signerBytes",
-          "leafNodeCapabilities",
-          "leafNodeExtensions",
-          "storageRead",
-          "storageWrite",
-          "storageDelete",
-        ],
-      );
-
-  @override
-  Future<CommitProviderResult> crateApiProviderRemoveMembers({
-    required List<int> groupIdBytes,
-    required List<int> signerBytes,
-    required List<int> memberIndices,
-    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
-    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
-    required FutureOr<void> Function(Uint8List) storageDelete,
-  }) {
-    return handler.executeNormal(
-      NormalTask(
-        callFfi: (port_) {
-          var arg0 = cst_encode_list_prim_u_8_loose(groupIdBytes);
-          var arg1 = cst_encode_list_prim_u_8_loose(signerBytes);
-          var arg2 = cst_encode_list_prim_u_32_loose(memberIndices);
-          var arg3 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
-                storageRead,
-              );
-          var arg4 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
-                storageWrite,
-              );
-          var arg5 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
-                storageDelete,
-              );
-          return wire.wire__crate__api__provider__remove_members(
-            port_,
-            arg0,
-            arg1,
-            arg2,
-            arg3,
-            arg4,
-            arg5,
-          );
-        },
-        codec: DcoCodec(
-          decodeSuccessData: dco_decode_commit_provider_result,
-          decodeErrorData: dco_decode_String,
-        ),
-        constMeta: kCrateApiProviderRemoveMembersConstMeta,
-        argValues: [
-          groupIdBytes,
-          signerBytes,
-          memberIndices,
-          storageRead,
-          storageWrite,
-          storageDelete,
-        ],
-        apiImpl: this,
-      ),
-    );
-  }
-
-  TaskConstMeta get kCrateApiProviderRemoveMembersConstMeta =>
-      const TaskConstMeta(
-        debugName: "remove_members",
-        argNames: [
-          "groupIdBytes",
-          "signerBytes",
-          "memberIndices",
-          "storageRead",
-          "storageWrite",
-          "storageDelete",
-        ],
-      );
-
-  @override
-  Future<void> crateApiProviderRemovePendingProposal({
-    required List<int> groupIdBytes,
-    required List<int> proposalRefBytes,
-    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
-    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
-    required FutureOr<void> Function(Uint8List) storageDelete,
-  }) {
-    return handler.executeNormal(
-      NormalTask(
-        callFfi: (port_) {
-          var arg0 = cst_encode_list_prim_u_8_loose(groupIdBytes);
-          var arg1 = cst_encode_list_prim_u_8_loose(proposalRefBytes);
-          var arg2 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
-                storageRead,
-              );
-          var arg3 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
-                storageWrite,
-              );
-          var arg4 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
-                storageDelete,
-              );
-          return wire.wire__crate__api__provider__remove_pending_proposal(
-            port_,
-            arg0,
-            arg1,
-            arg2,
-            arg3,
-            arg4,
-          );
-        },
-        codec: DcoCodec(
-          decodeSuccessData: dco_decode_unit,
-          decodeErrorData: dco_decode_String,
-        ),
-        constMeta: kCrateApiProviderRemovePendingProposalConstMeta,
-        argValues: [
-          groupIdBytes,
-          proposalRefBytes,
-          storageRead,
-          storageWrite,
-          storageDelete,
-        ],
-        apiImpl: this,
-      ),
-    );
-  }
-
-  TaskConstMeta get kCrateApiProviderRemovePendingProposalConstMeta =>
-      const TaskConstMeta(
-        debugName: "remove_pending_proposal",
-        argNames: [
-          "groupIdBytes",
-          "proposalRefBytes",
-          "storageRead",
-          "storageWrite",
-          "storageDelete",
-        ],
-      );
-
-  @override
-  Future<CommitProviderResult> crateApiProviderSelfUpdate({
-    required List<int> groupIdBytes,
-    required List<int> signerBytes,
-    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
-    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
-    required FutureOr<void> Function(Uint8List) storageDelete,
-  }) {
-    return handler.executeNormal(
-      NormalTask(
-        callFfi: (port_) {
-          var arg0 = cst_encode_list_prim_u_8_loose(groupIdBytes);
-          var arg1 = cst_encode_list_prim_u_8_loose(signerBytes);
-          var arg2 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
-                storageRead,
-              );
-          var arg3 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
-                storageWrite,
-              );
-          var arg4 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
-                storageDelete,
-              );
-          return wire.wire__crate__api__provider__self_update(
-            port_,
-            arg0,
-            arg1,
-            arg2,
-            arg3,
-            arg4,
-          );
-        },
-        codec: DcoCodec(
-          decodeSuccessData: dco_decode_commit_provider_result,
-          decodeErrorData: dco_decode_String,
-        ),
-        constMeta: kCrateApiProviderSelfUpdateConstMeta,
-        argValues: [
-          groupIdBytes,
-          signerBytes,
-          storageRead,
-          storageWrite,
-          storageDelete,
-        ],
-        apiImpl: this,
-      ),
-    );
-  }
-
-  TaskConstMeta get kCrateApiProviderSelfUpdateConstMeta => const TaskConstMeta(
-    debugName: "self_update",
-    argNames: [
-      "groupIdBytes",
-      "signerBytes",
-      "storageRead",
-      "storageWrite",
-      "storageDelete",
-    ],
-  );
-
-  @override
-  Future<CommitProviderResult> crateApiProviderSelfUpdateWithNewSigner({
-    required List<int> groupIdBytes,
-    required List<int> oldSignerBytes,
-    required List<int> newSignerBytes,
-    required List<int> newCredentialIdentity,
-    required List<int> newSignerPublicKey,
-    Uint8List? newCredentialBytes,
-    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
-    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
-    required FutureOr<void> Function(Uint8List) storageDelete,
-  }) {
-    return handler.executeNormal(
-      NormalTask(
-        callFfi: (port_) {
-          var arg0 = cst_encode_list_prim_u_8_loose(groupIdBytes);
-          var arg1 = cst_encode_list_prim_u_8_loose(oldSignerBytes);
-          var arg2 = cst_encode_list_prim_u_8_loose(newSignerBytes);
-          var arg3 = cst_encode_list_prim_u_8_loose(newCredentialIdentity);
-          var arg4 = cst_encode_list_prim_u_8_loose(newSignerPublicKey);
-          var arg5 = cst_encode_opt_list_prim_u_8_strict(newCredentialBytes);
-          var arg6 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
-                storageRead,
-              );
-          var arg7 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
-                storageWrite,
-              );
-          var arg8 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
-                storageDelete,
-              );
-          return wire.wire__crate__api__provider__self_update_with_new_signer(
-            port_,
-            arg0,
-            arg1,
-            arg2,
-            arg3,
-            arg4,
-            arg5,
-            arg6,
-            arg7,
-            arg8,
-          );
-        },
-        codec: DcoCodec(
-          decodeSuccessData: dco_decode_commit_provider_result,
-          decodeErrorData: dco_decode_String,
-        ),
-        constMeta: kCrateApiProviderSelfUpdateWithNewSignerConstMeta,
-        argValues: [
-          groupIdBytes,
-          oldSignerBytes,
-          newSignerBytes,
-          newCredentialIdentity,
-          newSignerPublicKey,
-          newCredentialBytes,
-          storageRead,
-          storageWrite,
-          storageDelete,
-        ],
-        apiImpl: this,
-      ),
-    );
-  }
-
-  TaskConstMeta get kCrateApiProviderSelfUpdateWithNewSignerConstMeta =>
-      const TaskConstMeta(
-        debugName: "self_update_with_new_signer",
-        argNames: [
-          "groupIdBytes",
-          "oldSignerBytes",
-          "newSignerBytes",
-          "newCredentialIdentity",
-          "newSignerPublicKey",
-          "newCredentialBytes",
-          "storageRead",
-          "storageWrite",
-          "storageDelete",
-        ],
-      );
-
-  @override
   Uint8List crateApiKeysSerializeSigner({
     required MlsCiphersuite ciphersuite,
     required List<int> privateKey,
@@ -5053,69 +4033,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
-  Future<void> crateApiProviderSetConfiguration({
-    required List<int> groupIdBytes,
-    required MlsGroupConfig config,
-    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
-    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
-    required FutureOr<void> Function(Uint8List) storageDelete,
-  }) {
-    return handler.executeNormal(
-      NormalTask(
-        callFfi: (port_) {
-          var arg0 = cst_encode_list_prim_u_8_loose(groupIdBytes);
-          var arg1 = cst_encode_box_autoadd_mls_group_config(config);
-          var arg2 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
-                storageRead,
-              );
-          var arg3 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
-                storageWrite,
-              );
-          var arg4 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
-                storageDelete,
-              );
-          return wire.wire__crate__api__provider__set_configuration(
-            port_,
-            arg0,
-            arg1,
-            arg2,
-            arg3,
-            arg4,
-          );
-        },
-        codec: DcoCodec(
-          decodeSuccessData: dco_decode_unit,
-          decodeErrorData: dco_decode_String,
-        ),
-        constMeta: kCrateApiProviderSetConfigurationConstMeta,
-        argValues: [
-          groupIdBytes,
-          config,
-          storageRead,
-          storageWrite,
-          storageDelete,
-        ],
-        apiImpl: this,
-      ),
-    );
-  }
-
-  TaskConstMeta get kCrateApiProviderSetConfigurationConstMeta =>
-      const TaskConstMeta(
-        debugName: "set_configuration",
-        argNames: [
-          "groupIdBytes",
-          "config",
-          "storageRead",
-          "storageWrite",
-          "storageDelete",
-        ],
-      );
-
-  @override
   List<MlsCiphersuite> crateApiTypesSupportedCiphersuites() {
     return handler.executeSync(
       SyncTask(
@@ -5136,254 +4053,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   TaskConstMeta get kCrateApiTypesSupportedCiphersuitesConstMeta =>
       const TaskConstMeta(debugName: "supported_ciphersuites", argNames: []);
 
-  @override
-  Future<AddMembersProviderResult> crateApiProviderSwapMembers({
-    required List<int> groupIdBytes,
-    required List<int> signerBytes,
-    required List<int> removeIndices,
-    required List<Uint8List> addKeyPackagesBytes,
-    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
-    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
-    required FutureOr<void> Function(Uint8List) storageDelete,
-  }) {
-    return handler.executeNormal(
-      NormalTask(
-        callFfi: (port_) {
-          var arg0 = cst_encode_list_prim_u_8_loose(groupIdBytes);
-          var arg1 = cst_encode_list_prim_u_8_loose(signerBytes);
-          var arg2 = cst_encode_list_prim_u_32_loose(removeIndices);
-          var arg3 = cst_encode_list_list_prim_u_8_strict(addKeyPackagesBytes);
-          var arg4 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
-                storageRead,
-              );
-          var arg5 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
-                storageWrite,
-              );
-          var arg6 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
-                storageDelete,
-              );
-          return wire.wire__crate__api__provider__swap_members(
-            port_,
-            arg0,
-            arg1,
-            arg2,
-            arg3,
-            arg4,
-            arg5,
-            arg6,
-          );
-        },
-        codec: DcoCodec(
-          decodeSuccessData: dco_decode_add_members_provider_result,
-          decodeErrorData: dco_decode_String,
-        ),
-        constMeta: kCrateApiProviderSwapMembersConstMeta,
-        argValues: [
-          groupIdBytes,
-          signerBytes,
-          removeIndices,
-          addKeyPackagesBytes,
-          storageRead,
-          storageWrite,
-          storageDelete,
-        ],
-        apiImpl: this,
-      ),
-    );
-  }
-
-  TaskConstMeta get kCrateApiProviderSwapMembersConstMeta =>
-      const TaskConstMeta(
-        debugName: "swap_members",
-        argNames: [
-          "groupIdBytes",
-          "signerBytes",
-          "removeIndices",
-          "addKeyPackagesBytes",
-          "storageRead",
-          "storageWrite",
-          "storageDelete",
-        ],
-      );
-
-  @override
-  Future<CommitProviderResult> crateApiProviderUpdateGroupContextExtensions({
-    required List<int> groupIdBytes,
-    required List<int> signerBytes,
-    required List<MlsExtension> extensions,
-    required FutureOr<Uint8List?> Function(Uint8List) storageRead,
-    required FutureOr<void> Function(Uint8List, Uint8List) storageWrite,
-    required FutureOr<void> Function(Uint8List) storageDelete,
-  }) {
-    return handler.executeNormal(
-      NormalTask(
-        callFfi: (port_) {
-          var arg0 = cst_encode_list_prim_u_8_loose(groupIdBytes);
-          var arg1 = cst_encode_list_prim_u_8_loose(signerBytes);
-          var arg2 = cst_encode_list_mls_extension(extensions);
-          var arg3 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
-                storageRead,
-              );
-          var arg4 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
-                storageWrite,
-              );
-          var arg5 =
-              cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
-                storageDelete,
-              );
-          return wire
-              .wire__crate__api__provider__update_group_context_extensions(
-                port_,
-                arg0,
-                arg1,
-                arg2,
-                arg3,
-                arg4,
-                arg5,
-              );
-        },
-        codec: DcoCodec(
-          decodeSuccessData: dco_decode_commit_provider_result,
-          decodeErrorData: dco_decode_String,
-        ),
-        constMeta: kCrateApiProviderUpdateGroupContextExtensionsConstMeta,
-        argValues: [
-          groupIdBytes,
-          signerBytes,
-          extensions,
-          storageRead,
-          storageWrite,
-          storageDelete,
-        ],
-        apiImpl: this,
-      ),
-    );
-  }
-
-  TaskConstMeta get kCrateApiProviderUpdateGroupContextExtensionsConstMeta =>
-      const TaskConstMeta(
-        debugName: "update_group_context_extensions",
-        argNames: [
-          "groupIdBytes",
-          "signerBytes",
-          "extensions",
-          "storageRead",
-          "storageWrite",
-          "storageDelete",
-        ],
-      );
-
-  Future<void> Function(int, dynamic)
-  encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
-    FutureOr<Uint8List?> Function(Uint8List) raw,
-  ) {
-    return (callId, rawArg0) async {
-      final arg0 = dco_decode_list_prim_u_8_strict(rawArg0);
-
-      Box<Uint8List?>? rawOutput;
-      Box<AnyhowException>? rawError;
-      try {
-        rawOutput = Box(await raw(arg0));
-      } catch (e, s) {
-        rawError = Box(AnyhowException("$e\n\n$s"));
-      }
-
-      final serializer = SseSerializer(generalizedFrbRustBinding);
-      assert((rawOutput != null) ^ (rawError != null));
-      if (rawOutput != null) {
-        serializer.buffer.putUint8(0);
-        sse_encode_opt_list_prim_u_8_strict(rawOutput.value, serializer);
-      } else {
-        serializer.buffer.putUint8(1);
-        sse_encode_AnyhowException(rawError!.value, serializer);
-      }
-      final output = serializer.intoRaw();
-
-      generalizedFrbRustBinding.dartFnDeliverOutput(
-        callId: callId,
-        ptr: output.ptr,
-        rustVecLen: output.rustVecLen,
-        dataLen: output.dataLen,
-      );
-    };
-  }
-
-  Future<void> Function(int, dynamic)
-  encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
-    FutureOr<void> Function(Uint8List) raw,
-  ) {
-    return (callId, rawArg0) async {
-      final arg0 = dco_decode_list_prim_u_8_strict(rawArg0);
-
-      Box<void>? rawOutput;
-      Box<AnyhowException>? rawError;
-      try {
-        rawOutput = Box(await raw(arg0));
-      } catch (e, s) {
-        rawError = Box(AnyhowException("$e\n\n$s"));
-      }
-
-      final serializer = SseSerializer(generalizedFrbRustBinding);
-      assert((rawOutput != null) ^ (rawError != null));
-      if (rawOutput != null) {
-        serializer.buffer.putUint8(0);
-        sse_encode_unit(rawOutput.value, serializer);
-      } else {
-        serializer.buffer.putUint8(1);
-        sse_encode_AnyhowException(rawError!.value, serializer);
-      }
-      final output = serializer.intoRaw();
-
-      generalizedFrbRustBinding.dartFnDeliverOutput(
-        callId: callId,
-        ptr: output.ptr,
-        rustVecLen: output.rustVecLen,
-        dataLen: output.dataLen,
-      );
-    };
-  }
-
-  Future<void> Function(int, dynamic, dynamic)
-  encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
-    FutureOr<void> Function(Uint8List, Uint8List) raw,
-  ) {
-    return (callId, rawArg0, rawArg1) async {
-      final arg0 = dco_decode_list_prim_u_8_strict(rawArg0);
-      final arg1 = dco_decode_list_prim_u_8_strict(rawArg1);
-
-      Box<void>? rawOutput;
-      Box<AnyhowException>? rawError;
-      try {
-        rawOutput = Box(await raw(arg0, arg1));
-      } catch (e, s) {
-        rawError = Box(AnyhowException("$e\n\n$s"));
-      }
-
-      final serializer = SseSerializer(generalizedFrbRustBinding);
-      assert((rawOutput != null) ^ (rawError != null));
-      if (rawOutput != null) {
-        serializer.buffer.putUint8(0);
-        sse_encode_unit(rawOutput.value, serializer);
-      } else {
-        serializer.buffer.putUint8(1);
-        sse_encode_AnyhowException(rawError!.value, serializer);
-      }
-      final output = serializer.intoRaw();
-
-      generalizedFrbRustBinding.dartFnDeliverOutput(
-        callId: callId,
-        ptr: output.ptr,
-        rustVecLen: output.rustVecLen,
-        dataLen: output.dataLen,
-      );
-    };
-  }
-
   RustArcIncrementStrongCountFnType
   get rust_arc_increment_strong_count_MlsCredential => wire
       .rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsCredential;
@@ -5391,6 +4060,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   RustArcDecrementStrongCountFnType
   get rust_arc_decrement_strong_count_MlsCredential => wire
       .rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsCredential;
+
+  RustArcIncrementStrongCountFnType
+  get rust_arc_increment_strong_count_MlsEngine => wire
+      .rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsEngine;
+
+  RustArcDecrementStrongCountFnType
+  get rust_arc_decrement_strong_count_MlsEngine => wire
+      .rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsEngine;
 
   RustArcIncrementStrongCountFnType
   get rust_arc_increment_strong_count_MlsSignatureKeyPair => wire
@@ -5401,18 +4078,21 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       .rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsSignatureKeyPair;
 
   @protected
-  AnyhowException dco_decode_AnyhowException(dynamic raw) {
-    // Codec=Dco (DartCObject based), see doc to use other codecs
-    return AnyhowException(raw as String);
-  }
-
-  @protected
   MlsCredential
   dco_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsCredential(
     dynamic raw,
   ) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return MlsCredentialImpl.frbInternalDcoDecode(raw as List<dynamic>);
+  }
+
+  @protected
+  MlsEngine
+  dco_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsEngine(
+    dynamic raw,
+  ) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return MlsEngineImpl.frbInternalDcoDecode(raw as List<dynamic>);
   }
 
   @protected
@@ -5434,6 +4114,15 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  MlsEngine
+  dco_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsEngine(
+    dynamic raw,
+  ) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return MlsEngineImpl.frbInternalDcoDecode(raw as List<dynamic>);
+  }
+
+  @protected
   MlsSignatureKeyPair
   dco_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsSignatureKeyPair(
     dynamic raw,
@@ -5443,45 +4132,21 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  FutureOr<Uint8List?> Function(Uint8List)
-  dco_decode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
-    dynamic raw,
-  ) {
-    // Codec=Dco (DartCObject based), see doc to use other codecs
-    throw UnimplementedError('');
-  }
-
-  @protected
-  FutureOr<void> Function(Uint8List)
-  dco_decode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
-    dynamic raw,
-  ) {
-    // Codec=Dco (DartCObject based), see doc to use other codecs
-    throw UnimplementedError('');
-  }
-
-  @protected
-  FutureOr<void> Function(Uint8List, Uint8List)
-  dco_decode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
-    dynamic raw,
-  ) {
-    // Codec=Dco (DartCObject based), see doc to use other codecs
-    throw UnimplementedError('');
-  }
-
-  @protected
-  Object dco_decode_DartOpaque(dynamic raw) {
-    // Codec=Dco (DartCObject based), see doc to use other codecs
-    return decodeDartOpaque(raw, generalizedFrbRustBinding);
-  }
-
-  @protected
   MlsCredential
   dco_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsCredential(
     dynamic raw,
   ) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return MlsCredentialImpl.frbInternalDcoDecode(raw as List<dynamic>);
+  }
+
+  @protected
+  MlsEngine
+  dco_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsEngine(
+    dynamic raw,
+  ) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return MlsEngineImpl.frbInternalDcoDecode(raw as List<dynamic>);
   }
 
   @protected
@@ -5500,12 +4165,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  AddMembersProviderResult dco_decode_add_members_provider_result(dynamic raw) {
+  AddMembersResult dco_decode_add_members_result(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
     if (arr.length != 3)
       throw Exception('unexpected arr length: expect 3 but see ${arr.length}');
-    return AddMembersProviderResult(
+    return AddMembersResult(
       commit: dco_decode_list_prim_u_8_strict(arr[0]),
       welcome: dco_decode_list_prim_u_8_strict(arr[1]),
       groupInfo: dco_decode_opt_list_prim_u_8_strict(arr[2]),
@@ -5575,12 +4240,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  CommitProviderResult dco_decode_commit_provider_result(dynamic raw) {
+  CommitResult dco_decode_commit_result(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
     if (arr.length != 3)
       throw Exception('unexpected arr length: expect 3 but see ${arr.length}');
-    return CommitProviderResult(
+    return CommitResult(
       commit: dco_decode_list_prim_u_8_strict(arr[0]),
       welcome: dco_decode_opt_list_prim_u_8_strict(arr[1]),
       groupInfo: dco_decode_opt_list_prim_u_8_strict(arr[2]),
@@ -5588,40 +4253,32 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  CreateGroupProviderResult dco_decode_create_group_provider_result(
-    dynamic raw,
-  ) {
+  CreateGroupResult dco_decode_create_group_result(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
     if (arr.length != 1)
       throw Exception('unexpected arr length: expect 1 but see ${arr.length}');
-    return CreateGroupProviderResult(
-      groupId: dco_decode_list_prim_u_8_strict(arr[0]),
-    );
+    return CreateGroupResult(groupId: dco_decode_list_prim_u_8_strict(arr[0]));
   }
 
   @protected
-  CreateMessageProviderResult dco_decode_create_message_provider_result(
-    dynamic raw,
-  ) {
+  CreateMessageResult dco_decode_create_message_result(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
     if (arr.length != 1)
       throw Exception('unexpected arr length: expect 1 but see ${arr.length}');
-    return CreateMessageProviderResult(
+    return CreateMessageResult(
       ciphertext: dco_decode_list_prim_u_8_strict(arr[0]),
     );
   }
 
   @protected
-  ExternalJoinProviderResult dco_decode_external_join_provider_result(
-    dynamic raw,
-  ) {
+  ExternalJoinResult dco_decode_external_join_result(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
     if (arr.length != 3)
       throw Exception('unexpected arr length: expect 3 but see ${arr.length}');
-    return ExternalJoinProviderResult(
+    return ExternalJoinResult(
       groupId: dco_decode_list_prim_u_8_strict(arr[0]),
       commit: dco_decode_list_prim_u_8_strict(arr[1]),
       groupInfo: dco_decode_opt_list_prim_u_8_strict(arr[2]),
@@ -5668,20 +4325,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  PlatformInt64 dco_decode_isize(dynamic raw) {
-    // Codec=Dco (DartCObject based), see doc to use other codecs
-    return dcoDecodeI64(raw);
-  }
-
-  @protected
-  JoinGroupProviderResult dco_decode_join_group_provider_result(dynamic raw) {
+  JoinGroupResult dco_decode_join_group_result(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
     if (arr.length != 1)
       throw Exception('unexpected arr length: expect 1 but see ${arr.length}');
-    return JoinGroupProviderResult(
-      groupId: dco_decode_list_prim_u_8_strict(arr[0]),
-    );
+    return JoinGroupResult(groupId: dco_decode_list_prim_u_8_strict(arr[0]));
   }
 
   @protected
@@ -5700,25 +4349,23 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  KeyPackageProviderResult dco_decode_key_package_provider_result(dynamic raw) {
+  KeyPackageResult dco_decode_key_package_result(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
     if (arr.length != 1)
       throw Exception('unexpected arr length: expect 1 but see ${arr.length}');
-    return KeyPackageProviderResult(
+    return KeyPackageResult(
       keyPackageBytes: dco_decode_list_prim_u_8_strict(arr[0]),
     );
   }
 
   @protected
-  LeaveGroupProviderResult dco_decode_leave_group_provider_result(dynamic raw) {
+  LeaveGroupResult dco_decode_leave_group_result(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
     if (arr.length != 1)
       throw Exception('unexpected arr length: expect 1 but see ${arr.length}');
-    return LeaveGroupProviderResult(
-      message: dco_decode_list_prim_u_8_strict(arr[0]),
-    );
+    return LeaveGroupResult(message: dco_decode_list_prim_u_8_strict(arr[0]));
   }
 
   @protected
@@ -5953,13 +4600,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  ProcessedMessageInspectProviderResult
-  dco_decode_processed_message_inspect_provider_result(dynamic raw) {
+  ProcessedMessageInspectResult dco_decode_processed_message_inspect_result(
+    dynamic raw,
+  ) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
     if (arr.length != 6)
       throw Exception('unexpected arr length: expect 6 but see ${arr.length}');
-    return ProcessedMessageInspectProviderResult(
+    return ProcessedMessageInspectResult(
       messageType: dco_decode_processed_message_type(arr[0]),
       senderIndex: dco_decode_opt_box_autoadd_u_32(arr[1]),
       epoch: dco_decode_u_64(arr[2]),
@@ -5970,14 +4618,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  ProcessedMessageProviderResult dco_decode_processed_message_provider_result(
-    dynamic raw,
-  ) {
+  ProcessedMessageResult dco_decode_processed_message_result(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
     if (arr.length != 7)
       throw Exception('unexpected arr length: expect 7 but see ${arr.length}');
-    return ProcessedMessageProviderResult(
+    return ProcessedMessageResult(
       messageType: dco_decode_processed_message_type(arr[0]),
       senderIndex: dco_decode_opt_box_autoadd_u_32(arr[1]),
       epoch: dco_decode_u_64(arr[2]),
@@ -5995,12 +4641,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  ProposalProviderResult dco_decode_proposal_provider_result(dynamic raw) {
+  ProposalResult dco_decode_proposal_result(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
     if (arr.length != 1)
       throw Exception('unexpected arr length: expect 1 but see ${arr.length}');
-    return ProposalProviderResult(
+    return ProposalResult(
       proposalMessage: dco_decode_list_prim_u_8_strict(arr[0]),
     );
   }
@@ -6071,19 +4717,24 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  AnyhowException sse_decode_AnyhowException(SseDeserializer deserializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    var inner = sse_decode_String(deserializer);
-    return AnyhowException(inner);
-  }
-
-  @protected
   MlsCredential
   sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsCredential(
     SseDeserializer deserializer,
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     return MlsCredentialImpl.frbInternalSseDecode(
+      sse_decode_usize(deserializer),
+      sse_decode_i_32(deserializer),
+    );
+  }
+
+  @protected
+  MlsEngine
+  sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsEngine(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return MlsEngineImpl.frbInternalSseDecode(
       sse_decode_usize(deserializer),
       sse_decode_i_32(deserializer),
     );
@@ -6114,6 +4765,18 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  MlsEngine
+  sse_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsEngine(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return MlsEngineImpl.frbInternalSseDecode(
+      sse_decode_usize(deserializer),
+      sse_decode_i_32(deserializer),
+    );
+  }
+
+  @protected
   MlsSignatureKeyPair
   sse_decode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsSignatureKeyPair(
     SseDeserializer deserializer,
@@ -6126,19 +4789,24 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  Object sse_decode_DartOpaque(SseDeserializer deserializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    var inner = sse_decode_isize(deserializer);
-    return decodeDartOpaque(inner, generalizedFrbRustBinding);
-  }
-
-  @protected
   MlsCredential
   sse_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsCredential(
     SseDeserializer deserializer,
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     return MlsCredentialImpl.frbInternalSseDecode(
+      sse_decode_usize(deserializer),
+      sse_decode_i_32(deserializer),
+    );
+  }
+
+  @protected
+  MlsEngine
+  sse_decode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsEngine(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return MlsEngineImpl.frbInternalSseDecode(
       sse_decode_usize(deserializer),
       sse_decode_i_32(deserializer),
     );
@@ -6164,14 +4832,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  AddMembersProviderResult sse_decode_add_members_provider_result(
-    SseDeserializer deserializer,
-  ) {
+  AddMembersResult sse_decode_add_members_result(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var var_commit = sse_decode_list_prim_u_8_strict(deserializer);
     var var_welcome = sse_decode_list_prim_u_8_strict(deserializer);
     var var_groupInfo = sse_decode_opt_list_prim_u_8_strict(deserializer);
-    return AddMembersProviderResult(
+    return AddMembersResult(
       commit: var_commit,
       welcome: var_welcome,
       groupInfo: var_groupInfo,
@@ -6253,14 +4919,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  CommitProviderResult sse_decode_commit_provider_result(
-    SseDeserializer deserializer,
-  ) {
+  CommitResult sse_decode_commit_result(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var var_commit = sse_decode_list_prim_u_8_strict(deserializer);
     var var_welcome = sse_decode_opt_list_prim_u_8_strict(deserializer);
     var var_groupInfo = sse_decode_opt_list_prim_u_8_strict(deserializer);
-    return CommitProviderResult(
+    return CommitResult(
       commit: var_commit,
       welcome: var_welcome,
       groupInfo: var_groupInfo,
@@ -6268,32 +4932,32 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  CreateGroupProviderResult sse_decode_create_group_provider_result(
+  CreateGroupResult sse_decode_create_group_result(
     SseDeserializer deserializer,
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var var_groupId = sse_decode_list_prim_u_8_strict(deserializer);
-    return CreateGroupProviderResult(groupId: var_groupId);
+    return CreateGroupResult(groupId: var_groupId);
   }
 
   @protected
-  CreateMessageProviderResult sse_decode_create_message_provider_result(
+  CreateMessageResult sse_decode_create_message_result(
     SseDeserializer deserializer,
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var var_ciphertext = sse_decode_list_prim_u_8_strict(deserializer);
-    return CreateMessageProviderResult(ciphertext: var_ciphertext);
+    return CreateMessageResult(ciphertext: var_ciphertext);
   }
 
   @protected
-  ExternalJoinProviderResult sse_decode_external_join_provider_result(
+  ExternalJoinResult sse_decode_external_join_result(
     SseDeserializer deserializer,
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var var_groupId = sse_decode_list_prim_u_8_strict(deserializer);
     var var_commit = sse_decode_list_prim_u_8_strict(deserializer);
     var var_groupInfo = sse_decode_opt_list_prim_u_8_strict(deserializer);
-    return ExternalJoinProviderResult(
+    return ExternalJoinResult(
       groupId: var_groupId,
       commit: var_commit,
       groupInfo: var_groupInfo,
@@ -6353,18 +5017,10 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  PlatformInt64 sse_decode_isize(SseDeserializer deserializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    return deserializer.buffer.getPlatformInt64();
-  }
-
-  @protected
-  JoinGroupProviderResult sse_decode_join_group_provider_result(
-    SseDeserializer deserializer,
-  ) {
+  JoinGroupResult sse_decode_join_group_result(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var var_groupId = sse_decode_list_prim_u_8_strict(deserializer);
-    return JoinGroupProviderResult(groupId: var_groupId);
+    return JoinGroupResult(groupId: var_groupId);
   }
 
   @protected
@@ -6393,21 +5049,17 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  KeyPackageProviderResult sse_decode_key_package_provider_result(
-    SseDeserializer deserializer,
-  ) {
+  KeyPackageResult sse_decode_key_package_result(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var var_keyPackageBytes = sse_decode_list_prim_u_8_strict(deserializer);
-    return KeyPackageProviderResult(keyPackageBytes: var_keyPackageBytes);
+    return KeyPackageResult(keyPackageBytes: var_keyPackageBytes);
   }
 
   @protected
-  LeaveGroupProviderResult sse_decode_leave_group_provider_result(
-    SseDeserializer deserializer,
-  ) {
+  LeaveGroupResult sse_decode_leave_group_result(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var var_message = sse_decode_list_prim_u_8_strict(deserializer);
-    return LeaveGroupProviderResult(message: var_message);
+    return LeaveGroupResult(message: var_message);
   }
 
   @protected
@@ -6751,8 +5403,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  ProcessedMessageInspectProviderResult
-  sse_decode_processed_message_inspect_provider_result(
+  ProcessedMessageInspectResult sse_decode_processed_message_inspect_result(
     SseDeserializer deserializer,
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
@@ -6768,7 +5419,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_proposalType = sse_decode_opt_box_autoadd_mls_proposal_type(
       deserializer,
     );
-    return ProcessedMessageInspectProviderResult(
+    return ProcessedMessageInspectResult(
       messageType: var_messageType,
       senderIndex: var_senderIndex,
       epoch: var_epoch,
@@ -6779,7 +5430,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  ProcessedMessageProviderResult sse_decode_processed_message_provider_result(
+  ProcessedMessageResult sse_decode_processed_message_result(
     SseDeserializer deserializer,
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
@@ -6794,7 +5445,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_proposalType = sse_decode_opt_box_autoadd_mls_proposal_type(
       deserializer,
     );
-    return ProcessedMessageProviderResult(
+    return ProcessedMessageResult(
       messageType: var_messageType,
       senderIndex: var_senderIndex,
       epoch: var_epoch,
@@ -6815,12 +5466,10 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  ProposalProviderResult sse_decode_proposal_provider_result(
-    SseDeserializer deserializer,
-  ) {
+  ProposalResult sse_decode_proposal_result(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var var_proposalMessage = sse_decode_list_prim_u_8_strict(deserializer);
-    return ProposalProviderResult(proposalMessage: var_proposalMessage);
+    return ProposalResult(proposalMessage: var_proposalMessage);
   }
 
   @protected
@@ -6904,6 +5553,16 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   @protected
   int
+  cst_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsEngine(
+    MlsEngine raw,
+  ) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    // ignore: invalid_use_of_internal_member
+    return (raw as MlsEngineImpl).frbInternalCstEncode(move: true);
+  }
+
+  @protected
+  int
   cst_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsSignatureKeyPair(
     MlsSignatureKeyPair raw,
   ) {
@@ -6924,61 +5583,22 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   @protected
   int
+  cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsEngine(
+    MlsEngine raw,
+  ) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    // ignore: invalid_use_of_internal_member
+    return (raw as MlsEngineImpl).frbInternalCstEncode(move: false);
+  }
+
+  @protected
+  int
   cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsSignatureKeyPair(
     MlsSignatureKeyPair raw,
   ) {
     // Codec=Cst (C-struct based), see doc to use other codecs
     // ignore: invalid_use_of_internal_member
     return (raw as MlsSignatureKeyPairImpl).frbInternalCstEncode(move: false);
-  }
-
-  @protected
-  PlatformPointer
-  cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
-    FutureOr<Uint8List?> Function(Uint8List) raw,
-  ) {
-    // Codec=Cst (C-struct based), see doc to use other codecs
-    return cst_encode_DartOpaque(
-      encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
-        raw,
-      ),
-    );
-  }
-
-  @protected
-  PlatformPointer
-  cst_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
-    FutureOr<void> Function(Uint8List) raw,
-  ) {
-    // Codec=Cst (C-struct based), see doc to use other codecs
-    return cst_encode_DartOpaque(
-      encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
-        raw,
-      ),
-    );
-  }
-
-  @protected
-  PlatformPointer
-  cst_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
-    FutureOr<void> Function(Uint8List, Uint8List) raw,
-  ) {
-    // Codec=Cst (C-struct based), see doc to use other codecs
-    return cst_encode_DartOpaque(
-      encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
-        raw,
-      ),
-    );
-  }
-
-  @protected
-  PlatformPointer cst_encode_DartOpaque(Object raw) {
-    // Codec=Cst (C-struct based), see doc to use other codecs
-    return encodeDartOpaque(
-      raw,
-      portManager.dartHandlerPort,
-      generalizedFrbRustBinding,
-    );
   }
 
   @protected
@@ -6989,6 +5609,16 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     // Codec=Cst (C-struct based), see doc to use other codecs
     // ignore: invalid_use_of_internal_member
     return (raw as MlsCredentialImpl).frbInternalCstEncode();
+  }
+
+  @protected
+  int
+  cst_encode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsEngine(
+    MlsEngine raw,
+  ) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    // ignore: invalid_use_of_internal_member
+    return (raw as MlsEngineImpl).frbInternalCstEncode();
   }
 
   @protected
@@ -7062,15 +5692,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  void sse_encode_AnyhowException(
-    AnyhowException self,
-    SseSerializer serializer,
-  ) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_String(self.message, serializer);
-  }
-
-  @protected
   void
   sse_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsCredential(
     MlsCredential self,
@@ -7079,6 +5700,19 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_usize(
       (self as MlsCredentialImpl).frbInternalSseEncode(move: true),
+      serializer,
+    );
+  }
+
+  @protected
+  void
+  sse_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsEngine(
+    MlsEngine self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_usize(
+      (self as MlsEngineImpl).frbInternalSseEncode(move: true),
       serializer,
     );
   }
@@ -7111,6 +5745,19 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   @protected
   void
+  sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsEngine(
+    MlsEngine self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_usize(
+      (self as MlsEngineImpl).frbInternalSseEncode(move: false),
+      serializer,
+    );
+  }
+
+  @protected
+  void
   sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsSignatureKeyPair(
     MlsSignatureKeyPair self,
     SseSerializer serializer,
@@ -7124,66 +5771,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   @protected
   void
-  sse_encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
-    FutureOr<Uint8List?> Function(Uint8List) self,
-    SseSerializer serializer,
-  ) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_DartOpaque(
-      encode_DartFn_Inputs_list_prim_u_8_strict_Output_opt_list_prim_u_8_strict_AnyhowException(
-        self,
-      ),
-      serializer,
-    );
-  }
-
-  @protected
-  void
-  sse_encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
-    FutureOr<void> Function(Uint8List) self,
-    SseSerializer serializer,
-  ) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_DartOpaque(
-      encode_DartFn_Inputs_list_prim_u_8_strict_Output_unit_AnyhowException(
-        self,
-      ),
-      serializer,
-    );
-  }
-
-  @protected
-  void
-  sse_encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
-    FutureOr<void> Function(Uint8List, Uint8List) self,
-    SseSerializer serializer,
-  ) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_DartOpaque(
-      encode_DartFn_Inputs_list_prim_u_8_strict_list_prim_u_8_strict_Output_unit_AnyhowException(
-        self,
-      ),
-      serializer,
-    );
-  }
-
-  @protected
-  void sse_encode_DartOpaque(Object self, SseSerializer serializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_isize(
-      PlatformPointerUtil.ptrToPlatformInt64(
-        encodeDartOpaque(
-          self,
-          portManager.dartHandlerPort,
-          generalizedFrbRustBinding,
-        ),
-      ),
-      serializer,
-    );
-  }
-
-  @protected
-  void
   sse_encode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsCredential(
     MlsCredential self,
     SseSerializer serializer,
@@ -7191,6 +5778,19 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_usize(
       (self as MlsCredentialImpl).frbInternalSseEncode(move: null),
+      serializer,
+    );
+  }
+
+  @protected
+  void
+  sse_encode_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsEngine(
+    MlsEngine self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_usize(
+      (self as MlsEngineImpl).frbInternalSseEncode(move: null),
       serializer,
     );
   }
@@ -7215,8 +5815,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  void sse_encode_add_members_provider_result(
-    AddMembersProviderResult self,
+  void sse_encode_add_members_result(
+    AddMembersResult self,
     SseSerializer serializer,
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
@@ -7307,10 +5907,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  void sse_encode_commit_provider_result(
-    CommitProviderResult self,
-    SseSerializer serializer,
-  ) {
+  void sse_encode_commit_result(CommitResult self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_list_prim_u_8_strict(self.commit, serializer);
     sse_encode_opt_list_prim_u_8_strict(self.welcome, serializer);
@@ -7318,8 +5915,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  void sse_encode_create_group_provider_result(
-    CreateGroupProviderResult self,
+  void sse_encode_create_group_result(
+    CreateGroupResult self,
     SseSerializer serializer,
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
@@ -7327,8 +5924,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  void sse_encode_create_message_provider_result(
-    CreateMessageProviderResult self,
+  void sse_encode_create_message_result(
+    CreateMessageResult self,
     SseSerializer serializer,
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
@@ -7336,8 +5933,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  void sse_encode_external_join_provider_result(
-    ExternalJoinProviderResult self,
+  void sse_encode_external_join_result(
+    ExternalJoinResult self,
     SseSerializer serializer,
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
@@ -7382,14 +5979,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  void sse_encode_isize(PlatformInt64 self, SseSerializer serializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    serializer.buffer.putPlatformInt64(self);
-  }
-
-  @protected
-  void sse_encode_join_group_provider_result(
-    JoinGroupProviderResult self,
+  void sse_encode_join_group_result(
+    JoinGroupResult self,
     SseSerializer serializer,
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
@@ -7410,8 +6001,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  void sse_encode_key_package_provider_result(
-    KeyPackageProviderResult self,
+  void sse_encode_key_package_result(
+    KeyPackageResult self,
     SseSerializer serializer,
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
@@ -7419,8 +6010,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  void sse_encode_leave_group_provider_result(
-    LeaveGroupProviderResult self,
+  void sse_encode_leave_group_result(
+    LeaveGroupResult self,
     SseSerializer serializer,
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
@@ -7751,8 +6342,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  void sse_encode_processed_message_inspect_provider_result(
-    ProcessedMessageInspectProviderResult self,
+  void sse_encode_processed_message_inspect_result(
+    ProcessedMessageInspectResult self,
     SseSerializer serializer,
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
@@ -7768,8 +6359,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  void sse_encode_processed_message_provider_result(
-    ProcessedMessageProviderResult self,
+  void sse_encode_processed_message_result(
+    ProcessedMessageResult self,
     SseSerializer serializer,
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
@@ -7792,8 +6383,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  void sse_encode_proposal_provider_result(
-    ProposalProviderResult self,
+  void sse_encode_proposal_result(
+    ProposalResult self,
     SseSerializer serializer,
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
@@ -7907,6 +6498,614 @@ class MlsCredentialImpl extends RustOpaque implements MlsCredential {
   /// For X.509, this is the TLS-serialized certificate chain.
   Uint8List serializedContent() => RustLib.instance.api
       .crateApiCredentialMlsCredentialSerializedContent(that: this);
+}
+
+@sealed
+class MlsEngineImpl extends RustOpaque implements MlsEngine {
+  // Not to be used by end users
+  MlsEngineImpl.frbInternalDcoDecode(List<dynamic> wire)
+    : super.frbInternalDcoDecode(wire, _kStaticData);
+
+  // Not to be used by end users
+  MlsEngineImpl.frbInternalSseDecode(BigInt ptr, int externalSizeOnNative)
+    : super.frbInternalSseDecode(ptr, externalSizeOnNative, _kStaticData);
+
+  static final _kStaticData = RustArcStaticData(
+    rustArcIncrementStrongCount:
+        RustLib.instance.api.rust_arc_increment_strong_count_MlsEngine,
+    rustArcDecrementStrongCount:
+        RustLib.instance.api.rust_arc_decrement_strong_count_MlsEngine,
+    rustArcDecrementStrongCountPtr:
+        RustLib.instance.api.rust_arc_decrement_strong_count_MlsEnginePtr,
+  );
+
+  Future<AddMembersResult> addMembers({
+    required List<int> groupIdBytes,
+    required List<int> signerBytes,
+    required List<Uint8List> keyPackagesBytes,
+  }) => RustLib.instance.api.crateApiEngineMlsEngineAddMembers(
+    that: this,
+    groupIdBytes: groupIdBytes,
+    signerBytes: signerBytes,
+    keyPackagesBytes: keyPackagesBytes,
+  );
+
+  Future<AddMembersResult> addMembersWithoutUpdate({
+    required List<int> groupIdBytes,
+    required List<int> signerBytes,
+    required List<Uint8List> keyPackagesBytes,
+  }) => RustLib.instance.api.crateApiEngineMlsEngineAddMembersWithoutUpdate(
+    that: this,
+    groupIdBytes: groupIdBytes,
+    signerBytes: signerBytes,
+    keyPackagesBytes: keyPackagesBytes,
+  );
+
+  Future<void> clearPendingCommit({required List<int> groupIdBytes}) =>
+      RustLib.instance.api.crateApiEngineMlsEngineClearPendingCommit(
+        that: this,
+        groupIdBytes: groupIdBytes,
+      );
+
+  Future<void> clearPendingProposals({required List<int> groupIdBytes}) =>
+      RustLib.instance.api.crateApiEngineMlsEngineClearPendingProposals(
+        that: this,
+        groupIdBytes: groupIdBytes,
+      );
+
+  Future<CommitResult> commitToPendingProposals({
+    required List<int> groupIdBytes,
+    required List<int> signerBytes,
+  }) => RustLib.instance.api.crateApiEngineMlsEngineCommitToPendingProposals(
+    that: this,
+    groupIdBytes: groupIdBytes,
+    signerBytes: signerBytes,
+  );
+
+  Future<CreateGroupResult> createGroup({
+    required MlsGroupConfig config,
+    required List<int> signerBytes,
+    required List<int> credentialIdentity,
+    required List<int> signerPublicKey,
+    Uint8List? groupId,
+    Uint8List? credentialBytes,
+  }) => RustLib.instance.api.crateApiEngineMlsEngineCreateGroup(
+    that: this,
+    config: config,
+    signerBytes: signerBytes,
+    credentialIdentity: credentialIdentity,
+    signerPublicKey: signerPublicKey,
+    groupId: groupId,
+    credentialBytes: credentialBytes,
+  );
+
+  Future<CreateGroupResult> createGroupWithBuilder({
+    required MlsGroupConfig config,
+    required List<int> signerBytes,
+    required List<int> credentialIdentity,
+    required List<int> signerPublicKey,
+    Uint8List? groupId,
+    BigInt? lifetimeSeconds,
+    List<MlsExtension>? groupContextExtensions,
+    List<MlsExtension>? leafNodeExtensions,
+    MlsCapabilities? capabilities,
+    Uint8List? credentialBytes,
+  }) => RustLib.instance.api.crateApiEngineMlsEngineCreateGroupWithBuilder(
+    that: this,
+    config: config,
+    signerBytes: signerBytes,
+    credentialIdentity: credentialIdentity,
+    signerPublicKey: signerPublicKey,
+    groupId: groupId,
+    lifetimeSeconds: lifetimeSeconds,
+    groupContextExtensions: groupContextExtensions,
+    leafNodeExtensions: leafNodeExtensions,
+    capabilities: capabilities,
+    credentialBytes: credentialBytes,
+  );
+
+  Future<KeyPackageResult> createKeyPackage({
+    required MlsCiphersuite ciphersuite,
+    required List<int> signerBytes,
+    required List<int> credentialIdentity,
+    required List<int> signerPublicKey,
+    Uint8List? credentialBytes,
+  }) => RustLib.instance.api.crateApiEngineMlsEngineCreateKeyPackage(
+    that: this,
+    ciphersuite: ciphersuite,
+    signerBytes: signerBytes,
+    credentialIdentity: credentialIdentity,
+    signerPublicKey: signerPublicKey,
+    credentialBytes: credentialBytes,
+  );
+
+  Future<KeyPackageResult> createKeyPackageWithOptions({
+    required MlsCiphersuite ciphersuite,
+    required List<int> signerBytes,
+    required List<int> credentialIdentity,
+    required List<int> signerPublicKey,
+    required KeyPackageOptions options,
+    Uint8List? credentialBytes,
+  }) => RustLib.instance.api.crateApiEngineMlsEngineCreateKeyPackageWithOptions(
+    that: this,
+    ciphersuite: ciphersuite,
+    signerBytes: signerBytes,
+    credentialIdentity: credentialIdentity,
+    signerPublicKey: signerPublicKey,
+    options: options,
+    credentialBytes: credentialBytes,
+  );
+
+  Future<CreateMessageResult> createMessage({
+    required List<int> groupIdBytes,
+    required List<int> signerBytes,
+    required List<int> message,
+    Uint8List? aad,
+  }) => RustLib.instance.api.crateApiEngineMlsEngineCreateMessage(
+    that: this,
+    groupIdBytes: groupIdBytes,
+    signerBytes: signerBytes,
+    message: message,
+    aad: aad,
+  );
+
+  Future<void> deleteGroup({required List<int> groupIdBytes}) =>
+      RustLib.instance.api.crateApiEngineMlsEngineDeleteGroup(
+        that: this,
+        groupIdBytes: groupIdBytes,
+      );
+
+  Future<void> deleteKeyPackage({required List<int> keyPackageRefBytes}) =>
+      RustLib.instance.api.crateApiEngineMlsEngineDeleteKeyPackage(
+        that: this,
+        keyPackageRefBytes: keyPackageRefBytes,
+      );
+
+  Future<MlsGroupContextInfo> exportGroupContext({
+    required List<int> groupIdBytes,
+  }) => RustLib.instance.api.crateApiEngineMlsEngineExportGroupContext(
+    that: this,
+    groupIdBytes: groupIdBytes,
+  );
+
+  Future<Uint8List> exportGroupInfo({
+    required List<int> groupIdBytes,
+    required List<int> signerBytes,
+  }) => RustLib.instance.api.crateApiEngineMlsEngineExportGroupInfo(
+    that: this,
+    groupIdBytes: groupIdBytes,
+    signerBytes: signerBytes,
+  );
+
+  Future<Uint8List> exportRatchetTree({required List<int> groupIdBytes}) =>
+      RustLib.instance.api.crateApiEngineMlsEngineExportRatchetTree(
+        that: this,
+        groupIdBytes: groupIdBytes,
+      );
+
+  Future<Uint8List> exportSecret({
+    required List<int> groupIdBytes,
+    required String label,
+    required List<int> context,
+    required int keyLength,
+  }) => RustLib.instance.api.crateApiEngineMlsEngineExportSecret(
+    that: this,
+    groupIdBytes: groupIdBytes,
+    label: label,
+    context: context,
+    keyLength: keyLength,
+  );
+
+  Future<CommitResult> flexibleCommit({
+    required List<int> groupIdBytes,
+    required List<int> signerBytes,
+    required FlexibleCommitOptions options,
+  }) => RustLib.instance.api.crateApiEngineMlsEngineFlexibleCommit(
+    that: this,
+    groupIdBytes: groupIdBytes,
+    signerBytes: signerBytes,
+    options: options,
+  );
+
+  Future<Uint8List?> getPastResumptionPsk({
+    required List<int> groupIdBytes,
+    required BigInt epoch,
+  }) => RustLib.instance.api.crateApiEngineMlsEngineGetPastResumptionPsk(
+    that: this,
+    groupIdBytes: groupIdBytes,
+    epoch: epoch,
+  );
+
+  Future<MlsCiphersuite> groupCiphersuite({required List<int> groupIdBytes}) =>
+      RustLib.instance.api.crateApiEngineMlsEngineGroupCiphersuite(
+        that: this,
+        groupIdBytes: groupIdBytes,
+      );
+
+  Future<GroupConfigurationResult> groupConfiguration({
+    required List<int> groupIdBytes,
+  }) => RustLib.instance.api.crateApiEngineMlsEngineGroupConfiguration(
+    that: this,
+    groupIdBytes: groupIdBytes,
+  );
+
+  Future<Uint8List> groupConfirmationTag({required List<int> groupIdBytes}) =>
+      RustLib.instance.api.crateApiEngineMlsEngineGroupConfirmationTag(
+        that: this,
+        groupIdBytes: groupIdBytes,
+      );
+
+  Future<Uint8List> groupCredential({required List<int> groupIdBytes}) =>
+      RustLib.instance.api.crateApiEngineMlsEngineGroupCredential(
+        that: this,
+        groupIdBytes: groupIdBytes,
+      );
+
+  Future<BigInt> groupEpoch({required List<int> groupIdBytes}) =>
+      RustLib.instance.api.crateApiEngineMlsEngineGroupEpoch(
+        that: this,
+        groupIdBytes: groupIdBytes,
+      );
+
+  Future<Uint8List> groupEpochAuthenticator({
+    required List<int> groupIdBytes,
+  }) => RustLib.instance.api.crateApiEngineMlsEngineGroupEpochAuthenticator(
+    that: this,
+    groupIdBytes: groupIdBytes,
+  );
+
+  Future<Uint8List> groupExtensions({required List<int> groupIdBytes}) =>
+      RustLib.instance.api.crateApiEngineMlsEngineGroupExtensions(
+        that: this,
+        groupIdBytes: groupIdBytes,
+      );
+
+  Future<bool> groupHasPendingProposals({required List<int> groupIdBytes}) =>
+      RustLib.instance.api.crateApiEngineMlsEngineGroupHasPendingProposals(
+        that: this,
+        groupIdBytes: groupIdBytes,
+      );
+
+  Future<Uint8List> groupId({required List<int> groupIdBytes}) => RustLib
+      .instance
+      .api
+      .crateApiEngineMlsEngineGroupId(that: this, groupIdBytes: groupIdBytes);
+
+  Future<bool> groupIsActive({required List<int> groupIdBytes}) =>
+      RustLib.instance.api.crateApiEngineMlsEngineGroupIsActive(
+        that: this,
+        groupIdBytes: groupIdBytes,
+      );
+
+  Future<MlsMemberInfo?> groupMemberAt({
+    required List<int> groupIdBytes,
+    required int leafIndex,
+  }) => RustLib.instance.api.crateApiEngineMlsEngineGroupMemberAt(
+    that: this,
+    groupIdBytes: groupIdBytes,
+    leafIndex: leafIndex,
+  );
+
+  Future<int?> groupMemberLeafIndex({
+    required List<int> groupIdBytes,
+    required List<int> credentialBytes,
+  }) => RustLib.instance.api.crateApiEngineMlsEngineGroupMemberLeafIndex(
+    that: this,
+    groupIdBytes: groupIdBytes,
+    credentialBytes: credentialBytes,
+  );
+
+  Future<List<MlsMemberInfo>> groupMembers({required List<int> groupIdBytes}) =>
+      RustLib.instance.api.crateApiEngineMlsEngineGroupMembers(
+        that: this,
+        groupIdBytes: groupIdBytes,
+      );
+
+  Future<int> groupOwnIndex({required List<int> groupIdBytes}) =>
+      RustLib.instance.api.crateApiEngineMlsEngineGroupOwnIndex(
+        that: this,
+        groupIdBytes: groupIdBytes,
+      );
+
+  Future<MlsLeafNodeInfo> groupOwnLeafNode({required List<int> groupIdBytes}) =>
+      RustLib.instance.api.crateApiEngineMlsEngineGroupOwnLeafNode(
+        that: this,
+        groupIdBytes: groupIdBytes,
+      );
+
+  Future<List<MlsPendingProposalInfo>> groupPendingProposals({
+    required List<int> groupIdBytes,
+  }) => RustLib.instance.api.crateApiEngineMlsEngineGroupPendingProposals(
+    that: this,
+    groupIdBytes: groupIdBytes,
+  );
+
+  Future<WelcomeInspectResult> inspectWelcome({
+    required MlsGroupConfig config,
+    required List<int> welcomeBytes,
+  }) => RustLib.instance.api.crateApiEngineMlsEngineInspectWelcome(
+    that: this,
+    config: config,
+    welcomeBytes: welcomeBytes,
+  );
+
+  Future<ExternalJoinResult> joinGroupExternalCommit({
+    required MlsGroupConfig config,
+    required List<int> groupInfoBytes,
+    Uint8List? ratchetTreeBytes,
+    required List<int> signerBytes,
+    required List<int> credentialIdentity,
+    required List<int> signerPublicKey,
+    Uint8List? credentialBytes,
+  }) => RustLib.instance.api.crateApiEngineMlsEngineJoinGroupExternalCommit(
+    that: this,
+    config: config,
+    groupInfoBytes: groupInfoBytes,
+    ratchetTreeBytes: ratchetTreeBytes,
+    signerBytes: signerBytes,
+    credentialIdentity: credentialIdentity,
+    signerPublicKey: signerPublicKey,
+    credentialBytes: credentialBytes,
+  );
+
+  Future<ExternalJoinResult> joinGroupExternalCommitV2({
+    required MlsGroupConfig config,
+    required List<int> groupInfoBytes,
+    Uint8List? ratchetTreeBytes,
+    required List<int> signerBytes,
+    required List<int> credentialIdentity,
+    required List<int> signerPublicKey,
+    Uint8List? aad,
+    required bool skipLifetimeValidation,
+    Uint8List? credentialBytes,
+  }) => RustLib.instance.api.crateApiEngineMlsEngineJoinGroupExternalCommitV2(
+    that: this,
+    config: config,
+    groupInfoBytes: groupInfoBytes,
+    ratchetTreeBytes: ratchetTreeBytes,
+    signerBytes: signerBytes,
+    credentialIdentity: credentialIdentity,
+    signerPublicKey: signerPublicKey,
+    aad: aad,
+    skipLifetimeValidation: skipLifetimeValidation,
+    credentialBytes: credentialBytes,
+  );
+
+  Future<JoinGroupResult> joinGroupFromWelcome({
+    required MlsGroupConfig config,
+    required List<int> welcomeBytes,
+    Uint8List? ratchetTreeBytes,
+    required List<int> signerBytes,
+  }) => RustLib.instance.api.crateApiEngineMlsEngineJoinGroupFromWelcome(
+    that: this,
+    config: config,
+    welcomeBytes: welcomeBytes,
+    ratchetTreeBytes: ratchetTreeBytes,
+    signerBytes: signerBytes,
+  );
+
+  Future<JoinGroupResult> joinGroupFromWelcomeWithOptions({
+    required MlsGroupConfig config,
+    required List<int> welcomeBytes,
+    Uint8List? ratchetTreeBytes,
+    required List<int> signerBytes,
+    required bool skipLifetimeValidation,
+  }) => RustLib.instance.api
+      .crateApiEngineMlsEngineJoinGroupFromWelcomeWithOptions(
+        that: this,
+        config: config,
+        welcomeBytes: welcomeBytes,
+        ratchetTreeBytes: ratchetTreeBytes,
+        signerBytes: signerBytes,
+        skipLifetimeValidation: skipLifetimeValidation,
+      );
+
+  Future<LeaveGroupResult> leaveGroup({
+    required List<int> groupIdBytes,
+    required List<int> signerBytes,
+  }) => RustLib.instance.api.crateApiEngineMlsEngineLeaveGroup(
+    that: this,
+    groupIdBytes: groupIdBytes,
+    signerBytes: signerBytes,
+  );
+
+  Future<LeaveGroupResult> leaveGroupViaSelfRemove({
+    required List<int> groupIdBytes,
+    required List<int> signerBytes,
+  }) => RustLib.instance.api.crateApiEngineMlsEngineLeaveGroupViaSelfRemove(
+    that: this,
+    groupIdBytes: groupIdBytes,
+    signerBytes: signerBytes,
+  );
+
+  Future<void> mergePendingCommit({required List<int> groupIdBytes}) =>
+      RustLib.instance.api.crateApiEngineMlsEngineMergePendingCommit(
+        that: this,
+        groupIdBytes: groupIdBytes,
+      );
+
+  Future<ProcessedMessageResult> processMessage({
+    required List<int> groupIdBytes,
+    required List<int> messageBytes,
+  }) => RustLib.instance.api.crateApiEngineMlsEngineProcessMessage(
+    that: this,
+    groupIdBytes: groupIdBytes,
+    messageBytes: messageBytes,
+  );
+
+  Future<ProcessedMessageInspectResult> processMessageWithInspect({
+    required List<int> groupIdBytes,
+    required List<int> messageBytes,
+  }) => RustLib.instance.api.crateApiEngineMlsEngineProcessMessageWithInspect(
+    that: this,
+    groupIdBytes: groupIdBytes,
+    messageBytes: messageBytes,
+  );
+
+  Future<ProposalResult> proposeAdd({
+    required List<int> groupIdBytes,
+    required List<int> signerBytes,
+    required List<int> keyPackageBytes,
+  }) => RustLib.instance.api.crateApiEngineMlsEngineProposeAdd(
+    that: this,
+    groupIdBytes: groupIdBytes,
+    signerBytes: signerBytes,
+    keyPackageBytes: keyPackageBytes,
+  );
+
+  Future<ProposalResult> proposeCustomProposal({
+    required List<int> groupIdBytes,
+    required List<int> signerBytes,
+    required int proposalType,
+    required List<int> payload,
+  }) => RustLib.instance.api.crateApiEngineMlsEngineProposeCustomProposal(
+    that: this,
+    groupIdBytes: groupIdBytes,
+    signerBytes: signerBytes,
+    proposalType: proposalType,
+    payload: payload,
+  );
+
+  Future<ProposalResult> proposeExternalPsk({
+    required List<int> groupIdBytes,
+    required List<int> signerBytes,
+    required List<int> pskId,
+    required List<int> pskNonce,
+  }) => RustLib.instance.api.crateApiEngineMlsEngineProposeExternalPsk(
+    that: this,
+    groupIdBytes: groupIdBytes,
+    signerBytes: signerBytes,
+    pskId: pskId,
+    pskNonce: pskNonce,
+  );
+
+  Future<ProposalResult> proposeGroupContextExtensions({
+    required List<int> groupIdBytes,
+    required List<int> signerBytes,
+    required List<MlsExtension> extensions,
+  }) =>
+      RustLib.instance.api.crateApiEngineMlsEngineProposeGroupContextExtensions(
+        that: this,
+        groupIdBytes: groupIdBytes,
+        signerBytes: signerBytes,
+        extensions: extensions,
+      );
+
+  Future<ProposalResult> proposeRemove({
+    required List<int> groupIdBytes,
+    required List<int> signerBytes,
+    required int memberIndex,
+  }) => RustLib.instance.api.crateApiEngineMlsEngineProposeRemove(
+    that: this,
+    groupIdBytes: groupIdBytes,
+    signerBytes: signerBytes,
+    memberIndex: memberIndex,
+  );
+
+  Future<ProposalResult> proposeRemoveMemberByCredential({
+    required List<int> groupIdBytes,
+    required List<int> signerBytes,
+    required List<int> credentialBytes,
+  }) => RustLib.instance.api
+      .crateApiEngineMlsEngineProposeRemoveMemberByCredential(
+        that: this,
+        groupIdBytes: groupIdBytes,
+        signerBytes: signerBytes,
+        credentialBytes: credentialBytes,
+      );
+
+  Future<ProposalResult> proposeSelfUpdate({
+    required List<int> groupIdBytes,
+    required List<int> signerBytes,
+    MlsCapabilities? leafNodeCapabilities,
+    List<MlsExtension>? leafNodeExtensions,
+  }) => RustLib.instance.api.crateApiEngineMlsEngineProposeSelfUpdate(
+    that: this,
+    groupIdBytes: groupIdBytes,
+    signerBytes: signerBytes,
+    leafNodeCapabilities: leafNodeCapabilities,
+    leafNodeExtensions: leafNodeExtensions,
+  );
+
+  Future<CommitResult> removeMembers({
+    required List<int> groupIdBytes,
+    required List<int> signerBytes,
+    required List<int> memberIndices,
+  }) => RustLib.instance.api.crateApiEngineMlsEngineRemoveMembers(
+    that: this,
+    groupIdBytes: groupIdBytes,
+    signerBytes: signerBytes,
+    memberIndices: memberIndices,
+  );
+
+  Future<void> removePendingProposal({
+    required List<int> groupIdBytes,
+    required List<int> proposalRefBytes,
+  }) => RustLib.instance.api.crateApiEngineMlsEngineRemovePendingProposal(
+    that: this,
+    groupIdBytes: groupIdBytes,
+    proposalRefBytes: proposalRefBytes,
+  );
+
+  Future<CommitResult> selfUpdate({
+    required List<int> groupIdBytes,
+    required List<int> signerBytes,
+  }) => RustLib.instance.api.crateApiEngineMlsEngineSelfUpdate(
+    that: this,
+    groupIdBytes: groupIdBytes,
+    signerBytes: signerBytes,
+  );
+
+  Future<CommitResult> selfUpdateWithNewSigner({
+    required List<int> groupIdBytes,
+    required List<int> oldSignerBytes,
+    required List<int> newSignerBytes,
+    required List<int> newCredentialIdentity,
+    required List<int> newSignerPublicKey,
+    Uint8List? newCredentialBytes,
+  }) => RustLib.instance.api.crateApiEngineMlsEngineSelfUpdateWithNewSigner(
+    that: this,
+    groupIdBytes: groupIdBytes,
+    oldSignerBytes: oldSignerBytes,
+    newSignerBytes: newSignerBytes,
+    newCredentialIdentity: newCredentialIdentity,
+    newSignerPublicKey: newSignerPublicKey,
+    newCredentialBytes: newCredentialBytes,
+  );
+
+  Future<void> setConfiguration({
+    required List<int> groupIdBytes,
+    required MlsGroupConfig config,
+  }) => RustLib.instance.api.crateApiEngineMlsEngineSetConfiguration(
+    that: this,
+    groupIdBytes: groupIdBytes,
+    config: config,
+  );
+
+  Future<AddMembersResult> swapMembers({
+    required List<int> groupIdBytes,
+    required List<int> signerBytes,
+    required List<int> removeIndices,
+    required List<Uint8List> addKeyPackagesBytes,
+  }) => RustLib.instance.api.crateApiEngineMlsEngineSwapMembers(
+    that: this,
+    groupIdBytes: groupIdBytes,
+    signerBytes: signerBytes,
+    removeIndices: removeIndices,
+    addKeyPackagesBytes: addKeyPackagesBytes,
+  );
+
+  Future<CommitResult> updateGroupContextExtensions({
+    required List<int> groupIdBytes,
+    required List<int> signerBytes,
+    required List<MlsExtension> extensions,
+  }) =>
+      RustLib.instance.api.crateApiEngineMlsEngineUpdateGroupContextExtensions(
+        that: this,
+        groupIdBytes: groupIdBytes,
+        signerBytes: signerBytes,
+        extensions: extensions,
+      );
 }
 
 @sealed

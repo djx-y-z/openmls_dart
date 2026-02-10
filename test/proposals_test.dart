@@ -7,8 +7,8 @@ import 'package:test/test.dart';
 import 'test_helpers.dart';
 
 void main() {
-  late MlsClient alice;
-  late MlsClient bob;
+  late MlsEngine alice;
+  late MlsEngine bob;
   late TestIdentity aliceId;
   late TestIdentity bobId;
 
@@ -16,9 +16,9 @@ void main() {
     await Openmls.init();
   });
 
-  setUp(() {
-    alice = MlsClient(InMemoryMlsStorage());
-    bob = MlsClient(InMemoryMlsStorage());
+  setUp(() async {
+    alice = await createTestEngine();
+    bob = await createTestEngine();
     aliceId = TestIdentity.create('alice');
     bobId = TestIdentity.create('bob');
   });
@@ -95,8 +95,7 @@ void main() {
 
     test('propose add member', () async {
       final charlieId = TestIdentity.create('charlie');
-      final charlieStorage = InMemoryMlsStorage();
-      final charlie = MlsClient(charlieStorage);
+      final charlie = await createTestEngine();
       final charlieKp = await charlie.createKeyPackage(
         ciphersuite: ciphersuite,
         signerBytes: charlieId.signerBytes,

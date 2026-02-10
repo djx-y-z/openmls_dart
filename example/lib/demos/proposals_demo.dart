@@ -1,10 +1,17 @@
 import 'dart:convert';
+import 'dart:math';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:openmls/openmls.dart';
 
 import '../utils.dart';
 import '../widgets/demo_card.dart';
+
+Uint8List _testKey() {
+  final rng = Random.secure();
+  return Uint8List.fromList(List.generate(32, (_) => rng.nextInt(256)));
+}
 
 class ProposalsDemoTab extends StatefulWidget {
   const ProposalsDemoTab({super.key});
@@ -27,7 +34,10 @@ class _ProposalsDemoTabState extends State<ProposalsDemoTab> {
       final cs = MlsCiphersuite.mls128DhkemX25519Aes128GcmSha256Ed25519;
       final cfg = MlsGroupConfig.defaultConfig(ciphersuite: cs);
 
-      final aliceClient = MlsClient(InMemoryMlsStorage());
+      final aliceClient = await MlsEngine.create(
+        dbPath: ':memory:',
+        encryptionKey: _testKey(),
+      );
       final aliceKp = MlsSignatureKeyPair.generate(ciphersuite: cs);
       final aliceSigner = serializeSigner(
         ciphersuite: cs,
@@ -35,7 +45,10 @@ class _ProposalsDemoTabState extends State<ProposalsDemoTab> {
         publicKey: aliceKp.publicKey(),
       );
 
-      final bobClient = MlsClient(InMemoryMlsStorage());
+      final bobClient = await MlsEngine.create(
+        dbPath: ':memory:',
+        encryptionKey: _testKey(),
+      );
       final bobKp = MlsSignatureKeyPair.generate(ciphersuite: cs);
       final bobSigner = serializeSigner(
         ciphersuite: cs,
@@ -43,7 +56,10 @@ class _ProposalsDemoTabState extends State<ProposalsDemoTab> {
         publicKey: bobKp.publicKey(),
       );
 
-      final charlieClient = MlsClient(InMemoryMlsStorage());
+      final charlieClient = await MlsEngine.create(
+        dbPath: ':memory:',
+        encryptionKey: _testKey(),
+      );
       final charlieKp = MlsSignatureKeyPair.generate(ciphersuite: cs);
       final charlieSigner = serializeSigner(
         ciphersuite: cs,

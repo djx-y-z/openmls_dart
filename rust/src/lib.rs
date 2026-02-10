@@ -4,7 +4,8 @@
 
 #![allow(dead_code)]
 
-mod dart_storage;
+mod encrypted_db;
+mod snapshot_storage;
 mod frb_generated;
 mod utils;
 

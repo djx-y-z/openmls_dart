@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -6,6 +7,11 @@ import 'package:openmls/openmls.dart';
 
 import '../utils.dart';
 import '../widgets/demo_card.dart';
+
+Uint8List _testKey() {
+  final rng = Random.secure();
+  return Uint8List.fromList(List.generate(32, (_) => rng.nextInt(256)));
+}
 
 class AdvancedProposalsDemoTab extends StatefulWidget {
   const AdvancedProposalsDemoTab({super.key});
@@ -30,7 +36,10 @@ class _AdvancedProposalsDemoTabState extends State<AdvancedProposalsDemoTab> {
       final cfg = MlsGroupConfig.defaultConfig(ciphersuite: cs);
 
       final aliceKp = MlsSignatureKeyPair.generate(ciphersuite: cs);
-      final aliceClient = MlsClient(InMemoryMlsStorage());
+      final aliceClient = await MlsEngine.create(
+        dbPath: ':memory:',
+        encryptionKey: _testKey(),
+      );
       final aliceSigner = serializeSigner(
         ciphersuite: cs,
         privateKey: aliceKp.privateKey(),
@@ -38,7 +47,10 @@ class _AdvancedProposalsDemoTabState extends State<AdvancedProposalsDemoTab> {
       );
 
       final bobKpSig = MlsSignatureKeyPair.generate(ciphersuite: cs);
-      final bobClient = MlsClient(InMemoryMlsStorage());
+      final bobClient = await MlsEngine.create(
+        dbPath: ':memory:',
+        encryptionKey: _testKey(),
+      );
       final bobSigner = serializeSigner(
         ciphersuite: cs,
         privateKey: bobKpSig.privateKey(),
@@ -73,7 +85,10 @@ class _AdvancedProposalsDemoTabState extends State<AdvancedProposalsDemoTab> {
 
       // 1. proposeAdd
       final charlieKpSig = MlsSignatureKeyPair.generate(ciphersuite: cs);
-      final charlieClient = MlsClient(InMemoryMlsStorage());
+      final charlieClient = await MlsEngine.create(
+        dbPath: ':memory:',
+        encryptionKey: _testKey(),
+      );
       final charlieSigner = serializeSigner(
         ciphersuite: cs,
         privateKey: charlieKpSig.privateKey(),

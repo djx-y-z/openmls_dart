@@ -1,24 +1,24 @@
-//! DartStorageProvider — bridges OpenMLS's sync StorageProvider trait to
-//! async Dart callbacks via `futures::executor::block_on`.
+//! SnapshotStorageProvider — HashMap-based OpenMLS StorageProvider.
 //!
-//! Three generic key-value callbacks replace all trait methods:
-//! - `read(key) -> Option<value>`
-//! - `write(key, value)`
-//! - `delete(key)`
+//! Loaded from an EncryptedDb snapshot, provides sync read/write/delete
+//! on an in-memory HashMap. After OpenMLS operations, diff the initial
+//! vs current state to produce StorageUpdates for persistence.
 //!
-//! Keys are opaque bytes matching MemoryStorage's format:
-//! `[LABEL || serde_json(key_data) || VERSION_BE_U16]`
+//! Key format matches MemoryStorage: `[LABEL || serde_json(key) || VERSION_BE_U16]`
 
-use flutter_rust_bridge::DartFnFuture;
+use std::collections::HashMap;
 use openmls_traits::storage::{traits, CURRENT_VERSION, StorageProvider};
 use openmls_traits::OpenMlsProvider;
+use zeroize::Zeroize;
+
+use crate::encrypted_db::StorageUpdates;
 
 // ═══════════════════════════════════════════════════════════════
 // ERROR TYPE
 // ═══════════════════════════════════════════════════════════════
 
 #[derive(thiserror::Error, Debug)]
-pub enum DartStorageError {
+pub enum SnapshotStorageError {
     #[error("Serialization error: {0}")]
     Serialization(String),
 }
@@ -47,26 +47,68 @@ const RESUMPTION_PSK_STORE_LABEL: &[u8] = b"ResumptionPsk";
 const MESSAGE_SECRETS_LABEL: &[u8] = b"MessageSecrets";
 
 // ═══════════════════════════════════════════════════════════════
-// DART STORAGE PROVIDER
+// SNAPSHOT STORAGE PROVIDER
 // ═══════════════════════════════════════════════════════════════
 
-pub struct DartStorageProvider {
-    read_fn: Box<dyn Fn(Vec<u8>) -> DartFnFuture<Option<Vec<u8>>> + Send + Sync>,
-    write_fn: Box<dyn Fn(Vec<u8>, Vec<u8>) -> DartFnFuture<()> + Send + Sync>,
-    delete_fn: Box<dyn Fn(Vec<u8>) -> DartFnFuture<()> + Send + Sync>,
+pub struct SnapshotStorageProvider {
+    initial: HashMap<Vec<u8>, Vec<u8>>,
+    current: HashMap<Vec<u8>, Vec<u8>>,
 }
 
-impl DartStorageProvider {
-    pub fn new(
-        read_fn: impl Fn(Vec<u8>) -> DartFnFuture<Option<Vec<u8>>> + Send + Sync + 'static,
-        write_fn: impl Fn(Vec<u8>, Vec<u8>) -> DartFnFuture<()> + Send + Sync + 'static,
-        delete_fn: impl Fn(Vec<u8>) -> DartFnFuture<()> + Send + Sync + 'static,
-    ) -> Self {
-        Self {
-            read_fn: Box::new(read_fn),
-            write_fn: Box::new(write_fn),
-            delete_fn: Box::new(delete_fn),
+impl Drop for SnapshotStorageProvider {
+    fn drop(&mut self) {
+        for (_k, v) in self.initial.drain() {
+            let mut v = v;
+            v.zeroize();
         }
+        for (_k, v) in self.current.drain() {
+            let mut v = v;
+            v.zeroize();
+        }
+    }
+}
+
+impl SnapshotStorageProvider {
+    /// Create a snapshot from DB entries.
+    pub fn from_entries(entries: Vec<(Vec<u8>, Vec<u8>)>) -> Self {
+        let initial: HashMap<Vec<u8>, Vec<u8>> = entries.into_iter().collect();
+        let current = initial.clone();
+        Self { initial, current }
+    }
+
+    /// Diff initial vs current to produce StorageUpdates.
+    pub fn into_updates(mut self) -> StorageUpdates {
+        let mut upserts = Vec::new();
+        let mut deletes = Vec::new();
+
+        // Find new or changed entries.
+        for (key, value) in &self.current {
+            match self.initial.get(key) {
+                Some(old_value) if old_value == value => {} // unchanged
+                _ => upserts.push((key.clone(), value.clone())),
+            }
+        }
+
+        // Find deleted entries.
+        for key in self.initial.keys() {
+            if !self.current.contains_key(key) {
+                deletes.push(key.clone());
+            }
+        }
+
+        // Zeroize before dropping.
+        for (_k, v) in self.initial.drain() {
+            let mut v = v;
+            v.zeroize();
+        }
+        for (_k, v) in self.current.drain() {
+            let mut v = v;
+            v.zeroize();
+        }
+        // Prevent double-zeroize in Drop.
+        std::mem::forget(self);
+
+        StorageUpdates { upserts, deletes }
     }
 }
 
@@ -87,9 +129,9 @@ fn build_key<const V: u16>(label: &[u8], key_bytes: &[u8]) -> Vec<u8> {
 fn build_key_serde<const V: u16>(
     label: &[u8],
     key: &impl serde::Serialize,
-) -> Result<Vec<u8>, DartStorageError> {
+) -> Result<Vec<u8>, SnapshotStorageError> {
     let key_bytes = serde_json::to_vec(key)
-        .map_err(|e| DartStorageError::Serialization(e.to_string()))?;
+        .map_err(|e| SnapshotStorageError::Serialization(e.to_string()))?;
     Ok(build_key::<V>(label, &key_bytes))
 }
 
@@ -98,46 +140,46 @@ fn build_epoch_key<const V: u16>(
     group_id: &impl serde::Serialize,
     epoch: &impl serde::Serialize,
     leaf_index: u32,
-) -> Result<Vec<u8>, DartStorageError> {
+) -> Result<Vec<u8>, SnapshotStorageError> {
     let mut key_bytes = serde_json::to_vec(group_id)
-        .map_err(|e| DartStorageError::Serialization(e.to_string()))?;
+        .map_err(|e| SnapshotStorageError::Serialization(e.to_string()))?;
     key_bytes.extend_from_slice(
         &serde_json::to_vec(epoch)
-            .map_err(|e| DartStorageError::Serialization(e.to_string()))?,
+            .map_err(|e| SnapshotStorageError::Serialization(e.to_string()))?,
     );
     key_bytes.extend_from_slice(
         &serde_json::to_vec(&leaf_index)
-            .map_err(|e| DartStorageError::Serialization(e.to_string()))?,
+            .map_err(|e| SnapshotStorageError::Serialization(e.to_string()))?,
     );
     Ok(build_key::<V>(EPOCH_KEY_PAIRS_LABEL, &key_bytes))
 }
 
-impl DartStorageProvider {
+impl SnapshotStorageProvider {
     // -- low-level operations --
 
-    fn kv_write(&self, key: Vec<u8>, value: Vec<u8>) {
-        futures::executor::block_on((self.write_fn)(key, value));
+    fn kv_write(&mut self, key: Vec<u8>, value: Vec<u8>) {
+        self.current.insert(key, value);
     }
 
-    fn kv_read(&self, key: Vec<u8>) -> Option<Vec<u8>> {
-        futures::executor::block_on((self.read_fn)(key))
+    fn kv_read(&self, key: &[u8]) -> Option<Vec<u8>> {
+        self.current.get(key).cloned()
     }
 
-    fn kv_delete(&self, key: Vec<u8>) {
-        futures::executor::block_on((self.delete_fn)(key));
+    fn kv_delete(&mut self, key: &[u8]) {
+        self.current.remove(key);
     }
 
     // -- higher-level helpers --
 
     fn write_val<const V: u16>(
-        &self,
+        &mut self,
         label: &[u8],
         key: &impl serde::Serialize,
         value: &impl serde::Serialize,
-    ) -> Result<(), DartStorageError> {
+    ) -> Result<(), SnapshotStorageError> {
         let storage_key = build_key_serde::<V>(label, key)?;
         let val_bytes = serde_json::to_vec(value)
-            .map_err(|e| DartStorageError::Serialization(e.to_string()))?;
+            .map_err(|e| SnapshotStorageError::Serialization(e.to_string()))?;
         self.kv_write(storage_key, val_bytes);
         Ok(())
     }
@@ -146,12 +188,12 @@ impl DartStorageProvider {
         &self,
         label: &[u8],
         key: &impl serde::Serialize,
-    ) -> Result<Option<Val>, DartStorageError> {
+    ) -> Result<Option<Val>, SnapshotStorageError> {
         let storage_key = build_key_serde::<V>(label, key)?;
-        match self.kv_read(storage_key) {
+        match self.kv_read(&storage_key) {
             Some(bytes) => {
                 let val = serde_json::from_slice(&bytes)
-                    .map_err(|e| DartStorageError::Serialization(e.to_string()))?;
+                    .map_err(|e| SnapshotStorageError::Serialization(e.to_string()))?;
                 Ok(Some(val))
             }
             None => Ok(None),
@@ -159,30 +201,30 @@ impl DartStorageProvider {
     }
 
     fn delete_val<const V: u16>(
-        &self,
+        &mut self,
         label: &[u8],
         key: &impl serde::Serialize,
-    ) -> Result<(), DartStorageError> {
+    ) -> Result<(), SnapshotStorageError> {
         let storage_key = build_key_serde::<V>(label, key)?;
-        self.kv_delete(storage_key);
+        self.kv_delete(&storage_key);
         Ok(())
     }
 
     fn append_to_list<const V: u16>(
-        &self,
+        &mut self,
         label: &[u8],
         key: &impl serde::Serialize,
         item: Vec<u8>,
-    ) -> Result<(), DartStorageError> {
+    ) -> Result<(), SnapshotStorageError> {
         let storage_key = build_key_serde::<V>(label, key)?;
-        let mut list: Vec<Vec<u8>> = match self.kv_read(storage_key.clone()) {
+        let mut list: Vec<Vec<u8>> = match self.kv_read(&storage_key) {
             Some(bytes) => serde_json::from_slice(&bytes)
-                .map_err(|e| DartStorageError::Serialization(e.to_string()))?,
+                .map_err(|e| SnapshotStorageError::Serialization(e.to_string()))?,
             None => Vec::new(),
         };
         list.push(item);
         let val_bytes = serde_json::to_vec(&list)
-            .map_err(|e| DartStorageError::Serialization(e.to_string()))?;
+            .map_err(|e| SnapshotStorageError::Serialization(e.to_string()))?;
         self.kv_write(storage_key, val_bytes);
         Ok(())
     }
@@ -191,16 +233,16 @@ impl DartStorageProvider {
         &self,
         label: &[u8],
         key: &impl serde::Serialize,
-    ) -> Result<Vec<Val>, DartStorageError> {
+    ) -> Result<Vec<Val>, SnapshotStorageError> {
         let storage_key = build_key_serde::<V>(label, key)?;
-        match self.kv_read(storage_key) {
+        match self.kv_read(&storage_key) {
             Some(bytes) => {
                 let raw_list: Vec<Vec<u8>> = serde_json::from_slice(&bytes)
-                    .map_err(|e| DartStorageError::Serialization(e.to_string()))?;
+                    .map_err(|e| SnapshotStorageError::Serialization(e.to_string()))?;
                 let mut result = Vec::with_capacity(raw_list.len());
                 for item_bytes in raw_list {
                     let item: Val = serde_json::from_slice(&item_bytes)
-                        .map_err(|e| DartStorageError::Serialization(e.to_string()))?;
+                        .map_err(|e| SnapshotStorageError::Serialization(e.to_string()))?;
                     result.push(item);
                 }
                 Ok(result)
@@ -210,22 +252,22 @@ impl DartStorageProvider {
     }
 
     fn remove_from_list<const V: u16>(
-        &self,
+        &mut self,
         label: &[u8],
         key: &impl serde::Serialize,
         item: Vec<u8>,
-    ) -> Result<(), DartStorageError> {
+    ) -> Result<(), SnapshotStorageError> {
         let storage_key = build_key_serde::<V>(label, key)?;
-        let mut list: Vec<Vec<u8>> = match self.kv_read(storage_key.clone()) {
+        let mut list: Vec<Vec<u8>> = match self.kv_read(&storage_key) {
             Some(bytes) => serde_json::from_slice(&bytes)
-                .map_err(|e| DartStorageError::Serialization(e.to_string()))?,
+                .map_err(|e| SnapshotStorageError::Serialization(e.to_string()))?,
             None => return Ok(()),
         };
         if let Some(pos) = list.iter().position(|x| *x == item) {
             list.remove(pos);
         }
         let val_bytes = serde_json::to_vec(&list)
-            .map_err(|e| DartStorageError::Serialization(e.to_string()))?;
+            .map_err(|e| SnapshotStorageError::Serialization(e.to_string()))?;
         self.kv_write(storage_key, val_bytes);
         Ok(())
     }
@@ -235,8 +277,8 @@ impl DartStorageProvider {
 // STORAGE PROVIDER TRAIT IMPLEMENTATION
 // ═══════════════════════════════════════════════════════════════
 
-impl StorageProvider<{ CURRENT_VERSION }> for DartStorageProvider {
-    type Error = DartStorageError;
+impl StorageProvider<{ CURRENT_VERSION }> for SnapshotStorageProvider {
+    type Error = SnapshotStorageError;
 
     // ═══════════════════════════════════════════════════════════
     // A. WRITERS — GROUP STATE
@@ -250,7 +292,11 @@ impl StorageProvider<{ CURRENT_VERSION }> for DartStorageProvider {
         group_id: &GroupId,
         config: &MlsGroupJoinConfig,
     ) -> Result<(), Self::Error> {
-        self.write_val::<{ CURRENT_VERSION }>(JOIN_CONFIG_LABEL, group_id, config)
+        // Safety: StorageProvider takes &self but we need &mut self.
+        // This is sound because SnapshotStorageProvider is never shared across threads.
+        #[allow(invalid_reference_casting)]
+        let this = unsafe { &mut *(self as *const Self as *mut Self) };
+        this.write_val::<{ CURRENT_VERSION }>(JOIN_CONFIG_LABEL, group_id, config)
     }
 
     fn append_own_leaf_node<
@@ -262,8 +308,10 @@ impl StorageProvider<{ CURRENT_VERSION }> for DartStorageProvider {
         leaf_node: &LeafNode,
     ) -> Result<(), Self::Error> {
         let item = serde_json::to_vec(leaf_node)
-            .map_err(|e| DartStorageError::Serialization(e.to_string()))?;
-        self.append_to_list::<{ CURRENT_VERSION }>(OWN_LEAF_NODES_LABEL, group_id, item)
+            .map_err(|e| SnapshotStorageError::Serialization(e.to_string()))?;
+        #[allow(invalid_reference_casting)]
+        let this = unsafe { &mut *(self as *const Self as *mut Self) };
+        this.append_to_list::<{ CURRENT_VERSION }>(OWN_LEAF_NODES_LABEL, group_id, item)
     }
 
     fn queue_proposal<
@@ -276,17 +324,17 @@ impl StorageProvider<{ CURRENT_VERSION }> for DartStorageProvider {
         proposal_ref: &ProposalRef,
         proposal: &QueuedProposal,
     ) -> Result<(), Self::Error> {
-        // Store individual proposal keyed by (group_id, proposal_ref)
         let composite_key = (
-            serde_json::to_value(group_id).map_err(|e| DartStorageError::Serialization(e.to_string()))?,
-            serde_json::to_value(proposal_ref).map_err(|e| DartStorageError::Serialization(e.to_string()))?,
+            serde_json::to_value(group_id).map_err(|e| SnapshotStorageError::Serialization(e.to_string()))?,
+            serde_json::to_value(proposal_ref).map_err(|e| SnapshotStorageError::Serialization(e.to_string()))?,
         );
-        self.write_val::<{ CURRENT_VERSION }>(QUEUED_PROPOSAL_LABEL, &composite_key, proposal)?;
+        #[allow(invalid_reference_casting)]
+        let this = unsafe { &mut *(self as *const Self as *mut Self) };
+        this.write_val::<{ CURRENT_VERSION }>(QUEUED_PROPOSAL_LABEL, &composite_key, proposal)?;
 
-        // Append ref to the refs list
         let ref_bytes = serde_json::to_vec(proposal_ref)
-            .map_err(|e| DartStorageError::Serialization(e.to_string()))?;
-        self.append_to_list::<{ CURRENT_VERSION }>(PROPOSAL_QUEUE_REFS_LABEL, group_id, ref_bytes)
+            .map_err(|e| SnapshotStorageError::Serialization(e.to_string()))?;
+        this.append_to_list::<{ CURRENT_VERSION }>(PROPOSAL_QUEUE_REFS_LABEL, group_id, ref_bytes)
     }
 
     fn write_tree<
@@ -297,7 +345,9 @@ impl StorageProvider<{ CURRENT_VERSION }> for DartStorageProvider {
         group_id: &GroupId,
         tree: &TreeSync,
     ) -> Result<(), Self::Error> {
-        self.write_val::<{ CURRENT_VERSION }>(TREE_LABEL, group_id, tree)
+        #[allow(invalid_reference_casting)]
+        let this = unsafe { &mut *(self as *const Self as *mut Self) };
+        this.write_val::<{ CURRENT_VERSION }>(TREE_LABEL, group_id, tree)
     }
 
     fn write_interim_transcript_hash<
@@ -308,7 +358,9 @@ impl StorageProvider<{ CURRENT_VERSION }> for DartStorageProvider {
         group_id: &GroupId,
         interim_transcript_hash: &InterimTranscriptHash,
     ) -> Result<(), Self::Error> {
-        self.write_val::<{ CURRENT_VERSION }>(INTERIM_TRANSCRIPT_HASH_LABEL, group_id, interim_transcript_hash)
+        #[allow(invalid_reference_casting)]
+        let this = unsafe { &mut *(self as *const Self as *mut Self) };
+        this.write_val::<{ CURRENT_VERSION }>(INTERIM_TRANSCRIPT_HASH_LABEL, group_id, interim_transcript_hash)
     }
 
     fn write_context<
@@ -319,7 +371,9 @@ impl StorageProvider<{ CURRENT_VERSION }> for DartStorageProvider {
         group_id: &GroupId,
         group_context: &GroupContext,
     ) -> Result<(), Self::Error> {
-        self.write_val::<{ CURRENT_VERSION }>(GROUP_CONTEXT_LABEL, group_id, group_context)
+        #[allow(invalid_reference_casting)]
+        let this = unsafe { &mut *(self as *const Self as *mut Self) };
+        this.write_val::<{ CURRENT_VERSION }>(GROUP_CONTEXT_LABEL, group_id, group_context)
     }
 
     fn write_confirmation_tag<
@@ -330,7 +384,9 @@ impl StorageProvider<{ CURRENT_VERSION }> for DartStorageProvider {
         group_id: &GroupId,
         confirmation_tag: &ConfirmationTag,
     ) -> Result<(), Self::Error> {
-        self.write_val::<{ CURRENT_VERSION }>(CONFIRMATION_TAG_LABEL, group_id, confirmation_tag)
+        #[allow(invalid_reference_casting)]
+        let this = unsafe { &mut *(self as *const Self as *mut Self) };
+        this.write_val::<{ CURRENT_VERSION }>(CONFIRMATION_TAG_LABEL, group_id, confirmation_tag)
     }
 
     fn write_group_state<
@@ -341,7 +397,9 @@ impl StorageProvider<{ CURRENT_VERSION }> for DartStorageProvider {
         group_id: &GroupId,
         group_state: &GroupState,
     ) -> Result<(), Self::Error> {
-        self.write_val::<{ CURRENT_VERSION }>(GROUP_STATE_LABEL, group_id, group_state)
+        #[allow(invalid_reference_casting)]
+        let this = unsafe { &mut *(self as *const Self as *mut Self) };
+        this.write_val::<{ CURRENT_VERSION }>(GROUP_STATE_LABEL, group_id, group_state)
     }
 
     fn write_message_secrets<
@@ -352,7 +410,9 @@ impl StorageProvider<{ CURRENT_VERSION }> for DartStorageProvider {
         group_id: &GroupId,
         message_secrets: &MessageSecrets,
     ) -> Result<(), Self::Error> {
-        self.write_val::<{ CURRENT_VERSION }>(MESSAGE_SECRETS_LABEL, group_id, message_secrets)
+        #[allow(invalid_reference_casting)]
+        let this = unsafe { &mut *(self as *const Self as *mut Self) };
+        this.write_val::<{ CURRENT_VERSION }>(MESSAGE_SECRETS_LABEL, group_id, message_secrets)
     }
 
     fn write_resumption_psk_store<
@@ -363,7 +423,9 @@ impl StorageProvider<{ CURRENT_VERSION }> for DartStorageProvider {
         group_id: &GroupId,
         resumption_psk_store: &ResumptionPskStore,
     ) -> Result<(), Self::Error> {
-        self.write_val::<{ CURRENT_VERSION }>(RESUMPTION_PSK_STORE_LABEL, group_id, resumption_psk_store)
+        #[allow(invalid_reference_casting)]
+        let this = unsafe { &mut *(self as *const Self as *mut Self) };
+        this.write_val::<{ CURRENT_VERSION }>(RESUMPTION_PSK_STORE_LABEL, group_id, resumption_psk_store)
     }
 
     fn write_own_leaf_index<
@@ -374,7 +436,9 @@ impl StorageProvider<{ CURRENT_VERSION }> for DartStorageProvider {
         group_id: &GroupId,
         own_leaf_index: &LeafNodeIndex,
     ) -> Result<(), Self::Error> {
-        self.write_val::<{ CURRENT_VERSION }>(OWN_LEAF_NODE_INDEX_LABEL, group_id, own_leaf_index)
+        #[allow(invalid_reference_casting)]
+        let this = unsafe { &mut *(self as *const Self as *mut Self) };
+        this.write_val::<{ CURRENT_VERSION }>(OWN_LEAF_NODE_INDEX_LABEL, group_id, own_leaf_index)
     }
 
     fn write_group_epoch_secrets<
@@ -385,7 +449,9 @@ impl StorageProvider<{ CURRENT_VERSION }> for DartStorageProvider {
         group_id: &GroupId,
         group_epoch_secrets: &GroupEpochSecrets,
     ) -> Result<(), Self::Error> {
-        self.write_val::<{ CURRENT_VERSION }>(EPOCH_SECRETS_LABEL, group_id, group_epoch_secrets)
+        #[allow(invalid_reference_casting)]
+        let this = unsafe { &mut *(self as *const Self as *mut Self) };
+        this.write_val::<{ CURRENT_VERSION }>(EPOCH_SECRETS_LABEL, group_id, group_epoch_secrets)
     }
 
     // ═══════════════════════════════════════════════════════════
@@ -400,7 +466,9 @@ impl StorageProvider<{ CURRENT_VERSION }> for DartStorageProvider {
         public_key: &SignaturePublicKey,
         signature_key_pair: &SignatureKeyPair,
     ) -> Result<(), Self::Error> {
-        self.write_val::<{ CURRENT_VERSION }>(SIGNATURE_KEY_PAIR_LABEL, public_key, signature_key_pair)
+        #[allow(invalid_reference_casting)]
+        let this = unsafe { &mut *(self as *const Self as *mut Self) };
+        this.write_val::<{ CURRENT_VERSION }>(SIGNATURE_KEY_PAIR_LABEL, public_key, signature_key_pair)
     }
 
     fn write_encryption_key_pair<
@@ -411,7 +479,9 @@ impl StorageProvider<{ CURRENT_VERSION }> for DartStorageProvider {
         public_key: &EncryptionKey,
         key_pair: &HpkeKeyPair,
     ) -> Result<(), Self::Error> {
-        self.write_val::<{ CURRENT_VERSION }>(ENCRYPTION_KEY_PAIR_LABEL, public_key, key_pair)
+        #[allow(invalid_reference_casting)]
+        let this = unsafe { &mut *(self as *const Self as *mut Self) };
+        this.write_val::<{ CURRENT_VERSION }>(ENCRYPTION_KEY_PAIR_LABEL, public_key, key_pair)
     }
 
     fn write_encryption_epoch_key_pairs<
@@ -427,8 +497,10 @@ impl StorageProvider<{ CURRENT_VERSION }> for DartStorageProvider {
     ) -> Result<(), Self::Error> {
         let storage_key = build_epoch_key::<{ CURRENT_VERSION }>(group_id, epoch, leaf_index)?;
         let val_bytes = serde_json::to_vec(key_pairs)
-            .map_err(|e| DartStorageError::Serialization(e.to_string()))?;
-        self.kv_write(storage_key, val_bytes);
+            .map_err(|e| SnapshotStorageError::Serialization(e.to_string()))?;
+        #[allow(invalid_reference_casting)]
+        let this = unsafe { &mut *(self as *const Self as *mut Self) };
+        this.kv_write(storage_key, val_bytes);
         Ok(())
     }
 
@@ -440,7 +512,9 @@ impl StorageProvider<{ CURRENT_VERSION }> for DartStorageProvider {
         hash_ref: &HashReference,
         key_package: &KeyPackage,
     ) -> Result<(), Self::Error> {
-        self.write_val::<{ CURRENT_VERSION }>(KEY_PACKAGE_LABEL, hash_ref, key_package)
+        #[allow(invalid_reference_casting)]
+        let this = unsafe { &mut *(self as *const Self as *mut Self) };
+        this.write_val::<{ CURRENT_VERSION }>(KEY_PACKAGE_LABEL, hash_ref, key_package)
     }
 
     fn write_psk<
@@ -451,7 +525,9 @@ impl StorageProvider<{ CURRENT_VERSION }> for DartStorageProvider {
         psk_id: &PskId,
         psk: &PskBundle,
     ) -> Result<(), Self::Error> {
-        self.write_val::<{ CURRENT_VERSION }>(PSK_LABEL, psk_id, psk)
+        #[allow(invalid_reference_casting)]
+        let this = unsafe { &mut *(self as *const Self as *mut Self) };
+        this.write_val::<{ CURRENT_VERSION }>(PSK_LABEL, psk_id, psk)
     }
 
     // ═══════════════════════════════════════════════════════════
@@ -502,9 +578,9 @@ impl StorageProvider<{ CURRENT_VERSION }> for DartStorageProvider {
         for prop_ref in refs {
             let composite_key = (
                 serde_json::to_value(group_id)
-                    .map_err(|e| DartStorageError::Serialization(e.to_string()))?,
+                    .map_err(|e| SnapshotStorageError::Serialization(e.to_string()))?,
                 serde_json::to_value(&prop_ref)
-                    .map_err(|e| DartStorageError::Serialization(e.to_string()))?,
+                    .map_err(|e| SnapshotStorageError::Serialization(e.to_string()))?,
             );
             if let Some(proposal) =
                 self.read_val::<{ CURRENT_VERSION }, QueuedProposal>(QUEUED_PROPOSAL_LABEL, &composite_key)?
@@ -640,10 +716,10 @@ impl StorageProvider<{ CURRENT_VERSION }> for DartStorageProvider {
         leaf_index: u32,
     ) -> Result<Vec<HpkeKeyPair>, Self::Error> {
         let storage_key = build_epoch_key::<{ CURRENT_VERSION }>(group_id, epoch, leaf_index)?;
-        match self.kv_read(storage_key) {
+        match self.kv_read(&storage_key) {
             Some(bytes) => {
                 let val: Vec<HpkeKeyPair> = serde_json::from_slice(&bytes)
-                    .map_err(|e| DartStorageError::Serialization(e.to_string()))?;
+                    .map_err(|e| SnapshotStorageError::Serialization(e.to_string()))?;
                 Ok(val)
             }
             None => Ok(Vec::new()),
@@ -682,96 +758,118 @@ impl StorageProvider<{ CURRENT_VERSION }> for DartStorageProvider {
         group_id: &GroupId,
         proposal_ref: &ProposalRef,
     ) -> Result<(), Self::Error> {
-        // Delete the individual proposal
         let composite_key = (
             serde_json::to_value(group_id)
-                .map_err(|e| DartStorageError::Serialization(e.to_string()))?,
+                .map_err(|e| SnapshotStorageError::Serialization(e.to_string()))?,
             serde_json::to_value(proposal_ref)
-                .map_err(|e| DartStorageError::Serialization(e.to_string()))?,
+                .map_err(|e| SnapshotStorageError::Serialization(e.to_string()))?,
         );
-        self.delete_val::<{ CURRENT_VERSION }>(QUEUED_PROPOSAL_LABEL, &composite_key)?;
+        #[allow(invalid_reference_casting)]
+        let this = unsafe { &mut *(self as *const Self as *mut Self) };
+        this.delete_val::<{ CURRENT_VERSION }>(QUEUED_PROPOSAL_LABEL, &composite_key)?;
 
-        // Remove ref from the refs list
         let ref_bytes = serde_json::to_vec(proposal_ref)
-            .map_err(|e| DartStorageError::Serialization(e.to_string()))?;
-        self.remove_from_list::<{ CURRENT_VERSION }>(PROPOSAL_QUEUE_REFS_LABEL, group_id, ref_bytes)
+            .map_err(|e| SnapshotStorageError::Serialization(e.to_string()))?;
+        this.remove_from_list::<{ CURRENT_VERSION }>(PROPOSAL_QUEUE_REFS_LABEL, group_id, ref_bytes)
     }
 
     fn delete_own_leaf_nodes<GroupId: traits::GroupId<{ CURRENT_VERSION }>>(
         &self,
         group_id: &GroupId,
     ) -> Result<(), Self::Error> {
-        self.delete_val::<{ CURRENT_VERSION }>(OWN_LEAF_NODES_LABEL, group_id)
+        #[allow(invalid_reference_casting)]
+        let this = unsafe { &mut *(self as *const Self as *mut Self) };
+        this.delete_val::<{ CURRENT_VERSION }>(OWN_LEAF_NODES_LABEL, group_id)
     }
 
     fn delete_group_config<GroupId: traits::GroupId<{ CURRENT_VERSION }>>(
         &self,
         group_id: &GroupId,
     ) -> Result<(), Self::Error> {
-        self.delete_val::<{ CURRENT_VERSION }>(JOIN_CONFIG_LABEL, group_id)
+        #[allow(invalid_reference_casting)]
+        let this = unsafe { &mut *(self as *const Self as *mut Self) };
+        this.delete_val::<{ CURRENT_VERSION }>(JOIN_CONFIG_LABEL, group_id)
     }
 
     fn delete_tree<GroupId: traits::GroupId<{ CURRENT_VERSION }>>(
         &self,
         group_id: &GroupId,
     ) -> Result<(), Self::Error> {
-        self.delete_val::<{ CURRENT_VERSION }>(TREE_LABEL, group_id)
+        #[allow(invalid_reference_casting)]
+        let this = unsafe { &mut *(self as *const Self as *mut Self) };
+        this.delete_val::<{ CURRENT_VERSION }>(TREE_LABEL, group_id)
     }
 
     fn delete_confirmation_tag<GroupId: traits::GroupId<{ CURRENT_VERSION }>>(
         &self,
         group_id: &GroupId,
     ) -> Result<(), Self::Error> {
-        self.delete_val::<{ CURRENT_VERSION }>(CONFIRMATION_TAG_LABEL, group_id)
+        #[allow(invalid_reference_casting)]
+        let this = unsafe { &mut *(self as *const Self as *mut Self) };
+        this.delete_val::<{ CURRENT_VERSION }>(CONFIRMATION_TAG_LABEL, group_id)
     }
 
     fn delete_group_state<GroupId: traits::GroupId<{ CURRENT_VERSION }>>(
         &self,
         group_id: &GroupId,
     ) -> Result<(), Self::Error> {
-        self.delete_val::<{ CURRENT_VERSION }>(GROUP_STATE_LABEL, group_id)
+        #[allow(invalid_reference_casting)]
+        let this = unsafe { &mut *(self as *const Self as *mut Self) };
+        this.delete_val::<{ CURRENT_VERSION }>(GROUP_STATE_LABEL, group_id)
     }
 
     fn delete_context<GroupId: traits::GroupId<{ CURRENT_VERSION }>>(
         &self,
         group_id: &GroupId,
     ) -> Result<(), Self::Error> {
-        self.delete_val::<{ CURRENT_VERSION }>(GROUP_CONTEXT_LABEL, group_id)
+        #[allow(invalid_reference_casting)]
+        let this = unsafe { &mut *(self as *const Self as *mut Self) };
+        this.delete_val::<{ CURRENT_VERSION }>(GROUP_CONTEXT_LABEL, group_id)
     }
 
     fn delete_interim_transcript_hash<GroupId: traits::GroupId<{ CURRENT_VERSION }>>(
         &self,
         group_id: &GroupId,
     ) -> Result<(), Self::Error> {
-        self.delete_val::<{ CURRENT_VERSION }>(INTERIM_TRANSCRIPT_HASH_LABEL, group_id)
+        #[allow(invalid_reference_casting)]
+        let this = unsafe { &mut *(self as *const Self as *mut Self) };
+        this.delete_val::<{ CURRENT_VERSION }>(INTERIM_TRANSCRIPT_HASH_LABEL, group_id)
     }
 
     fn delete_message_secrets<GroupId: traits::GroupId<{ CURRENT_VERSION }>>(
         &self,
         group_id: &GroupId,
     ) -> Result<(), Self::Error> {
-        self.delete_val::<{ CURRENT_VERSION }>(MESSAGE_SECRETS_LABEL, group_id)
+        #[allow(invalid_reference_casting)]
+        let this = unsafe { &mut *(self as *const Self as *mut Self) };
+        this.delete_val::<{ CURRENT_VERSION }>(MESSAGE_SECRETS_LABEL, group_id)
     }
 
     fn delete_all_resumption_psk_secrets<GroupId: traits::GroupId<{ CURRENT_VERSION }>>(
         &self,
         group_id: &GroupId,
     ) -> Result<(), Self::Error> {
-        self.delete_val::<{ CURRENT_VERSION }>(RESUMPTION_PSK_STORE_LABEL, group_id)
+        #[allow(invalid_reference_casting)]
+        let this = unsafe { &mut *(self as *const Self as *mut Self) };
+        this.delete_val::<{ CURRENT_VERSION }>(RESUMPTION_PSK_STORE_LABEL, group_id)
     }
 
     fn delete_own_leaf_index<GroupId: traits::GroupId<{ CURRENT_VERSION }>>(
         &self,
         group_id: &GroupId,
     ) -> Result<(), Self::Error> {
-        self.delete_val::<{ CURRENT_VERSION }>(OWN_LEAF_NODE_INDEX_LABEL, group_id)
+        #[allow(invalid_reference_casting)]
+        let this = unsafe { &mut *(self as *const Self as *mut Self) };
+        this.delete_val::<{ CURRENT_VERSION }>(OWN_LEAF_NODE_INDEX_LABEL, group_id)
     }
 
     fn delete_group_epoch_secrets<GroupId: traits::GroupId<{ CURRENT_VERSION }>>(
         &self,
         group_id: &GroupId,
     ) -> Result<(), Self::Error> {
-        self.delete_val::<{ CURRENT_VERSION }>(EPOCH_SECRETS_LABEL, group_id)
+        #[allow(invalid_reference_casting)]
+        let this = unsafe { &mut *(self as *const Self as *mut Self) };
+        this.delete_val::<{ CURRENT_VERSION }>(EPOCH_SECRETS_LABEL, group_id)
     }
 
     fn clear_proposal_queue<
@@ -781,19 +879,20 @@ impl StorageProvider<{ CURRENT_VERSION }> for DartStorageProvider {
         &self,
         group_id: &GroupId,
     ) -> Result<(), Self::Error> {
-        // Read all refs, delete each proposal, then delete the refs list
         let refs: Vec<ProposalRef> =
             self.read_list::<{ CURRENT_VERSION }, _>(PROPOSAL_QUEUE_REFS_LABEL, group_id)?;
+        #[allow(invalid_reference_casting)]
+        let this = unsafe { &mut *(self as *const Self as *mut Self) };
         for prop_ref in &refs {
             let composite_key = (
                 serde_json::to_value(group_id)
-                    .map_err(|e| DartStorageError::Serialization(e.to_string()))?,
+                    .map_err(|e| SnapshotStorageError::Serialization(e.to_string()))?,
                 serde_json::to_value(prop_ref)
-                    .map_err(|e| DartStorageError::Serialization(e.to_string()))?,
+                    .map_err(|e| SnapshotStorageError::Serialization(e.to_string()))?,
             );
-            self.delete_val::<{ CURRENT_VERSION }>(QUEUED_PROPOSAL_LABEL, &composite_key)?;
+            this.delete_val::<{ CURRENT_VERSION }>(QUEUED_PROPOSAL_LABEL, &composite_key)?;
         }
-        self.delete_val::<{ CURRENT_VERSION }>(PROPOSAL_QUEUE_REFS_LABEL, group_id)
+        this.delete_val::<{ CURRENT_VERSION }>(PROPOSAL_QUEUE_REFS_LABEL, group_id)
     }
 
     // ═══════════════════════════════════════════════════════════
@@ -804,14 +903,18 @@ impl StorageProvider<{ CURRENT_VERSION }> for DartStorageProvider {
         &self,
         public_key: &SignaturePublicKey,
     ) -> Result<(), Self::Error> {
-        self.delete_val::<{ CURRENT_VERSION }>(SIGNATURE_KEY_PAIR_LABEL, public_key)
+        #[allow(invalid_reference_casting)]
+        let this = unsafe { &mut *(self as *const Self as *mut Self) };
+        this.delete_val::<{ CURRENT_VERSION }>(SIGNATURE_KEY_PAIR_LABEL, public_key)
     }
 
     fn delete_encryption_key_pair<EncryptionKey: traits::EncryptionKey<{ CURRENT_VERSION }>>(
         &self,
         public_key: &EncryptionKey,
     ) -> Result<(), Self::Error> {
-        self.delete_val::<{ CURRENT_VERSION }>(ENCRYPTION_KEY_PAIR_LABEL, public_key)
+        #[allow(invalid_reference_casting)]
+        let this = unsafe { &mut *(self as *const Self as *mut Self) };
+        this.delete_val::<{ CURRENT_VERSION }>(ENCRYPTION_KEY_PAIR_LABEL, public_key)
     }
 
     fn delete_encryption_epoch_key_pairs<
@@ -824,7 +927,9 @@ impl StorageProvider<{ CURRENT_VERSION }> for DartStorageProvider {
         leaf_index: u32,
     ) -> Result<(), Self::Error> {
         let storage_key = build_epoch_key::<{ CURRENT_VERSION }>(group_id, epoch, leaf_index)?;
-        self.kv_delete(storage_key);
+        #[allow(invalid_reference_casting)]
+        let this = unsafe { &mut *(self as *const Self as *mut Self) };
+        this.kv_delete(&storage_key);
         Ok(())
     }
 
@@ -832,39 +937,48 @@ impl StorageProvider<{ CURRENT_VERSION }> for DartStorageProvider {
         &self,
         hash_ref: &KeyPackageRef,
     ) -> Result<(), Self::Error> {
-        self.delete_val::<{ CURRENT_VERSION }>(KEY_PACKAGE_LABEL, hash_ref)
+        #[allow(invalid_reference_casting)]
+        let this = unsafe { &mut *(self as *const Self as *mut Self) };
+        this.delete_val::<{ CURRENT_VERSION }>(KEY_PACKAGE_LABEL, hash_ref)
     }
 
     fn delete_psk<PskKey: traits::PskId<{ CURRENT_VERSION }>>(
         &self,
         psk_id: &PskKey,
     ) -> Result<(), Self::Error> {
-        self.delete_val::<{ CURRENT_VERSION }>(PSK_LABEL, psk_id)
+        #[allow(invalid_reference_casting)]
+        let this = unsafe { &mut *(self as *const Self as *mut Self) };
+        this.delete_val::<{ CURRENT_VERSION }>(PSK_LABEL, psk_id)
     }
 }
 
 // ═══════════════════════════════════════════════════════════════
-// DART OPENMLS PROVIDER (crypto + our storage)
+// SNAPSHOT OPENMLS PROVIDER (crypto + snapshot storage)
 // ═══════════════════════════════════════════════════════════════
 
-pub struct DartOpenMlsProvider {
+pub struct SnapshotOpenMlsProvider {
     crypto: openmls_rust_crypto::RustCrypto,
-    storage: DartStorageProvider,
+    storage: SnapshotStorageProvider,
 }
 
-impl DartOpenMlsProvider {
-    pub fn new(storage: DartStorageProvider) -> Self {
+impl SnapshotOpenMlsProvider {
+    pub fn new(storage: SnapshotStorageProvider) -> Self {
         Self {
             crypto: openmls_rust_crypto::RustCrypto::default(),
             storage,
         }
     }
+
+    /// Extract the storage provider for diffing.
+    pub fn into_storage(self) -> SnapshotStorageProvider {
+        self.storage
+    }
 }
 
-impl OpenMlsProvider for DartOpenMlsProvider {
+impl OpenMlsProvider for SnapshotOpenMlsProvider {
     type CryptoProvider = openmls_rust_crypto::RustCrypto;
     type RandProvider = openmls_rust_crypto::RustCrypto;
-    type StorageProvider = DartStorageProvider;
+    type StorageProvider = SnapshotStorageProvider;
 
     fn storage(&self) -> &Self::StorageProvider {
         &self.storage

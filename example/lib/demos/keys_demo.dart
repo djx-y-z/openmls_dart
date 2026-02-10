@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -6,6 +7,11 @@ import 'package:openmls/openmls.dart';
 
 import '../utils.dart';
 import '../widgets/demo_card.dart';
+
+Uint8List _testKey() {
+  final rng = Random.secure();
+  return Uint8List.fromList(List.generate(32, (_) => rng.nextInt(256)));
+}
 
 class KeysDemoTab extends StatefulWidget {
   const KeysDemoTab({super.key});
@@ -69,7 +75,10 @@ class _KeysDemoTabState extends State<KeysDemoTab> {
       }
       r.writeln();
 
-      final client = MlsClient(InMemoryMlsStorage());
+      final client = await MlsEngine.create(
+        dbPath: ':memory:',
+        encryptionKey: _testKey(),
+      );
       final signerBytes = serializeSigner(
         ciphersuite: cs,
         privateKey: signer.privateKey(),
