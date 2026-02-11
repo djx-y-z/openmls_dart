@@ -3,7 +3,7 @@
 ### Added
 
 - **MLS Protocol (RFC 9420)**: Full group key agreement with forward secrecy and post-compromise security
-- **MlsEngine**: Rust-owned encrypted database with 58 async API functions:
+- **MlsEngine**: Rust-owned encrypted database with 61 API functions (58 async + 3 sync):
   - Group creation, join (Welcome, external commit), leave
   - Member management (add, remove, swap)
   - Encrypted messaging with additional authenticated data (AAD)
@@ -29,7 +29,7 @@
 - All cryptographic operations run in Rust (OpenMLS with RustCrypto backend)
 - Memory safety via Rust's ownership model
 - No `unsafe` code in the wrapper layer
-- **Web Crypto API on WASM**: Encryption key imported as non-extractable `CryptoKey` via `crypto.subtle.importKey()` — raw key bytes zeroized from WASM memory immediately after import
+- **Web Crypto API on WASM**: Encryption key imported as non-extractable `CryptoKey` via `crypto.subtle.importKey()` — raw key bytes zeroized from WASM memory immediately after import. Defensive error handling (no `unwrap()`) in encrypt/decrypt paths
 - `SerializableSigner` derives `ZeroizeOnDrop` — private key bytes zeroed on drop
 - Eliminated clone-then-zeroize pattern in `from_raw()` and `serialize_signer()` — private keys moved, not copied
 - `signer_from_bytes()` zeroizes input bytes on all code paths, including deserialization errors

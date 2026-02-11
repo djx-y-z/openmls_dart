@@ -12,39 +12,50 @@ Review code for security issues specific to this MLS protocol library.
 This library uses Flutter Rust Bridge (FRB) with OpenMLS (pure Rust):
 - **Memory safety** is handled by Rust (no manual FFI memory management)
 - **Cryptographic operations** are implemented in OpenMLS with RustCrypto backend
-- **Storage callbacks** use DartFn to bridge Dart MlsStorage to Rust
+- **Storage** is Rust-owned and encrypted — SQLCipher on native, IndexedDB + Web Crypto AES-256-GCM on WASM
 
 ## Security Categories
 
 ### A: API Usage Correctness
 
 - [ ] Correct constructor patterns used (`MlsSignatureKeyPair.generate()`)
-- [ ] Proper async/await for provider operations
-- [ ] Storage callbacks correctly wired via MlsClient
+- [ ] Proper async/await for engine operations
 - [ ] `Openmls.init()` called before any operations
+- [ ] `MlsEngine.create()` called with a proper 32-byte encryption key
 
 ```dart
 // CORRECT
 await Openmls.init();
-final client = MlsClient(storage);
-final result = await client.createGroup(...);
+final engine = await MlsEngine.create(
+  dbPath: 'mls_data.db',
+  encryptionKey: myKey, // 32-byte key from secure storage
+);
+final result = await engine.createGroup(...);
 
-// WRONG - not initialized
-final result = await client.createGroup(...);
+// WRONG — not initialized
+final result = await engine.createGroup(...);
 ```
 
-### B: Store Security
+### B: Storage Security
 
-- [ ] Production apps use persistent MlsStorage (not InMemoryMlsStorage)
-- [ ] Storage backend encrypts data at rest
-- [ ] Storage access is restricted to the application
+- [ ] Encryption key stored in platform secure storage (Keychain, Android Keystore)
+- [ ] Encryption key is not hardcoded or logged
+- [ ] `:memory:` databases only used in tests, not production
+- [ ] Database path includes account identifier for multi-user isolation
 
 ```dart
-// WRONG - in-memory stores lose state on restart
-final storage = InMemoryMlsStorage();
+// WRONG — hardcoded key in production
+final engine = await MlsEngine.create(
+  dbPath: 'mls.db',
+  encryptionKey: Uint8List(32), // all zeros!
+);
 
-// CORRECT - production stores persist securely
-final storage = SecureSqliteMlsStorage();
+// CORRECT — key from secure storage
+final key = await secureStorage.read(key: 'mls_encryption_key');
+final engine = await MlsEngine.create(
+  dbPath: 'mls_$accountId.db',
+  encryptionKey: key,
+);
 ```
 
 ### C: Key Material Handling
@@ -54,11 +65,11 @@ final storage = SecureSqliteMlsStorage();
 - [ ] Key material not included in error messages
 
 ```dart
-// WRONG - exposes key material
+// WRONG — exposes key material
 print('Signer: ${signer.serialize()}');
 throw Exception('Failed with key: $signerBytes');
 
-// CORRECT - no key material in logs
+// CORRECT — no key material in logs
 print('Generated new signing key pair');
 throw Exception('Key operation failed');
 ```
@@ -71,8 +82,8 @@ throw Exception('Key operation failed');
 - [ ] Welcome messages processed correctly (not re-processing add commits)
 
 ```dart
-// CORRECT - process messages in order
-final result = await client.processMessage(
+// CORRECT — process messages in order
+final result = await engine.processMessage(
   groupIdBytes: groupId,
   messageBytes: incomingMessage,
 );
@@ -100,7 +111,7 @@ switch (result.messageType) {
 ```dart
 // CORRECT
 try {
-  final result = await client.processMessage(
+  final result = await engine.processMessage(
     groupIdBytes: groupId,
     messageBytes: messageBytes,
   );
@@ -118,8 +129,8 @@ try {
 - [ ] Member credentials checked after joins
 
 ```dart
-// CORRECT - check member credentials
-final members = await client.groupMembers(groupIdBytes: groupId);
+// CORRECT — check member credentials
+final members = await engine.groupMembers(groupIdBytes: groupId);
 for (final member in members) {
   // Verify member identity
   if (!isKnownMember(member.credential)) {
@@ -131,23 +142,25 @@ for (final member in members) {
 ## Quick Checklist
 
 ```
-[ ] No InMemoryMlsStorage in production code
+[ ] No hardcoded or all-zero encryption keys in production
 [ ] No key material in logs/errors
 [ ] Openmls.init() called at startup
+[ ] MlsEngine created with secure key from platform storage
 [ ] Messages processed in order
-[ ] Storage backend encrypts at rest
 [ ] Welcome/commit processed correctly (no duplicate processing)
 [ ] Error handling doesn't leak sensitive data
+[ ] :memory: databases only in tests
 ```
 
 ## Red Flags
 
-- `InMemoryMlsStorage` in production code
+- `Uint8List(32)` (all-zero key) in production code
 - `print()` or logging with signer bytes or key material
 - Processing the same commit message multiple times
 - Restoring MLS group state from old backups
-- Missing `await` on provider operations
+- Missing `await` on engine operations
 - Ignoring errors from `processMessage`
+- Hardcoded encryption key or key stored in plain text
 
 ## Example Review Output
 
@@ -156,10 +169,10 @@ for (final member in members) {
 
 ### Issues Found
 
-1. **Line 45**: Using InMemoryMlsStorage in production
+1. **Line 45**: Hardcoded all-zero encryption key
    - Category: B
    - Severity: HIGH
-   - Fix: Implement persistent MlsStorage with encryption at rest
+   - Fix: Load encryption key from platform secure storage
 
 2. **Line 78**: Signer bytes logged
    - Category: C
@@ -173,7 +186,7 @@ for (final member in members) {
 
 ### Recommendations
 
-- Add encryption at rest for MlsStorage implementation
+- Store encryption key in Keychain/Android Keystore
 - Validate member credentials after group joins
 ```
 
@@ -181,9 +194,9 @@ for (final member in members) {
 
 | Area | Files |
 |------|-------|
-| Storage implementation | `lib/src/mls_client.dart`, `lib/src/in_memory_mls_storage.dart` |
-| Provider API | `rust/src/api/provider.rs` |
-| Storage bridge | `rust/src/dart_storage.rs` |
+| Engine API | `rust/src/api/engine.rs` |
+| Encrypted storage | `rust/src/encrypted_db.rs` |
+| Snapshot storage | `rust/src/snapshot_storage.rs` |
 | Key management | `rust/src/api/keys.rs` |
 | Credentials | `rust/src/api/credential.rs` |
 | Tests | `test/` |

@@ -1,6 +1,6 @@
 ---
 name: frb-patterns
-description: Flutter Rust Bridge patterns and best practices for this project. Use when writing Rust API code, adding new bindings, implementing DartFn callbacks, or troubleshooting FRB issues.
+description: Flutter Rust Bridge patterns and best practices for this project. Use when writing Rust API code, adding new bindings, implementing MlsEngine methods, or troubleshooting FRB issues.
 ---
 
 # FRB Patterns for openmls
@@ -11,15 +11,17 @@ Patterns and templates for writing correct Flutter Rust Bridge code in this proj
 
 ```
 ┌─────────────────────────────────────────────────┐
-│          OpenMLS (Rust crate)                   │  Core MLS implementation
+│          OpenMLS (Rust crate)                    │  Core MLS implementation
 ├─────────────────────────────────────────────────┤
-│       rust/src/api/*.rs (Rust wrappers)         │  FRB-annotated functions
+│  EncryptedDb (SQLCipher / IDB+WebCrypto)        │  Platform-specific encrypted KV store
 ├─────────────────────────────────────────────────┤
-│      lib/src/rust/*.dart (FRB generated)        │  Auto-generated Dart API
+│  SnapshotStorageProvider (HashMap)               │  In-memory OpenMLS StorageProvider
 ├─────────────────────────────────────────────────┤
-│    MlsClient + MlsStorage (lib/src/)            │  Convenience wrapper
+│  MlsEngine (rust/src/api/engine.rs)             │  FRB-annotated async methods
 ├─────────────────────────────────────────────────┤
-│           Your Dart application code            │  Uses MlsClient
+│  lib/src/rust/*.dart (FRB generated)             │  Auto-generated Dart API
+├─────────────────────────────────────────────────┤
+│           Your Dart application code             │  Uses MlsEngine
 └─────────────────────────────────────────────────┘
 ```
 
@@ -27,102 +29,101 @@ Patterns and templates for writing correct Flutter Rust Bridge code in this proj
 
 | Component | File | Purpose |
 |-----------|------|---------|
-| DartStorageProvider | `rust/src/dart_storage.rs` | Implements OpenMLS `StorageProvider` trait via 3 DartFn callbacks |
-| DartOpenMlsProvider | `rust/src/dart_storage.rs` | Combines RustCrypto + DartStorageProvider |
-| Provider API | `rust/src/api/provider.rs` | ~53 async API functions with storage callbacks |
-| MlsClient | `lib/src/mls_client.dart` | Dart wrapper that injects MlsStorage into every call |
-| MlsStorage | `lib/src/mls_client.dart` | Abstract KV interface (read/write/delete) |
+| MlsEngine | `rust/src/api/engine.rs` | Opaque FRB struct — all MLS operations as async methods on `&self` |
+| EncryptedDb | `rust/src/encrypted_db.rs` | SQLCipher (native) / IndexedDB + AES-256-GCM via Web Crypto (WASM) |
+| SnapshotStorageProvider | `rust/src/snapshot_storage.rs` | HashMap-based `StorageProvider` loaded from EncryptedDb snapshots |
+| SnapshotOpenMlsProvider | `rust/src/snapshot_storage.rs` | Combines RustCrypto + SnapshotStorageProvider |
 
-## Provider-Based API Pattern
+## MlsEngine Pattern
 
-Every API function that accesses MLS state takes 3 storage callbacks:
+MlsEngine is an opaque FRB struct that owns an `EncryptedDb`. All MLS operations are async methods on `&self`:
 
 ```rust
-pub async fn create_group(
-    config: MlsGroupConfig,
-    signer_bytes: Vec<u8>,
-    credential_identity: Vec<u8>,
-    signer_public_key: Vec<u8>,
-    group_id: Option<Vec<u8>>,
-    // Storage callbacks - always these 3
-    storage_read: impl Fn(Vec<u8>) -> DartFnFuture<Option<Vec<u8>>> + Send + Sync + 'static,
-    storage_write: impl Fn(Vec<u8>, Vec<u8>) -> DartFnFuture<()> + Send + Sync + 'static,
-    storage_delete: impl Fn(Vec<u8>) -> DartFnFuture<()> + Send + Sync + 'static,
-) -> Result<CreateGroupProviderResult, String> {
-    let provider = make_provider(storage_read, storage_write, storage_delete);
-    // ... OpenMLS operations using provider
+pub struct MlsEngine {
+    db: EncryptedDb,
+}
+
+impl MlsEngine {
+    pub async fn create(db_path: String, encryption_key: Vec<u8>) -> Result<MlsEngine, String> {
+        let db = EncryptedDb::open(db_path, encryption_key).await?;
+        Ok(MlsEngine { db })
+    }
+
+    pub async fn create_group(
+        &self,
+        config: MlsGroupConfig,
+        signer_bytes: Vec<u8>,
+        credential_identity: Vec<u8>,
+        signer_public_key: Vec<u8>,
+        group_id: Option<Vec<u8>>,
+        credential_bytes: Option<Vec<u8>>,
+    ) -> Result<CreateGroupResult, String> {
+        let provider = self.load_for_group(/* ... */).await?;
+        // ... OpenMLS operations using provider
+        self.commit(provider, Some(group_id_slice)).await?;
+        Ok(CreateGroupResult { group_id: /* ... */ })
+    }
 }
 ```
 
-### Internal Helpers
+### Internal Helpers (load / commit cycle)
+
+Every method that accesses MLS state follows this pattern:
 
 ```rust
-// Creates DartOpenMlsProvider from callbacks (not pub - internal only)
-fn make_provider(
-    read: impl Fn(Vec<u8>) -> DartFnFuture<Option<Vec<u8>>> + Send + Sync + 'static,
-    write: impl Fn(Vec<u8>, Vec<u8>) -> DartFnFuture<()> + Send + Sync + 'static,
-    delete: impl Fn(Vec<u8>) -> DartFnFuture<()> + Send + Sync + 'static,
-) -> DartOpenMlsProvider
+// 1. Load relevant entries from EncryptedDb into a SnapshotStorageProvider
+let provider = self.load_for_group(group_id).await?;  // group-scoped
+let provider = self.load_global().await?;              // global-scoped (key packages, PSKs)
 
-// Loads existing group from storage
-fn load_group(group_id: &[u8], provider: &DartOpenMlsProvider) -> Result<MlsGroup, String>
+// 2. Perform OpenMLS operations (reads/writes go to in-memory HashMap)
+let mut group = load_group(group_id, &provider)?;
+group.add_members(/* ... */)?;
+
+// 3. Diff and persist changes back to EncryptedDb
+self.commit(provider, Some(group_id)).await?;
 ```
 
 ### Adding a New API Function
 
-1. Add `pub async fn` in `rust/src/api/provider.rs`
-2. Accept 3 storage callbacks as the last parameters
-3. Create provider via `make_provider()`
-4. Load group via `load_group()` if operating on existing group
+1. Add `pub async fn` method on `impl MlsEngine` in `rust/src/api/engine.rs`
+2. Load the appropriate scope (`load_for_group` or `load_global`)
+3. Perform OpenMLS operations
+4. Call `self.commit(provider, group_id)` to persist changes
 5. Return a result struct (not opaque)
 6. Run `make codegen` to generate Dart bindings
-7. Add wrapper method to `MlsClient` in `lib/src/mls_client.dart`
 
 Example:
 
 ```rust
 pub async fn my_new_function(
+    &self,
     group_id_bytes: Vec<u8>,
     signer_bytes: Vec<u8>,
-    storage_read: impl Fn(Vec<u8>) -> DartFnFuture<Option<Vec<u8>>> + Send + Sync + 'static,
-    storage_write: impl Fn(Vec<u8>, Vec<u8>) -> DartFnFuture<()> + Send + Sync + 'static,
-    storage_delete: impl Fn(Vec<u8>) -> DartFnFuture<()> + Send + Sync + 'static,
 ) -> Result<Vec<u8>, String> {
-    let provider = make_provider(storage_read, storage_write, storage_delete);
+    let provider = self.load_for_group(&group_id_bytes).await?;
+    let signer = signer_from_bytes(signer_bytes)?;
     let mut group = load_group(&group_id_bytes, &provider)?;
+
     // ... implementation using group and provider
-    Ok(result_bytes)
+    let result = /* ... */;
+
+    self.commit(provider, Some(&group_id_bytes)).await?;
+    Ok(result)
 }
 ```
 
-Corresponding MlsClient wrapper:
+Dart usage (auto-generated by FRB):
 
 ```dart
-Future<Uint8List> myNewFunction({
-  required List<int> groupIdBytes,
-  required List<int> signerBytes,
-}) => provider.myNewFunction(
-  groupIdBytes: groupIdBytes,
+final result = await engine.myNewFunction(
+  groupIdBytes: groupId,
   signerBytes: signerBytes,
-  storageRead: storage.read,
-  storageWrite: storage.write,
-  storageDelete: storage.delete,
 );
 ```
 
-## DartStorageProvider (Sync/Async Bridge)
+## SnapshotStorageProvider (Sync Storage)
 
-OpenMLS `StorageProvider` trait methods are **synchronous**. DartFn callbacks return **async** `DartFnFuture`. The bridge uses `futures::executor::block_on()`:
-
-```rust
-fn kv_write(&self, label: &[u8], key_bytes: &[u8], value: &[u8]) -> Result<(), Self::Error> {
-    let composite_key = build_key::<VERSION>(label, key_bytes);
-    futures::executor::block_on((self.write_fn)(composite_key, value.to_vec()));
-    Ok(())
-}
-```
-
-This works because FRB runs Rust functions on separate threads, not the Dart isolate.
+OpenMLS `StorageProvider` trait methods are **synchronous**. The `SnapshotStorageProvider` wraps an in-memory `HashMap<Vec<u8>, Vec<u8>>` — no async bridging needed.
 
 ### Key Format
 
@@ -136,18 +137,9 @@ fn build_key<const V: u16>(label: &[u8], key: &[u8]) -> Vec<u8> {
 }
 ```
 
-### Storage Helper Methods
+### Storage Diff
 
-The 52 `StorageProvider` trait methods reduce to 6 helper patterns:
-
-| Helper | Purpose |
-|--------|---------|
-| `kv_write` | Store key-value pair |
-| `kv_read<V>` | Load and deserialize value |
-| `kv_delete` | Remove key |
-| `kv_append` | Read list, push item, write back |
-| `kv_read_list<V>` | Read JSON array |
-| `kv_remove_from_list` | Read list, remove matching item, write back |
+After OpenMLS operations, `into_updates()` diffs the initial snapshot vs current state to produce `StorageUpdates` (upserts + deletes) for persistence to `EncryptedDb`.
 
 ## Opaque Type Pattern
 
@@ -184,7 +176,7 @@ final pubKey = signer.publicKey();
 For result/config types that cross FFI as plain data:
 
 ```rust
-pub struct CreateGroupProviderResult {
+pub struct CreateGroupResult {
     pub group_id: Vec<u8>,
 }
 
@@ -200,28 +192,22 @@ FRB generates Dart classes with constructors for these automatically.
 
 ## Sync vs Async Functions
 
-### Sync (simple operations, no storage)
+### Async (all MlsEngine methods)
+
+```rust
+// No #[frb(sync)] — FRB generates Future<T> in Dart
+pub async fn create_group(&self, ...) -> Result<CreateGroupResult, String> { ... }
+```
+
+### Sync (simple operations, no DB access)
 
 ```rust
 impl MlsSignatureKeyPair {
     #[flutter_rust_bridge::frb(sync)]
     pub fn serialize(&self) -> Vec<u8> { ... }
 }
-```
 
-### Async (storage operations)
-
-```rust
-// No #[frb(sync)] - FRB generates Future<T> in Dart
-pub async fn create_group(
-    // ... params + storage callbacks
-) -> Result<CreateGroupProviderResult, String> { ... }
-```
-
-### Sync standalone functions
-
-```rust
-// Sync utility functions (no storage needed)
+// Sync standalone utility functions
 pub fn mls_message_extract_group_id(message_bytes: Vec<u8>) -> Result<Vec<u8>, String> { ... }
 pub fn mls_message_content_type(message_bytes: Vec<u8>) -> Result<String, String> { ... }
 ```
@@ -231,7 +217,7 @@ pub fn mls_message_content_type(message_bytes: Vec<u8>) -> Result<String, String
 Convert OpenMLS errors to String for FRB:
 
 ```rust
-pub async fn some_function(...) -> Result<SomeResult, String> {
+pub async fn some_function(&self, ...) -> Result<SomeResult, String> {
     let group = MlsGroup::new(provider, &signer, &config, credential)
         .map_err(|e| format!("Failed to create group: {e}"))?;
     Ok(SomeResult { ... })
@@ -259,13 +245,13 @@ let group_id = GroupId::from_slice(&group_id_bytes);
 - No manual `dispose()` needed in Dart
 - No finalizers to register
 - No double-free concerns
-- Opaque types are dropped when Dart GC collects them
+- Opaque types (MlsEngine, MlsSignatureKeyPair) are dropped when Dart GC collects them
 
 ```dart
-// Dart - no cleanup needed!
+// Dart — no cleanup needed!
+final engine = await MlsEngine.create(dbPath: ':memory:', encryptionKey: key);
 final signer = MlsSignatureKeyPair.generate(ciphersuite: ciphersuite);
-final serialized = signer.serialize();
-// signer is automatically cleaned up when no longer referenced
+// Both automatically cleaned up when no longer referenced
 ```
 
 ## Regenerating Bindings
@@ -287,14 +273,13 @@ This runs `flutter_rust_bridge_codegen generate` using `flutter_rust_bridge.yaml
 
 | Pattern | Reference File |
 |---------|----------------|
+| Engine API (all MLS methods) | `rust/src/api/engine.rs` |
+| Encrypted storage | `rust/src/encrypted_db.rs` |
+| Snapshot storage provider | `rust/src/snapshot_storage.rs` |
 | Opaque types | `rust/src/api/keys.rs` |
-| Provider API functions | `rust/src/api/provider.rs` |
-| Storage callbacks | `rust/src/dart_storage.rs` |
 | Transparent structs | `rust/src/api/types.rs` |
 | Config types | `rust/src/api/config.rs` |
 | Credential types | `rust/src/api/credential.rs` |
-| MlsClient wrapper | `lib/src/mls_client.dart` |
-| MlsStorage interface | `lib/src/mls_client.dart` |
 
 ## Common Issues
 
@@ -304,26 +289,22 @@ This runs `flutter_rust_bridge_codegen generate` using `flutter_rust_bridge.yaml
 - Check that return types are supported by FRB
 - Run `make codegen` after any Rust changes
 
-### Callback lifetime issues
-
-Ensure callbacks have `Send + Sync + 'static`:
-
-```rust
-storage_read: impl Fn(Vec<u8>) -> DartFnFuture<Option<Vec<u8>>> + Send + Sync + 'static,
-```
-
 ### Type not transferable
 
 Use `Vec<u8>` for complex types instead of trying to pass OpenMLS types directly across FFI.
 
-### `block_on` panics
+### EncryptedDb errors on WASM
 
-`futures::executor::block_on()` requires a non-async context. This works because FRB runs Rust functions on separate threads. Do NOT call storage callbacks from an async Rust context without `block_on`.
+- Ensure the browser supports `crypto.subtle` (HTTPS or localhost required)
+- IndexedDB names must not collide between instances
+- Pre-encrypt values before opening IDB transactions (crypto.subtle is async, IDB auto-commits on idle)
 
 ## Web/WASM Considerations
 
-- `block_on()` works on WASM (confirmed by libsignal_dart usage pattern)
 - `getrandom` uses Web Crypto API on WASM
+- `crypto.subtle` requires a secure context (HTTPS or localhost)
+- Non-extractable `CryptoKey` protects encryption key from JS extraction
+- `WasmCryptoKey` newtype with `unsafe impl Send + Sync` (safe on single-threaded WASM)
 - Configuration in `rust/.cargo/config.toml`:
   ```toml
   [target.wasm32-unknown-unknown]

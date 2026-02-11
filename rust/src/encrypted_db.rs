@@ -579,7 +579,11 @@ async fn wasm_encrypt(key: &web_sys::CryptoKey, plaintext: &[u8]) -> Result<Vec<
     getrandom::fill(&mut iv).map_err(|e| format!("getrandom failed: {e}"))?;
 
     let params = web_sys::AesGcmParams::new("AES-GCM", &Uint8Array::from(&iv[..]));
-    let subtle = web_sys::window().unwrap().crypto().unwrap().subtle();
+    let subtle = web_sys::window()
+        .ok_or("window unavailable")?
+        .crypto()
+        .map_err(|_| "crypto unavailable".to_string())?
+        .subtle();
 
     let data = Uint8Array::from(plaintext);
     let promise = subtle
@@ -610,7 +614,11 @@ async fn wasm_decrypt(key: &web_sys::CryptoKey, data: &[u8]) -> Result<Vec<u8>, 
     let (iv_bytes, ciphertext) = data.split_at(12);
 
     let params = web_sys::AesGcmParams::new("AES-GCM", &Uint8Array::from(iv_bytes));
-    let subtle = web_sys::window().unwrap().crypto().unwrap().subtle();
+    let subtle = web_sys::window()
+        .ok_or("window unavailable")?
+        .crypto()
+        .map_err(|_| "crypto unavailable".to_string())?
+        .subtle();
 
     let ct = Uint8Array::from(ciphertext);
     let promise = subtle

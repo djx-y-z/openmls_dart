@@ -156,14 +156,19 @@ make test ARGS="--reporter=expanded"
 Example test structure:
 
 ```dart
+import 'dart:typed_data';
+import 'dart:convert';
 import 'package:test/test.dart';
 import 'package:openmls/openmls.dart';
 
 void main() {
   group('Group creation', () {
     test('creates group with default config', () async {
-      final storage = InMemoryMlsStorage();
-      final client = MlsClient(storage);
+      await Openmls.init();
+      final engine = await MlsEngine.create(
+        dbPath: ':memory:',
+        encryptionKey: Uint8List(32),
+      );
       final ciphersuite = MlsCiphersuite.mls128DhkemX25519Aes128GcmSha256Ed25519;
       final keyPair = MlsSignatureKeyPair.generate(ciphersuite: ciphersuite);
       final signerBytes = serializeSigner(
@@ -172,7 +177,7 @@ void main() {
         publicKey: keyPair.publicKey(),
       );
 
-      final result = await client.createGroup(
+      final result = await engine.createGroup(
         config: MlsGroupConfig.defaultConfig(ciphersuite: ciphersuite),
         signerBytes: signerBytes,
         credentialIdentity: utf8.encode('alice'),

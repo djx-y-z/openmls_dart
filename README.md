@@ -41,7 +41,7 @@ Dart bindings for [OpenMLS](https://github.com/openmls/openmls), providing a Rus
 | Storage | Done | Encrypted at rest via `MlsEngine` (SQLCipher / Web Crypto) |
 
 <details>
-<summary>Full API reference (56 functions)</summary>
+<summary>Full API reference (61 functions)</summary>
 
 **Key Packages**: `createKeyPackage`, `createKeyPackageWithOptions`
 
