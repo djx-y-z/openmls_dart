@@ -48,21 +48,33 @@ print('Generated new signing key pair');
 throw Exception('Key operation failed');
 ```
 
-### C: Store Security
+### C: Encrypted Storage (MlsEngine)
 
-`MlsStorage` persists sensitive cryptographic state (group secrets, key packages, ratchet trees). For production:
+`MlsEngine` stores all MLS state in an encrypted database. Encryption is handled automatically:
+
+| Platform | Backend | Encryption |
+|----------|---------|------------|
+| Native | SQLCipher | AES-256 full-database encryption |
+| Web (WASM) | IndexedDB | AES-256-GCM per-value encryption via `crypto.subtle` |
 
 ```dart
-// WRONG - testing only, data lost on restart
-final storage = InMemoryMlsStorage();
+// Provide a 32-byte encryption key. Store it in platform secure storage
+// (Keychain, Android Keystore, flutter_secure_storage).
+final engine = await MlsEngine.create(
+  dbPath: 'mls_data.db',    // file path on native, IDB name on web
+  encryptionKey: myKey,       // 32-byte AES-256 key
+);
 
-// CORRECT - production stores persist securely
-final storage = SecureSqliteStorage();  // Implement MlsStorage yourself
+// Use ":memory:" for ephemeral storage (testing only, data lost on drop)
+final testEngine = await MlsEngine.create(
+  dbPath: ':memory:',
+  encryptionKey: testKey,
+);
 ```
 
-**Store security requirements:**
+**Key management requirements:**
 
-- **Encrypt at rest** - storage contains key material
+- **Secure key storage** - the 32-byte encryption key must be stored in platform secure storage, not in plain files
 - **Access control** - only the app should read/write MLS state
 - **Backup considerations** - MLS state includes forward-secrecy keys; restoring old state breaks protocol guarantees
 
@@ -112,6 +124,9 @@ These concerns are handled automatically by the architecture:
 | Use-after-free | Rust ownership |
 | Cryptographic operations | OpenMLS + RustCrypto |
 | Key zeroization | Rust (zeroize crate) |
+| Encryption at rest (native) | SQLCipher |
+| Encryption at rest (WASM) | Web Crypto API (`crypto.subtle`) |
+| Key protection (WASM) | Non-extractable `CryptoKey` |
 
 ## Zeroing Sensitive Data
 
@@ -161,42 +176,74 @@ These return `Uint8List` or `List<int>` due to FRB signature constraints. Caller
 - These utilities provide defence-in-depth, not absolute security guarantees
 - For critical secrets, prefer keeping them in Rust (opaque types with `zeroize` crate)
 
+## Web (WASM) Security
+
+### Web Crypto API
+
+On WASM, the database encryption key is imported as a **non-extractable `CryptoKey`** via `crypto.subtle.importKey()`. The raw key bytes are zeroized from WASM memory immediately after import.
+
+**What this protects against:**
+- Key extraction via `WebAssembly.Memory` inspection (key is not in WASM linear memory)
+- Key extraction via JavaScript API (`crypto.subtle.exportKey()` fails for non-extractable keys)
+
+**What this does NOT protect against:**
+- Monkey-patching `crypto.subtle.encrypt/decrypt` to intercept plaintext (requires XSS)
+- Browser extensions with page access
+- Browser-level attacks (compromised browser binary)
+
+### Web Deployment Recommendations
+
+Since `crypto.subtle` protects the key but not the plaintext at the API boundary, preventing XSS is critical:
+
+1. **Content Security Policy (CSP)** - Enable strict CSP headers:
+   ```
+   Content-Security-Policy: script-src 'self'; object-src 'none';
+   ```
+2. **HTTPS** - Required for `crypto.subtle` (also works on `localhost` for development)
+3. **Minimize third-party scripts** - Each script on the page is a potential attack vector
+4. **Subresource Integrity (SRI)** - Pin hashes of loaded scripts
+
+### Secure Context Requirement
+
+`crypto.subtle` requires a [secure context](https://developer.mozilla.org/en-US/docs/Web/Security/Secure_Contexts) (HTTPS or localhost). The library returns a clear error if `crypto.subtle` is unavailable.
+
 ## Known Limitations
 
 1. **Dart VM memory:** Dart's garbage collector may copy data before Rust can zero it. This is a platform limitation. OpenMLS uses the `zeroize` crate for sensitive data on the Rust side.
 
-2. **In-memory storage:** `InMemoryMlsStorage` loses all state on app restart. Production apps must implement persistent `MlsStorage`.
+2. **In-memory storage:** `MlsEngine.create(dbPath: ':memory:', ...)` creates an ephemeral in-memory database. All state is lost when the engine is dropped. Use a file path in production.
 
-3. **No `unsafe` code:** The wrapper layer contains no `unsafe` Rust code. All `unsafe` usage is in upstream OpenMLS and RustCrypto crates, which are well-audited.
+3. **Minimal `unsafe` code:** The wrapper layer has one `unsafe` usage: `Send + Sync` impl for `WasmCryptoKey` (wrapping `web_sys::CryptoKey`), which is safe because WASM is single-threaded. All other `unsafe` usage is in upstream OpenMLS, RustCrypto, and `web-sys` crates.
 
-4. **Storage callback timeout:** The `block_on()` bridge from Rust's synchronous `StorageProvider` trait to Dart's async callbacks has no built-in timeout. Storage backends must complete promptly to avoid blocking the Rust thread pool.
+4. **Concurrency:** There is no internal synchronization for concurrent access to the same MLS group. Callers must serialize operations on the same group (e.g., process messages in order from a single async task).
 
-5. **Concurrency:** There is no internal synchronization for concurrent access to the same MLS group. Callers must serialize operations on the same group (e.g., process messages in order from a single async task).
+5. **Storage atomicity:** Storage operations are not transactional. If the app crashes mid-operation, storage may be left in an inconsistent state.
 
-6. **Storage atomicity:** Storage operations are not transactional. If the app crashes mid-operation, storage may be left in an inconsistent state. Production backends should use transactions or write-ahead logging.
+6. **`test-utils` feature dependency:** The `openmls` and `openmls_basic_credential` crates are compiled with the `test-utils` feature enabled. This is required for `SignatureKeyPair::private()`, which powers the `privateKey()` API. The feature only enables accessor methods — no test-only code paths are activated in production.
 
-7. **`test-utils` feature dependency:** The `openmls` and `openmls_basic_credential` crates are compiled with the `test-utils` feature enabled. This is required for `SignatureKeyPair::private()`, which powers the `privateKey()` API. The feature only enables accessor methods — no test-only code paths are activated in production.
+7. **Automatic commit merging:** `processMessage` and `processMessageWithInspect` automatically merge staged commits after processing. There is no mechanism to inspect a commit and then reject it — this is by design, as MLS requires commits to be applied in order. `processMessageWithInspect` returns commit details (adds, removes, updates) for logging/UI purposes.
 
-8. **Automatic commit merging:** `processMessage` and `processMessageWithInspect` automatically merge staged commits after processing. There is no mechanism to inspect a commit and then reject it — this is by design, as MLS requires commits to be applied in order. `processMessageWithInspect` returns commit details (adds, removes, updates) for logging/UI purposes.
+8. **Unconditional proposal acceptance:** `flexibleCommit` and `joinGroupExternalCommitV2` accept all pending proposals unconditionally (the internal proposal filter callback returns `true` for all proposals). Applications should validate proposals at the application layer before calling commit operations, or use `removePendingProposal` to reject unwanted proposals first.
 
-9. **Unconditional proposal acceptance:** `flexibleCommit` and `joinGroupExternalCommitV2` accept all pending proposals unconditionally (the internal proposal filter callback returns `true` for all proposals). Applications should validate proposals at the application layer before calling commit operations, or use `removePendingProposal` to reject unwanted proposals first.
+9. **X.509 certificate chain validation:** The `MlsCredential.x509()` function does not validate certificate chains (expiration, signatures, revocation, trust anchors). The application layer must validate X.509 chains before use.
 
-10. **X.509 certificate chain validation:** The `MlsCredential.x509()` function does not validate certificate chains (expiration, signatures, revocation, trust anchors). The application layer must validate X.509 chains before use.
+10. **serde_json intermediate buffers:** During signer serialization/deserialization, `serde_json` creates temporary `Vec<u8>` buffers containing sensitive data. These are dropped without zeroization. This is a platform limitation — Rust's allocator does not guarantee memory is not copied, so zeroizing every intermediate buffer provides limited benefit.
 
-11. **serde_json intermediate buffers:** During signer serialization/deserialization, `serde_json` creates temporary `Vec<u8>` buffers containing sensitive data. These are dropped without zeroization. This is a platform limitation — Rust's allocator does not guarantee memory is not copied, so zeroizing every intermediate buffer provides limited benefit.
+11. **Web Crypto plaintext visibility:** On WASM, while the encryption key is protected as a non-extractable `CryptoKey`, plaintext is briefly visible during `crypto.subtle.encrypt/decrypt` calls. An attacker with XSS could monkey-patch these methods. Mitigate with strict CSP headers (see [Web Deployment Recommendations](#web-deployment-recommendations)).
 
 ## Code Review Security Checklist
 
 When reviewing code changes, verify:
 
-- [ ] No in-memory stores in production code
+- [ ] No `':memory:'` databases in production code
 - [ ] No key material in logs or error messages
 - [ ] `Openmls.init()` called before any operations
-- [ ] Store operations properly secured (encryption at rest)
+- [ ] Encryption key stored in platform secure storage (not hardcoded)
 - [ ] Error handling doesn't leak sensitive information
 - [ ] MLS protocol messages processed in order
 - [ ] Sensitive data in Dart uses `SecureBytes` or `.zeroize()` extension
 - [ ] No hardcoded keys or secrets
+- [ ] Web deployments use strict CSP headers
 
 ## Upstream Security
 

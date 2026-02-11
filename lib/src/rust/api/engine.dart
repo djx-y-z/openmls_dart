@@ -60,6 +60,25 @@ abstract class MlsEngine implements RustOpaqueInterface {
     required List<int> signerBytes,
   });
 
+  /// Create a new MlsEngine backed by an encrypted database.
+  ///
+  /// # Arguments
+  ///
+  /// * `db_path` — Database location.
+  ///   - **Native**: file path for SQLCipher (e.g. `"path/to/mls.db"`).
+  ///     Use `":memory:"` for an ephemeral in-memory database (destroyed on drop,
+  ///     useful for tests).
+  ///   - **WASM**: IndexedDB database name (e.g. `"mls_account_123"`).
+  ///     `":memory:"` generates a unique random name per instance to match the
+  ///     native ephemeral behavior.
+  ///   - Tip: include an account identifier in the path to isolate data per user
+  ///     (e.g. `"mls_{account_id}.db"` on native, `"mls_{account_id}"` on web).
+  ///
+  /// * `encryption_key` — 32-byte AES-256 key that protects data at rest.
+  ///   The caller is responsible for generating, storing, and providing this key.
+  ///   Recommended pattern: generate a random key on first launch and persist it
+  ///   in platform secure storage (e.g. Keychain on iOS/macOS, Android Keystore,
+  ///   or `flutter_secure_storage`).
   static Future<MlsEngine> create({
     required String dbPath,
     required List<int> encryptionKey,

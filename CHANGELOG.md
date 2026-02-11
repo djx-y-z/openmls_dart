@@ -3,7 +3,7 @@
 ### Added
 
 - **MLS Protocol (RFC 9420)**: Full group key agreement with forward secrecy and post-compromise security
-- **61 API functions** covering complete MLS group lifecycle:
+- **MlsEngine**: Rust-owned encrypted database with 58 async API functions:
   - Group creation, join (Welcome, external commit), leave
   - Member management (add, remove, swap)
   - Encrypted messaging with additional authenticated data (AAD)
@@ -13,10 +13,10 @@
   - Key package creation with options (lifetime, last-resort)
   - Storage cleanup (delete group, delete key package, remove pending proposal)
   - Basic and X.509 credential support (optional credential bytes on all creation functions)
-  - Message inspection utilities (extract group ID, epoch, content type)
-- **MlsClient**: Convenience wrapper injecting storage callbacks into every API call
-- **MlsStorage**: Abstract key-value interface for pluggable persistence (SQLite, Hive, etc.)
-- **InMemoryMlsStorage**: In-memory implementation for testing and prototyping
+  - 3 sync message utilities (extract group ID, epoch, content type)
+- **Encrypted storage**: All MLS state encrypted at rest
+  - Native: SQLCipher (AES-256 transparent full-database encryption)
+  - Web: IndexedDB + AES-256-GCM per-value encryption via Web Crypto API
 - **SecureBytes**: Wrapper for sensitive byte data with automatic zeroing on disposal
 - **SecureUint8List**: Extension with `zeroize()` method for manual zeroing of `Uint8List`
 - Cross-platform support: Android, iOS, macOS, Linux, Windows, Web (WASM)
@@ -29,11 +29,11 @@
 - All cryptographic operations run in Rust (OpenMLS with RustCrypto backend)
 - Memory safety via Rust's ownership model
 - No `unsafe` code in the wrapper layer
-- `SerializableSigner` now derives `ZeroizeOnDrop` — private key bytes zeroed on drop
+- **Web Crypto API on WASM**: Encryption key imported as non-extractable `CryptoKey` via `crypto.subtle.importKey()` — raw key bytes zeroized from WASM memory immediately after import
+- `SerializableSigner` derives `ZeroizeOnDrop` — private key bytes zeroed on drop
 - Eliminated clone-then-zeroize pattern in `from_raw()` and `serialize_signer()` — private keys moved, not copied
 - `signer_from_bytes()` zeroizes input bytes on all code paths, including deserialization errors
-- `InMemoryMlsStorage.clear()` zeroizes stored values before clearing
 - X.509 `x509()` documents that application layer must validate certificate chains
-- SECURITY.md: sensitive API table, known limitations #7–#11, vulnerability reporting via GitHub Security Advisories
+- SECURITY.md: sensitive API table, known limitations, web deployment recommendations, vulnerability reporting via GitHub Security Advisories
 
 [1.0.0]: https://github.com/djx-y-z/openmls_dart/releases/tag/v1.0.0

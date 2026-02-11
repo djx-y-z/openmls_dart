@@ -87,15 +87,14 @@ openmls_dart/
 ├── lib/                        # Main library code
 │   ├── openmls.dart            # Public API exports
 │   └── src/
-│       ├── mls_client.dart     # MlsClient + MlsStorage
-│       ├── in_memory_mls_storage.dart
 │       ├── openmls.dart        # Initialization
 │       └── rust/               # Auto-generated FRB bindings
 ├── rust/                       # Rust source code
 │   ├── Cargo.toml              # Rust dependencies (OpenMLS version here)
 │   └── src/
-│       ├── api/                # FRB API functions
-│       └── dart_storage.rs     # DartStorageProvider implementation
+│       ├── api/                # FRB API functions (engine.rs is the main API)
+│       ├── encrypted_db.rs     # EncryptedDb (SQLCipher native / Web Crypto WASM)
+│       └── snapshot_storage.rs # SnapshotStorageProvider (HashMap-based)
 ├── test/                       # Test files
 ├── example/                    # Example Flutter application
 ├── scripts/                    # Build scripts (use via Makefile!)
@@ -279,24 +278,25 @@ This library uses Flutter Rust Bridge (FRB) with OpenMLS (pure Rust):
 - **No manual cleanup needed** - FRB handles all resource deallocation
 - **No `dispose()` calls** - Rust drops resources when they go out of scope
 
-When adding new Rust API functions:
+When adding new Rust API functions to `MlsEngine`:
 
 - Return `Result<T, String>` for error handling (FRB converts to Dart exceptions)
-- Use `DartFnFuture<T>` for async callbacks to Dart storage
-- All provider-based functions take 3 storage callbacks (`storage_read`, `storage_write`, `storage_delete`)
+- Methods on `MlsEngine` access storage via `self.db` (EncryptedDb)
+- Storage is loaded into a SnapshotStorageProvider, operated on, then saved back
 
 Example Rust API:
 
 ```rust
-pub async fn my_new_function(
-    group_id_bytes: Vec<u8>,
-    storage_read: impl Fn(Vec<u8>) -> DartFnFuture<Option<Vec<u8>>> + Send + Sync + 'static,
-    storage_write: impl Fn(Vec<u8>, Vec<u8>) -> DartFnFuture<()> + Send + Sync + 'static,
-    storage_delete: impl Fn(Vec<u8>) -> DartFnFuture<()> + Send + Sync + 'static,
-) -> Result<Vec<u8>, String> {
-    let provider = make_provider(storage_read, storage_write, storage_delete);
-    let group = load_group(&group_id_bytes, &provider)?;
-    // ... implementation
+impl MlsEngine {
+    pub async fn my_new_function(
+        &self,
+        group_id_bytes: Vec<u8>,
+    ) -> Result<Vec<u8>, String> {
+        let (provider, group) = self.load_for_group(&group_id_bytes).await?;
+        // ... operate on group using provider ...
+        self.commit(&provider, Some(&group_id_bytes)).await?;
+        Ok(result)
+    }
 }
 ```
 
@@ -399,7 +399,8 @@ For code changes:
 - [ ] No hardcoded keys or secrets
 - [ ] No key material in logs or error messages
 - [ ] `Openmls.init()` called before any operations
-- [ ] In-memory stores used only for testing (not production)
+- [ ] `':memory:'` databases used only for testing (not production)
+- [ ] Encryption key stored in platform secure storage
 - [ ] Error handling doesn't leak sensitive information
 
 See [SECURITY.md](SECURITY.md) for full security guidelines.

@@ -9,7 +9,6 @@ import 'api/engine.dart';
 import 'api/init.dart';
 import 'api/keys.dart';
 import 'api/types.dart';
-import 'api/wasm_poc.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:ffi' as ffi;
@@ -4374,103 +4373,6 @@ class RustLibWire implements BaseWire {
       _wire__crate__api__engine__mls_message_extract_group_idPtr
           .asFunction<
             WireSyncRust2DartDco Function(
-              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
-            )
-          >();
-
-  void wire__crate__api__wasm_poc__poc_encrypted_roundtrip(
-    int port_,
-    ffi.Pointer<wire_cst_list_prim_u_8_loose> encryption_key,
-  ) {
-    return _wire__crate__api__wasm_poc__poc_encrypted_roundtrip(
-      port_,
-      encryption_key,
-    );
-  }
-
-  late final _wire__crate__api__wasm_poc__poc_encrypted_roundtripPtr =
-      _lookup<
-        ffi.NativeFunction<
-          ffi.Void Function(
-            ffi.Int64,
-            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
-          )
-        >
-      >('frbgen_openmls_wire__crate__api__wasm_poc__poc_encrypted_roundtrip');
-  late final _wire__crate__api__wasm_poc__poc_encrypted_roundtrip =
-      _wire__crate__api__wasm_poc__poc_encrypted_roundtripPtr
-          .asFunction<
-            void Function(int, ffi.Pointer<wire_cst_list_prim_u_8_loose>)
-          >();
-
-  void wire__crate__api__wasm_poc__poc_roundtrip_test(int port_) {
-    return _wire__crate__api__wasm_poc__poc_roundtrip_test(port_);
-  }
-
-  late final _wire__crate__api__wasm_poc__poc_roundtrip_testPtr =
-      _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Int64)>>(
-        'frbgen_openmls_wire__crate__api__wasm_poc__poc_roundtrip_test',
-      );
-  late final _wire__crate__api__wasm_poc__poc_roundtrip_test =
-      _wire__crate__api__wasm_poc__poc_roundtrip_testPtr
-          .asFunction<void Function(int)>();
-
-  void wire__crate__api__wasm_poc__poc_store_and_load(
-    int port_,
-    ffi.Pointer<wire_cst_list_prim_u_8_strict> key,
-    ffi.Pointer<wire_cst_list_prim_u_8_loose> value,
-  ) {
-    return _wire__crate__api__wasm_poc__poc_store_and_load(port_, key, value);
-  }
-
-  late final _wire__crate__api__wasm_poc__poc_store_and_loadPtr =
-      _lookup<
-        ffi.NativeFunction<
-          ffi.Void Function(
-            ffi.Int64,
-            ffi.Pointer<wire_cst_list_prim_u_8_strict>,
-            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
-          )
-        >
-      >('frbgen_openmls_wire__crate__api__wasm_poc__poc_store_and_load');
-  late final _wire__crate__api__wasm_poc__poc_store_and_load =
-      _wire__crate__api__wasm_poc__poc_store_and_loadPtr
-          .asFunction<
-            void Function(
-              int,
-              ffi.Pointer<wire_cst_list_prim_u_8_strict>,
-              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
-            )
-          >();
-
-  void wire__crate__api__wasm_poc__poc_wrong_key_test(
-    int port_,
-    ffi.Pointer<wire_cst_list_prim_u_8_loose> correct_key,
-    ffi.Pointer<wire_cst_list_prim_u_8_loose> wrong_key,
-  ) {
-    return _wire__crate__api__wasm_poc__poc_wrong_key_test(
-      port_,
-      correct_key,
-      wrong_key,
-    );
-  }
-
-  late final _wire__crate__api__wasm_poc__poc_wrong_key_testPtr =
-      _lookup<
-        ffi.NativeFunction<
-          ffi.Void Function(
-            ffi.Int64,
-            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
-            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
-          )
-        >
-      >('frbgen_openmls_wire__crate__api__wasm_poc__poc_wrong_key_test');
-  late final _wire__crate__api__wasm_poc__poc_wrong_key_test =
-      _wire__crate__api__wasm_poc__poc_wrong_key_testPtr
-          .asFunction<
-            void Function(
-              int,
-              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
               ffi.Pointer<wire_cst_list_prim_u_8_loose>,
             )
           >();

@@ -1,7 +1,8 @@
 //! EncryptedDb — platform-specific encrypted key-value storage.
 //!
 //! Native: SQLCipher via rusqlite (AES-256 transparent encryption).
-//! WASM: IndexedDB via `idb` crate + AES-256-GCM per-value encryption.
+//! WASM: IndexedDB via `idb` crate + AES-256-GCM per-value encryption
+//!       (via `crypto.subtle` — non-extractable CryptoKey).
 //!
 //! Schema:
 //! ```sql
@@ -31,20 +32,25 @@ pub struct StorageUpdates {
     pub deletes: Vec<Vec<u8>>,
 }
 
+/// Wrapper around `web_sys::CryptoKey` that is `Send + Sync`.
+///
+/// WASM is single-threaded, so this is safe. FRB requires opaque types to be
+/// `Send + Sync` for its generated code.
+#[cfg(target_arch = "wasm32")]
+struct WasmCryptoKey(web_sys::CryptoKey);
+
+#[cfg(target_arch = "wasm32")]
+unsafe impl Send for WasmCryptoKey {}
+#[cfg(target_arch = "wasm32")]
+unsafe impl Sync for WasmCryptoKey {}
+
 pub struct EncryptedDb {
     #[cfg(not(target_arch = "wasm32"))]
     conn: std::sync::Mutex<rusqlite::Connection>,
     #[cfg(target_arch = "wasm32")]
     db_name: String,
     #[cfg(target_arch = "wasm32")]
-    key: zeroize::Zeroizing<Vec<u8>>,
-}
-
-impl Drop for EncryptedDb {
-    fn drop(&mut self) {
-        // Native: SQLCipher connection drops automatically.
-        // WASM: key is Zeroizing<Vec<u8>> and auto-zeroizes on drop.
-    }
+    key: WasmCryptoKey,
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -218,7 +224,7 @@ fn hex_string(bytes: &[u8]) -> String {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// WASM IMPLEMENTATION (IndexedDB + AES-256-GCM)
+// WASM IMPLEMENTATION (IndexedDB + Web Crypto AES-256-GCM)
 // ═══════════════════════════════════════════════════════════════
 
 #[cfg(target_arch = "wasm32")]
@@ -227,7 +233,8 @@ impl EncryptedDb {
     ///
     /// - `db_path`: Used as the IndexedDB database name. If `":memory:"`, a unique
     ///   random name is generated to match SQLite's per-connection ephemeral behavior.
-    /// - `encryption_key`: 32-byte AES-256-GCM key.
+    /// - `encryption_key`: 32-byte AES-256-GCM key. Imported as a non-extractable
+    ///   `CryptoKey` via `crypto.subtle`, then zeroized from WASM memory.
     pub async fn open(db_path: String, mut encryption_key: Vec<u8>) -> Result<Self, String> {
         if encryption_key.len() != 32 {
             encryption_key.zeroize();
@@ -237,12 +244,22 @@ impl EncryptedDb {
             ));
         }
 
+        // Import raw bytes as a non-extractable CryptoKey, then zeroize raw bytes.
+        let crypto_key = match wasm_import_key(&encryption_key).await {
+            Ok(k) => {
+                encryption_key.zeroize();
+                k
+            }
+            Err(e) => {
+                encryption_key.zeroize();
+                return Err(e);
+            }
+        };
+
         // Validate key works by encrypting/decrypting a test value.
-        let key_arr: [u8; 32] = encryption_key.clone().try_into().unwrap();
-        let test_ct = wasm_encrypt(&key_arr, b"key_validation_test")?;
-        let test_pt = wasm_decrypt(&key_arr, &test_ct)?;
+        let test_ct = wasm_encrypt(&crypto_key, b"key_validation_test").await?;
+        let test_pt = wasm_decrypt(&crypto_key, &test_ct).await?;
         if test_pt != b"key_validation_test" {
-            encryption_key.zeroize();
             return Err("Key validation failed".into());
         }
 
@@ -259,7 +276,7 @@ impl EncryptedDb {
 
         let db = Self {
             db_name: actual_name,
-            key: zeroize::Zeroizing::new(encryption_key),
+            key: WasmCryptoKey(crypto_key),
         };
         db.run_migrations().await?;
         Ok(db)
@@ -294,18 +311,13 @@ impl EncryptedDb {
         Ok(())
     }
 
-    fn key_arr(&self) -> [u8; 32] {
-        self.key.as_slice().try_into().unwrap()
-    }
-
     /// Load all global entries (key starts with a global label prefix).
     pub async fn load_global(&self) -> Result<Vec<(Vec<u8>, Vec<u8>)>, String> {
-        let key_arr = self.key_arr();
         let all = self.idb_get_all().await?;
         let mut result = Vec::new();
         for (k, enc_v) in all {
             if is_global_key(&k) {
-                let v = wasm_decrypt(&key_arr, &enc_v)?;
+                let v = wasm_decrypt(&self.key.0, &enc_v).await?;
                 result.push((k, v));
             }
         }
@@ -321,13 +333,12 @@ impl EncryptedDb {
     /// Since OpenMLS storage keys are opaque, we must load everything and filter by prefix.
     /// For WASM with typical MLS group sizes this is efficient enough.
     pub async fn load_for_group(&self, _group_id: &[u8]) -> Result<Vec<(Vec<u8>, Vec<u8>)>, String> {
-        let key_arr = self.key_arr();
         let all = self.idb_get_all().await?;
         let mut result = Vec::new();
         for (k, enc_v) in all {
             // On WASM we load everything — the SnapshotStorageProvider only
             // accesses keys relevant to its operations.
-            let v = wasm_decrypt(&key_arr, &enc_v)?;
+            let v = wasm_decrypt(&self.key.0, &enc_v).await?;
             result.push((k, v));
         }
         Ok(result)
@@ -343,7 +354,15 @@ impl EncryptedDb {
         use js_sys::Uint8Array;
         use wasm_bindgen::JsValue;
 
-        let key_arr = self.key_arr();
+        // Pre-encrypt all values before opening the transaction.
+        // IDB transactions auto-commit when the event loop is idle, so we must
+        // avoid any await (like crypto.subtle) between transaction open and commit.
+        let mut encrypted_upserts = Vec::with_capacity(updates.upserts.len());
+        for (key, value) in &updates.upserts {
+            let enc_value = wasm_encrypt(&self.key.0, value).await?;
+            encrypted_upserts.push((key, enc_value));
+        }
+
         let db = self.idb_open().await?;
         let txn = db
             .transaction(&["mls_storage"], TransactionMode::ReadWrite)
@@ -352,8 +371,7 @@ impl EncryptedDb {
             .object_store("mls_storage")
             .map_err(|e| format!("object_store failed: {e}"))?;
 
-        for (key, value) in &updates.upserts {
-            let enc_value = wasm_encrypt(&key_arr, value)?;
+        for (key, enc_value) in &encrypted_upserts {
             let js_key = Uint8Array::from(key.as_slice());
             let js_val = Uint8Array::from(enc_value.as_slice());
             store
@@ -449,7 +467,6 @@ impl EncryptedDb {
     async fn idb_get_all(&self) -> Result<Vec<(Vec<u8>, Vec<u8>)>, String> {
         use idb::TransactionMode;
         use js_sys::Uint8Array;
-        use wasm_bindgen::JsCast;
 
         let db = self.idb_open().await?;
         let txn = db
@@ -511,35 +528,98 @@ impl EncryptedDb {
     }
 }
 
-// -- WASM encryption helpers --
+// -- WASM encryption helpers (Web Crypto API) --
 
+/// Import raw key bytes as a non-extractable AES-GCM CryptoKey.
 #[cfg(target_arch = "wasm32")]
-fn wasm_encrypt(key: &[u8; 32], plaintext: &[u8]) -> Result<Vec<u8>, String> {
-    use aes_gcm::{Aes256Gcm, KeyInit, aead::Aead, AeadCore, aead::OsRng};
+async fn wasm_import_key(raw: &[u8]) -> Result<web_sys::CryptoKey, String> {
+    use js_sys::{Array, Object, Reflect, Uint8Array};
+    use wasm_bindgen::JsCast;
+    use wasm_bindgen_futures::JsFuture;
 
-    let cipher = Aes256Gcm::new(key.into());
-    let nonce = Aes256Gcm::generate_nonce(&mut OsRng);
-    let ciphertext = cipher
-        .encrypt(&nonce, plaintext)
-        .map_err(|e| format!("encrypt failed: {e}"))?;
+    let subtle = web_sys::window()
+        .ok_or("crypto.subtle requires a secure context (HTTPS or localhost)")?
+        .crypto()
+        .map_err(|_| "crypto.subtle requires a secure context (HTTPS or localhost)")?
+        .subtle();
 
-    let mut out = Vec::with_capacity(12 + ciphertext.len());
-    out.extend_from_slice(&nonce);
-    out.extend_from_slice(&ciphertext);
+    // Algorithm: { name: "AES-GCM" }
+    let algorithm = Object::new();
+    Reflect::set(&algorithm, &"name".into(), &"AES-GCM".into())
+        .map_err(|e| format!("Reflect::set failed: {e:?}"))?;
+
+    // Key usages: ["encrypt", "decrypt"]
+    let usages = Array::new();
+    usages.push(&"encrypt".into());
+    usages.push(&"decrypt".into());
+
+    let key_data = Uint8Array::from(raw);
+    let promise = subtle
+        .import_key_with_object("raw", &key_data.into(), &algorithm, false, &usages)
+        .map_err(|e| format!("importKey failed: {e:?}"))?;
+    let result = JsFuture::from(promise)
+        .await
+        .map_err(|e| format!("importKey promise rejected: {e:?}"))?;
+
+    result
+        .dyn_into::<web_sys::CryptoKey>()
+        .map_err(|e| format!("importKey result is not CryptoKey: {e:?}"))
+}
+
+/// Encrypt plaintext with AES-256-GCM via `crypto.subtle`.
+/// Output format: `[12-byte IV || ciphertext + 16-byte tag]`.
+#[cfg(target_arch = "wasm32")]
+async fn wasm_encrypt(key: &web_sys::CryptoKey, plaintext: &[u8]) -> Result<Vec<u8>, String> {
+    use js_sys::Uint8Array;
+    use wasm_bindgen::JsCast;
+    use wasm_bindgen_futures::JsFuture;
+
+    // Generate 12-byte random IV.
+    let mut iv = [0u8; 12];
+    getrandom::fill(&mut iv).map_err(|e| format!("getrandom failed: {e}"))?;
+
+    let params = web_sys::AesGcmParams::new("AES-GCM", &Uint8Array::from(&iv[..]));
+    let subtle = web_sys::window().unwrap().crypto().unwrap().subtle();
+
+    let data = Uint8Array::from(plaintext);
+    let promise = subtle
+        .encrypt_with_object_and_buffer_source(&params, key, &data)
+        .map_err(|e| format!("encrypt failed: {e:?}"))?;
+    let result = JsFuture::from(promise)
+        .await
+        .map_err(|e| format!("encrypt promise rejected: {e:?}"))?;
+
+    let ct_array = Uint8Array::new(&result.unchecked_into::<js_sys::ArrayBuffer>());
+    let mut out = Vec::with_capacity(12 + ct_array.length() as usize);
+    out.extend_from_slice(&iv);
+    out.extend_from_slice(&ct_array.to_vec());
     Ok(out)
 }
 
+/// Decrypt ciphertext with AES-256-GCM via `crypto.subtle`.
+/// Input format: `[12-byte IV || ciphertext + 16-byte tag]`.
 #[cfg(target_arch = "wasm32")]
-fn wasm_decrypt(key: &[u8; 32], data: &[u8]) -> Result<Vec<u8>, String> {
-    use aes_gcm::{Aes256Gcm, KeyInit, Nonce, aead::Aead};
+async fn wasm_decrypt(key: &web_sys::CryptoKey, data: &[u8]) -> Result<Vec<u8>, String> {
+    use js_sys::Uint8Array;
+    use wasm_bindgen::JsCast;
+    use wasm_bindgen_futures::JsFuture;
 
     if data.len() < 12 {
         return Err("ciphertext too short".into());
     }
-    let (nonce_bytes, ciphertext) = data.split_at(12);
-    let cipher = Aes256Gcm::new(key.into());
-    let nonce = Nonce::from_slice(nonce_bytes);
-    cipher
-        .decrypt(nonce, ciphertext)
-        .map_err(|e| format!("decrypt failed: {e}"))
+    let (iv_bytes, ciphertext) = data.split_at(12);
+
+    let params = web_sys::AesGcmParams::new("AES-GCM", &Uint8Array::from(iv_bytes));
+    let subtle = web_sys::window().unwrap().crypto().unwrap().subtle();
+
+    let ct = Uint8Array::from(ciphertext);
+    let promise = subtle
+        .decrypt_with_object_and_buffer_source(&params, key, &ct)
+        .map_err(|e| format!("decrypt failed: {e:?}"))?;
+    let result = JsFuture::from(promise)
+        .await
+        .map_err(|e| format!("decrypt failed: {e:?}"))?;
+
+    let pt_array = Uint8Array::new(&result.unchecked_into::<js_sys::ArrayBuffer>());
+    Ok(pt_array.to_vec())
 }

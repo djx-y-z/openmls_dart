@@ -1436,7 +1436,6 @@ dependencies = [
 name = "openmls_frb"
 version = "1.0.0"
 dependencies = [
- "aes-gcm",
  "flutter_rust_bridge",
  "futures",
  "getrandom 0.2.17",

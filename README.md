@@ -20,7 +20,7 @@ Dart bindings for [OpenMLS](https://github.com/openmls/openmls), providing a Rus
 
 - **MLS Protocol (RFC 9420)**: Secure group messaging with forward secrecy and post-compromise security
 - **Group Key Agreement**: Efficient tree-based group key agreement (TreeKEM)
-- **Pluggable Storage**: Bring your own database via the `MlsStorage` interface (SQLite, Hive, etc.)
+- **Encrypted Storage**: All MLS state encrypted at rest — SQLCipher on native, Web Crypto AES-256-GCM on WASM
 - **Basic & X.509 Credentials**: Support for both credential types
 - **Flutter & CLI Support**: Works with Flutter apps and standalone Dart CLI applications
 - **Automatic Builds**: Native libraries downloaded automatically via build hooks
@@ -38,7 +38,7 @@ Dart bindings for [OpenMLS](https://github.com/openmls/openmls), providing a Rus
 | Key Packages | Done | Create with options (lifetime, last-resort) |
 | Credentials | Done | Basic and X.509 credential types |
 | State Queries | Done | Members, epoch, extensions, ratchet tree, group info, PSK export |
-| Storage | Done | Pluggable KV storage via `MlsStorage` interface |
+| Storage | Done | Encrypted at rest via `MlsEngine` (SQLCipher / Web Crypto) |
 
 <details>
 <summary>Full API reference (56 functions)</summary>
@@ -76,15 +76,22 @@ Native libraries are downloaded automatically during build via Dart build hooks.
 
 ```dart
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:openmls/openmls.dart';
 
 void main() async {
   // Initialize the library
   await Openmls.init();
 
-  // Create client with in-memory storage (use SQLite/Hive in production)
-  final storage = InMemoryMlsStorage();
-  final client = MlsClient(storage);
+  // Create an MlsEngine with encrypted storage.
+  // - Native: SQLCipher database at the given file path
+  // - Web: IndexedDB with AES-256-GCM encryption via Web Crypto API
+  // Use ":memory:" for ephemeral in-memory storage (testing).
+  final encryptionKey = Uint8List(32); // 32-byte key — store in platform secure storage!
+  final engine = await MlsEngine.create(
+    dbPath: ':memory:',
+    encryptionKey: encryptionKey,
+  );
 
   // Generate signing key pair
   final ciphersuite = MlsCiphersuite.mls128DhkemX25519Aes128GcmSha256Ed25519;
@@ -97,7 +104,7 @@ void main() async {
 
   // Create a group
   final config = MlsGroupConfig.defaultConfig(ciphersuite: ciphersuite);
-  final group = await client.createGroup(
+  final group = await engine.createGroup(
     config: config,
     signerBytes: signerBytes,
     credentialIdentity: utf8.encode('alice'),
@@ -112,32 +119,27 @@ void main() async {
 
 ## Storage
 
-All MLS state (groups, key packages, secrets) is persisted through the `MlsStorage` interface:
+All MLS state is stored in a Rust-owned encrypted database via `MlsEngine`:
+
+| Platform | Backend | Encryption |
+|----------|---------|------------|
+| Native (iOS, Android, macOS, Linux, Windows) | SQLCipher | AES-256 full-database encryption |
+| Web (WASM) | IndexedDB | AES-256-GCM per-value encryption via `crypto.subtle` |
 
 ```dart
-abstract class MlsStorage {
-  FutureOr<Uint8List?> read(Uint8List key);
-  FutureOr<void> write(Uint8List key, Uint8List value);
-  FutureOr<void> delete(Uint8List key);
-}
+// Create engine with a 32-byte encryption key.
+// Store the key in platform secure storage (Keychain, Android Keystore, etc.)
+final engine = await MlsEngine.create(
+  dbPath: 'mls_data.db',    // file path on native, IDB name on web
+  encryptionKey: myKey,       // 32-byte AES-256 key
+);
+
+// All operations go through the engine
+final group = await engine.createGroup(...);
+await engine.addMembers(...);
 ```
 
-Keys and values are opaque byte arrays managed internally by OpenMLS. Implement this interface with any backend:
-
-- **`InMemoryMlsStorage`** - included, for testing and prototyping
-- **SQLite** - for production mobile/desktop apps
-- **Hive** - for lightweight persistent storage
-
-Wrap your storage in `MlsClient` to inject it into every API call automatically:
-
-```dart
-final storage = InMemoryMlsStorage(); // or your custom implementation
-final client = MlsClient(storage);
-
-// All operations use your storage backend
-final group = await client.createGroup(...);
-await client.addMembers(...);
-```
+On WASM, the encryption key is imported as a **non-extractable `CryptoKey`** via the Web Crypto API. Raw key bytes are zeroized from WASM memory immediately after import.
 
 ## Building from Source
 
@@ -184,13 +186,13 @@ make help
 ┌─────────────────────────────────────────────────┐
 │          OpenMLS (Rust crate)                    │  Core MLS implementation
 ├─────────────────────────────────────────────────┤
+│     MlsEngine + EncryptedDb (Rust)              │  Encrypted storage layer
+├─────────────────────────────────────────────────┤
 │       rust/src/api/*.rs (Rust wrappers)         │  FRB-annotated functions
 ├─────────────────────────────────────────────────┤
 │      lib/src/rust/*.dart (FRB generated)        │  Auto-generated Dart API
 ├─────────────────────────────────────────────────┤
-│    MlsClient + MlsStorage (lib/src/)            │  Convenience wrapper
-├─────────────────────────────────────────────────┤
-│           Your Dart application code            │  Uses MlsClient
+│           Your Dart application code            │  Uses MlsEngine
 └─────────────────────────────────────────────────┘
 ```
 
@@ -199,15 +201,18 @@ make help
 **Key Properties:**
 - **MLS Protocol (RFC 9420)** - Standardized group key agreement with forward secrecy and post-compromise security
 - **Rust Implementation** - All cryptographic operations run in Rust (OpenMLS with RustCrypto backend)
+- **Encrypted at Rest** - All MLS state encrypted via SQLCipher (native) or Web Crypto AES-256-GCM (WASM)
+- **Web Crypto on WASM** - Encryption key stored as non-extractable `CryptoKey` via `crypto.subtle` — raw bytes never persist in WASM memory
 - **Memory Safety** - Rust's ownership model prevents memory-related vulnerabilities
-- **No `unsafe` code** in the wrapper layer
+- **No `unsafe` code** in the wrapper layer (except `Send + Sync` for `CryptoKey` on single-threaded WASM)
 
 **Best Practices:**
 - Keep the library updated to the latest version
-- Use a persistent `MlsStorage` implementation in production (not `InMemoryMlsStorage`)
+- Store the 32-byte encryption key in platform secure storage (Keychain, Android Keystore, `flutter_secure_storage`)
 - Never log or expose serialized key material (`signer.serialize()`, private keys)
 - Use `SecureBytes.wrap()` or `.zeroize()` for sensitive data (serialized keys, shared secrets) — see [SECURITY.md](SECURITY.md)
 - Process MLS messages in order to maintain group state consistency
+- **Web deployment:** Enable strict CSP headers (`script-src 'self'`) and serve over HTTPS
 
 See [SECURITY.md](SECURITY.md) for full security guidelines.
 
