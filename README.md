@@ -2,6 +2,7 @@
 
 [![pub package](https://img.shields.io/pub/v/openmls.svg)](https://pub.dev/packages/openmls)
 [![CI](https://github.com/djx-y-z/openmls_dart/actions/workflows/test.yml/badge.svg)](https://github.com/djx-y-z/openmls_dart/actions/workflows/test.yml)
+[![Coverage](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/djx-y-z/a5b2cf3b4ecf95155f76512df95d74c2/raw/coverage.json)](https://gist.github.com/djx-y-z/a5b2cf3b4ecf95155f76512df95d74c2)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Dart](https://img.shields.io/badge/dart-%3E%3D3.10.0-brightgreen.svg)](https://dart.dev)
 [![Flutter](https://img.shields.io/badge/flutter-%3E%3D3.38.0-blue.svg)](https://flutter.dev)
