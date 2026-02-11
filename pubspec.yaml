@@ -9,7 +9,6 @@ issue_tracker: https://github.com/djx-y-z/openmls_dart/issues
 
 environment:
   sdk: ^3.10.0
-  flutter: ">=3.38.0"
 
 dependencies:
   flutter_rust_bridge: ^2.11.1
