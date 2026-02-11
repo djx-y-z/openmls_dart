@@ -157,6 +157,11 @@ jobs:
           targets: ${{ matrix.rust_target }}
 
       - name: Build for iOS ${{ matrix.target }} ${{ matrix.arch }}
+        env:
+          # Rust's default deployment target for aarch64-apple-ios is 10.0,
+          # but vendored C code (OpenSSL/SQLCipher) compiled with newer Xcode
+          # generates ___chkstk_darwin calls unavailable at that target.
+          IPHONEOS_DEPLOYMENT_TARGET: '13.0'
         run: |
           cd rust
           cargo build --release --target ${{ matrix.rust_target }}

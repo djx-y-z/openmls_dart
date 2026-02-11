@@ -24,3 +24,9 @@ runs:
       if: runner.os == 'Windows'
       run: echo "$env:USERPROFILE\.cargo\bin" | Out-File -FilePath $env:GITHUB_PATH -Append
       shell: pwsh
+
+    # Use Strawberry Perl for OpenSSL build (MSYS2 Perl from Git Bash is incompatible)
+    - name: Configure Perl for OpenSSL (Windows)
+      if: runner.os == 'Windows'
+      run: echo "PERL=C:\Strawberry\perl\bin\perl.exe" >> $GITHUB_ENV
+      shell: bash
