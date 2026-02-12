@@ -8,7 +8,7 @@
 # On Windows CI (Git Bash), use cmd to run fvm.bat from PATH:
 # Example: make build ARGS="--target x86_64-pc-windows-msvc" FVM="cmd //c fvm"
 
-.PHONY: help setup setup-fvm setup-rust-tools setup-android setup-web codegen regen build build-android build-web test coverage analyze format format-check get clean version check-new-openmls-version check-exists-openmls-frb-release check-template-updates rust-audit rust-check doc publish publish-dry-run rust-update update-changelog
+.PHONY: help setup setup-fvm setup-rust-tools setup-android setup-web codegen regen build build-android build-web test coverage analyze format format-check get clean version check-new-openmls-version check-exists-openmls-frb-release check-template-updates check-targets rust-audit rust-check doc publish publish-dry-run rust-update update-changelog
 
 # FVM command - can be overridden to provide full path on Windows CI
 FVM ?= fvm
@@ -49,6 +49,8 @@ help:
 	@echo "                                        Example: make check-new-openmls-version ARGS=\"--update\""
 	@echo "    make check-exists-openmls-frb-release - Check if FRB release exists on GitHub"
 	@echo "    make check-template-updates       - Check for new copier template version"
+	@echo "    make check-targets                - Check deployment target consistency (iOS/macOS/Android)"
+	@echo "                                        Example: make check-targets ARGS=\"--ios --set 14.0\""
 	@echo "    make rust-update                  - Update Cargo.lock (cargo update)"
 	@echo "    make update-changelog             - Update CHANGELOG.md with AI"
 	@echo "                                        Example: make update-changelog ARGS=\"--version v1.0.0\""
@@ -207,6 +209,10 @@ check-exists-openmls-frb-release:
 check-template-updates:
 	@touch .skip_openmls_hook
 	@$(FVM) dart run scripts/check_template_updates.dart $(ARGS); ret=$$?; rm -f .skip_openmls_hook; exit $$ret
+
+check-targets:
+	@touch .skip_openmls_hook
+	@$(FVM) dart run scripts/check_deployment_targets.dart $(ARGS); ret=$$?; rm -f .skip_openmls_hook; exit $$ret
 
 rust-update:
 	@echo "Updating Cargo.lock..."

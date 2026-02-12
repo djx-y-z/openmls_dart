@@ -14,7 +14,7 @@ Dart bindings for [OpenMLS](https://github.com/openmls/openmls), providing a Rus
 
 |             | Android | iOS   | macOS  | Linux      | Windows | Web |
 |-------------|---------|-------|--------|------------|---------|-----|
-| **Support** | SDK 24+ | 12.0+ | 10.14+ | arm64, x64 | x64     | WASM |
+| **Support** | SDK 24+ | 13.0+ | 10.15+ | arm64, x64 | x64     | WASM |
 | **Arch**    | arm64, armv7, x64 | arm64 | arm64, x64 | arm64, x64 | x64 | wasm32 |
 
 ## Features

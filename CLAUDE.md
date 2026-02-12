@@ -72,6 +72,8 @@ make rust-update                  # Update Cargo.lock
 make check-new-openmls-version  # Check for new upstream openmls version
 make check-new-openmls-version ARGS="--update"  # Apply update
 make check-template-updates       # Check for copier template updates
+make check-targets                # Check deployment targets (iOS/macOS/Android)
+make check-targets ARGS="--ios --set 14.0"  # Set iOS target everywhere
 make update-changelog ARGS="--version vX.Y.Z"  # Update CHANGELOG with AI
 make help                         # Show all available commands
 ```

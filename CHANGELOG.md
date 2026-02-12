@@ -1,6 +1,16 @@
 ## [Unreleased]
 
+### For Users
+
+#### Fixed
+
+- README: Correct iOS minimum version from 12.0 to 13.0 and macOS from 10.14 to 10.15 in platform support table
+
 ### For Contributors
+
+#### Added
+
+- `make check-targets`: Unified deployment target consistency checker for iOS, macOS, and Android — verifies all project files (podspec, CI workflow, Xcode project, plist, build.gradle, README) match `.copier-answers.yml`. Supports `--update` to fix mismatches and `--set <version>` to change a platform target everywhere in one command
 
 #### Changed
 
