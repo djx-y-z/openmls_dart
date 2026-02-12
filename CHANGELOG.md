@@ -1,3 +1,11 @@
+## [Unreleased]
+
+### For Contributors
+
+#### Changed
+
+- CI: Add Rust dependency caching (`Swatinem/rust-cache`) to speed up builds, especially Windows where vendored OpenSSL compilation took ~10 minutes
+
 ## [1.0.1] - 2026-02-11
 
 ### Added

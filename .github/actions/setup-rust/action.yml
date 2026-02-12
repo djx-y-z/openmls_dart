@@ -30,3 +30,11 @@ runs:
       if: runner.os == 'Windows'
       run: echo "PERL=C:\Strawberry\perl\bin\perl.exe" >> $GITHUB_ENV
       shell: bash
+
+    # Cache compiled Rust dependencies (keyed on Cargo.lock, OS, rustc version).
+    # Dramatically speeds up Windows builds where vendored OpenSSL takes ~10 min.
+    - name: Cache Rust dependencies
+      uses: Swatinem/rust-cache@v2
+      with:
+        workspaces: "rust -> target"
+        cache-on-failure: true
