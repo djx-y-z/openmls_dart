@@ -1,3 +1,21 @@
+## [Unreleased]
+
+### For Users
+
+#### ✨ Highlights
+
+- **openmls v0.8.1** — performance and API enhancements
+- **openmls_frb v1.0.0** — Rust FFI bindings
+
+#### Changed
+
+- Update openmls native library to openmls-v0.8.1 ([release notes](https://github.com/openmls/openmls/releases/tag/openmls-v0.8.1))
+  - Relaxed Wasm size limit to improve compatibility
+  - Updated ciphersuites in documentation for better clarity
+  - Exposed full_leaves and parents in TreeSync, enhancing tree traversal capabilities
+  - Updated dependencies for libcrux and hpke-rs for improved performance
+  - General preparation for the 0.8.1 release
+
 ## [1.0.1] - 2026-02-11
 
 ### Added
