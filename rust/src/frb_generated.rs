@@ -40,7 +40,7 @@ flutter_rust_bridge::frb_generated_boilerplate!(
     default_rust_auto_opaque = RustAutoOpaqueNom,
 );
 pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.11.1";
-pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -1479779817;
+pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -1024278699;
 
 // Section: executor
 
@@ -477,6 +477,50 @@ fn wire__crate__api__engine__MlsEngine_clear_pending_proposals_impl(
                             api_group_id_bytes,
                         )
                         .await?;
+                        Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
+fn wire__crate__api__engine__MlsEngine_close_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    that: impl CstDecode<
+        RustOpaqueNom<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<MlsEngine>>,
+    >,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::DcoCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "MlsEngine_close",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let api_that = that.cst_decode();
+            move |context| async move {
+                transform_result_dco::<_, _, String>(
+                    (move || async move {
+                        let mut api_that_guard = None;
+                        let decode_indices_ =
+                            flutter_rust_bridge::for_generated::lockable_compute_decode_order(
+                                vec![flutter_rust_bridge::for_generated::LockableOrderInfo::new(
+                                    &api_that, 0, false,
+                                )],
+                            );
+                        for i in decode_indices_ {
+                            match i {
+                                0 => {
+                                    api_that_guard =
+                                        Some(api_that.lockable_decode_async_ref().await)
+                                }
+                                _ => unreachable!(),
+                            }
+                        }
+                        let api_that_guard = api_that_guard.unwrap();
+                        let output_ok =
+                            crate::api::engine::MlsEngine::close(&*api_that_guard).await?;
                         Ok(output_ok)
                     })()
                     .await,
@@ -2141,6 +2185,42 @@ fn wire__crate__api__engine__MlsEngine_inspect_welcome_impl(
                     .await,
                 )
             }
+        },
+    )
+}
+fn wire__crate__api__engine__MlsEngine_is_closed_impl(
+    that: impl CstDecode<
+        RustOpaqueNom<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<MlsEngine>>,
+    >,
+) -> flutter_rust_bridge::for_generated::WireSyncRust2DartDco {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_sync::<flutter_rust_bridge::for_generated::DcoCodec, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "MlsEngine_is_closed",
+            port: None,
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Sync,
+        },
+        move || {
+            let api_that = that.cst_decode();
+            transform_result_dco::<_, _, ()>((move || {
+                let mut api_that_guard = None;
+                let decode_indices_ =
+                    flutter_rust_bridge::for_generated::lockable_compute_decode_order(vec![
+                        flutter_rust_bridge::for_generated::LockableOrderInfo::new(
+                            &api_that, 0, false,
+                        ),
+                    ]);
+                for i in decode_indices_ {
+                    match i {
+                        0 => api_that_guard = Some(api_that.lockable_decode_sync_ref()),
+                        _ => unreachable!(),
+                    }
+                }
+                let api_that_guard = api_that_guard.unwrap();
+                let output_ok = Result::<_, ()>::Ok(crate::api::engine::MlsEngine::is_closed(
+                    &*api_that_guard,
+                ))?;
+                Ok(output_ok)
+            })())
         },
     )
 }
@@ -6869,6 +6949,14 @@ mod io {
     }
 
     #[unsafe(no_mangle)]
+    pub extern "C" fn frbgen_openmls_wire__crate__api__engine__MlsEngine_close(
+        port_: i64,
+        that: usize,
+    ) {
+        wire__crate__api__engine__MlsEngine_close_impl(port_, that)
+    }
+
+    #[unsafe(no_mangle)]
     pub extern "C" fn frbgen_openmls_wire__crate__api__engine__MlsEngine_commit_to_pending_proposals(
         port_: i64,
         that: usize,
@@ -7291,6 +7379,13 @@ mod io {
         welcome_bytes: *mut wire_cst_list_prim_u_8_loose,
     ) {
         wire__crate__api__engine__MlsEngine_inspect_welcome_impl(port_, that, config, welcome_bytes)
+    }
+
+    #[unsafe(no_mangle)]
+    pub extern "C" fn frbgen_openmls_wire__crate__api__engine__MlsEngine_is_closed(
+        that: usize,
+    ) -> flutter_rust_bridge::for_generated::WireSyncRust2DartDco {
+        wire__crate__api__engine__MlsEngine_is_closed_impl(that)
     }
 
     #[unsafe(no_mangle)]
@@ -9213,6 +9308,14 @@ mod web {
     }
 
     #[wasm_bindgen]
+    pub fn wire__crate__api__engine__MlsEngine_close(
+        port_: flutter_rust_bridge::for_generated::MessagePort,
+        that: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
+    ) {
+        wire__crate__api__engine__MlsEngine_close_impl(port_, that)
+    }
+
+    #[wasm_bindgen]
     pub fn wire__crate__api__engine__MlsEngine_commit_to_pending_proposals(
         port_: flutter_rust_bridge::for_generated::MessagePort,
         that: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
@@ -9635,6 +9738,13 @@ mod web {
         welcome_bytes: Box<[u8]>,
     ) {
         wire__crate__api__engine__MlsEngine_inspect_welcome_impl(port_, that, config, welcome_bytes)
+    }
+
+    #[wasm_bindgen]
+    pub fn wire__crate__api__engine__MlsEngine_is_closed(
+        that: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
+    ) -> flutter_rust_bridge::for_generated::WireSyncRust2DartDco {
+        wire__crate__api__engine__MlsEngine_is_closed_impl(that)
     }
 
     #[wasm_bindgen]

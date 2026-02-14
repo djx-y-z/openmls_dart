@@ -69,7 +69,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.11.1';
 
   @override
-  int get rustContentHash => -1479779817;
+  int get rustContentHash => -1024278699;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -135,6 +135,8 @@ abstract class RustLibApi extends BaseApi {
     required MlsEngine that,
     required List<int> groupIdBytes,
   });
+
+  Future<void> crateApiEngineMlsEngineClose({required MlsEngine that});
 
   Future<CommitResult> crateApiEngineMlsEngineCommitToPendingProposals({
     required MlsEngine that,
@@ -333,6 +335,8 @@ abstract class RustLibApi extends BaseApi {
     required MlsGroupConfig config,
     required List<int> welcomeBytes,
   });
+
+  bool crateApiEngineMlsEngineIsClosed({required MlsEngine that});
 
   Future<ExternalJoinResult> crateApiEngineMlsEngineJoinGroupExternalCommit({
     required MlsEngine that,
@@ -1006,6 +1010,31 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         debugName: "MlsEngine_clear_pending_proposals",
         argNames: ["that", "groupIdBytes"],
       );
+
+  @override
+  Future<void> crateApiEngineMlsEngineClose({required MlsEngine that}) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 =
+              cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsEngine(
+                that,
+              );
+          return wire.wire__crate__api__engine__MlsEngine_close(port_, arg0);
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_unit,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiEngineMlsEngineCloseConstMeta,
+        argValues: [that],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiEngineMlsEngineCloseConstMeta =>
+      const TaskConstMeta(debugName: "MlsEngine_close", argNames: ["that"]);
 
   @override
   Future<CommitResult> crateApiEngineMlsEngineCommitToPendingProposals({
@@ -2348,6 +2377,31 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         debugName: "MlsEngine_inspect_welcome",
         argNames: ["that", "config", "welcomeBytes"],
       );
+
+  @override
+  bool crateApiEngineMlsEngineIsClosed({required MlsEngine that}) {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          var arg0 =
+              cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsEngine(
+                that,
+              );
+          return wire.wire__crate__api__engine__MlsEngine_is_closed(arg0);
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_bool,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiEngineMlsEngineIsClosedConstMeta,
+        argValues: [that],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiEngineMlsEngineIsClosedConstMeta =>
+      const TaskConstMeta(debugName: "MlsEngine_is_closed", argNames: ["that"]);
 
   @override
   Future<ExternalJoinResult> crateApiEngineMlsEngineJoinGroupExternalCommit({
@@ -6419,6 +6473,13 @@ class MlsEngineImpl extends RustOpaque implements MlsEngine {
         groupIdBytes: groupIdBytes,
       );
 
+  /// Close the engine, wiping the encryption key from memory and closing the
+  /// database connection. After calling this, all operations will fail with
+  /// "MlsEngine is closed". Idempotent — calling close on an already-closed
+  /// engine is a no-op.
+  Future<void> close() =>
+      RustLib.instance.api.crateApiEngineMlsEngineClose(that: this);
+
   Future<CommitResult> commitToPendingProposals({
     required List<int> groupIdBytes,
     required List<int> signerBytes,
@@ -6694,6 +6755,10 @@ class MlsEngineImpl extends RustOpaque implements MlsEngine {
     config: config,
     welcomeBytes: welcomeBytes,
   );
+
+  /// Check whether this engine has been closed.
+  bool isClosed() =>
+      RustLib.instance.api.crateApiEngineMlsEngineIsClosed(that: this);
 
   Future<ExternalJoinResult> joinGroupExternalCommit({
     required MlsGroupConfig config,

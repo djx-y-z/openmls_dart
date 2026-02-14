@@ -155,6 +155,9 @@ class Openmls {
   /// For CLI applications that are exiting, set [dispose] to `true` to
   /// also dispose the Flutter Rust Bridge runtime.
   ///
+  /// **Important:** Close all [MlsEngine] instances before calling this
+  /// method with `dispose: true`, as the Rust runtime will be shut down.
+  ///
   /// **Note:** After `cleanup(dispose: true)`, you cannot reinitialize
   /// in the same process (FRB limitation).
   static void cleanup({bool dispose = false}) {

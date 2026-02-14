@@ -1,6 +1,6 @@
 [package]
 name = "openmls_frb"
-version = "1.0.0"
+version = "1.1.0"
 edition = "2024"
 rust-version = "1.88"
 description = "Dart wrapper for OpenMLS — a Rust implementation of the Messaging Layer Security (MLS) protocol (RFC 9420)"
@@ -20,6 +20,7 @@ zeroize = { version = "1.8", features = ["derive"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 futures = "0.3"
+parking_lot = "0.12"
 openmls = { git = "https://github.com/openmls/openmls", tag = "openmls-v0.8.0", features = ["test-utils"] }
 openmls_rust_crypto = { git = "https://github.com/openmls/openmls", tag = "openmls-v0.8.0" }
 openmls_basic_credential = { git = "https://github.com/openmls/openmls", tag = "openmls-v0.8.0", features = ["test-utils"] }

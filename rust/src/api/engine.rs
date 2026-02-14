@@ -132,7 +132,7 @@ pub struct GroupConfigurationResult {
 // ═══════════════════════════════════════════════════════════════
 
 pub struct MlsEngine {
-    db: crate::encrypted_db::EncryptedDb,
+    db: parking_lot::RwLock<Option<std::sync::Arc<crate::encrypted_db::EncryptedDb>>>,
 }
 
 impl MlsEngine {
@@ -161,20 +161,24 @@ impl MlsEngine {
     ///   or `flutter_secure_storage`).
     pub async fn create(db_path: String, encryption_key: Vec<u8>) -> Result<MlsEngine, String> {
         let db = crate::encrypted_db::EncryptedDb::open(db_path, encryption_key).await?;
-        Ok(MlsEngine { db })
+        Ok(MlsEngine { db: parking_lot::RwLock::new(Some(std::sync::Arc::new(db))) })
     }
 
     // ═══════════════════════════════════════════════════════════
     // INTERNAL HELPERS
     // ═══════════════════════════════════════════════════════════
 
+    fn db(&self) -> Result<std::sync::Arc<crate::encrypted_db::EncryptedDb>, String> {
+        self.db.read().as_ref().cloned().ok_or_else(|| "MlsEngine is closed".to_string())
+    }
+
     async fn load_for_group(&self, group_id: &[u8]) -> Result<SnapshotOpenMlsProvider, String> {
-        let entries = self.db.load_for_group(group_id).await?;
+        let entries = self.db()?.load_for_group(group_id).await?;
         Ok(SnapshotOpenMlsProvider::new(SnapshotStorageProvider::from_entries(entries)))
     }
 
     async fn load_global(&self) -> Result<SnapshotOpenMlsProvider, String> {
-        let entries = self.db.load_global().await?;
+        let entries = self.db()?.load_global().await?;
         Ok(SnapshotOpenMlsProvider::new(SnapshotStorageProvider::from_entries(entries)))
     }
 
@@ -183,7 +187,7 @@ impl MlsEngine {
         if updates.upserts.is_empty() && updates.deletes.is_empty() {
             return Ok(());
         }
-        self.db.save_updates(updates, group_id).await
+        self.db()?.save_updates(updates, group_id).await
     }
 
     // ═══════════════════════════════════════════════════════════
@@ -1668,7 +1672,7 @@ impl MlsEngine {
         group.delete(provider.storage()).map_err(|e| format!("Failed to delete group: {}", e))?;
 
         self.commit(provider, Some(&group_id_bytes)).await?;
-        self.db.delete_group(&group_id_bytes).await
+        self.db()?.delete_group(&group_id_bytes).await
     }
 
     pub async fn delete_key_package(
@@ -1733,6 +1737,31 @@ impl MlsEngine {
             sender_ratchet_max_out_of_order: sr_config.out_of_order_tolerance(),
             sender_ratchet_max_forward_distance: sr_config.maximum_forward_distance(),
         })
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // LIFECYCLE
+    // ═══════════════════════════════════════════════════════════
+
+    /// Close the engine, wiping the encryption key from memory and closing the
+    /// database connection. After calling this, all operations will fail with
+    /// "MlsEngine is closed". Idempotent — calling close on an already-closed
+    /// engine is a no-op.
+    pub async fn close(&self) -> Result<(), String> {
+        let arc = { self.db.write().take() };
+        match arc {
+            Some(arc) => match std::sync::Arc::try_unwrap(arc) {
+                Ok(db) => db.close().await,
+                Err(_) => Ok(()), // In-flight operations hold the last ref; cleanup on drop
+            },
+            None => Ok(()), // Already closed — idempotent
+        }
+    }
+
+    /// Check whether this engine has been closed.
+    #[flutter_rust_bridge::frb(sync)]
+    pub fn is_closed(&self) -> bool {
+        self.db.read().is_none()
     }
 }
 

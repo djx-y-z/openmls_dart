@@ -2010,6 +2010,18 @@ class RustLibWire implements BaseWire {
             void Function(int, int, ffi.Pointer<wire_cst_list_prim_u_8_loose>)
           >();
 
+  void wire__crate__api__engine__MlsEngine_close(int port_, int that) {
+    return _wire__crate__api__engine__MlsEngine_close(port_, that);
+  }
+
+  late final _wire__crate__api__engine__MlsEngine_closePtr =
+      _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Int64, ffi.UintPtr)>>(
+        'frbgen_openmls_wire__crate__api__engine__MlsEngine_close',
+      );
+  late final _wire__crate__api__engine__MlsEngine_close =
+      _wire__crate__api__engine__MlsEngine_closePtr
+          .asFunction<void Function(int, int)>();
+
   void wire__crate__api__engine__MlsEngine_commit_to_pending_proposals(
     int port_,
     int that,
@@ -3139,6 +3151,18 @@ class RustLibWire implements BaseWire {
               ffi.Pointer<wire_cst_list_prim_u_8_loose>,
             )
           >();
+
+  WireSyncRust2DartDco wire__crate__api__engine__MlsEngine_is_closed(int that) {
+    return _wire__crate__api__engine__MlsEngine_is_closed(that);
+  }
+
+  late final _wire__crate__api__engine__MlsEngine_is_closedPtr =
+      _lookup<ffi.NativeFunction<WireSyncRust2DartDco Function(ffi.UintPtr)>>(
+        'frbgen_openmls_wire__crate__api__engine__MlsEngine_is_closed',
+      );
+  late final _wire__crate__api__engine__MlsEngine_is_closed =
+      _wire__crate__api__engine__MlsEngine_is_closedPtr
+          .asFunction<WireSyncRust2DartDco Function(int)>();
 
   void wire__crate__api__engine__MlsEngine_join_group_external_commit(
     int port_,

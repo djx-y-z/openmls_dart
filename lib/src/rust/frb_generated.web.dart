@@ -1577,6 +1577,11 @@ class RustLibWire implements BaseWire {
     group_id_bytes,
   );
 
+  void wire__crate__api__engine__MlsEngine_close(
+    NativePortType port_,
+    int that,
+  ) => wasmModule.wire__crate__api__engine__MlsEngine_close(port_, that);
+
   void wire__crate__api__engine__MlsEngine_commit_to_pending_proposals(
     NativePortType port_,
     int that,
@@ -1973,6 +1978,10 @@ class RustLibWire implements BaseWire {
     config,
     welcome_bytes,
   );
+
+  JSAny? /* flutter_rust_bridge::for_generated::WireSyncRust2DartDco */
+  wire__crate__api__engine__MlsEngine_is_closed(int that) =>
+      wasmModule.wire__crate__api__engine__MlsEngine_is_closed(that);
 
   void wire__crate__api__engine__MlsEngine_join_group_external_commit(
     NativePortType port_,
@@ -2522,6 +2531,11 @@ extension type RustLibWasmModule._(JSObject _) implements JSObject {
     JSAny group_id_bytes,
   );
 
+  external void wire__crate__api__engine__MlsEngine_close(
+    NativePortType port_,
+    int that,
+  );
+
   external void wire__crate__api__engine__MlsEngine_commit_to_pending_proposals(
     NativePortType port_,
     int that,
@@ -2751,6 +2765,9 @@ extension type RustLibWasmModule._(JSObject _) implements JSObject {
     JSAny config,
     JSAny welcome_bytes,
   );
+
+  external JSAny? /* flutter_rust_bridge::for_generated::WireSyncRust2DartDco */
+  wire__crate__api__engine__MlsEngine_is_closed(int that);
 
   external void wire__crate__api__engine__MlsEngine_join_group_external_commit(
     NativePortType port_,

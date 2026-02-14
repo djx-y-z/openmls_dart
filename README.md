@@ -42,7 +42,7 @@ Dart bindings for [OpenMLS](https://github.com/openmls/openmls), providing a Rus
 | Storage | Done | Encrypted at rest via `MlsEngine` (SQLCipher / Web Crypto) |
 
 <details>
-<summary>Full API reference (61 functions)</summary>
+<summary>Full API reference</summary>
 
 **Key Packages**: `createKeyPackage`, `createKeyPackageWithOptions`
 
@@ -113,7 +113,10 @@ void main() async {
   );
   print('Created group: ${group.groupId}');
 
-  // Clean up
+  // Close engine (releases DB connection and encryption key resources)
+  await engine.close();
+
+  // Clean up FRB runtime (optional, for CLI apps exiting)
   Openmls.cleanup();
 }
 ```
@@ -138,6 +141,14 @@ final engine = await MlsEngine.create(
 // All operations go through the engine
 final group = await engine.createGroup(...);
 await engine.addMembers(...);
+
+// Close the engine to release the DB connection and encryption key resources.
+// After close, all operations fail with "MlsEngine is closed".
+// Useful for screen lock / app background scenarios.
+await engine.close();
+
+// Re-create from secure storage on unlock
+final engine2 = await MlsEngine.create(dbPath: 'mls_data.db', encryptionKey: myKey);
 ```
 
 On WASM, the encryption key is imported as a **non-extractable `CryptoKey`** via the Web Crypto API. Raw key bytes are zeroized from WASM memory immediately after import.

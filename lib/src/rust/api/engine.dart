@@ -8,7 +8,7 @@ import 'config.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 import 'types.dart';
 
-// These functions are ignored because they are not marked as `pub`: `build_credential_with_key`, `commit`, `load_for_group`, `load_global`, `load_group`
+// These functions are ignored because they are not marked as `pub`: `build_credential_with_key`, `commit`, `db`, `load_for_group`, `load_global`, `load_group`
 
 /// Extract the group ID from an MLS protocol message.
 ///
@@ -54,6 +54,12 @@ abstract class MlsEngine implements RustOpaqueInterface {
   Future<void> clearPendingCommit({required List<int> groupIdBytes});
 
   Future<void> clearPendingProposals({required List<int> groupIdBytes});
+
+  /// Close the engine, wiping the encryption key from memory and closing the
+  /// database connection. After calling this, all operations will fail with
+  /// "MlsEngine is closed". Idempotent — calling close on an already-closed
+  /// engine is a no-op.
+  Future<void> close();
 
   Future<CommitResult> commitToPendingProposals({
     required List<int> groupIdBytes,
@@ -212,6 +218,9 @@ abstract class MlsEngine implements RustOpaqueInterface {
     required MlsGroupConfig config,
     required List<int> welcomeBytes,
   });
+
+  /// Check whether this engine has been closed.
+  bool isClosed();
 
   Future<ExternalJoinResult> joinGroupExternalCommit({
     required MlsGroupConfig config,

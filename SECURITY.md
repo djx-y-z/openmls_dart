@@ -9,7 +9,7 @@ This library uses **Flutter Rust Bridge (FRB)** with the **OpenMLS** Rust crate.
 - **Memory safety** is handled by Rust's ownership system
 - **Cryptographic operations** are implemented in OpenMLS (with RustCrypto backend)
 - **No manual memory management** in Dart - FRB handles all cleanup automatically
-- **No `dispose()` calls needed** - Rust drops resources when they go out of scope
+- **No `dispose()` calls needed** - Rust drops resources when they go out of scope (except `MlsEngine.close()` for deterministic key release)
 
 ## Security Considerations
 
@@ -71,6 +71,22 @@ final testEngine = await MlsEngine.create(
   encryptionKey: testKey,
 );
 ```
+
+**Engine lifecycle:**
+
+```dart
+// Close the engine to release the DB connection and encryption key resources.
+// After close, all operations fail immediately with "MlsEngine is closed".
+await engine.close();
+assert(engine.isClosed()); // synchronous check
+
+// Re-create from platform secure storage on unlock
+engine = await MlsEngine.create(dbPath: 'mls_data.db', encryptionKey: myKey);
+```
+
+`close()` is idempotent (safe to call multiple times) and provides deterministic resource release — the app controls exactly when the DB connection is closed, rather than relying on Dart's garbage collector. This is useful for screen lock / app background scenarios where encryption key material should be released from memory as soon as possible.
+
+**Note:** `close()` does not guarantee cryptographic zeroization of key material. On native, SQLCipher manages its own key memory; on WASM, the `CryptoKey` becomes eligible for browser GC. See [Known Limitations](#known-limitations).
 
 **Key management requirements:**
 
@@ -238,6 +254,7 @@ When reviewing code changes, verify:
 - [ ] No `':memory:'` databases in production code
 - [ ] No key material in logs or error messages
 - [ ] `Openmls.init()` called before any operations
+- [ ] `engine.close()` called on screen lock / app background
 - [ ] Encryption key stored in platform secure storage (not hardcoded)
 - [ ] Error handling doesn't leak sensitive information
 - [ ] MLS protocol messages processed in order
