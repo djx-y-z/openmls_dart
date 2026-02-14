@@ -10,6 +10,13 @@
 
 - `MlsEngine.close()` and `MlsEngine.isClosed()` — allow closing the engine (wiping the encryption key from RAM and closing the DB connection) when the app goes to background or the screen is locked. After close, all operations fail with "MlsEngine is closed". Close is idempotent
 
+#### Changed
+
+- Update openmls native library to v0.8.1 ([release notes](https://github.com/openmls/openmls/releases/tag/openmls-v0.8.1))
+  - Relaxed WASM size limit to improve compatibility
+  - Exposed `full_leaves` and `parents` in TreeSync for tree traversal
+  - Updated libcrux and hpke-rs dependencies
+
 #### Fixed
 
 - README: Correct iOS minimum version from 12.0 to 13.0 and macOS from 10.14 to 10.15 in platform support table
