@@ -1,3 +1,21 @@
+## [Unreleased]
+
+### For Contributors
+
+#### Changed
+
+- Adopt copier template v2.3.1 → v2.4.0
+  - Added coverage badge support in README (shields.io endpoint via GitHub Gist)
+  - Added Rust dependency caching (`Swatinem/rust-cache@v2`) in CI setup-rust action — dramatically speeds up Windows builds (~10 min OpenSSL compile cached)
+  - Added Strawberry Perl configuration for Windows CI to fix OpenSSL build (MSYS2 Perl from Git Bash is incompatible)
+  - Added `IPHONEOS_DEPLOYMENT_TARGET` env var for iOS CI builds — fixes linker errors when vendored C code is compiled with newer Xcode
+  - Added `make check-targets` command and `scripts/check_deployment_targets.dart` for checking deployment target consistency (iOS/macOS/Android) across all project files
+  - Added "Setting up Coverage Badge" and "Setting up pub.dev Publishing" sections to CONTRIBUTING.md
+  - Replaced `dart run scripts/` with `dart scripts/` in Makefile commands, removing `.skip_openmls_hook` workaround (scripts only use `dart:` imports, so `dart run` build hooks are unnecessary)
+  - Fixed WASM build hook: local builds now take priority over cached/downloaded files, avoiding stale content hash mismatches
+  - Removed `flutter:` version constraint from `pubspec.yaml` environment (pure Dart packages don't need it)
+  - README: compact horizontal platform table, added "Developing Rust API", "Building Native Libraries", and "CI / Version Management" sections
+
 ## [1.1.0] - 2026-02-15
 
 ### For Users

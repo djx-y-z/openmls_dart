@@ -6,7 +6,7 @@
 /// the upstream dependency tag in rust/Cargo.toml.
 ///
 /// Usage:
-///   fvm dart run scripts/check_new_upstream_version.dart [options]
+///   fvm dart scripts/check_new_upstream_version.dart [options]
 ///
 /// Options:
 ///   - `--update`          Update rust/Cargo.toml if new version available
@@ -19,19 +19,19 @@
 /// Examples:
 ///   ```bash
 ///   # Just check for updates
-///   fvm dart run scripts/check_new_upstream_version.dart
+///   fvm dart scripts/check_new_upstream_version.dart
 ///
 ///   # Check and update rust/Cargo.toml
-///   fvm dart run scripts/check_new_upstream_version.dart --update
+///   fvm dart scripts/check_new_upstream_version.dart --update
 ///
 ///   # CI mode (writes to GITHUB_OUTPUT)
-///   fvm dart run scripts/check_new_upstream_version.dart --update --ci
+///   fvm dart scripts/check_new_upstream_version.dart --update --ci
 ///
 ///   # Update to specific version
-///   fvm dart run scripts/check_new_upstream_version.dart --update --version openmls-v0.8.0
+///   fvm dart scripts/check_new_upstream_version.dart --update --version openmls-v0.8.1
 ///
 ///   # Output JSON for scripting
-///   fvm dart run scripts/check_new_upstream_version.dart --json
+///   fvm dart scripts/check_new_upstream_version.dart --json
 ///   ```
 library;
 
@@ -110,7 +110,7 @@ void _printUsage() {
 Check for openmls Updates
 
 Usage:
-  fvm dart run scripts/check_new_upstream_version.dart [options]
+  fvm dart scripts/check_new_upstream_version.dart [options]
 
 Options:
   --update          Update rust/Cargo.toml if new version available
@@ -122,19 +122,19 @@ Options:
 
 Examples:
   # Just check for updates
-  fvm dart run scripts/check_new_upstream_version.dart
+  fvm dart scripts/check_new_upstream_version.dart
 
   # Check and update rust/Cargo.toml
-  fvm dart run scripts/check_new_upstream_version.dart --update
+  fvm dart scripts/check_new_upstream_version.dart --update
 
   # CI mode (for GitHub Actions)
-  fvm dart run scripts/check_new_upstream_version.dart --update --ci
+  fvm dart scripts/check_new_upstream_version.dart --update --ci
 
   # Update to specific version
-  fvm dart run scripts/check_new_upstream_version.dart --update --version openmls-v0.8.0
+  fvm dart scripts/check_new_upstream_version.dart --update --version openmls-v0.8.1
 
   # Output JSON for scripting
-  fvm dart run scripts/check_new_upstream_version.dart --json
+  fvm dart scripts/check_new_upstream_version.dart --json
 
 Exit codes:
   0 - Up to date or successfully updated

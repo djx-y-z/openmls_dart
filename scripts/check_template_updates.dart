@@ -6,7 +6,7 @@
 /// generate this project and reports available updates with changelog.
 ///
 /// Usage:
-///   fvm dart run scripts/check_template_updates.dart [options]
+///   fvm dart scripts/check_template_updates.dart [options]
 ///
 /// Options:
 ///   - `--version [ver]`        Check against specific version
@@ -18,16 +18,16 @@
 /// Examples:
 ///   ```bash
 ///   # Just check for updates
-///   fvm dart run scripts/check_template_updates.dart
+///   fvm dart scripts/check_template_updates.dart
 ///
 ///   # CI mode (writes outputs to GITHUB_OUTPUT file)
-///   fvm dart run scripts/check_template_updates.dart --ci-output $GITHUB_OUTPUT
+///   fvm dart scripts/check_template_updates.dart --ci-output $GITHUB_OUTPUT
 ///
 ///   # Check against specific version
-///   fvm dart run scripts/check_template_updates.dart --version v1.7.0
+///   fvm dart scripts/check_template_updates.dart --version v1.7.0
 ///
 ///   # Output JSON for scripting
-///   fvm dart run scripts/check_template_updates.dart --json
+///   fvm dart scripts/check_template_updates.dart --json
 ///   ```
 library;
 
@@ -117,7 +117,7 @@ void _printUsage() {
 Check for Copier Template Updates
 
 Usage:
-  fvm dart run scripts/check_template_updates.dart [options]
+  fvm dart scripts/check_template_updates.dart [options]
 
 Options:
   --version <ver>        Check against specific version
@@ -128,16 +128,16 @@ Options:
 
 Examples:
   # Just check for updates
-  fvm dart run scripts/check_template_updates.dart
+  fvm dart scripts/check_template_updates.dart
 
   # CI mode (writes outputs to GITHUB_OUTPUT file)
-  fvm dart run scripts/check_template_updates.dart --ci-output \$GITHUB_OUTPUT
+  fvm dart scripts/check_template_updates.dart --ci-output \$GITHUB_OUTPUT
 
   # Check against specific version
-  fvm dart run scripts/check_template_updates.dart --version v1.7.0
+  fvm dart scripts/check_template_updates.dart --version v1.7.0
 
   # Output JSON for scripting
-  fvm dart run scripts/check_template_updates.dart --json
+  fvm dart scripts/check_template_updates.dart --json
 
 Exit codes:
   0 - Up to date

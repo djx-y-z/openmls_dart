@@ -3,7 +3,7 @@
 /// Get version information from rust/Cargo.toml and pubspec.yaml.
 ///
 /// Usage:
-///   dart run scripts/get_version.dart [--field <field>]
+///   dart scripts/get_version.dart [--field <field>]
 ///
 /// Options:
 ///   --field version  - Print only crate version

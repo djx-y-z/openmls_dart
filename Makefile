@@ -199,20 +199,16 @@ rust-audit:
 # =============================================================================
 
 check-new-openmls-version:
-	@touch .skip_openmls_hook
-	@$(FVM) dart run scripts/check_new_upstream_version.dart $(ARGS); ret=$$?; rm -f .skip_openmls_hook; exit $$ret
+	@$(FVM) dart scripts/check_new_upstream_version.dart $(ARGS)
 
 check-exists-openmls-frb-release:
-	@touch .skip_openmls_hook
-	@$(FVM) dart run scripts/check_exists_frb_release.dart $(ARGS); ret=$$?; rm -f .skip_openmls_hook; exit $$ret
+	@$(FVM) dart scripts/check_exists_frb_release.dart $(ARGS)
 
 check-template-updates:
-	@touch .skip_openmls_hook
-	@$(FVM) dart run scripts/check_template_updates.dart $(ARGS); ret=$$?; rm -f .skip_openmls_hook; exit $$ret
+	@$(FVM) dart scripts/check_template_updates.dart $(ARGS)
 
 check-targets:
-	@touch .skip_openmls_hook
-	@$(FVM) dart run scripts/check_deployment_targets.dart $(ARGS); ret=$$?; rm -f .skip_openmls_hook; exit $$ret
+	@$(FVM) dart scripts/check_deployment_targets.dart $(ARGS)
 
 rust-update:
 	@echo "Updating Cargo.lock..."
@@ -221,8 +217,7 @@ rust-update:
 	@echo "Cargo.lock updated!"
 
 update-changelog:
-	@touch .skip_openmls_hook
-	@$(FVM) dart run scripts/update_changelog.dart $(ARGS); ret=$$?; rm -f .skip_openmls_hook; exit $$ret
+	@$(FVM) dart scripts/update_changelog.dart $(ARGS)
 
 # =============================================================================
 # Dart Quality
@@ -266,11 +261,11 @@ clean:
 	@$(FVM) dart pub get --no-example; ret=$$?; rm -f .skip_openmls_hook; exit $$ret
 
 version:
-	@$(FVM) dart run scripts/get_version.dart
+	@$(FVM) dart scripts/get_version.dart
 
 # Internal target for getting version in scripts (outputs only the value)
 get-version:
-	@$(FVM) dart run scripts/get_version.dart --field version
+	@$(FVM) dart scripts/get_version.dart --field version
 
 # =============================================================================
 # Publishing

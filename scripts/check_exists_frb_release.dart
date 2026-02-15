@@ -3,7 +3,7 @@
 /// Check if a FRB release already exists on GitHub.
 ///
 /// Usage:
-///   dart run scripts/check_exists_frb_release.dart [--ci]
+///   dart scripts/check_exists_frb_release.dart [--ci]
 ///
 /// Options:
 ///   --ci  Output in CI-friendly format (GitHub Actions outputs)

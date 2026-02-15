@@ -6,7 +6,7 @@
 /// and generate an appropriate changelog entry.
 ///
 /// Usage:
-///   fvm dart run scripts/update_changelog.dart [options]
+///   fvm dart scripts/update_changelog.dart [options]
 ///
 /// Options:
 ///   - `--version [ver]`   openmls version (e.g., v1.0.0)
@@ -19,10 +19,10 @@
 /// Examples:
 ///   ```bash
 ///   # Update changelog for specific version
-///   AI_MODELS_TOKEN=xxx fvm dart run scripts/update_changelog.dart --version v1.0.0
+///   AI_MODELS_TOKEN=xxx fvm dart scripts/update_changelog.dart --version v1.0.0
 ///
 ///   # CI mode (token from environment)
-///   fvm dart run scripts/update_changelog.dart --version v1.0.0 --ci
+///   fvm dart scripts/update_changelog.dart --version v1.0.0 --ci
 ///   ```
 library;
 
@@ -83,7 +83,7 @@ void _printUsage() {
 Update CHANGELOG.md with AI
 
 Usage:
-  fvm dart run scripts/update_changelog.dart [options]
+  fvm dart scripts/update_changelog.dart [options]
 
 Options:
   --version <ver>   openmls version (e.g., v1.0.0) [required]
@@ -95,9 +95,9 @@ Environment:
 
 Examples:
   # Update changelog for specific version
-  AI_MODELS_TOKEN=xxx fvm dart run scripts/update_changelog.dart --version v1.0.0
+  AI_MODELS_TOKEN=xxx fvm dart scripts/update_changelog.dart --version v1.0.0
 
   # CI mode (token from environment)
-  fvm dart run scripts/update_changelog.dart --version v1.0.0 --ci
+  fvm dart scripts/update_changelog.dart --version v1.0.0 --ci
 ''');
 }

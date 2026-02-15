@@ -16,7 +16,7 @@ Help with building openmls native libraries for all supported platforms.
 make build ARGS="macos"
 
 # WRONG - never do this
-fvm dart run scripts/build.dart macos
+fvm dart scripts/build.dart macos
 ```
 
 ## Quick Reference

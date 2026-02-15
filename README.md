@@ -192,6 +192,83 @@ make test
 make help
 ```
 
+### Developing Rust API
+
+1. Add your Rust functions in `rust/src/api/`:
+
+```rust
+// rust/src/api/greeting.rs
+pub fn greet(name: String) -> String {
+    format!("Hello, {}!", name)
+}
+```
+
+2. Register the module in `rust/src/api/mod.rs`:
+
+```rust
+pub mod greeting;
+```
+
+3. Generate Dart bindings:
+
+```bash
+make codegen
+```
+
+4. Build and test:
+
+```bash
+make build
+make test
+```
+
+### Building Native Libraries
+
+Native libraries are pre-built and downloaded automatically via build hooks.
+If you need to build them locally:
+
+```bash
+# Build for current platform
+make build
+
+# Build with specific target
+make build ARGS="--target aarch64-apple-darwin"
+
+# Build for Android
+make build-android
+
+# Build for Web (WASM)
+make build-web
+```
+
+## CI / Version Management
+
+```bash
+# Check for new openmls versions
+make check-new-openmls-version
+
+# Check for new copier template versions
+make check-template-updates
+
+# Check deployment target consistency (iOS/macOS/Android)
+make check-targets
+
+# Update Cargo.lock dependencies
+make rust-update
+
+# Generate AI-powered changelog entry (requires AI_MODELS_TOKEN)
+make update-changelog ARGS="--version v1.0.0"
+```
+
+The CI automatically checks for new openmls releases daily and creates PRs with:
+- Updated `pubspec.yaml` and version badges
+- Updated `Cargo.lock` (if successful)
+- Regenerated FRB bindings (if successful)
+- AI-generated CHANGELOG entry (if `AI_MODELS_TOKEN` secret is configured)
+
+It also checks for copier template updates daily and creates notification PRs with changelog and update instructions.
+
+
 ## Architecture
 
 ```

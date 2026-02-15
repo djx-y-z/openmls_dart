@@ -388,6 +388,46 @@ To enable AI-powered changelog generation in CI:
 2. Required permission: **Models -> Read only**
 3. Add as repository secret: Settings -> Secrets and variables -> Actions -> `AI_MODELS_TOKEN`
 
+### Setting up Coverage Badge
+
+The CI automatically measures test coverage and can update a badge in your README. To enable this:
+
+1. Create a **public** GitHub Gist at https://gist.github.com
+   - Filename: `coverage.json`
+   - Content: `{"schemaVersion":1,"label":"coverage","message":"0%","color":"red"}`
+2. Copy the **Gist ID** from the URL (e.g., `https://gist.github.com/username/abc123` → `abc123`)
+3. Create a **Fine-grained Personal Access Token** at https://github.com/settings/tokens?type=beta
+   - Required permission: **Gists → Read and write**
+4. Add as repository secret: Settings → Secrets and variables → Actions → New repository secret → `GIST_TOKEN`
+5. Add as repository variable: Settings → Secrets and variables → Actions → Variables → New repository variable → `COVERAGE_GIST_ID` (value: the Gist ID from step 2)
+6. Update `README.md`: uncomment the coverage badge line and replace `COVERAGE_GIST_ID` with your actual Gist ID
+
+### Setting up pub.dev Publishing
+
+The publish workflow uses OIDC authentication to publish to pub.dev without tokens. This requires a one-time setup.
+
+**On pub.dev:**
+
+1. Go to https://pub.dev and sign in
+2. Navigate to your publisher page (or create one)
+3. Go to **Admin** → **Automated publishing**
+4. Click **Enable automated publishing**
+5. Add your GitHub repository: `djx-y-z/openmls_dart`
+6. Set **Publishing from**: **GitHub Actions with tag** → tag pattern: `v*`
+
+See [dart.dev/tools/pub/automated-publishing](https://dart.dev/tools/pub/automated-publishing) for details.
+
+**On GitHub (create environment):**
+
+1. Go to your repository → **Settings → Environments**
+2. Click **New environment** → name it exactly `pub.dev`
+3. Under **Deployment protection rules**:
+   - Check **Required reviewers** → add yourself (and/or your team) as reviewer
+   - Uncheck **Allow administrators to bypass configured protection rules**
+4. Click **Save protection rules**
+
+> The `pub.dev` environment is required by the publish workflow. Protection rules ensure that every publish requires manual approval, preventing accidental releases.
+
 ## Security Considerations
 
 This is a **cryptographic library**. Security is paramount.

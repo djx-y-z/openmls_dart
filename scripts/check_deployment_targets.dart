@@ -467,13 +467,13 @@ Files checked:
   iOS (ios_min_version):
     1. ios/openmls.podspec
     2. .github/workflows/build-openmls.yml
-    3. example/ios/Runner.xcodeproj/project.pbxproj (3 occurrences)
+    3. example/ios/Runner.xcodeproj/project.pbxproj
     4. example/ios/Flutter/AppFrameworkInfo.plist
     5. README.md platform table
 
   macOS (macos_min_version):
     1. macos/openmls.podspec
-    2. example/macos/Runner.xcodeproj/project.pbxproj (3 occurrences)
+    2. example/macos/Runner.xcodeproj/project.pbxproj
     3. README.md platform table
 
   Android (android_min_sdk):

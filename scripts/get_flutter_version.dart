@@ -3,7 +3,7 @@ import 'dart:io';
 
 /// Reads Flutter version from .fvmrc file.
 ///
-/// Usage: dart run scripts/get_flutter_version.dart
+/// Usage: dart scripts/get_flutter_version.dart
 void main() {
   final file = File('.fvmrc');
   if (!file.existsSync()) {
