@@ -4,7 +4,7 @@
 
 #### Highlights
 
-- **openmls_frb v1.0.0 → v1.1.0** — Rust FFI bindings with engine close/reopen support
+- **openmls_frb v1.0.0 → v1.2.0** — Rust FFI bindings with engine close/reopen support and openmls v0.8.1
 
 #### Added
 
