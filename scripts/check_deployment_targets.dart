@@ -85,7 +85,9 @@ void main(List<String> args) {
 
   // --set requires exactly one platform
   if (setVersion != null && selectedPlatforms.length != 1) {
-    logError('--set requires exactly one platform flag (--ios, --macos, or --android)');
+    logError(
+      '--set requires exactly one platform flag (--ios, --macos, or --android)',
+    );
     exit(2);
   }
 
@@ -94,12 +96,16 @@ void main(List<String> args) {
     final platform = selectedPlatforms.first;
     if (platform == Platform.android) {
       if (int.tryParse(setVersion) == null) {
-        logError('Invalid Android SDK version: $setVersion (expected integer, e.g. 24)');
+        logError(
+          'Invalid Android SDK version: $setVersion (expected integer, e.g. 24)',
+        );
         exit(2);
       }
     } else {
       if (!RegExp(r'^\d+\.\d+$').hasMatch(setVersion)) {
-        logError('Invalid ${platform.displayName} version: $setVersion (expected X.Y, e.g. 13.0)');
+        logError(
+          'Invalid ${platform.displayName} version: $setVersion (expected X.Y, e.g. 13.0)',
+        );
         exit(2);
       }
     }
@@ -150,7 +156,9 @@ void main(List<String> args) {
     print('');
 
     if (allMismatches.isEmpty) {
-      logSuccess('All $totalChecks locations match across ${selectedPlatforms.length} platform(s)');
+      logSuccess(
+        'All $totalChecks locations match across ${selectedPlatforms.length} platform(s)',
+      );
       exit(0);
     }
 
@@ -297,8 +305,7 @@ List<_FileCheck> _buildIosChecks(String expected) {
       pattern: RegExp(
         r'<key>MinimumOSVersion</key>\s*\n\s*<string>([^<]+)</string>',
       ),
-      replacement:
-          (v) => '<key>MinimumOSVersion</key>\n  <string>$v</string>',
+      replacement: (v) => '<key>MinimumOSVersion</key>\n  <string>$v</string>',
     ),
     _FileCheck(
       label: 'README iOS version',
@@ -329,7 +336,9 @@ List<_FileCheck> _buildMacosChecks() {
       label: 'README macOS version',
       relativePath: 'README.md',
       // Matches: | 13.0+ | 10.15+ | arm64, x64 |
-      pattern: RegExp(r'(\| [0-9.]+\+\s*\| )([0-9.]+)\+(\s*\| arm64, x64\s*\|)'),
+      pattern: RegExp(
+        r'(\| [0-9.]+\+\s*\| )([0-9.]+)\+(\s*\| arm64, x64\s*\|)',
+      ),
       replacement: (v) => '\${1}$v+\${3}',
       versionGroup: 2,
     ),
@@ -400,18 +409,15 @@ void _updateFile(_FileCheck check, String expected) {
   final file = File('${packageDir.path}/${check.relativePath}');
   var content = file.readAsStringSync();
 
-  content = content.replaceAllMapped(
-    check.pattern,
-    (match) {
-      // Build the replacement by substituting the version in the template
-      var result = check.replacement(expected);
-      // Replace backreference placeholders ${N} with actual match groups
-      for (var i = 0; i <= match.groupCount; i++) {
-        result = result.replaceAll('\${$i}', match.group(i) ?? '');
-      }
-      return result;
-    },
-  );
+  content = content.replaceAllMapped(check.pattern, (match) {
+    // Build the replacement by substituting the version in the template
+    var result = check.replacement(expected);
+    // Replace backreference placeholders ${N} with actual match groups
+    for (var i = 0; i <= match.groupCount; i++) {
+      result = result.replaceAll('\${$i}', match.group(i) ?? '');
+    }
+    return result;
+  });
 
   file.writeAsStringSync(content);
 }

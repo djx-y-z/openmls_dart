@@ -4,11 +4,18 @@
 
 #### Highlights
 
-- **openmls_frb v1.0.0 → v1.1.0** — Rust FFI bindings with engine close/reopen support
+- **openmls_frb v1.0.0 → v1.2.0** — Rust FFI bindings with engine close/reopen support and openmls v0.8.1
 
 #### Added
 
 - `MlsEngine.close()` and `MlsEngine.isClosed()` — allow closing the engine (wiping the encryption key from RAM and closing the DB connection) when the app goes to background or the screen is locked. After close, all operations fail with "MlsEngine is closed". Close is idempotent
+
+#### Changed
+
+- Update openmls native library to v0.8.1 ([release notes](https://github.com/openmls/openmls/releases/tag/openmls-v0.8.1))
+  - Relaxed WASM size limit to improve compatibility
+  - Exposed `full_leaves` and `parents` in TreeSync for tree traversal
+  - Updated libcrux and hpke-rs dependencies
 
 #### Fixed
 

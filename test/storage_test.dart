@@ -117,10 +117,7 @@ void main() {
 
       final fakeGroupId = Uint8List.fromList([1, 2, 3]);
 
-      expect(
-        () => engine.groupEpoch(groupIdBytes: fakeGroupId),
-        throwsClosed,
-      );
+      expect(() => engine.groupEpoch(groupIdBytes: fakeGroupId), throwsClosed);
       expect(
         () => engine.groupMembers(groupIdBytes: fakeGroupId),
         throwsClosed,
