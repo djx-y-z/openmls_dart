@@ -1743,6 +1743,15 @@ impl MlsEngine {
     // LIFECYCLE
     // ═══════════════════════════════════════════════════════════
 
+    /// Return the database schema version.
+    ///
+    /// After a successful `create()`, this is always `LATEST_SCHEMA_VERSION`.
+    /// Useful for diagnostics and debugging migration issues.
+    #[flutter_rust_bridge::frb(sync)]
+    pub fn schema_version(&self) -> u32 {
+        crate::encrypted_db::LATEST_SCHEMA_VERSION
+    }
+
     /// Close the engine, wiping the encryption key from memory and closing the
     /// database connection. After calling this, all operations will fail with
     /// "MlsEngine is closed". Idempotent — calling close on an already-closed

@@ -1,6 +1,22 @@
 ## [Unreleased]
 
+### For Users
+
+#### Added
+
+- `MlsEngine.schemaVersion()` — returns the current database schema version (useful for diagnostics and debugging)
+
 ### For Contributors
+
+#### Added
+
+- Database migration system with automatic schema versioning and downgrade detection
+  - Native (SQLCipher): each migration runs in its own SQL transaction with version written atomically
+  - WASM (IndexedDB): two-phase approach — structural changes via IDB versioning, data migrations via encrypted metadata key
+  - Downgrade detection: clear error if DB was created by a newer library version
+  - Separate version counters: `LATEST_SCHEMA_VERSION` (data format, both platforms) and `IDB_STRUCTURAL_VERSION` (IDB object stores, WASM only)
+- `/add-db-migration` Claude skill — step-by-step guide for adding new migrations
+- Storage Architecture section in CLAUDE.md — snapshot pattern, scalability, security properties, Wire comparison
 
 #### Changed
 

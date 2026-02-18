@@ -337,6 +337,12 @@ abstract class MlsEngine implements RustOpaqueInterface {
     required List<int> proposalRefBytes,
   });
 
+  /// Return the database schema version.
+  ///
+  /// After a successful `create()`, this is always `LATEST_SCHEMA_VERSION`.
+  /// Useful for diagnostics and debugging migration issues.
+  int schemaVersion();
+
   Future<CommitResult> selfUpdate({
     required List<int> groupIdBytes,
     required List<int> signerBytes,

@@ -233,7 +233,7 @@ Since `crypto.subtle` protects the key but not the plaintext at the API boundary
 
 4. **Concurrency:** There is no internal synchronization for concurrent access to the same MLS group. Callers must serialize operations on the same group (e.g., process messages in order from a single async task).
 
-5. **Storage atomicity:** Storage operations are not transactional. If the app crashes mid-operation, storage may be left in an inconsistent state.
+5. **Storage atomicity:** Regular storage operations (snapshot commit) are not transactional. If the app crashes mid-operation, storage may be left in an inconsistent state. However, database **migrations** are transactional — each migration runs in its own SQL transaction (native) or IDB transaction (WASM), with the version written atomically inside the same transaction. A failed migration is fully rolled back.
 
 6. **`test-utils` feature dependency:** The `openmls` and `openmls_basic_credential` crates are compiled with the `test-utils` feature enabled. This is required for `SignatureKeyPair::private()`, which powers the `privateKey()` API. The feature only enables accessor methods — no test-only code paths are activated in production.
 

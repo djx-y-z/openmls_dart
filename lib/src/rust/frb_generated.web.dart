@@ -2260,6 +2260,10 @@ class RustLibWire implements BaseWire {
     proposal_ref_bytes,
   );
 
+  JSAny? /* flutter_rust_bridge::for_generated::WireSyncRust2DartDco */
+  wire__crate__api__engine__MlsEngine_schema_version(int that) =>
+      wasmModule.wire__crate__api__engine__MlsEngine_schema_version(that);
+
   void wire__crate__api__engine__MlsEngine_self_update(
     NativePortType port_,
     int that,
@@ -2926,6 +2930,9 @@ extension type RustLibWasmModule._(JSObject _) implements JSObject {
     JSAny group_id_bytes,
     JSAny proposal_ref_bytes,
   );
+
+  external JSAny? /* flutter_rust_bridge::for_generated::WireSyncRust2DartDco */
+  wire__crate__api__engine__MlsEngine_schema_version(int that);
 
   external void wire__crate__api__engine__MlsEngine_self_update(
     NativePortType port_,

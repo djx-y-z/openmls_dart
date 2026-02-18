@@ -229,6 +229,55 @@ AI_MODELS_TOKEN=xxx make update-changelog ARGS="--version v1.0.0"
 3. Sensitive data zeroed before freeing
 4. No timing side-channels
 
+## Storage Architecture
+
+This project uses a **snapshot pattern** for MLS storage (vs Wire's 18+ entity tables with direct SQL per method).
+
+### How it works
+
+```
+1. load_for_group(gid)  → DB query → Vec<(key, value)> → HashMap (initial + current clone)
+2. OpenMLS operates      → reads/writes on `current` HashMap
+3. commit(provider)      → diff(initial, current) → upserts + deletes → DB write
+4. Drop                  → zeroize() all values in both HashMaps → memory freed
+```
+
+**No data is held in memory between API calls.** Only the `EncryptedDb` handle persists.
+
+### Key files
+
+| File | Purpose |
+|------|---------|
+| `rust/src/snapshot_storage.rs` | SnapshotStorageProvider (HashMap-based StorageProvider impl) |
+| `rust/src/encrypted_db.rs` | EncryptedDb (SQLCipher native, IDB+AES-GCM WASM) |
+| `rust/src/api/engine.rs` | MlsEngine (load → operate → commit cycle) |
+
+### Native vs WASM loading
+
+- **Native (SQLCipher)**: Loads only target group's data + global data (key packages, signature keypairs). Other groups' data is NOT loaded.
+- **WASM (IndexedDB)**: Loads ALL entries (IDB has no WHERE clause). Same user/key trust boundary — no security impact.
+
+### Scalability
+
+The ratchet tree is the only entry scaling with members (~500 bytes per member). A 10,000-member group = ~10 MB peak memory during a single operation. MLS protocol itself (O(N) commit processing) is the bottleneck, not our storage pattern. For groups >50K members, MLS RFC recommends fan-out (subgroups).
+
+### Security properties
+
+- Plaintext in memory only during single-digit milliseconds per operation
+- Both HashMaps zeroized on Drop (`snapshot_storage.rs`)
+- Security profile identical to Wire's direct-DB approach (both must hold plaintext while OpenMLS operates)
+
+### Why snapshot over Wire's multi-table approach
+
+1. **Only MLS** — no need for separate protocol tables (Wire also has Proteus + E2EI)
+2. **Decouples DB schema from OpenMLS internals** — far fewer migrations needed on upgrades
+3. **MLS data is small** — full group load is negligible for realistic group sizes
+4. **Simpler code** — one table, one load, one diff, one save
+
+### Database migrations
+
+Schema version tracked in `LATEST_SCHEMA_VERSION` constant (`encrypted_db.rs`). Migrations run automatically on `EncryptedDb::open()`. Use the `/add-db-migration` skill when changing storage schema or data format.
+
 ## FVM (Flutter Version Management)
 
 This project uses FVM for consistent Flutter/Dart versions.
@@ -290,5 +339,6 @@ Claude Code skills available in this project (invoke with `/<skill>` or used aut
 
 | Skill | Description |
 |-------|-------------|
+| `add-db-migration` | Add a new database migration to EncryptedDb (schema/data format changes) |
 | `release-package` | Prepare a new version for publication to pub.dev |
 | `update-template` | Update copier template to latest version |

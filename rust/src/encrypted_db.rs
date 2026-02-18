@@ -13,6 +13,34 @@
 
 use zeroize::Zeroize;
 
+/// Current database schema version.
+///
+/// **When to bump:** Increment this when the storage schema or data format changes:
+/// - New SQL table/column/index (native DDL change)
+/// - Changed serialization format (e.g. OpenMLS upgrades TLS encoding)
+/// - Data restructuring (merge/split/rename stored entries)
+/// - New IDB object store (also bump `IDB_STRUCTURAL_VERSION`)
+///
+/// **When NOT to bump:** Bug fixes, new Rust API functions, or Dart-side changes
+/// that don't affect the on-disk data format.
+///
+/// **Adding a migration:** Use the `/add-db-migration` Claude skill for a guided walkthrough,
+/// or follow the template in `run_migrations()` comments.
+pub(crate) const LATEST_SCHEMA_VERSION: u32 = 1;
+
+/// Key in the native `db_meta` table that stores the schema version.
+#[cfg(not(target_arch = "wasm32"))]
+const META_SCHEMA_VERSION: &str = "schema_version";
+
+/// Reserved key in the WASM `mls_storage` object store for schema version.
+/// Cannot collide with OpenMLS keys (those start with labels like `KeyPackage`, `Tree`, etc.).
+#[cfg(target_arch = "wasm32")]
+const WASM_META_KEY: &[u8] = b"__openmls_schema_version__";
+
+/// IDB structural version — bump only when adding/removing object stores.
+#[cfg(target_arch = "wasm32")]
+const IDB_STRUCTURAL_VERSION: u32 = 1;
+
 /// Labels for globally-scoped keys (not tied to a specific group).
 const GLOBAL_LABELS: &[&[u8]] = &[
     b"KeyPackage",
@@ -95,33 +123,65 @@ impl EncryptedDb {
     fn run_migrations(&self) -> Result<(), String> {
         let conn = self.conn.lock().unwrap();
 
-        // Check current version.
+        // Ensure the metadata table exists (needed to read version).
         conn.execute_batch(
             "CREATE TABLE IF NOT EXISTS db_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);",
         )
         .map_err(|e| format!("Failed to create db_meta table: {e}"))?;
 
-        let version: i64 = conn
+        let version: u32 = conn
             .query_row(
-                "SELECT COALESCE((SELECT CAST(value AS INTEGER) FROM db_meta WHERE key = 'schema_version'), 0)",
+                &format!(
+                    "SELECT COALESCE((SELECT CAST(value AS INTEGER) FROM db_meta WHERE key = '{META_SCHEMA_VERSION}'), 0)"
+                ),
                 [],
                 |row| row.get(0),
             )
             .map_err(|e| format!("Failed to read schema version: {e}"))?;
 
-        if version < 1 {
-            conn.execute_batch(
-                "CREATE TABLE IF NOT EXISTS mls_storage (
-                    key BLOB PRIMARY KEY,
-                    value BLOB NOT NULL,
-                    group_id BLOB
-                );
-                CREATE INDEX IF NOT EXISTS idx_group_id ON mls_storage(group_id);
-                INSERT OR REPLACE INTO db_meta (key, value) VALUES ('schema_version', '1');",
-            )
-            .map_err(|e| format!("Migration v1 failed: {e}"))?;
+        // Downgrade detection.
+        if version > LATEST_SCHEMA_VERSION {
+            return Err(format!(
+                "Database schema version {version} is newer than supported {LATEST_SCHEMA_VERSION}. Update the app."
+            ));
         }
 
+        // Already at latest — nothing to do.
+        if version >= LATEST_SCHEMA_VERSION {
+            return Ok(());
+        }
+
+        if version < 1 {
+            Self::migrate_native_v0_to_v1(&conn)?;
+        }
+
+        // Future migrations:
+        // if version < 2 { Self::migrate_native_v1_to_v2(&conn)?; }
+
+        Ok(())
+    }
+
+    /// v0 → v1: Create the `mls_storage` table and `group_id` index.
+    fn migrate_native_v0_to_v1(conn: &rusqlite::Connection) -> Result<(), String> {
+        let tx = conn
+            .unchecked_transaction()
+            .map_err(|e| format!("Migration v0→v1: failed to begin transaction: {e}"))?;
+        tx.execute_batch(
+            "CREATE TABLE IF NOT EXISTS mls_storage (
+                key BLOB PRIMARY KEY,
+                value BLOB NOT NULL,
+                group_id BLOB
+            );
+            CREATE INDEX IF NOT EXISTS idx_group_id ON mls_storage(group_id);",
+        )
+        .map_err(|e| format!("Migration v0→v1 failed: {e}"))?;
+        tx.execute(
+            &format!("INSERT OR REPLACE INTO db_meta (key, value) VALUES ('{META_SCHEMA_VERSION}', '1')"),
+            [],
+        )
+        .map_err(|e| format!("Migration v0→v1: failed to write version: {e}"))?;
+        tx.commit()
+            .map_err(|e| format!("Migration v0→v1: commit failed: {e}"))?;
         Ok(())
     }
 
@@ -283,30 +343,134 @@ impl EncryptedDb {
     }
 
     async fn run_migrations(&self) -> Result<(), String> {
-        // IndexedDB is schemaless — "migrations" just ensure the object store exists.
-        // We use version=1 and create "mls_storage" store on upgrade.
-        self.idb_ensure_store().await
+        // Phase A: Structural changes (create/delete object stores).
+        self.idb_ensure_stores().await?;
+
+        // Phase B: Data migrations (versioned via reserved WASM_META_KEY).
+        let version = self.idb_read_schema_version().await?;
+
+        // Downgrade detection.
+        if version > LATEST_SCHEMA_VERSION {
+            return Err(format!(
+                "Database schema version {version} is newer than supported {LATEST_SCHEMA_VERSION}. Update the app."
+            ));
+        }
+
+        // Already at latest — nothing to do.
+        if version >= LATEST_SCHEMA_VERSION {
+            return Ok(());
+        }
+
+        // v0 → v1: Initial schema. No data transform needed, just write the version.
+        if version < 1 {
+            self.idb_write_schema_version(1).await?;
+        }
+
+        // Future migrations:
+        // if version < 2 { self.migrate_wasm_v1_to_v2().await?; }
+
+        Ok(())
     }
 
-    async fn idb_ensure_store(&self) -> Result<(), String> {
+    /// Phase A: Ensure all required IDB object stores exist.
+    async fn idb_ensure_stores(&self) -> Result<(), String> {
         use idb::{DatabaseEvent, Factory, ObjectStoreParams};
 
         let factory = Factory::new().map_err(|e| format!("Factory::new failed: {e}"))?;
         let mut open_req = factory
-            .open(&self.db_name, Some(1))
+            .open(&self.db_name, Some(IDB_STRUCTURAL_VERSION))
             .map_err(|e| format!("Factory::open failed: {e}"))?;
 
         open_req.on_upgrade_needed(|event| {
             let db = event.database().unwrap();
-            if !db.store_names().contains(&"mls_storage".to_string()) {
-                let params = ObjectStoreParams::new();
-                db.create_object_store("mls_storage", params).unwrap();
+            let old_version = event.old_version();
+
+            if old_version < 1.0 {
+                if !db.store_names().contains(&"mls_storage".to_string()) {
+                    let params = ObjectStoreParams::new();
+                    db.create_object_store("mls_storage", params).unwrap();
+                }
             }
+
+            // Future structural changes:
+            // if old_version < 2.0 { db.create_object_store("new_store", ...); }
         });
 
         let db = open_req
             .await
             .map_err(|e| format!("open_request.await failed: {e}"))?;
+        db.close();
+        Ok(())
+    }
+
+    /// Read the schema version from the reserved WASM_META_KEY in mls_storage.
+    /// Returns 0 if the key does not exist (fresh database).
+    async fn idb_read_schema_version(&self) -> Result<u32, String> {
+        use idb::TransactionMode;
+        use js_sys::Uint8Array;
+
+        let db = self.idb_open().await?;
+        let txn = db
+            .transaction(&["mls_storage"], TransactionMode::ReadOnly)
+            .map_err(|e| format!("transaction failed: {e}"))?;
+        let store = txn
+            .object_store("mls_storage")
+            .map_err(|e| format!("object_store failed: {e}"))?;
+
+        let js_key = Uint8Array::from(WASM_META_KEY);
+        let js_val = store
+            .get(js_key.into())
+            .map_err(|e| format!("get schema_version failed: {e}"))?
+            .await
+            .map_err(|e| format!("get schema_version.await failed: {e}"))?;
+
+        db.close();
+
+        match js_val {
+            None => Ok(0),
+            Some(val) => {
+                let enc_bytes = Uint8Array::new(&val).to_vec();
+                let plain = wasm_decrypt(&self.key.0, &enc_bytes).await?;
+                if plain.len() != 4 {
+                    return Err(format!(
+                        "Corrupt schema version: expected 4 bytes, got {}",
+                        plain.len()
+                    ));
+                }
+                Ok(u32::from_be_bytes([plain[0], plain[1], plain[2], plain[3]]))
+            }
+        }
+    }
+
+    /// Write the schema version to the reserved WASM_META_KEY in mls_storage.
+    async fn idb_write_schema_version(&self, version: u32) -> Result<(), String> {
+        use idb::TransactionMode;
+        use js_sys::Uint8Array;
+
+        // Pre-encrypt before opening transaction (IDB auto-commits on idle).
+        let enc_version = wasm_encrypt(&self.key.0, &version.to_be_bytes()).await?;
+
+        let db = self.idb_open().await?;
+        let txn = db
+            .transaction(&["mls_storage"], TransactionMode::ReadWrite)
+            .map_err(|e| format!("transaction failed: {e}"))?;
+        let store = txn
+            .object_store("mls_storage")
+            .map_err(|e| format!("object_store failed: {e}"))?;
+
+        let js_key = Uint8Array::from(WASM_META_KEY);
+        let js_val = Uint8Array::from(enc_version.as_slice());
+        store
+            .put(&js_val, Some(&js_key.into()))
+            .map_err(|e| format!("put schema_version failed: {e}"))?
+            .await
+            .map_err(|e| format!("put schema_version.await failed: {e}"))?;
+
+        txn.commit()
+            .map_err(|e| format!("commit schema_version failed: {e}"))?
+            .await
+            .map_err(|e| format!("commit schema_version.await failed: {e}"))?;
+
         db.close();
         Ok(())
     }
@@ -448,7 +612,7 @@ impl EncryptedDb {
 
         let factory = Factory::new().map_err(|e| format!("Factory::new failed: {e}"))?;
         let mut open_req = factory
-            .open(&self.db_name, Some(1))
+            .open(&self.db_name, Some(IDB_STRUCTURAL_VERSION))
             .map_err(|e| format!("Factory::open failed: {e}"))?;
 
         open_req.on_upgrade_needed(|event| {
@@ -486,6 +650,10 @@ impl EncryptedDb {
         for js_key in &keys {
             let key_array = Uint8Array::new(js_key);
             let key = key_array.to_vec();
+            // Skip the reserved metadata key — not MLS data.
+            if key == WASM_META_KEY {
+                continue;
+            }
             let js_val = store
                 .get(js_key.clone())
                 .map_err(|e| format!("get failed: {e}"))?
@@ -522,6 +690,7 @@ impl EncryptedDb {
         let result = keys
             .iter()
             .map(|js_key| Uint8Array::new(js_key).to_vec())
+            .filter(|key| key.as_slice() != WASM_META_KEY)
             .collect();
         db.close();
         Ok(result)

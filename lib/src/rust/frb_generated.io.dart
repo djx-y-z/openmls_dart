@@ -3942,6 +3942,20 @@ class RustLibWire implements BaseWire {
             )
           >();
 
+  WireSyncRust2DartDco wire__crate__api__engine__MlsEngine_schema_version(
+    int that,
+  ) {
+    return _wire__crate__api__engine__MlsEngine_schema_version(that);
+  }
+
+  late final _wire__crate__api__engine__MlsEngine_schema_versionPtr =
+      _lookup<ffi.NativeFunction<WireSyncRust2DartDco Function(ffi.UintPtr)>>(
+        'frbgen_openmls_wire__crate__api__engine__MlsEngine_schema_version',
+      );
+  late final _wire__crate__api__engine__MlsEngine_schema_version =
+      _wire__crate__api__engine__MlsEngine_schema_versionPtr
+          .asFunction<WireSyncRust2DartDco Function(int)>();
+
   void wire__crate__api__engine__MlsEngine_self_update(
     int port_,
     int that,

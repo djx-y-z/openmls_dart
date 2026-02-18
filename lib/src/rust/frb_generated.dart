@@ -69,7 +69,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.11.1';
 
   @override
-  int get rustContentHash => -1024278699;
+  int get rustContentHash => 585923240;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -475,6 +475,8 @@ abstract class RustLibApi extends BaseApi {
     required List<int> groupIdBytes,
     required List<int> proposalRefBytes,
   });
+
+  int crateApiEngineMlsEngineSchemaVersion({required MlsEngine that});
 
   Future<CommitResult> crateApiEngineMlsEngineSelfUpdate({
     required MlsEngine that,
@@ -3285,6 +3287,34 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       const TaskConstMeta(
         debugName: "MlsEngine_remove_pending_proposal",
         argNames: ["that", "groupIdBytes", "proposalRefBytes"],
+      );
+
+  @override
+  int crateApiEngineMlsEngineSchemaVersion({required MlsEngine that}) {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          var arg0 =
+              cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsEngine(
+                that,
+              );
+          return wire.wire__crate__api__engine__MlsEngine_schema_version(arg0);
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_u_32,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiEngineMlsEngineSchemaVersionConstMeta,
+        argValues: [that],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiEngineMlsEngineSchemaVersionConstMeta =>
+      const TaskConstMeta(
+        debugName: "MlsEngine_schema_version",
+        argNames: ["that"],
       );
 
   @override
@@ -6977,6 +7007,13 @@ class MlsEngineImpl extends RustOpaque implements MlsEngine {
     groupIdBytes: groupIdBytes,
     proposalRefBytes: proposalRefBytes,
   );
+
+  /// Return the database schema version.
+  ///
+  /// After a successful `create()`, this is always `LATEST_SCHEMA_VERSION`.
+  /// Useful for diagnostics and debugging migration issues.
+  int schemaVersion() =>
+      RustLib.instance.api.crateApiEngineMlsEngineSchemaVersion(that: this);
 
   Future<CommitResult> selfUpdate({
     required List<int> groupIdBytes,
