@@ -1,6 +1,10 @@
-## [Unreleased]
+## [1.2.0] - 2026-02-18
 
 ### For Users
+
+#### Highlights
+
+- **openmls_frb v1.2.0 → v1.3.0** — database migration system with schema versioning
 
 #### Added
 
@@ -110,7 +114,8 @@
 - X.509 `x509()` documents that application layer must validate certificate chains
 - SECURITY.md: sensitive API table, known limitations, web deployment recommendations, vulnerability reporting via GitHub Security Advisories
 
-[Unreleased]: https://github.com/djx-y-z/openmls_dart/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/djx-y-z/openmls_dart/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/djx-y-z/openmls_dart/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/djx-y-z/openmls_dart/compare/v1.0.1...v1.1.0
 [1.0.1]: https://github.com/djx-y-z/openmls_dart/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/djx-y-z/openmls_dart/releases/tag/v1.0.0
