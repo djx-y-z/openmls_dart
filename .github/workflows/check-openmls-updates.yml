@@ -185,8 +185,9 @@ jobs:
             ${{ steps.cargo-lock.outputs.success == 'false' && '1. **RUN `make rust-update`** — Cargo.lock update failed' || '' }}
             1. ${{ steps.codegen.outputs.success == 'false' && '**FIX FRB BINDINGS** — codegen failed, check openmls API changes' || 'Review FRB bindings — check if API changes require Dart code updates' }}
             2. **Review CHANGELOG.md** — ${{ steps.changelog.outputs.success == 'true' && 'verify AI-generated entry is accurate' || '**ADD CHANGELOG ENTRY MANUALLY**' }}
-            3. **Bump `rust/Cargo.toml` version** — update `openmls_frb` version if Rust code changed
-            4. **Run `make rust-check`** — sync `Cargo.lock` with new version
+            3. **Check if DB migration needed** — if openmls changed its storage serialization format, add a migration via `/add-db-migration` skill
+            4. **Bump `rust/Cargo.toml` version** — update `openmls_frb` version if Rust code changed
+            5. **Run `make rust-check`** — sync `Cargo.lock` with new version
 
             ### After Merge
 

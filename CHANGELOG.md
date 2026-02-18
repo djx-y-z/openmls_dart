@@ -17,6 +17,7 @@
   - Separate version counters: `LATEST_SCHEMA_VERSION` (data format, both platforms) and `IDB_STRUCTURAL_VERSION` (IDB object stores, WASM only)
 - `/add-db-migration` Claude skill — step-by-step guide for adding new migrations
 - Storage Architecture section in CLAUDE.md — snapshot pattern, scalability, security properties, Wire comparison
+- DB migration reminder in openmls update workflow PR checklist
 
 #### Changed
 
