@@ -23,6 +23,10 @@
 - Storage Architecture section in CLAUDE.md — snapshot pattern, scalability, security properties, Wire comparison
 - DB migration reminder in openmls update workflow PR checklist
 
+#### Fixed
+
+- Fix WASM build failure caused by `idb` 0.6.5 API changes in `encrypted_db.rs` (`VersionChangeEvent::old_version()` now returns `Result<u32>`, `Uint8Array::into()` requires explicit type)
+
 #### Changed
 
 - Adopt copier template v2.3.1 → v2.4.0

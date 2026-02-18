@@ -383,9 +383,9 @@ impl EncryptedDb {
 
         open_req.on_upgrade_needed(|event| {
             let db = event.database().unwrap();
-            let old_version = event.old_version();
+            let old_version = event.old_version().unwrap_or(0);
 
-            if old_version < 1.0 {
+            if old_version < 1 {
                 if !db.store_names().contains(&"mls_storage".to_string()) {
                     let params = ObjectStoreParams::new();
                     db.create_object_store("mls_storage", params).unwrap();
@@ -417,9 +417,9 @@ impl EncryptedDb {
             .object_store("mls_storage")
             .map_err(|e| format!("object_store failed: {e}"))?;
 
-        let js_key = Uint8Array::from(WASM_META_KEY);
+        let js_key = wasm_bindgen::JsValue::from(Uint8Array::from(WASM_META_KEY));
         let js_val = store
-            .get(js_key.into())
+            .get(js_key)
             .map_err(|e| format!("get schema_version failed: {e}"))?
             .await
             .map_err(|e| format!("get schema_version.await failed: {e}"))?;
