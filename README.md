@@ -153,6 +153,27 @@ final engine2 = await MlsEngine.create(dbPath: 'mls_data.db', encryptionKey: myK
 
 On WASM, the encryption key is imported as a **non-extractable `CryptoKey`** via the Web Crypto API. Raw key bytes are zeroized from WASM memory immediately after import.
 
+## Known Limitations
+
+### Web: `flutter build web --wasm` (dart2wasm) is not supported
+
+This package works with the standard `flutter build web` (dart2js) target. It does **not** currently work when the host app is compiled with `flutter build web --wasm` / `flutter run -d chrome --wasm` (dart2wasm). Calls to the Rust side fail with:
+
+```
+Type 'JSValue' is not a subtype of type 'List<dynamic>' in type cast
+```
+
+This is an upstream limitation in [`flutter_rust_bridge`](https://github.com/fzyzcjy/flutter_rust_bridge) — its generated Dart decoders rely on implicit JS-array casts that work on dart2js but fail under dart2wasm. The pattern is hardcoded in FRB's codegen templates, so it affects every FRB-based Dart package, not just this one. Tracking upstream: [flutter_rust_bridge#2575](https://github.com/fzyzcjy/flutter_rust_bridge/issues/2575).
+
+| Command | Status |
+|---------|--------|
+| `flutter run -d chrome` | Works (dart2js) |
+| `flutter build web` | Works (dart2js) |
+| `flutter run -d chrome --wasm` | Not supported (dart2wasm) |
+| `flutter build web --wasm` | Not supported (dart2wasm) |
+
+The Rust core of openmls ships as a `.wasm` module in both modes — `--wasm` only changes what the *Dart* code compiles to. Crypto performance and functionality are equivalent.
+
 ## Building from Source
 
 ### For End Users
