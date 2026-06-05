@@ -1,7 +1,7 @@
 # openmls - MLS Protocol for Dart
 
 [![pub package](https://img.shields.io/pub/v/openmls.svg)](https://pub.dev/packages/openmls)
-[![CI](https://github.com/djx-y-z/openmls_dart/actions/workflows/test.yml/badge.svg)](https://github.com/djx-y-z/openmls_dart/actions/workflows/test.yml)
+[![CI](https://github.com/notquiteog/openmls_dart/actions/workflows/test.yml/badge.svg)](https://github.com/notquiteog/openmls_dart/actions/workflows/test.yml)
 [![Coverage](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/djx-y-z/a5b2cf3b4ecf95155f76512df95d74c2/raw/coverage.json)](https://gist.github.com/djx-y-z/a5b2cf3b4ecf95155f76512df95d74c2)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Dart](https://img.shields.io/badge/dart-%3E%3D3.12.0-brightgreen.svg)](https://dart.dev)
@@ -67,7 +67,7 @@ Add to your `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  openmls: ^x.x.x
+  openmls: ^1.4.0
 ```
 
 Native libraries are downloaded automatically during build via Dart build hooks.
@@ -195,7 +195,7 @@ If you want to build from source (or precompiled binaries are not available):
 
 ```bash
 # Clone the repository
-git clone https://github.com/djx-y-z/openmls_dart.git
+git clone https://github.com/notquiteog/openmls_dart.git
 cd openmls_dart
 
 # Install FVM and dependencies

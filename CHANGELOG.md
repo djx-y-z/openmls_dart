@@ -1,6 +1,24 @@
 ## [Unreleased]
 
+## [1.4.0] - 2026-06-05
+
 ### For Users
+
+#### Highlights
+
+- **Hybrid post-quantum MLS support** — adds the draft X-Wing ciphersuite (`MlsCiphersuite.mls256XwingChacha20Poly1305Sha256Ed25519`) using OpenMLS/libcrux.
+- **openmls_frb v1.4.0 -> v1.5.0** — rebuild native libraries for the post-quantum provider and refreshed toolchains.
+
+#### Added
+
+- X-Wing key package creation and group lifecycle support.
+- Post-quantum ciphersuite coverage for supported-suite discovery, signer compatibility, key package creation, group creation, and Welcome joins.
+
+#### Changed
+
+- Update Dart/Flutter/Rust toolchains to Dart 3.12, Flutter 3.44, and Rust 1.96.
+- Refresh Android build tooling to Gradle 9.5.1, Android Gradle Plugin 9.2.1, AGP 9 built-in Kotlin, and NDK 28.2.13676358.
+- Update release/download metadata to use the `notquiteog/openmls_dart` fork.
 
 #### Documentation
 
@@ -138,9 +156,10 @@
 - X.509 `x509()` documents that application layer must validate certificate chains
 - SECURITY.md: sensitive API table, known limitations, web deployment recommendations, vulnerability reporting via GitHub Security Advisories
 
-[Unreleased]: https://github.com/djx-y-z/openmls_dart/compare/v1.3.0...HEAD
-[1.3.0]: https://github.com/djx-y-z/openmls_dart/compare/v1.2.0...v1.3.0
-[1.2.0]: https://github.com/djx-y-z/openmls_dart/compare/v1.1.0...v1.2.0
-[1.1.0]: https://github.com/djx-y-z/openmls_dart/compare/v1.0.1...v1.1.0
-[1.0.1]: https://github.com/djx-y-z/openmls_dart/compare/v1.0.0...v1.0.1
-[1.0.0]: https://github.com/djx-y-z/openmls_dart/releases/tag/v1.0.0
+[Unreleased]: https://github.com/notquiteog/openmls_dart/compare/v1.4.0...HEAD
+[1.4.0]: https://github.com/notquiteog/openmls_dart/compare/v1.3.0...v1.4.0
+[1.3.0]: https://github.com/notquiteog/openmls_dart/compare/v1.2.0...v1.3.0
+[1.2.0]: https://github.com/notquiteog/openmls_dart/compare/v1.1.0...v1.2.0
+[1.1.0]: https://github.com/notquiteog/openmls_dart/compare/v1.0.1...v1.1.0
+[1.0.1]: https://github.com/notquiteog/openmls_dart/compare/v1.0.0...v1.0.1
+[1.0.0]: https://github.com/notquiteog/openmls_dart/releases/tag/v1.0.0

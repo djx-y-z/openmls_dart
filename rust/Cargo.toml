@@ -1,10 +1,10 @@
 [package]
 name = "openmls_frb"
-version = "1.4.0"
+version = "1.5.0"
 edition = "2024"
 rust-version = "1.96"
 description = "Dart wrapper for OpenMLS — a Rust implementation of the Messaging Layer Security (MLS) protocol (RFC 9420)"
-repository = "https://github.com/djx-y-z/openmls_dart"
+repository = "https://github.com/notquiteog/openmls_dart"
 license = "MIT"
 publish = false
 

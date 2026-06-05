@@ -78,7 +78,7 @@ Future<bool> _checkReleaseExists(String tag) async {
   final client = HttpClient();
   try {
     final url = Uri.parse(
-      'https://api.github.com/repos/djx-y-z/openmls_dart/releases/tags/$tag',
+      'https://api.github.com/repos/notquiteog/openmls_dart/releases/tags/$tag',
     );
     final request = await client.getUrl(url);
     request.headers.set('Authorization', 'token $token');

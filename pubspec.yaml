@@ -1,11 +1,11 @@
 name: openmls
 description: Dart wrapper for OpenMLS — a Rust implementation of the Messaging Layer Security (MLS) protocol (RFC 9420)
 
-version: 1.3.0
+version: 1.4.0
 license: MIT
-repository: https://github.com/djx-y-z/openmls_dart
-homepage: https://github.com/djx-y-z/openmls_dart
-issue_tracker: https://github.com/djx-y-z/openmls_dart/issues
+repository: https://github.com/notquiteog/openmls_dart
+homepage: https://github.com/notquiteog/openmls_dart
+issue_tracker: https://github.com/notquiteog/openmls_dart/issues
 
 environment:
   sdk: ^3.12.0
