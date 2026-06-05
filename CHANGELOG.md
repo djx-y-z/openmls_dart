@@ -1,5 +1,18 @@
 ## [Unreleased]
 
+## [1.4.1] - 2026-06-05
+
+### For Users
+
+#### Highlights
+
+- **openmls_frb v1.5.0 -> v1.6.0** — rebuild native libraries from an unreleased OpenMLS fork commit with libcrux audit fixes.
+
+#### Security
+
+- Move OpenMLS dependencies to `notquiteog/openmls@de6a9267f93b016589dc6886f07d966ff1fb92fa`, which updates vulnerable libcrux AEAD/Poly1305 paths and keeps `libcrux-ed25519` at the fixed `0.0.7` floor.
+- Resolve RustSec audit failures for `RUSTSEC-2026-0124`, `RUSTSEC-2026-0075`, and `RUSTSEC-2026-0073` in the native Rust lockfile.
+
 ## [1.4.0] - 2026-06-05
 
 ### For Users
@@ -156,7 +169,8 @@
 - X.509 `x509()` documents that application layer must validate certificate chains
 - SECURITY.md: sensitive API table, known limitations, web deployment recommendations, vulnerability reporting via GitHub Security Advisories
 
-[Unreleased]: https://github.com/notquiteog/openmls_dart/compare/v1.4.0...HEAD
+[Unreleased]: https://github.com/notquiteog/openmls_dart/compare/v1.4.1...HEAD
+[1.4.1]: https://github.com/notquiteog/openmls_dart/compare/v1.4.0...v1.4.1
 [1.4.0]: https://github.com/notquiteog/openmls_dart/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/notquiteog/openmls_dart/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/notquiteog/openmls_dart/compare/v1.1.0...v1.2.0

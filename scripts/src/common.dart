@@ -157,9 +157,11 @@ String getCrateVersion() {
   return versionMatch.group(1)!.trim();
 }
 
-/// Gets the upstream version (git tag) from rust/Cargo.toml.
+/// Gets the upstream version (git tag or revision) from rust/Cargo.toml.
 ///
-/// Parses the tag from the first crate: openmls = { git = "...", tag = "vX.Y.Z" }
+/// Parses the tag or rev from the first crate:
+/// openmls = { git = "...", tag = "vX.Y.Z" }
+/// openmls = { git = "...", rev = "<sha>" }
 String getUpstreamVersion() {
   final packageDir = getPackageDir();
   final cargoPath = '${packageDir.path}/rust/Cargo.toml';
@@ -171,16 +173,16 @@ String getUpstreamVersion() {
 
   final content = cargoFile.readAsStringSync();
 
-  // Extract the tag from first upstream dependency
-  // Matches: openmls = { git = "...", tag = "vX.Y.Z" }
+  // Extract the tag or rev from first upstream dependency.
   final versionMatch = RegExp(
-    r'openmls\s*=\s*\{[^}]*tag\s*=\s*"([^"]+)"',
+    r'openmls\s*=\s*\{[^}]*(?:tag|rev)\s*=\s*"([^"]+)"',
   ).firstMatch(content);
 
   if (versionMatch == null) {
     throw Exception(
-      'openmls tag not found in rust/Cargo.toml. '
-      'Expected format: openmls = { git = "...", tag = "vX.Y.Z" }',
+      'openmls tag/rev not found in rust/Cargo.toml. '
+      'Expected format: openmls = { git = "...", tag = "vX.Y.Z" } '
+      'or openmls = { git = "...", rev = "<sha>" }',
     );
   }
 

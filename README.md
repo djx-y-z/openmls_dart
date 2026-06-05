@@ -6,7 +6,7 @@
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Dart](https://img.shields.io/badge/dart-%3E%3D3.12.0-brightgreen.svg)](https://dart.dev)
 [![Flutter](https://img.shields.io/badge/flutter-%3E%3D3.44.0-blue.svg)](https://flutter.dev)
-[![openmls](https://img.shields.io/badge/openmls-v0.8.1-orange.svg)](https://github.com/openmls/openmls)
+[![openmls](https://img.shields.io/badge/openmls-de6a926-orange.svg)](https://github.com/notquiteog/openmls/commit/de6a9267f93b016589dc6886f07d966ff1fb92fa)
 
 Dart bindings for [OpenMLS](https://github.com/openmls/openmls), providing a Rust implementation of the Messaging Layer Security (MLS) protocol ([RFC 9420](https://www.rfc-editor.org/rfc/rfc9420.html)) for secure group messaging.
 
@@ -67,7 +67,7 @@ Add to your `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  openmls: ^1.4.0
+  openmls: ^1.4.1
 ```
 
 Native libraries are downloaded automatically during build via Dart build hooks.
@@ -311,7 +311,7 @@ It also checks for copier template updates daily and creates notification PRs wi
 
 **Key Properties:**
 - **MLS Protocol (RFC 9420)** - Standardized group key agreement with forward secrecy and post-compromise security
-- **Rust Implementation** - All cryptographic operations run in Rust (OpenMLS with RustCrypto backend)
+- **Rust Implementation** - All cryptographic operations run in Rust (OpenMLS with RustCrypto/libcrux providers)
 - **Encrypted at Rest** - All MLS state encrypted via SQLCipher (native) or Web Crypto AES-256-GCM (WASM)
 - **Web Crypto on WASM** - Encryption key stored as non-extractable `CryptoKey` via `crypto.subtle` — raw bytes never persist in WASM memory
 - **Memory Safety** - Rust's ownership model prevents memory-related vulnerabilities
