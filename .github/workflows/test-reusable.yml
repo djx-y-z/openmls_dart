@@ -41,7 +41,7 @@ jobs:
     name: Security Audit (Rust)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Setup Rust tools
         run: make setup-rust-tools
@@ -73,7 +73,7 @@ jobs:
       coverage: ${{ steps.coverage.outputs.percentage }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       # Install make (Windows only, pre-installed on Linux/macOS)
       - name: Setup Make

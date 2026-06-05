@@ -45,7 +45,7 @@ jobs:
       version: ${{ steps.version.outputs.version }}
       changelog: ${{ steps.changelog.outputs.changelog }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Get version from tag and validate
         id: version
@@ -143,7 +143,7 @@ jobs:
     needs: test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Setup FVM and Flutter
         uses: ./.github/actions/setup-fvm
@@ -164,7 +164,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: pub.dev
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Setup FVM and Flutter
         uses: ./.github/actions/setup-fvm
@@ -193,7 +193,7 @@ jobs:
     if: github.ref_type == 'tag' && !inputs.dry-run
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Create GitHub Release
         env:

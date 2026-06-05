@@ -45,7 +45,7 @@ jobs:
       openmls_version: ${{ steps.check.outputs.openmls_version }}
       skip: ${{ steps.check.outputs.skip }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Setup FVM and Flutter
         uses: ./.github/actions/setup-fvm
@@ -73,7 +73,7 @@ jobs:
             rust_target: aarch64-unknown-linux-gnu
     runs-on: ${{ matrix.runner }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Setup Rust
         uses: ./.github/actions/setup-rust
@@ -86,7 +86,7 @@ jobs:
           cargo build --release --target ${{ matrix.rust_target }}
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: openmls-linux-${{ matrix.arch }}
           path: rust/target/${{ matrix.rust_target }}/release/libopenmls_frb.so
@@ -108,7 +108,7 @@ jobs:
             rust_target: x86_64-apple-darwin
     runs-on: ${{ matrix.runner }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Setup Rust
         uses: ./.github/actions/setup-rust
@@ -121,7 +121,7 @@ jobs:
           cargo build --release --target ${{ matrix.rust_target }}
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: openmls-macos-${{ matrix.arch }}
           path: rust/target/${{ matrix.rust_target }}/release/libopenmls_frb.dylib
@@ -149,7 +149,7 @@ jobs:
             rust_target: x86_64-apple-ios
     runs-on: ${{ matrix.runner }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Setup Rust
         uses: ./.github/actions/setup-rust
@@ -167,7 +167,7 @@ jobs:
           cargo build --release --target ${{ matrix.rust_target }}
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: openmls-ios-${{ matrix.target }}-${{ matrix.arch }}
           path: rust/target/${{ matrix.rust_target }}/release/libopenmls_frb.dylib
@@ -189,7 +189,7 @@ jobs:
           - abi: x86_64
             rust_target: x86_64-linux-android
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Setup Rust
         uses: ./.github/actions/setup-rust
@@ -197,7 +197,7 @@ jobs:
           targets: ${{ matrix.rust_target }}
 
       - name: Setup Android NDK
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
 
       - name: Install NDK
         run: |
@@ -213,7 +213,7 @@ jobs:
           cargo ndk -t ${{ matrix.rust_target }} build --release
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: openmls-android-${{ matrix.abi }}
           path: rust/target/${{ matrix.rust_target }}/release/libopenmls_frb.so
@@ -226,7 +226,7 @@ jobs:
     if: needs.check-release.outputs.skip != 'true'
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Setup Rust
         uses: ./.github/actions/setup-rust
@@ -256,7 +256,7 @@ jobs:
           }
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: openmls-windows-x86_64
           path: rust/target/x86_64-pc-windows-msvc/release/openmls_frb.dll
@@ -269,7 +269,7 @@ jobs:
     if: needs.check-release.outputs.skip != 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Setup Rust
         uses: ./.github/actions/setup-rust
@@ -283,7 +283,7 @@ jobs:
         run: make build-web
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: openmls-wasm32
           path: |
@@ -310,10 +310,10 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Download all artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: artifacts
 
