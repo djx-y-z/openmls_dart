@@ -8,14 +8,14 @@ homepage: https://github.com/djx-y-z/openmls_dart
 issue_tracker: https://github.com/djx-y-z/openmls_dart/issues
 
 environment:
-  sdk: ^3.10.0
+  sdk: ^3.12.0
 
 dependencies:
   flutter_rust_bridge: ^2.12.0
   # SHA256 verification for native library downloads
   crypto: ^3.0.7
   # Build hooks for automatic native library download
-  hooks: ^1.0.0
+  hooks: ^2.0.2
   code_assets: ^1.0.0
 
 dev_dependencies:

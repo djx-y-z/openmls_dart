@@ -11,7 +11,7 @@ buildscript {
     }
 
     dependencies {
-        classpath("com.android.tools.build:gradle:8.11.1")
+        classpath("com.android.tools.build:gradle:9.2.1")
     }
 }
 
@@ -29,7 +29,7 @@ android {
     compileSdk = 36
 
     // NDK version for Rust cross-compilation
-    ndkVersion = "26.3.11579264"
+    ndkVersion = "28.2.13676358"
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17

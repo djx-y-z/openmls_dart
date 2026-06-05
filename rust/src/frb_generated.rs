@@ -30,7 +30,7 @@ use crate::api::credential::*;
 use crate::api::engine::*;
 use crate::api::keys::*;
 use flutter_rust_bridge::for_generated::byteorder::{NativeEndian, ReadBytesExt, WriteBytesExt};
-use flutter_rust_bridge::for_generated::{transform_result_dco, Lifetimeable, Lockable};
+use flutter_rust_bridge::for_generated::{Lifetimeable, Lockable, transform_result_dco};
 use flutter_rust_bridge::{Handler, IntoIntoDart};
 
 // Section: boilerplate
@@ -3788,8 +3788,8 @@ fn wire__crate__api__init__init_openmls_impl(
         },
     )
 }
-fn wire__crate__api__init__is_openmls_initialized_impl(
-) -> flutter_rust_bridge::for_generated::WireSyncRust2DartDco {
+fn wire__crate__api__init__is_openmls_initialized_impl()
+-> flutter_rust_bridge::for_generated::WireSyncRust2DartDco {
     FLUTTER_RUST_BRIDGE_HANDLER.wrap_sync::<flutter_rust_bridge::for_generated::DcoCodec, _>(
         flutter_rust_bridge::for_generated::TaskInfo {
             debug_name: "is_openmls_initialized",
@@ -3905,8 +3905,8 @@ fn wire__crate__api__keys__serialize_signer_impl(
         },
     )
 }
-fn wire__crate__api__types__supported_ciphersuites_impl(
-) -> flutter_rust_bridge::for_generated::WireSyncRust2DartDco {
+fn wire__crate__api__types__supported_ciphersuites_impl()
+-> flutter_rust_bridge::for_generated::WireSyncRust2DartDco {
     FLUTTER_RUST_BRIDGE_HANDLER.wrap_sync::<flutter_rust_bridge::for_generated::DcoCodec, _>(
         flutter_rust_bridge::for_generated::TaskInfo {
             debug_name: "supported_ciphersuites",
@@ -3943,6 +3943,7 @@ impl CstDecode<crate::api::types::MlsCiphersuite> for i32 {
             0 => crate::api::types::MlsCiphersuite::Mls128DhkemX25519Aes128gcmSha256Ed25519,
             1 => crate::api::types::MlsCiphersuite::Mls128DhkemX25519Chacha20poly1305Sha256Ed25519,
             2 => crate::api::types::MlsCiphersuite::Mls128DhkemP256Aes128gcmSha256P256,
+            3 => crate::api::types::MlsCiphersuite::Mls256XwingChacha20poly1305Sha256Ed25519,
             _ => unreachable!("Invalid variant for MlsCiphersuite: {}", self),
         }
     }
@@ -4379,6 +4380,7 @@ impl SseDecode for crate::api::types::MlsCiphersuite {
             0 => crate::api::types::MlsCiphersuite::Mls128DhkemX25519Aes128gcmSha256Ed25519,
             1 => crate::api::types::MlsCiphersuite::Mls128DhkemX25519Chacha20poly1305Sha256Ed25519,
             2 => crate::api::types::MlsCiphersuite::Mls128DhkemP256Aes128gcmSha256P256,
+            3 => crate::api::types::MlsCiphersuite::Mls256XwingChacha20poly1305Sha256Ed25519,
             _ => unreachable!("Invalid variant for MlsCiphersuite: {}", inner),
         };
     }
@@ -5091,6 +5093,7 @@ impl flutter_rust_bridge::IntoDart for crate::api::types::MlsCiphersuite {
             Self::Mls128DhkemX25519Aes128gcmSha256Ed25519 => 0.into_dart(),
             Self::Mls128DhkemX25519Chacha20poly1305Sha256Ed25519 => 1.into_dart(),
             Self::Mls128DhkemP256Aes128gcmSha256P256 => 2.into_dart(),
+            Self::Mls256XwingChacha20poly1305Sha256Ed25519 => 3.into_dart(),
             _ => unreachable!(),
         }
     }
@@ -5715,6 +5718,7 @@ impl SseEncode for crate::api::types::MlsCiphersuite {
         <i32>::sse_encode(match self {crate::api::types::MlsCiphersuite::Mls128DhkemX25519Aes128gcmSha256Ed25519 => { 0 }
 crate::api::types::MlsCiphersuite::Mls128DhkemX25519Chacha20poly1305Sha256Ed25519 => { 1 }
 crate::api::types::MlsCiphersuite::Mls128DhkemP256Aes128gcmSha256P256 => { 2 }
+crate::api::types::MlsCiphersuite::Mls256XwingChacha20poly1305Sha256Ed25519 => { 3 }
  _ => { unimplemented!(""); }}, serializer);
     }
 }
@@ -6029,7 +6033,7 @@ mod io {
     use flutter_rust_bridge::for_generated::byteorder::{
         NativeEndian, ReadBytesExt, WriteBytesExt,
     };
-    use flutter_rust_bridge::for_generated::{transform_result_dco, Lifetimeable, Lockable};
+    use flutter_rust_bridge::for_generated::{Lifetimeable, Lockable, transform_result_dco};
     use flutter_rust_bridge::{Handler, IntoIntoDart};
 
     // Section: boilerplate
@@ -7904,8 +7908,8 @@ mod io {
     }
 
     #[unsafe(no_mangle)]
-    pub extern "C" fn frbgen_openmls_wire__crate__api__init__is_openmls_initialized(
-    ) -> flutter_rust_bridge::for_generated::WireSyncRust2DartDco {
+    pub extern "C" fn frbgen_openmls_wire__crate__api__init__is_openmls_initialized()
+    -> flutter_rust_bridge::for_generated::WireSyncRust2DartDco {
         wire__crate__api__init__is_openmls_initialized_impl()
     }
 
@@ -7947,8 +7951,8 @@ mod io {
     }
 
     #[unsafe(no_mangle)]
-    pub extern "C" fn frbgen_openmls_wire__crate__api__types__supported_ciphersuites(
-    ) -> flutter_rust_bridge::for_generated::WireSyncRust2DartDco {
+    pub extern "C" fn frbgen_openmls_wire__crate__api__types__supported_ciphersuites()
+    -> flutter_rust_bridge::for_generated::WireSyncRust2DartDco {
         wire__crate__api__types__supported_ciphersuites_impl()
     }
 
@@ -8007,40 +8011,40 @@ mod io {
     }
 
     #[unsafe(no_mangle)]
-    pub extern "C" fn frbgen_openmls_cst_new_box_autoadd_flexible_commit_options(
-    ) -> *mut wire_cst_flexible_commit_options {
+    pub extern "C" fn frbgen_openmls_cst_new_box_autoadd_flexible_commit_options()
+    -> *mut wire_cst_flexible_commit_options {
         flutter_rust_bridge::for_generated::new_leak_box_ptr(
             wire_cst_flexible_commit_options::new_with_null_ptr(),
         )
     }
 
     #[unsafe(no_mangle)]
-    pub extern "C" fn frbgen_openmls_cst_new_box_autoadd_key_package_options(
-    ) -> *mut wire_cst_key_package_options {
+    pub extern "C" fn frbgen_openmls_cst_new_box_autoadd_key_package_options()
+    -> *mut wire_cst_key_package_options {
         flutter_rust_bridge::for_generated::new_leak_box_ptr(
             wire_cst_key_package_options::new_with_null_ptr(),
         )
     }
 
     #[unsafe(no_mangle)]
-    pub extern "C" fn frbgen_openmls_cst_new_box_autoadd_mls_capabilities(
-    ) -> *mut wire_cst_mls_capabilities {
+    pub extern "C" fn frbgen_openmls_cst_new_box_autoadd_mls_capabilities()
+    -> *mut wire_cst_mls_capabilities {
         flutter_rust_bridge::for_generated::new_leak_box_ptr(
             wire_cst_mls_capabilities::new_with_null_ptr(),
         )
     }
 
     #[unsafe(no_mangle)]
-    pub extern "C" fn frbgen_openmls_cst_new_box_autoadd_mls_group_config(
-    ) -> *mut wire_cst_mls_group_config {
+    pub extern "C" fn frbgen_openmls_cst_new_box_autoadd_mls_group_config()
+    -> *mut wire_cst_mls_group_config {
         flutter_rust_bridge::for_generated::new_leak_box_ptr(
             wire_cst_mls_group_config::new_with_null_ptr(),
         )
     }
 
     #[unsafe(no_mangle)]
-    pub extern "C" fn frbgen_openmls_cst_new_box_autoadd_mls_member_info(
-    ) -> *mut wire_cst_mls_member_info {
+    pub extern "C" fn frbgen_openmls_cst_new_box_autoadd_mls_member_info()
+    -> *mut wire_cst_mls_member_info {
         flutter_rust_bridge::for_generated::new_leak_box_ptr(
             wire_cst_mls_member_info::new_with_null_ptr(),
         )
@@ -8052,8 +8056,8 @@ mod io {
     }
 
     #[unsafe(no_mangle)]
-    pub extern "C" fn frbgen_openmls_cst_new_box_autoadd_staged_commit_info(
-    ) -> *mut wire_cst_staged_commit_info {
+    pub extern "C" fn frbgen_openmls_cst_new_box_autoadd_staged_commit_info()
+    -> *mut wire_cst_staged_commit_info {
         flutter_rust_bridge::for_generated::new_leak_box_ptr(
             wire_cst_staged_commit_info::new_with_null_ptr(),
         )
@@ -8450,7 +8454,7 @@ mod web {
     };
     use flutter_rust_bridge::for_generated::wasm_bindgen;
     use flutter_rust_bridge::for_generated::wasm_bindgen::prelude::*;
-    use flutter_rust_bridge::for_generated::{transform_result_dco, Lifetimeable, Lockable};
+    use flutter_rust_bridge::for_generated::{Lifetimeable, Lockable, transform_result_dco};
     use flutter_rust_bridge::{Handler, IntoIntoDart};
 
     // Section: boilerplate
@@ -10270,8 +10274,8 @@ mod web {
     }
 
     #[wasm_bindgen]
-    pub fn wire__crate__api__init__is_openmls_initialized(
-    ) -> flutter_rust_bridge::for_generated::WireSyncRust2DartDco {
+    pub fn wire__crate__api__init__is_openmls_initialized()
+    -> flutter_rust_bridge::for_generated::WireSyncRust2DartDco {
         wire__crate__api__init__is_openmls_initialized_impl()
     }
 
@@ -10313,8 +10317,8 @@ mod web {
     }
 
     #[wasm_bindgen]
-    pub fn wire__crate__api__types__supported_ciphersuites(
-    ) -> flutter_rust_bridge::for_generated::WireSyncRust2DartDco {
+    pub fn wire__crate__api__types__supported_ciphersuites()
+    -> flutter_rust_bridge::for_generated::WireSyncRust2DartDco {
         wire__crate__api__types__supported_ciphersuites_impl()
     }
 

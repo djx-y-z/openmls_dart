@@ -7,6 +7,8 @@ pub enum MlsCiphersuite {
     Mls128DhkemX25519Aes128gcmSha256Ed25519,
     Mls128DhkemX25519Chacha20poly1305Sha256Ed25519,
     Mls128DhkemP256Aes128gcmSha256P256,
+    /// Hybrid post-quantum X-Wing KEM (ML-KEM + X25519), draft ciphersuite.
+    Mls256XwingChacha20poly1305Sha256Ed25519,
 }
 
 /// Wire format policy for MLS messages.
@@ -168,6 +170,9 @@ pub(crate) fn ciphersuite_to_native(cs: &MlsCiphersuite) -> Ciphersuite {
         MlsCiphersuite::Mls128DhkemP256Aes128gcmSha256P256 => {
             Ciphersuite::MLS_128_DHKEMP256_AES128GCM_SHA256_P256
         }
+        MlsCiphersuite::Mls256XwingChacha20poly1305Sha256Ed25519 => {
+            Ciphersuite::MLS_256_XWING_CHACHA20POLY1305_SHA256_Ed25519
+        }
     }
 }
 
@@ -181,6 +186,9 @@ pub(crate) fn native_to_ciphersuite(cs: Ciphersuite) -> Result<MlsCiphersuite, S
         }
         Ciphersuite::MLS_128_DHKEMP256_AES128GCM_SHA256_P256 => {
             Ok(MlsCiphersuite::Mls128DhkemP256Aes128gcmSha256P256)
+        }
+        Ciphersuite::MLS_256_XWING_CHACHA20POLY1305_SHA256_Ed25519 => {
+            Ok(MlsCiphersuite::Mls256XwingChacha20poly1305Sha256Ed25519)
         }
         _ => Err(format!("Unsupported ciphersuite: {:?}", cs)),
     }
@@ -197,31 +205,54 @@ pub(crate) fn capabilities_to_native(caps: &MlsCapabilities) -> Result<Capabilit
     let versions: Option<Vec<ProtocolVersion>> = if caps.versions.is_empty() {
         None
     } else {
-        Some(caps.versions.iter().map(|&v| ProtocolVersion::from(v)).collect())
+        Some(
+            caps.versions
+                .iter()
+                .map(|&v| ProtocolVersion::from(v))
+                .collect(),
+        )
     };
     let ciphersuites: Option<Vec<Ciphersuite>> = if caps.ciphersuites.is_empty() {
         None
     } else {
-        let cs: Result<Vec<_>, _> = caps.ciphersuites
+        let cs: Result<Vec<_>, _> = caps
+            .ciphersuites
             .iter()
-            .map(|&c| Ciphersuite::try_from(c).map_err(|e| format!("Invalid ciphersuite {}: {}", c, e)))
+            .map(|&c| {
+                Ciphersuite::try_from(c).map_err(|e| format!("Invalid ciphersuite {}: {}", c, e))
+            })
             .collect();
         Some(cs?)
     };
     let extensions: Option<Vec<ExtensionType>> = if caps.extensions.is_empty() {
         None
     } else {
-        Some(caps.extensions.iter().map(|&e| ExtensionType::from(e)).collect())
+        Some(
+            caps.extensions
+                .iter()
+                .map(|&e| ExtensionType::from(e))
+                .collect(),
+        )
     };
     let proposals: Option<Vec<ProposalType>> = if caps.proposals.is_empty() {
         None
     } else {
-        Some(caps.proposals.iter().map(|&p| ProposalType::from(p)).collect())
+        Some(
+            caps.proposals
+                .iter()
+                .map(|&p| ProposalType::from(p))
+                .collect(),
+        )
     };
     let credentials: Option<Vec<CredentialType>> = if caps.credentials.is_empty() {
         None
     } else {
-        Some(caps.credentials.iter().map(|&c| CredentialType::from(c)).collect())
+        Some(
+            caps.credentials
+                .iter()
+                .map(|&c| CredentialType::from(c))
+                .collect(),
+        )
     };
 
     Ok(Capabilities::new(
@@ -246,5 +277,6 @@ pub fn supported_ciphersuites() -> Vec<MlsCiphersuite> {
         MlsCiphersuite::Mls128DhkemX25519Aes128gcmSha256Ed25519,
         MlsCiphersuite::Mls128DhkemX25519Chacha20poly1305Sha256Ed25519,
         MlsCiphersuite::Mls128DhkemP256Aes128gcmSha256P256,
+        MlsCiphersuite::Mls256XwingChacha20poly1305Sha256Ed25519,
     ]
 }

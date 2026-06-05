@@ -173,6 +173,9 @@ enum MlsCiphersuite {
   mls128DhkemX25519Aes128GcmSha256Ed25519,
   mls128DhkemX25519Chacha20Poly1305Sha256Ed25519,
   mls128DhkemP256Aes128GcmSha256P256,
+
+  /// Hybrid post-quantum X-Wing KEM (ML-KEM + X25519), draft ciphersuite.
+  mls256XwingChacha20Poly1305Sha256Ed25519,
 }
 
 /// An MLS extension (type + data).

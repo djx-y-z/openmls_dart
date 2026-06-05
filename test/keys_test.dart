@@ -24,6 +24,13 @@ void main() {
       expect(scheme, equals(0x0807));
     });
 
+    test('X-Wing ciphersuite uses Ed25519 signatures', () {
+      final keyPair = MlsSignatureKeyPair.generate(
+        ciphersuite: MlsCiphersuite.mls256XwingChacha20Poly1305Sha256Ed25519,
+      );
+      expect(keyPair.signatureScheme(), equals(0x0807));
+    });
+
     test('serialize and deserialize public key', () {
       final keyPair = MlsSignatureKeyPair.generate(ciphersuite: ciphersuite);
       final pubKey = keyPair.publicKey();
@@ -60,6 +67,26 @@ void main() {
       );
       expect(result.keyPackageBytes, isNotEmpty);
     });
+
+    test(
+      'creates a key package with X-Wing post-quantum ciphersuite',
+      () async {
+        const pqCiphersuite =
+            MlsCiphersuite.mls256XwingChacha20Poly1305Sha256Ed25519;
+        final identity = TestIdentity.create(
+          'alice-pq',
+          ciphersuite: pqCiphersuite,
+        );
+
+        final result = await alice.createKeyPackage(
+          ciphersuite: pqCiphersuite,
+          signerBytes: identity.signerBytes,
+          credentialIdentity: identity.credentialIdentity,
+          signerPublicKey: identity.publicKey,
+        );
+        expect(result.keyPackageBytes, isNotEmpty);
+      },
+    );
 
     test('creates key package with lifetime and last-resort', () async {
       final options = KeyPackageOptions(

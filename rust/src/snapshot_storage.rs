@@ -6,9 +6,9 @@
 //!
 //! Key format matches MemoryStorage: `[LABEL || serde_json(key) || VERSION_BE_U16]`
 
-use std::collections::HashMap;
-use openmls_traits::storage::{traits, CURRENT_VERSION, StorageProvider};
 use openmls_traits::OpenMlsProvider;
+use openmls_traits::storage::{CURRENT_VERSION, StorageProvider, traits};
+use std::collections::HashMap;
 use zeroize::Zeroize;
 
 use crate::encrypted_db::StorageUpdates;
@@ -130,8 +130,8 @@ fn build_key_serde<const V: u16>(
     label: &[u8],
     key: &impl serde::Serialize,
 ) -> Result<Vec<u8>, SnapshotStorageError> {
-    let key_bytes = serde_json::to_vec(key)
-        .map_err(|e| SnapshotStorageError::Serialization(e.to_string()))?;
+    let key_bytes =
+        serde_json::to_vec(key).map_err(|e| SnapshotStorageError::Serialization(e.to_string()))?;
     Ok(build_key::<V>(label, &key_bytes))
 }
 
@@ -325,8 +325,10 @@ impl StorageProvider<{ CURRENT_VERSION }> for SnapshotStorageProvider {
         proposal: &QueuedProposal,
     ) -> Result<(), Self::Error> {
         let composite_key = (
-            serde_json::to_value(group_id).map_err(|e| SnapshotStorageError::Serialization(e.to_string()))?,
-            serde_json::to_value(proposal_ref).map_err(|e| SnapshotStorageError::Serialization(e.to_string()))?,
+            serde_json::to_value(group_id)
+                .map_err(|e| SnapshotStorageError::Serialization(e.to_string()))?,
+            serde_json::to_value(proposal_ref)
+                .map_err(|e| SnapshotStorageError::Serialization(e.to_string()))?,
         );
         #[allow(invalid_reference_casting)]
         let this = unsafe { &mut *(self as *const Self as *mut Self) };
@@ -360,7 +362,11 @@ impl StorageProvider<{ CURRENT_VERSION }> for SnapshotStorageProvider {
     ) -> Result<(), Self::Error> {
         #[allow(invalid_reference_casting)]
         let this = unsafe { &mut *(self as *const Self as *mut Self) };
-        this.write_val::<{ CURRENT_VERSION }>(INTERIM_TRANSCRIPT_HASH_LABEL, group_id, interim_transcript_hash)
+        this.write_val::<{ CURRENT_VERSION }>(
+            INTERIM_TRANSCRIPT_HASH_LABEL,
+            group_id,
+            interim_transcript_hash,
+        )
     }
 
     fn write_context<
@@ -425,7 +431,11 @@ impl StorageProvider<{ CURRENT_VERSION }> for SnapshotStorageProvider {
     ) -> Result<(), Self::Error> {
         #[allow(invalid_reference_casting)]
         let this = unsafe { &mut *(self as *const Self as *mut Self) };
-        this.write_val::<{ CURRENT_VERSION }>(RESUMPTION_PSK_STORE_LABEL, group_id, resumption_psk_store)
+        this.write_val::<{ CURRENT_VERSION }>(
+            RESUMPTION_PSK_STORE_LABEL,
+            group_id,
+            resumption_psk_store,
+        )
     }
 
     fn write_own_leaf_index<
@@ -468,7 +478,11 @@ impl StorageProvider<{ CURRENT_VERSION }> for SnapshotStorageProvider {
     ) -> Result<(), Self::Error> {
         #[allow(invalid_reference_casting)]
         let this = unsafe { &mut *(self as *const Self as *mut Self) };
-        this.write_val::<{ CURRENT_VERSION }>(SIGNATURE_KEY_PAIR_LABEL, public_key, signature_key_pair)
+        this.write_val::<{ CURRENT_VERSION }>(
+            SIGNATURE_KEY_PAIR_LABEL,
+            public_key,
+            signature_key_pair,
+        )
     }
 
     fn write_encryption_key_pair<
@@ -582,9 +596,10 @@ impl StorageProvider<{ CURRENT_VERSION }> for SnapshotStorageProvider {
                 serde_json::to_value(&prop_ref)
                     .map_err(|e| SnapshotStorageError::Serialization(e.to_string()))?,
             );
-            if let Some(proposal) =
-                self.read_val::<{ CURRENT_VERSION }, QueuedProposal>(QUEUED_PROPOSAL_LABEL, &composite_key)?
-            {
+            if let Some(proposal) = self.read_val::<{ CURRENT_VERSION }, QueuedProposal>(
+                QUEUED_PROPOSAL_LABEL,
+                &composite_key,
+            )? {
                 result.push((prop_ref, proposal));
             }
         }
@@ -899,7 +914,9 @@ impl StorageProvider<{ CURRENT_VERSION }> for SnapshotStorageProvider {
     // F. DELETERS — CRYPTO OBJECTS
     // ═══════════════════════════════════════════════════════════
 
-    fn delete_signature_key_pair<SignaturePublicKey: traits::SignaturePublicKey<{ CURRENT_VERSION }>>(
+    fn delete_signature_key_pair<
+        SignaturePublicKey: traits::SignaturePublicKey<{ CURRENT_VERSION }>,
+    >(
         &self,
         public_key: &SignaturePublicKey,
     ) -> Result<(), Self::Error> {
@@ -957,16 +974,17 @@ impl StorageProvider<{ CURRENT_VERSION }> for SnapshotStorageProvider {
 // ═══════════════════════════════════════════════════════════════
 
 pub struct SnapshotOpenMlsProvider {
-    crypto: openmls_rust_crypto::RustCrypto,
+    crypto: crate::hybrid_crypto::HybridCrypto,
     storage: SnapshotStorageProvider,
 }
 
 impl SnapshotOpenMlsProvider {
-    pub fn new(storage: SnapshotStorageProvider) -> Self {
-        Self {
-            crypto: openmls_rust_crypto::RustCrypto::default(),
+    pub fn new(storage: SnapshotStorageProvider) -> Result<Self, String> {
+        Ok(Self {
+            crypto: crate::hybrid_crypto::HybridCrypto::new()
+                .map_err(|e| format!("Failed to initialize crypto provider: {e}"))?,
             storage,
-        }
+        })
     }
 
     /// Extract the storage provider for diffing.
@@ -976,8 +994,8 @@ impl SnapshotOpenMlsProvider {
 }
 
 impl OpenMlsProvider for SnapshotOpenMlsProvider {
-    type CryptoProvider = openmls_rust_crypto::RustCrypto;
-    type RandProvider = openmls_rust_crypto::RustCrypto;
+    type CryptoProvider = crate::hybrid_crypto::HybridCrypto;
+    type RandProvider = crate::hybrid_crypto::HybridCrypto;
     type StorageProvider = SnapshotStorageProvider;
 
     fn storage(&self) -> &Self::StorageProvider {

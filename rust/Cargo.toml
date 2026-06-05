@@ -2,7 +2,7 @@
 name = "openmls_frb"
 version = "1.4.0"
 edition = "2024"
-rust-version = "1.88"
+rust-version = "1.96"
 description = "Dart wrapper for OpenMLS — a Rust implementation of the Messaging Layer Security (MLS) protocol (RFC 9420)"
 repository = "https://github.com/djx-y-z/openmls_dart"
 license = "MIT"
@@ -23,21 +23,22 @@ futures = "0.3"
 parking_lot = "0.12"
 openmls = { git = "https://github.com/openmls/openmls", tag = "openmls-v0.8.1", features = ["test-utils"] }
 openmls_rust_crypto = { git = "https://github.com/openmls/openmls", tag = "openmls-v0.8.1" }
+openmls_libcrux_crypto = { git = "https://github.com/openmls/openmls", tag = "openmls-v0.8.1" }
 openmls_basic_credential = { git = "https://github.com/openmls/openmls", tag = "openmls-v0.8.1", features = ["test-utils"] }
 openmls_traits = { git = "https://github.com/openmls/openmls", tag = "openmls-v0.8.1" }
 
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-rusqlite = { version = "0.34", features = ["bundled-sqlcipher-vendored-openssl"] }
+rusqlite = { version = "0.40", features = ["bundled-sqlcipher-vendored-openssl"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 # OpenMLS requires `js` feature for WASM: enables fluvio_wasm_timer for time access
 # Cargo merges features from [dependencies] and [target.*.dependencies]
 openmls = { git = "https://github.com/openmls/openmls", tag = "openmls-v0.8.1", features = ["js"] }
-# Diamond dependency: some upstream crates use getrandom 0.2, some use 0.3
+# Diamond dependency: some upstream crates use getrandom 0.2, some use 0.4
 # Both need to be configured for WASM to work correctly
 getrandom_02 = { package = "getrandom", version = "0.2", features = ["js"] }
-getrandom = { version = "0.3", features = ["wasm_js"] }
+getrandom = { version = "0.4", features = ["wasm_js"] }
 idb = "0.6"
 wasm-bindgen = "0.2"
 wasm-bindgen-futures = "0.4"

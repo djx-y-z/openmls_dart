@@ -4,8 +4,8 @@
 [![CI](https://github.com/djx-y-z/openmls_dart/actions/workflows/test.yml/badge.svg)](https://github.com/djx-y-z/openmls_dart/actions/workflows/test.yml)
 [![Coverage](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/djx-y-z/a5b2cf3b4ecf95155f76512df95d74c2/raw/coverage.json)](https://gist.github.com/djx-y-z/a5b2cf3b4ecf95155f76512df95d74c2)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Dart](https://img.shields.io/badge/dart-%3E%3D3.10.0-brightgreen.svg)](https://dart.dev)
-[![Flutter](https://img.shields.io/badge/flutter-%3E%3D3.38.0-blue.svg)](https://flutter.dev)
+[![Dart](https://img.shields.io/badge/dart-%3E%3D3.12.0-brightgreen.svg)](https://dart.dev)
+[![Flutter](https://img.shields.io/badge/flutter-%3E%3D3.44.0-blue.svg)](https://flutter.dev)
 [![openmls](https://img.shields.io/badge/openmls-v0.8.1-orange.svg)](https://github.com/openmls/openmls)
 
 Dart bindings for [OpenMLS](https://github.com/openmls/openmls), providing a Rust implementation of the Messaging Layer Security (MLS) protocol ([RFC 9420](https://www.rfc-editor.org/rfc/rfc9420.html)) for secure group messaging.
@@ -21,6 +21,7 @@ Dart bindings for [OpenMLS](https://github.com/openmls/openmls), providing a Rus
 
 - **MLS Protocol (RFC 9420)**: Secure group messaging with forward secrecy and post-compromise security
 - **Group Key Agreement**: Efficient tree-based group key agreement (TreeKEM)
+- **Hybrid Post-Quantum Suite**: X-Wing ciphersuite (`MlsCiphersuite.mls256XwingChacha20Poly1305Sha256Ed25519`) via OpenMLS/libcrux
 - **Encrypted Storage**: All MLS state encrypted at rest — SQLCipher on native, Web Crypto AES-256-GCM on WASM
 - **Basic & X.509 Credentials**: Support for both credential types
 - **Flutter & CLI Support**: Works with Flutter apps and standalone Dart CLI applications
@@ -184,9 +185,9 @@ The Rust core of openmls ships as a `.wasm` module in both modes — `--wasm` on
 
 If you want to build from source (or precompiled binaries are not available):
 
-- [Flutter](https://flutter.dev/) 3.38+
+- [Flutter](https://flutter.dev/) 3.44+
 - [FVM](https://fvm.app/) (optional, for version management)
-- **Rust toolchain** (1.88+):
+- **Rust toolchain** (1.96+):
   - [rustup](https://rustup.rs/) - Rust toolchain installer
   - `cargo` - Rust package manager (installed with rustup)
 

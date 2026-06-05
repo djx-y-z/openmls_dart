@@ -131,6 +131,56 @@ void main() {
     });
   });
 
+  group('post-quantum ciphersuite', () {
+    test('creates an X-Wing group and joins from Welcome', () async {
+      const pqCiphersuite =
+          MlsCiphersuite.mls256XwingChacha20Poly1305Sha256Ed25519;
+      final pqConfig = MlsGroupConfig.defaultConfig(ciphersuite: pqCiphersuite);
+      final pqAliceId = TestIdentity.create(
+        'alice-pq',
+        ciphersuite: pqCiphersuite,
+      );
+      final pqBobId = TestIdentity.create('bob-pq', ciphersuite: pqCiphersuite);
+
+      final groupResult = await alice.createGroup(
+        config: pqConfig,
+        signerBytes: pqAliceId.signerBytes,
+        credentialIdentity: pqAliceId.credentialIdentity,
+        signerPublicKey: pqAliceId.publicKey,
+      );
+
+      final bobKp = await bob.createKeyPackage(
+        ciphersuite: pqCiphersuite,
+        signerBytes: pqBobId.signerBytes,
+        credentialIdentity: pqBobId.credentialIdentity,
+        signerPublicKey: pqBobId.publicKey,
+      );
+
+      final addResult = await alice.addMembers(
+        groupIdBytes: groupResult.groupId,
+        signerBytes: pqAliceId.signerBytes,
+        keyPackagesBytes: [bobKp.keyPackageBytes],
+      );
+      await alice.mergePendingCommit(groupIdBytes: groupResult.groupId);
+
+      final joinResult = await bob.joinGroupFromWelcome(
+        config: pqConfig,
+        welcomeBytes: addResult.welcome,
+        signerBytes: pqBobId.signerBytes,
+      );
+
+      expect(joinResult.groupId, equals(groupResult.groupId));
+      expect(
+        await bob.groupCiphersuite(groupIdBytes: joinResult.groupId),
+        equals(pqCiphersuite),
+      );
+      expect(
+        await bob.groupMembers(groupIdBytes: joinResult.groupId),
+        hasLength(2),
+      );
+    });
+  });
+
   group('external commit join', () {
     late Uint8List groupIdBytes;
 

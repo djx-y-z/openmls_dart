@@ -7,9 +7,11 @@
 //! Functions are `async` because DB I/O is async (SQLCipher on native,
 //! IndexedDB on WASM).
 
-use openmls::prelude::*;
-use openmls::prelude::tls_codec::{DeserializeBytes as TlsDeserializeBytes, Serialize as TlsSerialize};
 use openmls::ciphersuite::hash_ref::ProposalRef;
+use openmls::prelude::tls_codec::{
+    DeserializeBytes as TlsDeserializeBytes, Serialize as TlsSerialize,
+};
+use openmls::prelude::*;
 use openmls::schedule::PreSharedKeyId;
 use openmls_traits::OpenMlsProvider;
 use openmls_traits::storage::StorageProvider;
@@ -17,10 +19,10 @@ use openmls_traits::storage::StorageProvider;
 use super::config::MlsGroupConfig;
 use super::keys::signer_from_bytes;
 use super::types::{
-    ciphersuite_to_native, native_to_ciphersuite, capabilities_to_native, extensions_from_mls,
     FlexibleCommitOptions, KeyPackageOptions, MlsCapabilities, MlsCiphersuite, MlsExtension,
     MlsGroupContextInfo, MlsLeafNodeInfo, MlsMemberInfo, MlsPendingProposalInfo, MlsProposalType,
     MlsWireFormatPolicy, ProcessedMessageType, StagedCommitInfo, WelcomeInspectResult,
+    capabilities_to_native, ciphersuite_to_native, extensions_from_mls, native_to_ciphersuite,
 };
 use crate::snapshot_storage::{SnapshotOpenMlsProvider, SnapshotStorageProvider};
 
@@ -161,7 +163,9 @@ impl MlsEngine {
     ///   or `flutter_secure_storage`).
     pub async fn create(db_path: String, encryption_key: Vec<u8>) -> Result<MlsEngine, String> {
         let db = crate::encrypted_db::EncryptedDb::open(db_path, encryption_key).await?;
-        Ok(MlsEngine { db: parking_lot::RwLock::new(Some(std::sync::Arc::new(db))) })
+        Ok(MlsEngine {
+            db: parking_lot::RwLock::new(Some(std::sync::Arc::new(db))),
+        })
     }
 
     // ═══════════════════════════════════════════════════════════
@@ -169,20 +173,28 @@ impl MlsEngine {
     // ═══════════════════════════════════════════════════════════
 
     fn db(&self) -> Result<std::sync::Arc<crate::encrypted_db::EncryptedDb>, String> {
-        self.db.read().as_ref().cloned().ok_or_else(|| "MlsEngine is closed".to_string())
+        self.db
+            .read()
+            .as_ref()
+            .cloned()
+            .ok_or_else(|| "MlsEngine is closed".to_string())
     }
 
     async fn load_for_group(&self, group_id: &[u8]) -> Result<SnapshotOpenMlsProvider, String> {
         let entries = self.db()?.load_for_group(group_id).await?;
-        Ok(SnapshotOpenMlsProvider::new(SnapshotStorageProvider::from_entries(entries)))
+        SnapshotOpenMlsProvider::new(SnapshotStorageProvider::from_entries(entries))
     }
 
     async fn load_global(&self) -> Result<SnapshotOpenMlsProvider, String> {
         let entries = self.db()?.load_global().await?;
-        Ok(SnapshotOpenMlsProvider::new(SnapshotStorageProvider::from_entries(entries)))
+        SnapshotOpenMlsProvider::new(SnapshotStorageProvider::from_entries(entries))
     }
 
-    async fn commit(&self, provider: SnapshotOpenMlsProvider, group_id: Option<&[u8]>) -> Result<(), String> {
+    async fn commit(
+        &self,
+        provider: SnapshotOpenMlsProvider,
+        group_id: Option<&[u8]>,
+    ) -> Result<(), String> {
         let updates = provider.into_storage().into_updates();
         if updates.upserts.is_empty() && updates.deletes.is_empty() {
             return Ok(());
@@ -205,7 +217,9 @@ impl MlsEngine {
         let cs = ciphersuite_to_native(&ciphersuite);
         let signer = signer_from_bytes(signer_bytes)?;
         let credential_with_key = build_credential_with_key(
-            &credential_identity, &signer_public_key, credential_bytes.as_deref(),
+            &credential_identity,
+            &signer_public_key,
+            credential_bytes.as_deref(),
         )?;
 
         let provider = self.load_global().await?;
@@ -238,7 +252,9 @@ impl MlsEngine {
         let cs = ciphersuite_to_native(&ciphersuite);
         let signer = signer_from_bytes(signer_bytes)?;
         let credential_with_key = build_credential_with_key(
-            &credential_identity, &signer_public_key, credential_bytes.as_deref(),
+            &credential_identity,
+            &signer_public_key,
+            credential_bytes.as_deref(),
         )?;
 
         let provider = self.load_global().await?;
@@ -295,7 +311,9 @@ impl MlsEngine {
     ) -> Result<CreateGroupResult, String> {
         let signer = signer_from_bytes(signer_bytes)?;
         let credential_with_key = build_credential_with_key(
-            &credential_identity, &signer_public_key, credential_bytes.as_deref(),
+            &credential_identity,
+            &signer_public_key,
+            credential_bytes.as_deref(),
         )?;
 
         let provider = self.load_global().await?;
@@ -340,7 +358,9 @@ impl MlsEngine {
     ) -> Result<CreateGroupResult, String> {
         let signer = signer_from_bytes(signer_bytes)?;
         let credential_with_key = build_credential_with_key(
-            &credential_identity, &signer_public_key, credential_bytes.as_deref(),
+            &credential_identity,
+            &signer_public_key,
+            credential_bytes.as_deref(),
         )?;
 
         let provider = self.load_global().await?;
@@ -429,8 +449,9 @@ impl MlsEngine {
             })
             .transpose()?;
 
-        let staged = StagedWelcome::new_from_welcome(&provider, &join_config, welcome, ratchet_tree)
-            .map_err(|e| format!("Failed to process welcome: {}", e))?;
+        let staged =
+            StagedWelcome::new_from_welcome(&provider, &join_config, welcome, ratchet_tree)
+                .map_err(|e| format!("Failed to process welcome: {}", e))?;
         let mls_group = staged
             .into_group(&provider)
             .map_err(|e| format!("Failed to join group from welcome: {}", e))?;
@@ -531,7 +552,9 @@ impl MlsEngine {
     ) -> Result<ExternalJoinResult, String> {
         let signer = signer_from_bytes(signer_bytes)?;
         let credential_with_key = build_credential_with_key(
-            &credential_identity, &signer_public_key, credential_bytes.as_deref(),
+            &credential_identity,
+            &signer_public_key,
+            credential_bytes.as_deref(),
         )?;
 
         let provider = self.load_global().await?;
@@ -555,7 +578,15 @@ impl MlsEngine {
             .transpose()?;
 
         let (mls_group, commit_out, group_info_opt) = MlsGroup::join_by_external_commit(
-            &provider, &signer, ratchet_tree, verifiable_group_info, &join_config, None, None, &[], credential_with_key,
+            &provider,
+            &signer,
+            ratchet_tree,
+            verifiable_group_info,
+            &join_config,
+            None,
+            None,
+            &[],
+            credential_with_key,
         )
         .map_err(|e| format!("Failed to join group via external commit: {}", e))?;
 
@@ -591,7 +622,9 @@ impl MlsEngine {
     ) -> Result<ExternalJoinResult, String> {
         let signer = signer_from_bytes(signer_bytes)?;
         let credential_with_key = build_credential_with_key(
-            &credential_identity, &signer_public_key, credential_bytes.as_deref(),
+            &credential_identity,
+            &signer_public_key,
+            credential_bytes.as_deref(),
         )?;
 
         let provider = self.load_global().await?;
@@ -656,28 +689,19 @@ impl MlsEngine {
     // STATE QUERIES (read-only)
     // ═══════════════════════════════════════════════════════════
 
-    pub async fn group_id(
-        &self,
-        group_id_bytes: Vec<u8>,
-    ) -> Result<Vec<u8>, String> {
+    pub async fn group_id(&self, group_id_bytes: Vec<u8>) -> Result<Vec<u8>, String> {
         let provider = self.load_for_group(&group_id_bytes).await?;
         let group = load_group(&group_id_bytes, &provider)?;
         Ok(group.group_id().as_slice().to_vec())
     }
 
-    pub async fn group_epoch(
-        &self,
-        group_id_bytes: Vec<u8>,
-    ) -> Result<u64, String> {
+    pub async fn group_epoch(&self, group_id_bytes: Vec<u8>) -> Result<u64, String> {
         let provider = self.load_for_group(&group_id_bytes).await?;
         let group = load_group(&group_id_bytes, &provider)?;
         Ok(group.epoch().as_u64())
     }
 
-    pub async fn group_is_active(
-        &self,
-        group_id_bytes: Vec<u8>,
-    ) -> Result<bool, String> {
+    pub async fn group_is_active(&self, group_id_bytes: Vec<u8>) -> Result<bool, String> {
         let provider = self.load_for_group(&group_id_bytes).await?;
         let group = load_group(&group_id_bytes, &provider)?;
         Ok(group.is_active())
@@ -691,7 +715,8 @@ impl MlsEngine {
         let group = load_group(&group_id_bytes, &provider)?;
         let mut members = Vec::new();
         for member in group.members() {
-            let cred_bytes = member.credential
+            let cred_bytes = member
+                .credential
                 .tls_serialize_detached()
                 .map_err(|e| format!("Failed to serialize member credential: {}", e))?;
             members.push(MlsMemberInfo {
@@ -712,31 +737,24 @@ impl MlsEngine {
         native_to_ciphersuite(group.ciphersuite())
     }
 
-    pub async fn group_own_index(
-        &self,
-        group_id_bytes: Vec<u8>,
-    ) -> Result<u32, String> {
+    pub async fn group_own_index(&self, group_id_bytes: Vec<u8>) -> Result<u32, String> {
         let provider = self.load_for_group(&group_id_bytes).await?;
         let group = load_group(&group_id_bytes, &provider)?;
         Ok(group.own_leaf_index().u32())
     }
 
-    pub async fn group_credential(
-        &self,
-        group_id_bytes: Vec<u8>,
-    ) -> Result<Vec<u8>, String> {
+    pub async fn group_credential(&self, group_id_bytes: Vec<u8>) -> Result<Vec<u8>, String> {
         let provider = self.load_for_group(&group_id_bytes).await?;
         let group = load_group(&group_id_bytes, &provider)?;
-        let credential = group.credential().map_err(|e| format!("Failed to get credential: {}", e))?;
+        let credential = group
+            .credential()
+            .map_err(|e| format!("Failed to get credential: {}", e))?;
         credential
             .tls_serialize_detached()
             .map_err(|e| format!("Failed to serialize credential: {}", e))
     }
 
-    pub async fn group_extensions(
-        &self,
-        group_id_bytes: Vec<u8>,
-    ) -> Result<Vec<u8>, String> {
+    pub async fn group_extensions(&self, group_id_bytes: Vec<u8>) -> Result<Vec<u8>, String> {
         let provider = self.load_for_group(&group_id_bytes).await?;
         let group = load_group(&group_id_bytes, &provider)?;
         group
@@ -767,7 +785,10 @@ impl MlsEngine {
                 Sender::Member(idx) => Some(idx.u32()),
                 _ => None,
             };
-            proposals.push(MlsPendingProposalInfo { proposal_type, sender_index });
+            proposals.push(MlsPendingProposalInfo {
+                proposal_type,
+                sender_index,
+            });
         }
         Ok(proposals)
     }
@@ -790,7 +811,8 @@ impl MlsEngine {
         let group = load_group(&group_id_bytes, &provider)?;
         match group.member_at(LeafNodeIndex::new(leaf_index)) {
             Some(member) => {
-                let cred_bytes = member.credential
+                let cred_bytes = member
+                    .credential
                     .tls_serialize_detached()
                     .map_err(|e| format!("Failed to serialize member credential: {}", e))?;
                 Ok(Some(MlsMemberInfo {
@@ -819,10 +841,7 @@ impl MlsEngine {
     // EXPORT OPERATIONS (read-only)
     // ═══════════════════════════════════════════════════════════
 
-    pub async fn export_ratchet_tree(
-        &self,
-        group_id_bytes: Vec<u8>,
-    ) -> Result<Vec<u8>, String> {
+    pub async fn export_ratchet_tree(&self, group_id_bytes: Vec<u8>) -> Result<Vec<u8>, String> {
         let provider = self.load_for_group(&group_id_bytes).await?;
         let group = load_group(&group_id_bytes, &provider)?;
         group
@@ -883,10 +902,7 @@ impl MlsEngine {
         })
     }
 
-    pub async fn group_confirmation_tag(
-        &self,
-        group_id_bytes: Vec<u8>,
-    ) -> Result<Vec<u8>, String> {
+    pub async fn group_confirmation_tag(&self, group_id_bytes: Vec<u8>) -> Result<Vec<u8>, String> {
         let provider = self.load_for_group(&group_id_bytes).await?;
         let group = load_group(&group_id_bytes, &provider)?;
         group
@@ -905,16 +921,21 @@ impl MlsEngine {
             .own_leaf_node()
             .ok_or_else(|| "No own leaf node (group not active?)".to_string())?;
 
-        let cred_bytes = leaf.credential()
+        let cred_bytes = leaf
+            .credential()
             .tls_serialize_detached()
             .map_err(|e| format!("Failed to serialize credential: {}", e))?;
 
         let caps = leaf.capabilities();
         let capabilities = MlsCapabilities {
-            versions: caps.versions().iter().map(|v| match v {
-                ProtocolVersion::Mls10 => 1u16,
-                ProtocolVersion::Other(n) => *n,
-            }).collect(),
+            versions: caps
+                .versions()
+                .iter()
+                .map(|v| match v {
+                    ProtocolVersion::Mls10 => 1u16,
+                    ProtocolVersion::Other(n) => *n,
+                })
+                .collect(),
             ciphersuites: caps.ciphersuites().iter().map(|c| c.value()).collect(),
             extensions: caps.extensions().iter().map(|e| u16::from(*e)).collect(),
             proposals: caps.proposals().iter().map(|p| u16::from(*p)).collect(),
@@ -989,13 +1010,24 @@ impl MlsEngine {
             .merge_pending_commit(&provider)
             .map_err(|e| format!("Failed to merge pending commit: {}", e))?;
 
-        let commit_bytes = commit_out.tls_serialize_detached().map_err(|e| format!("Failed to serialize commit: {}", e))?;
-        let welcome_bytes = welcome_out.tls_serialize_detached().map_err(|e| format!("Failed to serialize welcome: {}", e))?;
-        let gi_bytes = group_info_opt.map(|gi| gi.tls_serialize_detached()).transpose().map_err(|e| format!("Failed to serialize group info: {}", e))?;
+        let commit_bytes = commit_out
+            .tls_serialize_detached()
+            .map_err(|e| format!("Failed to serialize commit: {}", e))?;
+        let welcome_bytes = welcome_out
+            .tls_serialize_detached()
+            .map_err(|e| format!("Failed to serialize welcome: {}", e))?;
+        let gi_bytes = group_info_opt
+            .map(|gi| gi.tls_serialize_detached())
+            .transpose()
+            .map_err(|e| format!("Failed to serialize group info: {}", e))?;
 
         self.commit(provider, Some(&group_id_bytes)).await?;
 
-        Ok(AddMembersResult { commit: commit_bytes, welcome: welcome_bytes, group_info: gi_bytes })
+        Ok(AddMembersResult {
+            commit: commit_bytes,
+            welcome: welcome_bytes,
+            group_info: gi_bytes,
+        })
     }
 
     pub async fn add_members_without_update(
@@ -1012,7 +1044,8 @@ impl MlsEngine {
         for kp_bytes in key_packages_bytes {
             let kp_in = KeyPackageIn::tls_deserialize_exact_bytes(&kp_bytes)
                 .map_err(|e| format!("Failed to deserialize key package: {}", e))?;
-            let kp = kp_in.validate(provider.crypto(), ProtocolVersion::Mls10)
+            let kp = kp_in
+                .validate(provider.crypto(), ProtocolVersion::Mls10)
                 .map_err(|e| format!("Failed to validate key package: {}", e))?;
             key_packages.push(kp);
         }
@@ -1020,15 +1053,28 @@ impl MlsEngine {
         let (commit_out, welcome_out, group_info_opt) = group
             .add_members_without_update(&provider, &signer, &key_packages)
             .map_err(|e| format!("Failed to add members without update: {}", e))?;
-        group.merge_pending_commit(&provider).map_err(|e| format!("Failed to merge pending commit: {}", e))?;
+        group
+            .merge_pending_commit(&provider)
+            .map_err(|e| format!("Failed to merge pending commit: {}", e))?;
 
-        let commit_bytes = commit_out.tls_serialize_detached().map_err(|e| format!("Failed to serialize commit: {}", e))?;
-        let welcome_bytes = welcome_out.tls_serialize_detached().map_err(|e| format!("Failed to serialize welcome: {}", e))?;
-        let gi_bytes = group_info_opt.map(|gi| gi.tls_serialize_detached()).transpose().map_err(|e| format!("Failed to serialize group info: {}", e))?;
+        let commit_bytes = commit_out
+            .tls_serialize_detached()
+            .map_err(|e| format!("Failed to serialize commit: {}", e))?;
+        let welcome_bytes = welcome_out
+            .tls_serialize_detached()
+            .map_err(|e| format!("Failed to serialize welcome: {}", e))?;
+        let gi_bytes = group_info_opt
+            .map(|gi| gi.tls_serialize_detached())
+            .transpose()
+            .map_err(|e| format!("Failed to serialize group info: {}", e))?;
 
         self.commit(provider, Some(&group_id_bytes)).await?;
 
-        Ok(AddMembersResult { commit: commit_bytes, welcome: welcome_bytes, group_info: gi_bytes })
+        Ok(AddMembersResult {
+            commit: commit_bytes,
+            welcome: welcome_bytes,
+            group_info: gi_bytes,
+        })
     }
 
     pub async fn remove_members(
@@ -1041,19 +1087,36 @@ impl MlsEngine {
         let provider = self.load_for_group(&group_id_bytes).await?;
         let mut group = load_group(&group_id_bytes, &provider)?;
 
-        let indices: Vec<LeafNodeIndex> = member_indices.iter().map(|&i| LeafNodeIndex::new(i)).collect();
+        let indices: Vec<LeafNodeIndex> = member_indices
+            .iter()
+            .map(|&i| LeafNodeIndex::new(i))
+            .collect();
         let (commit_out, welcome_opt, group_info_opt) = group
             .remove_members(&provider, &signer, &indices)
             .map_err(|e| format!("Failed to remove members: {}", e))?;
-        group.merge_pending_commit(&provider).map_err(|e| format!("Failed to merge pending commit: {}", e))?;
+        group
+            .merge_pending_commit(&provider)
+            .map_err(|e| format!("Failed to merge pending commit: {}", e))?;
 
-        let commit_bytes = commit_out.tls_serialize_detached().map_err(|e| format!("Failed to serialize commit: {}", e))?;
-        let welcome_bytes: Option<Vec<u8>> = welcome_opt.map(|w: MlsMessageOut| w.tls_serialize_detached()).transpose().map_err(|e| format!("Failed to serialize welcome: {}", e))?;
-        let gi_bytes = group_info_opt.map(|gi| gi.tls_serialize_detached()).transpose().map_err(|e| format!("Failed to serialize group info: {}", e))?;
+        let commit_bytes = commit_out
+            .tls_serialize_detached()
+            .map_err(|e| format!("Failed to serialize commit: {}", e))?;
+        let welcome_bytes: Option<Vec<u8>> = welcome_opt
+            .map(|w: MlsMessageOut| w.tls_serialize_detached())
+            .transpose()
+            .map_err(|e| format!("Failed to serialize welcome: {}", e))?;
+        let gi_bytes = group_info_opt
+            .map(|gi| gi.tls_serialize_detached())
+            .transpose()
+            .map_err(|e| format!("Failed to serialize group info: {}", e))?;
 
         self.commit(provider, Some(&group_id_bytes)).await?;
 
-        Ok(CommitResult { commit: commit_bytes, welcome: welcome_bytes, group_info: gi_bytes })
+        Ok(CommitResult {
+            commit: commit_bytes,
+            welcome: welcome_bytes,
+            group_info: gi_bytes,
+        })
     }
 
     pub async fn self_update(
@@ -1069,15 +1132,29 @@ impl MlsEngine {
             .self_update(&provider, &signer, LeafNodeParameters::default())
             .map_err(|e| format!("Failed to self-update: {}", e))?;
         let (commit_out, welcome_opt, group_info_opt) = bundle.into_contents();
-        group.merge_pending_commit(&provider).map_err(|e| format!("Failed to merge pending commit: {}", e))?;
+        group
+            .merge_pending_commit(&provider)
+            .map_err(|e| format!("Failed to merge pending commit: {}", e))?;
 
-        let commit_bytes = commit_out.tls_serialize_detached().map_err(|e| format!("Failed to serialize commit: {}", e))?;
-        let welcome_bytes: Option<Vec<u8>> = welcome_opt.map(|w: Welcome| w.tls_serialize_detached()).transpose().map_err(|e| format!("Failed to serialize welcome: {}", e))?;
-        let gi_bytes = group_info_opt.map(|gi| gi.tls_serialize_detached()).transpose().map_err(|e| format!("Failed to serialize group info: {}", e))?;
+        let commit_bytes = commit_out
+            .tls_serialize_detached()
+            .map_err(|e| format!("Failed to serialize commit: {}", e))?;
+        let welcome_bytes: Option<Vec<u8>> = welcome_opt
+            .map(|w: Welcome| w.tls_serialize_detached())
+            .transpose()
+            .map_err(|e| format!("Failed to serialize welcome: {}", e))?;
+        let gi_bytes = group_info_opt
+            .map(|gi| gi.tls_serialize_detached())
+            .transpose()
+            .map_err(|e| format!("Failed to serialize group info: {}", e))?;
 
         self.commit(provider, Some(&group_id_bytes)).await?;
 
-        Ok(CommitResult { commit: commit_bytes, welcome: welcome_bytes, group_info: gi_bytes })
+        Ok(CommitResult {
+            commit: commit_bytes,
+            welcome: welcome_bytes,
+            group_info: gi_bytes,
+        })
     }
 
     pub async fn self_update_with_new_signer(
@@ -1094,26 +1171,52 @@ impl MlsEngine {
         let provider = self.load_for_group(&group_id_bytes).await?;
         let mut group = load_group(&group_id_bytes, &provider)?;
 
-        new_signer.store(provider.storage()).map_err(|e| format!("Failed to store new signer: {}", e))?;
+        new_signer
+            .store(provider.storage())
+            .map_err(|e| format!("Failed to store new signer: {}", e))?;
 
         let credential_with_key = build_credential_with_key(
-            &new_credential_identity, &new_signer_public_key, new_credential_bytes.as_deref(),
+            &new_credential_identity,
+            &new_signer_public_key,
+            new_credential_bytes.as_deref(),
         )?;
-        let new_signer_bundle = NewSignerBundle { signer: &new_signer, credential_with_key };
+        let new_signer_bundle = NewSignerBundle {
+            signer: &new_signer,
+            credential_with_key,
+        };
 
         let bundle = group
-            .self_update_with_new_signer(&provider, &old_signer, new_signer_bundle, LeafNodeParameters::default())
+            .self_update_with_new_signer(
+                &provider,
+                &old_signer,
+                new_signer_bundle,
+                LeafNodeParameters::default(),
+            )
             .map_err(|e| format!("Failed to self-update with new signer: {}", e))?;
         let (commit_out, welcome_opt, group_info_opt) = bundle.into_contents();
-        group.merge_pending_commit(&provider).map_err(|e| format!("Failed to merge pending commit: {}", e))?;
+        group
+            .merge_pending_commit(&provider)
+            .map_err(|e| format!("Failed to merge pending commit: {}", e))?;
 
-        let commit_bytes = commit_out.tls_serialize_detached().map_err(|e| format!("Failed to serialize commit: {}", e))?;
-        let welcome_bytes: Option<Vec<u8>> = welcome_opt.map(|w: Welcome| w.tls_serialize_detached()).transpose().map_err(|e| format!("Failed to serialize welcome: {}", e))?;
-        let gi_bytes = group_info_opt.map(|gi| gi.tls_serialize_detached()).transpose().map_err(|e| format!("Failed to serialize group info: {}", e))?;
+        let commit_bytes = commit_out
+            .tls_serialize_detached()
+            .map_err(|e| format!("Failed to serialize commit: {}", e))?;
+        let welcome_bytes: Option<Vec<u8>> = welcome_opt
+            .map(|w: Welcome| w.tls_serialize_detached())
+            .transpose()
+            .map_err(|e| format!("Failed to serialize welcome: {}", e))?;
+        let gi_bytes = group_info_opt
+            .map(|gi| gi.tls_serialize_detached())
+            .transpose()
+            .map_err(|e| format!("Failed to serialize group info: {}", e))?;
 
         self.commit(provider, Some(&group_id_bytes)).await?;
 
-        Ok(CommitResult { commit: commit_bytes, welcome: welcome_bytes, group_info: gi_bytes })
+        Ok(CommitResult {
+            commit: commit_bytes,
+            welcome: welcome_bytes,
+            group_info: gi_bytes,
+        })
     }
 
     pub async fn swap_members(
@@ -1127,27 +1230,48 @@ impl MlsEngine {
         let provider = self.load_for_group(&group_id_bytes).await?;
         let mut group = load_group(&group_id_bytes, &provider)?;
 
-        let indices: Vec<LeafNodeIndex> = remove_indices.iter().map(|&i| LeafNodeIndex::new(i)).collect();
+        let indices: Vec<LeafNodeIndex> = remove_indices
+            .iter()
+            .map(|&i| LeafNodeIndex::new(i))
+            .collect();
         let mut key_packages = Vec::with_capacity(add_key_packages_bytes.len());
         for kp_bytes in add_key_packages_bytes {
             let kp_in = KeyPackageIn::tls_deserialize_exact_bytes(&kp_bytes)
                 .map_err(|e| format!("Failed to deserialize key package: {}", e))?;
-            let kp = kp_in.validate(provider.crypto(), ProtocolVersion::Mls10)
+            let kp = kp_in
+                .validate(provider.crypto(), ProtocolVersion::Mls10)
                 .map_err(|e| format!("Failed to validate key package: {}", e))?;
             key_packages.push(kp);
         }
 
-        let result = group.swap_members(&provider, &signer, &indices, &key_packages)
+        let result = group
+            .swap_members(&provider, &signer, &indices, &key_packages)
             .map_err(|e| format!("Failed to swap members: {}", e))?;
-        group.merge_pending_commit(&provider).map_err(|e| format!("Failed to merge pending commit: {}", e))?;
+        group
+            .merge_pending_commit(&provider)
+            .map_err(|e| format!("Failed to merge pending commit: {}", e))?;
 
-        let commit_bytes = result.commit.tls_serialize_detached().map_err(|e| format!("Failed to serialize commit: {}", e))?;
-        let welcome_bytes = result.welcome.tls_serialize_detached().map_err(|e| format!("Failed to serialize welcome: {}", e))?;
-        let gi_bytes = result.group_info.map(|gi| gi.tls_serialize_detached()).transpose().map_err(|e| format!("Failed to serialize group info: {}", e))?;
+        let commit_bytes = result
+            .commit
+            .tls_serialize_detached()
+            .map_err(|e| format!("Failed to serialize commit: {}", e))?;
+        let welcome_bytes = result
+            .welcome
+            .tls_serialize_detached()
+            .map_err(|e| format!("Failed to serialize welcome: {}", e))?;
+        let gi_bytes = result
+            .group_info
+            .map(|gi| gi.tls_serialize_detached())
+            .transpose()
+            .map_err(|e| format!("Failed to serialize group info: {}", e))?;
 
         self.commit(provider, Some(&group_id_bytes)).await?;
 
-        Ok(AddMembersResult { commit: commit_bytes, welcome: welcome_bytes, group_info: gi_bytes })
+        Ok(AddMembersResult {
+            commit: commit_bytes,
+            welcome: welcome_bytes,
+            group_info: gi_bytes,
+        })
     }
 
     pub async fn leave_group(
@@ -1159,8 +1283,12 @@ impl MlsEngine {
         let provider = self.load_for_group(&group_id_bytes).await?;
         let mut group = load_group(&group_id_bytes, &provider)?;
 
-        let msg = group.leave_group(&provider, &signer).map_err(|e| format!("Failed to leave group: {}", e))?;
-        let msg_bytes = msg.tls_serialize_detached().map_err(|e| format!("Failed to serialize leave message: {}", e))?;
+        let msg = group
+            .leave_group(&provider, &signer)
+            .map_err(|e| format!("Failed to leave group: {}", e))?;
+        let msg_bytes = msg
+            .tls_serialize_detached()
+            .map_err(|e| format!("Failed to serialize leave message: {}", e))?;
 
         self.commit(provider, Some(&group_id_bytes)).await?;
 
@@ -1176,8 +1304,12 @@ impl MlsEngine {
         let provider = self.load_for_group(&group_id_bytes).await?;
         let mut group = load_group(&group_id_bytes, &provider)?;
 
-        let msg = group.leave_group_via_self_remove(&provider, &signer).map_err(|e| format!("Failed to leave group via self-remove: {}", e))?;
-        let msg_bytes = msg.tls_serialize_detached().map_err(|e| format!("Failed to serialize leave message: {}", e))?;
+        let msg = group
+            .leave_group_via_self_remove(&provider, &signer)
+            .map_err(|e| format!("Failed to leave group via self-remove: {}", e))?;
+        let msg_bytes = msg
+            .tls_serialize_detached()
+            .map_err(|e| format!("Failed to serialize leave message: {}", e))?;
 
         self.commit(provider, Some(&group_id_bytes)).await?;
 
@@ -1200,16 +1332,22 @@ impl MlsEngine {
 
         let kp_in = KeyPackageIn::tls_deserialize_exact_bytes(&key_package_bytes)
             .map_err(|e| format!("Failed to deserialize key package: {}", e))?;
-        let kp = kp_in.validate(provider.crypto(), ProtocolVersion::Mls10)
+        let kp = kp_in
+            .validate(provider.crypto(), ProtocolVersion::Mls10)
             .map_err(|e| format!("Failed to validate key package: {}", e))?;
 
-        let (proposal_out, _) = group.propose_add_member(&provider, &signer, &kp)
+        let (proposal_out, _) = group
+            .propose_add_member(&provider, &signer, &kp)
             .map_err(|e| format!("Failed to propose add: {}", e))?;
-        let msg_bytes = proposal_out.tls_serialize_detached().map_err(|e| format!("Failed to serialize proposal: {}", e))?;
+        let msg_bytes = proposal_out
+            .tls_serialize_detached()
+            .map_err(|e| format!("Failed to serialize proposal: {}", e))?;
 
         self.commit(provider, Some(&group_id_bytes)).await?;
 
-        Ok(ProposalResult { proposal_message: msg_bytes })
+        Ok(ProposalResult {
+            proposal_message: msg_bytes,
+        })
     }
 
     pub async fn propose_remove(
@@ -1222,13 +1360,18 @@ impl MlsEngine {
         let provider = self.load_for_group(&group_id_bytes).await?;
         let mut group = load_group(&group_id_bytes, &provider)?;
 
-        let (proposal_out, _) = group.propose_remove_member(&provider, &signer, LeafNodeIndex::new(member_index))
+        let (proposal_out, _) = group
+            .propose_remove_member(&provider, &signer, LeafNodeIndex::new(member_index))
             .map_err(|e| format!("Failed to propose remove: {}", e))?;
-        let msg_bytes = proposal_out.tls_serialize_detached().map_err(|e| format!("Failed to serialize proposal: {}", e))?;
+        let msg_bytes = proposal_out
+            .tls_serialize_detached()
+            .map_err(|e| format!("Failed to serialize proposal: {}", e))?;
 
         self.commit(provider, Some(&group_id_bytes)).await?;
 
-        Ok(ProposalResult { proposal_message: msg_bytes })
+        Ok(ProposalResult {
+            proposal_message: msg_bytes,
+        })
     }
 
     pub async fn propose_self_update(
@@ -1253,13 +1396,18 @@ impl MlsEngine {
         }
         let leaf_node_params = ln_builder.build();
 
-        let (proposal_out, _) = group.propose_self_update(&provider, &signer, leaf_node_params)
+        let (proposal_out, _) = group
+            .propose_self_update(&provider, &signer, leaf_node_params)
             .map_err(|e| format!("Failed to propose self-update: {}", e))?;
-        let msg_bytes = proposal_out.tls_serialize_detached().map_err(|e| format!("Failed to serialize proposal: {}", e))?;
+        let msg_bytes = proposal_out
+            .tls_serialize_detached()
+            .map_err(|e| format!("Failed to serialize proposal: {}", e))?;
 
         self.commit(provider, Some(&group_id_bytes)).await?;
 
-        Ok(ProposalResult { proposal_message: msg_bytes })
+        Ok(ProposalResult {
+            proposal_message: msg_bytes,
+        })
     }
 
     pub async fn propose_external_psk(
@@ -1274,13 +1422,18 @@ impl MlsEngine {
         let mut group = load_group(&group_id_bytes, &provider)?;
 
         let psk = PreSharedKeyId::external(psk_id, psk_nonce);
-        let (proposal_out, _) = group.propose_external_psk(&provider, &signer, psk)
+        let (proposal_out, _) = group
+            .propose_external_psk(&provider, &signer, psk)
             .map_err(|e| format!("Failed to propose external PSK: {}", e))?;
-        let msg_bytes = proposal_out.tls_serialize_detached().map_err(|e| format!("Failed to serialize proposal: {}", e))?;
+        let msg_bytes = proposal_out
+            .tls_serialize_detached()
+            .map_err(|e| format!("Failed to serialize proposal: {}", e))?;
 
         self.commit(provider, Some(&group_id_bytes)).await?;
 
-        Ok(ProposalResult { proposal_message: msg_bytes })
+        Ok(ProposalResult {
+            proposal_message: msg_bytes,
+        })
     }
 
     pub async fn propose_group_context_extensions(
@@ -1293,16 +1446,25 @@ impl MlsEngine {
         let provider = self.load_for_group(&group_id_bytes).await?;
         let mut group = load_group(&group_id_bytes, &provider)?;
 
-        let ext_vec: Vec<Extension> = extensions.iter().map(|ext| Extension::Unknown(ext.extension_type, UnknownExtension(ext.data.clone()))).collect();
-        let gc_extensions = Extensions::from_vec(ext_vec).map_err(|e| format!("Failed to create extensions: {}", e))?;
+        let ext_vec: Vec<Extension> = extensions
+            .iter()
+            .map(|ext| Extension::Unknown(ext.extension_type, UnknownExtension(ext.data.clone())))
+            .collect();
+        let gc_extensions = Extensions::from_vec(ext_vec)
+            .map_err(|e| format!("Failed to create extensions: {}", e))?;
 
-        let (proposal_out, _) = group.propose_group_context_extensions(&provider, gc_extensions, &signer)
+        let (proposal_out, _) = group
+            .propose_group_context_extensions(&provider, gc_extensions, &signer)
             .map_err(|e| format!("Failed to propose group context extensions: {}", e))?;
-        let msg_bytes = proposal_out.tls_serialize_detached().map_err(|e| format!("Failed to serialize proposal: {}", e))?;
+        let msg_bytes = proposal_out
+            .tls_serialize_detached()
+            .map_err(|e| format!("Failed to serialize proposal: {}", e))?;
 
         self.commit(provider, Some(&group_id_bytes)).await?;
 
-        Ok(ProposalResult { proposal_message: msg_bytes })
+        Ok(ProposalResult {
+            proposal_message: msg_bytes,
+        })
     }
 
     pub async fn propose_custom_proposal(
@@ -1317,13 +1479,18 @@ impl MlsEngine {
         let mut group = load_group(&group_id_bytes, &provider)?;
 
         let custom = CustomProposal::new(proposal_type, payload);
-        let (proposal_out, _) = group.propose_custom_proposal_by_reference(&provider, &signer, custom)
+        let (proposal_out, _) = group
+            .propose_custom_proposal_by_reference(&provider, &signer, custom)
             .map_err(|e| format!("Failed to propose custom proposal: {}", e))?;
-        let msg_bytes = proposal_out.tls_serialize_detached().map_err(|e| format!("Failed to serialize proposal: {}", e))?;
+        let msg_bytes = proposal_out
+            .tls_serialize_detached()
+            .map_err(|e| format!("Failed to serialize proposal: {}", e))?;
 
         self.commit(provider, Some(&group_id_bytes)).await?;
 
-        Ok(ProposalResult { proposal_message: msg_bytes })
+        Ok(ProposalResult {
+            proposal_message: msg_bytes,
+        })
     }
 
     pub async fn propose_remove_member_by_credential(
@@ -1338,13 +1505,18 @@ impl MlsEngine {
 
         let credential = Credential::tls_deserialize_exact_bytes(&credential_bytes)
             .map_err(|e| format!("Failed to deserialize credential: {}", e))?;
-        let (proposal_out, _) = group.propose_remove_member_by_credential(&provider, &signer, &credential)
+        let (proposal_out, _) = group
+            .propose_remove_member_by_credential(&provider, &signer, &credential)
             .map_err(|e| format!("Failed to propose remove by credential: {}", e))?;
-        let msg_bytes = proposal_out.tls_serialize_detached().map_err(|e| format!("Failed to serialize proposal: {}", e))?;
+        let msg_bytes = proposal_out
+            .tls_serialize_detached()
+            .map_err(|e| format!("Failed to serialize proposal: {}", e))?;
 
         self.commit(provider, Some(&group_id_bytes)).await?;
 
-        Ok(ProposalResult { proposal_message: msg_bytes })
+        Ok(ProposalResult {
+            proposal_message: msg_bytes,
+        })
     }
 
     // ═══════════════════════════════════════════════════════════
@@ -1363,46 +1535,57 @@ impl MlsEngine {
         let (commit_out, welcome_opt, group_info_opt) = group
             .commit_to_pending_proposals(&provider, &signer)
             .map_err(|e| format!("Failed to commit to pending proposals: {}", e))?;
-        group.merge_pending_commit(&provider).map_err(|e| format!("Failed to merge pending commit: {}", e))?;
+        group
+            .merge_pending_commit(&provider)
+            .map_err(|e| format!("Failed to merge pending commit: {}", e))?;
 
-        let commit_bytes = commit_out.tls_serialize_detached().map_err(|e| format!("Failed to serialize commit: {}", e))?;
-        let welcome_bytes: Option<Vec<u8>> = welcome_opt.map(|w: MlsMessageOut| w.tls_serialize_detached()).transpose().map_err(|e| format!("Failed to serialize welcome: {}", e))?;
-        let gi_bytes = group_info_opt.map(|gi| gi.tls_serialize_detached()).transpose().map_err(|e| format!("Failed to serialize group info: {}", e))?;
+        let commit_bytes = commit_out
+            .tls_serialize_detached()
+            .map_err(|e| format!("Failed to serialize commit: {}", e))?;
+        let welcome_bytes: Option<Vec<u8>> = welcome_opt
+            .map(|w: MlsMessageOut| w.tls_serialize_detached())
+            .transpose()
+            .map_err(|e| format!("Failed to serialize welcome: {}", e))?;
+        let gi_bytes = group_info_opt
+            .map(|gi| gi.tls_serialize_detached())
+            .transpose()
+            .map_err(|e| format!("Failed to serialize group info: {}", e))?;
 
         self.commit(provider, Some(&group_id_bytes)).await?;
 
-        Ok(CommitResult { commit: commit_bytes, welcome: welcome_bytes, group_info: gi_bytes })
+        Ok(CommitResult {
+            commit: commit_bytes,
+            welcome: welcome_bytes,
+            group_info: gi_bytes,
+        })
     }
 
-    pub async fn merge_pending_commit(
-        &self,
-        group_id_bytes: Vec<u8>,
-    ) -> Result<(), String> {
+    pub async fn merge_pending_commit(&self, group_id_bytes: Vec<u8>) -> Result<(), String> {
         let provider = self.load_for_group(&group_id_bytes).await?;
         let mut group = load_group(&group_id_bytes, &provider)?;
-        group.merge_pending_commit(&provider).map_err(|e| format!("Failed to merge pending commit: {}", e))?;
+        group
+            .merge_pending_commit(&provider)
+            .map_err(|e| format!("Failed to merge pending commit: {}", e))?;
 
         self.commit(provider, Some(&group_id_bytes)).await
     }
 
-    pub async fn clear_pending_commit(
-        &self,
-        group_id_bytes: Vec<u8>,
-    ) -> Result<(), String> {
+    pub async fn clear_pending_commit(&self, group_id_bytes: Vec<u8>) -> Result<(), String> {
         let provider = self.load_for_group(&group_id_bytes).await?;
         let mut group = load_group(&group_id_bytes, &provider)?;
-        group.clear_pending_commit(provider.storage()).map_err(|e| format!("Failed to clear pending commit: {}", e))?;
+        group
+            .clear_pending_commit(provider.storage())
+            .map_err(|e| format!("Failed to clear pending commit: {}", e))?;
 
         self.commit(provider, Some(&group_id_bytes)).await
     }
 
-    pub async fn clear_pending_proposals(
-        &self,
-        group_id_bytes: Vec<u8>,
-    ) -> Result<(), String> {
+    pub async fn clear_pending_proposals(&self, group_id_bytes: Vec<u8>) -> Result<(), String> {
         let provider = self.load_for_group(&group_id_bytes).await?;
         let mut group = load_group(&group_id_bytes, &provider)?;
-        group.clear_pending_proposals(provider.storage()).map_err(|e| format!("Failed to clear pending proposals: {}", e))?;
+        group
+            .clear_pending_proposals(provider.storage())
+            .map_err(|e| format!("Failed to clear pending proposals: {}", e))?;
 
         self.commit(provider, Some(&group_id_bytes)).await
     }
@@ -1415,7 +1598,9 @@ impl MlsEngine {
         let provider = self.load_for_group(&group_id_bytes).await?;
         let mut group = load_group(&group_id_bytes, &provider)?;
         let join_config = config.to_join_config();
-        group.set_configuration(provider.storage(), &join_config).map_err(|e| format!("Failed to set configuration: {}", e))?;
+        group
+            .set_configuration(provider.storage(), &join_config)
+            .map_err(|e| format!("Failed to set configuration: {}", e))?;
 
         self.commit(provider, Some(&group_id_bytes)).await
     }
@@ -1430,21 +1615,39 @@ impl MlsEngine {
         let provider = self.load_for_group(&group_id_bytes).await?;
         let mut group = load_group(&group_id_bytes, &provider)?;
 
-        let ext_vec: Vec<Extension> = extensions.iter().map(|ext| Extension::Unknown(ext.extension_type, UnknownExtension(ext.data.clone()))).collect();
-        let gc_extensions = Extensions::from_vec(ext_vec).map_err(|e| format!("Failed to create extensions: {}", e))?;
+        let ext_vec: Vec<Extension> = extensions
+            .iter()
+            .map(|ext| Extension::Unknown(ext.extension_type, UnknownExtension(ext.data.clone())))
+            .collect();
+        let gc_extensions = Extensions::from_vec(ext_vec)
+            .map_err(|e| format!("Failed to create extensions: {}", e))?;
 
         let (commit_out, welcome_opt, group_info_opt) = group
             .update_group_context_extensions(&provider, gc_extensions, &signer)
             .map_err(|e| format!("Failed to update group context extensions: {}", e))?;
-        group.merge_pending_commit(&provider).map_err(|e| format!("Failed to merge pending commit: {}", e))?;
+        group
+            .merge_pending_commit(&provider)
+            .map_err(|e| format!("Failed to merge pending commit: {}", e))?;
 
-        let commit_bytes = commit_out.tls_serialize_detached().map_err(|e| format!("Failed to serialize commit: {}", e))?;
-        let welcome_bytes: Option<Vec<u8>> = welcome_opt.map(|w: MlsMessageOut| w.tls_serialize_detached()).transpose().map_err(|e| format!("Failed to serialize welcome: {}", e))?;
-        let gi_bytes = group_info_opt.map(|gi| gi.tls_serialize_detached()).transpose().map_err(|e| format!("Failed to serialize group info: {}", e))?;
+        let commit_bytes = commit_out
+            .tls_serialize_detached()
+            .map_err(|e| format!("Failed to serialize commit: {}", e))?;
+        let welcome_bytes: Option<Vec<u8>> = welcome_opt
+            .map(|w: MlsMessageOut| w.tls_serialize_detached())
+            .transpose()
+            .map_err(|e| format!("Failed to serialize welcome: {}", e))?;
+        let gi_bytes = group_info_opt
+            .map(|gi| gi.tls_serialize_detached())
+            .transpose()
+            .map_err(|e| format!("Failed to serialize group info: {}", e))?;
 
         self.commit(provider, Some(&group_id_bytes)).await?;
 
-        Ok(CommitResult { commit: commit_bytes, welcome: welcome_bytes, group_info: gi_bytes })
+        Ok(CommitResult {
+            commit: commit_bytes,
+            welcome: welcome_bytes,
+            group_info: gi_bytes,
+        })
     }
 
     pub async fn flexible_commit(
@@ -1461,7 +1664,8 @@ impl MlsEngine {
             group.set_aad(aad_bytes);
         }
 
-        let mut commit_builder = group.commit_builder()
+        let mut commit_builder = group
+            .commit_builder()
             .consume_proposal_store(options.consume_pending_proposals)
             .force_self_update(options.force_self_update);
 
@@ -1470,7 +1674,8 @@ impl MlsEngine {
             for kp_bytes in &options.add_key_packages {
                 let kp_in = KeyPackageIn::tls_deserialize_exact_bytes(kp_bytes)
                     .map_err(|e| format!("Failed to deserialize key package: {}", e))?;
-                let kp = kp_in.validate(provider.crypto(), ProtocolVersion::Mls10)
+                let kp = kp_in
+                    .validate(provider.crypto(), ProtocolVersion::Mls10)
                     .map_err(|e| format!("Failed to validate key package: {}", e))?;
                 key_packages.push(kp);
             }
@@ -1478,29 +1683,59 @@ impl MlsEngine {
         }
 
         if !options.remove_indices.is_empty() {
-            commit_builder = commit_builder.propose_removals(options.remove_indices.iter().map(|&i| LeafNodeIndex::new(i)));
+            commit_builder = commit_builder.propose_removals(
+                options
+                    .remove_indices
+                    .iter()
+                    .map(|&i| LeafNodeIndex::new(i)),
+            );
         }
 
         if let Some(ref gc_exts) = options.group_context_extensions {
             let ext_vec = extensions_from_mls(gc_exts);
-            let extensions = Extensions::from_vec(ext_vec).map_err(|e| format!("Failed to create group context extensions: {}", e))?;
-            commit_builder = commit_builder.propose_group_context_extensions(extensions).map_err(|e| format!("Failed to propose group context extensions: {}", e))?;
+            let extensions = Extensions::from_vec(ext_vec)
+                .map_err(|e| format!("Failed to create group context extensions: {}", e))?;
+            commit_builder = commit_builder
+                .propose_group_context_extensions(extensions)
+                .map_err(|e| format!("Failed to propose group context extensions: {}", e))?;
         }
 
-        let commit_builder = commit_builder.load_psks(provider.storage()).map_err(|e| format!("Failed to load PSKs: {}", e))?;
-        let commit_builder = commit_builder.create_group_info(options.create_group_info).use_ratchet_tree_extension(options.use_ratchet_tree_extension);
-        let commit_builder = commit_builder.build(provider.rand(), provider.crypto(), &signer, |_| true).map_err(|e| format!("Failed to build commit: {}", e))?;
-        let bundle = commit_builder.stage_commit(&provider).map_err(|e| format!("Failed to stage commit: {}", e))?;
-        group.merge_pending_commit(&provider).map_err(|e| format!("Failed to merge pending commit: {}", e))?;
+        let commit_builder = commit_builder
+            .load_psks(provider.storage())
+            .map_err(|e| format!("Failed to load PSKs: {}", e))?;
+        let commit_builder = commit_builder
+            .create_group_info(options.create_group_info)
+            .use_ratchet_tree_extension(options.use_ratchet_tree_extension);
+        let commit_builder = commit_builder
+            .build(provider.rand(), provider.crypto(), &signer, |_| true)
+            .map_err(|e| format!("Failed to build commit: {}", e))?;
+        let bundle = commit_builder
+            .stage_commit(&provider)
+            .map_err(|e| format!("Failed to stage commit: {}", e))?;
+        group
+            .merge_pending_commit(&provider)
+            .map_err(|e| format!("Failed to merge pending commit: {}", e))?;
 
         let (commit_out, welcome_opt, gi_opt) = bundle.into_messages();
-        let commit_bytes = commit_out.tls_serialize_detached().map_err(|e| format!("Failed to serialize commit: {}", e))?;
-        let welcome_bytes: Option<Vec<u8>> = welcome_opt.map(|w| w.tls_serialize_detached()).transpose().map_err(|e| format!("Failed to serialize welcome: {}", e))?;
-        let gi_bytes = gi_opt.map(|gi| gi.tls_serialize_detached()).transpose().map_err(|e| format!("Failed to serialize group info: {}", e))?;
+        let commit_bytes = commit_out
+            .tls_serialize_detached()
+            .map_err(|e| format!("Failed to serialize commit: {}", e))?;
+        let welcome_bytes: Option<Vec<u8>> = welcome_opt
+            .map(|w| w.tls_serialize_detached())
+            .transpose()
+            .map_err(|e| format!("Failed to serialize welcome: {}", e))?;
+        let gi_bytes = gi_opt
+            .map(|gi| gi.tls_serialize_detached())
+            .transpose()
+            .map_err(|e| format!("Failed to serialize group info: {}", e))?;
 
         self.commit(provider, Some(&group_id_bytes)).await?;
 
-        Ok(CommitResult { commit: commit_bytes, welcome: welcome_bytes, group_info: gi_bytes })
+        Ok(CommitResult {
+            commit: commit_bytes,
+            welcome: welcome_bytes,
+            group_info: gi_bytes,
+        })
     }
 
     // ═══════════════════════════════════════════════════════════
@@ -1522,9 +1757,12 @@ impl MlsEngine {
             group.set_aad(aad_bytes);
         }
 
-        let msg_out = group.create_message(&provider, &signer, &message)
+        let msg_out = group
+            .create_message(&provider, &signer, &message)
             .map_err(|e| format!("Failed to create message: {}", e))?;
-        let ciphertext = msg_out.tls_serialize_detached().map_err(|e| format!("Failed to serialize message: {}", e))?;
+        let ciphertext = msg_out
+            .tls_serialize_detached()
+            .map_err(|e| format!("Failed to serialize message: {}", e))?;
 
         self.commit(provider, Some(&group_id_bytes)).await?;
 
@@ -1541,10 +1779,12 @@ impl MlsEngine {
 
         let msg_in = MlsMessageIn::tls_deserialize_exact_bytes(&message_bytes)
             .map_err(|e| format!("Failed to deserialize message: {}", e))?;
-        let protocol_msg = msg_in.try_into_protocol_message()
+        let protocol_msg = msg_in
+            .try_into_protocol_message()
             .map_err(|e| format!("Not a protocol message: {}", e))?;
 
-        let processed = group.process_message(&provider, protocol_msg)
+        let processed = group
+            .process_message(&provider, protocol_msg)
             .map_err(|e| format!("Failed to process message: {}", e))?;
 
         let sender_index = match processed.sender() {
@@ -1555,11 +1795,16 @@ impl MlsEngine {
 
         let (message_type, application_message, has_staged_commit, has_proposal, proposal_type) =
             match processed.into_content() {
-                ProcessedMessageContent::ApplicationMessage(app_msg) => {
-                    (ProcessedMessageType::Application, Some(app_msg.into_bytes()), false, false, None)
-                }
+                ProcessedMessageContent::ApplicationMessage(app_msg) => (
+                    ProcessedMessageType::Application,
+                    Some(app_msg.into_bytes()),
+                    false,
+                    false,
+                    None,
+                ),
                 ProcessedMessageContent::StagedCommitMessage(staged_commit) => {
-                    group.merge_staged_commit(&provider, *staged_commit)
+                    group
+                        .merge_staged_commit(&provider, *staged_commit)
                         .map_err(|e| format!("Failed to merge staged commit: {}", e))?;
                     (ProcessedMessageType::StagedCommit, None, true, false, None)
                 }
@@ -1571,12 +1816,21 @@ impl MlsEngine {
                         Proposal::PreSharedKey(_) => MlsProposalType::PreSharedKey,
                         Proposal::ReInit(_) => MlsProposalType::Reinit,
                         Proposal::ExternalInit(_) => MlsProposalType::ExternalInit,
-                        Proposal::GroupContextExtensions(_) => MlsProposalType::GroupContextExtensions,
+                        Proposal::GroupContextExtensions(_) => {
+                            MlsProposalType::GroupContextExtensions
+                        }
                         _ => MlsProposalType::Custom,
                     };
-                    group.store_pending_proposal(provider.storage(), *queued_proposal)
+                    group
+                        .store_pending_proposal(provider.storage(), *queued_proposal)
                         .map_err(|e| format!("Failed to store pending proposal: {}", e))?;
-                    (ProcessedMessageType::Proposal, None, false, true, Some(prop_type))
+                    (
+                        ProcessedMessageType::Proposal,
+                        None,
+                        false,
+                        true,
+                        Some(prop_type),
+                    )
                 }
                 _ => return Err("Unknown processed message content type".to_string()),
             };
@@ -1584,7 +1838,13 @@ impl MlsEngine {
         self.commit(provider, Some(&group_id_bytes)).await?;
 
         Ok(ProcessedMessageResult {
-            message_type, sender_index, epoch, application_message, has_staged_commit, has_proposal, proposal_type,
+            message_type,
+            sender_index,
+            epoch,
+            application_message,
+            has_staged_commit,
+            has_proposal,
+            proposal_type,
         })
     }
 
@@ -1598,10 +1858,12 @@ impl MlsEngine {
 
         let msg_in = MlsMessageIn::tls_deserialize_exact_bytes(&message_bytes)
             .map_err(|e| format!("Failed to deserialize message: {}", e))?;
-        let protocol_msg = msg_in.try_into_protocol_message()
+        let protocol_msg = msg_in
+            .try_into_protocol_message()
             .map_err(|e| format!("Not a protocol message: {}", e))?;
 
-        let processed = group.process_message(&provider, protocol_msg)
+        let processed = group
+            .process_message(&provider, protocol_msg)
             .map_err(|e| format!("Failed to process message: {}", e))?;
 
         let sender_index = match processed.sender() {
@@ -1610,52 +1872,74 @@ impl MlsEngine {
         };
         let epoch = group.epoch().as_u64();
 
-        let (message_type, application_message, staged_commit_info, proposal_type) =
-            match processed.into_content() {
-                ProcessedMessageContent::ApplicationMessage(app_msg) => {
-                    (ProcessedMessageType::Application, Some(app_msg.into_bytes()), None, None)
+        let (message_type, application_message, staged_commit_info, proposal_type) = match processed
+            .into_content()
+        {
+            ProcessedMessageContent::ApplicationMessage(app_msg) => (
+                ProcessedMessageType::Application,
+                Some(app_msg.into_bytes()),
+                None,
+                None,
+            ),
+            ProcessedMessageContent::StagedCommitMessage(staged_commit) => {
+                let mut add_credentials = Vec::new();
+                for add in staged_commit.add_proposals() {
+                    let kp = add.add_proposal().key_package();
+                    let cred_bytes = kp
+                        .leaf_node()
+                        .credential()
+                        .tls_serialize_detached()
+                        .map_err(|e| format!("Failed to serialize add credential: {}", e))?;
+                    add_credentials.push(cred_bytes);
                 }
-                ProcessedMessageContent::StagedCommitMessage(staged_commit) => {
-                    let mut add_credentials = Vec::new();
-                    for add in staged_commit.add_proposals() {
-                        let kp = add.add_proposal().key_package();
-                        let cred_bytes = kp.leaf_node().credential()
-                            .tls_serialize_detached()
-                            .map_err(|e| format!("Failed to serialize add credential: {}", e))?;
-                        add_credentials.push(cred_bytes);
-                    }
-                    let remove_indices: Vec<u32> = staged_commit.remove_proposals().map(|r| r.remove_proposal().removed().u32()).collect();
-                    let has_update = staged_commit.update_proposals().next().is_some();
-                    let self_removed = staged_commit.self_removed();
-                    let psk_count = staged_commit.psk_proposals().count() as u32;
-                    let info = StagedCommitInfo { add_credentials, remove_indices, has_update, self_removed, psk_count };
+                let remove_indices: Vec<u32> = staged_commit
+                    .remove_proposals()
+                    .map(|r| r.remove_proposal().removed().u32())
+                    .collect();
+                let has_update = staged_commit.update_proposals().next().is_some();
+                let self_removed = staged_commit.self_removed();
+                let psk_count = staged_commit.psk_proposals().count() as u32;
+                let info = StagedCommitInfo {
+                    add_credentials,
+                    remove_indices,
+                    has_update,
+                    self_removed,
+                    psk_count,
+                };
 
-                    group.merge_staged_commit(&provider, *staged_commit)
-                        .map_err(|e| format!("Failed to merge staged commit: {}", e))?;
-                    (ProcessedMessageType::StagedCommit, None, Some(info), None)
-                }
-                ProcessedMessageContent::ProposalMessage(queued_proposal) => {
-                    let prop_type = match queued_proposal.proposal() {
-                        Proposal::Add(_) => MlsProposalType::Add,
-                        Proposal::Remove(_) => MlsProposalType::Remove,
-                        Proposal::Update(_) => MlsProposalType::Update,
-                        Proposal::PreSharedKey(_) => MlsProposalType::PreSharedKey,
-                        Proposal::ReInit(_) => MlsProposalType::Reinit,
-                        Proposal::ExternalInit(_) => MlsProposalType::ExternalInit,
-                        Proposal::GroupContextExtensions(_) => MlsProposalType::GroupContextExtensions,
-                        _ => MlsProposalType::Custom,
-                    };
-                    group.store_pending_proposal(provider.storage(), *queued_proposal)
-                        .map_err(|e| format!("Failed to store pending proposal: {}", e))?;
-                    (ProcessedMessageType::Proposal, None, None, Some(prop_type))
-                }
-                _ => return Err("Unknown processed message content type".to_string()),
-            };
+                group
+                    .merge_staged_commit(&provider, *staged_commit)
+                    .map_err(|e| format!("Failed to merge staged commit: {}", e))?;
+                (ProcessedMessageType::StagedCommit, None, Some(info), None)
+            }
+            ProcessedMessageContent::ProposalMessage(queued_proposal) => {
+                let prop_type = match queued_proposal.proposal() {
+                    Proposal::Add(_) => MlsProposalType::Add,
+                    Proposal::Remove(_) => MlsProposalType::Remove,
+                    Proposal::Update(_) => MlsProposalType::Update,
+                    Proposal::PreSharedKey(_) => MlsProposalType::PreSharedKey,
+                    Proposal::ReInit(_) => MlsProposalType::Reinit,
+                    Proposal::ExternalInit(_) => MlsProposalType::ExternalInit,
+                    Proposal::GroupContextExtensions(_) => MlsProposalType::GroupContextExtensions,
+                    _ => MlsProposalType::Custom,
+                };
+                group
+                    .store_pending_proposal(provider.storage(), *queued_proposal)
+                    .map_err(|e| format!("Failed to store pending proposal: {}", e))?;
+                (ProcessedMessageType::Proposal, None, None, Some(prop_type))
+            }
+            _ => return Err("Unknown processed message content type".to_string()),
+        };
 
         self.commit(provider, Some(&group_id_bytes)).await?;
 
         Ok(ProcessedMessageInspectResult {
-            message_type, sender_index, epoch, application_message, staged_commit_info, proposal_type,
+            message_type,
+            sender_index,
+            epoch,
+            application_message,
+            staged_commit_info,
+            proposal_type,
         })
     }
 
@@ -1663,26 +1947,26 @@ impl MlsEngine {
     // STORAGE CLEANUP (mutating)
     // ═══════════════════════════════════════════════════════════
 
-    pub async fn delete_group(
-        &self,
-        group_id_bytes: Vec<u8>,
-    ) -> Result<(), String> {
+    pub async fn delete_group(&self, group_id_bytes: Vec<u8>) -> Result<(), String> {
         let provider = self.load_for_group(&group_id_bytes).await?;
         let mut group = load_group(&group_id_bytes, &provider)?;
-        group.delete(provider.storage()).map_err(|e| format!("Failed to delete group: {}", e))?;
+        group
+            .delete(provider.storage())
+            .map_err(|e| format!("Failed to delete group: {}", e))?;
 
         self.commit(provider, Some(&group_id_bytes)).await?;
         self.db()?.delete_group(&group_id_bytes).await
     }
 
-    pub async fn delete_key_package(
-        &self,
-        key_package_ref_bytes: Vec<u8>,
-    ) -> Result<(), String> {
+    pub async fn delete_key_package(&self, key_package_ref_bytes: Vec<u8>) -> Result<(), String> {
         let provider = self.load_global().await?;
-        let hash_ref = openmls::ciphersuite::hash_ref::KeyPackageRef::tls_deserialize_exact_bytes(&key_package_ref_bytes)
-            .map_err(|e| format!("Failed to deserialize key package ref: {}", e))?;
-        provider.storage().delete_key_package(&hash_ref)
+        let hash_ref = openmls::ciphersuite::hash_ref::KeyPackageRef::tls_deserialize_exact_bytes(
+            &key_package_ref_bytes,
+        )
+        .map_err(|e| format!("Failed to deserialize key package ref: {}", e))?;
+        provider
+            .storage()
+            .delete_key_package(&hash_ref)
             .map_err(|e| format!("Failed to delete key package: {}", e))?;
 
         self.commit(provider, None).await
@@ -1701,7 +1985,8 @@ impl MlsEngine {
         let mut group = load_group(&group_id_bytes, &provider)?;
         let proposal_ref = ProposalRef::tls_deserialize_exact_bytes(&proposal_ref_bytes)
             .map_err(|e| format!("Failed to deserialize proposal ref: {}", e))?;
-        group.remove_pending_proposal(provider.storage(), &proposal_ref)
+        group
+            .remove_pending_proposal(provider.storage(), &proposal_ref)
             .map_err(|e| format!("Failed to remove pending proposal: {}", e))?;
 
         self.commit(provider, Some(&group_id_bytes)).await

@@ -43,6 +43,10 @@ void main() {
         suites,
         contains(MlsCiphersuite.mls128DhkemX25519Aes128GcmSha256Ed25519),
       );
+      expect(
+        suites,
+        contains(MlsCiphersuite.mls256XwingChacha20Poly1305Sha256Ed25519),
+      );
     });
   });
 
