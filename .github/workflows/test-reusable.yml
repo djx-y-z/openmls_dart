@@ -137,7 +137,22 @@ jobs:
     if: inputs.update-badge && inputs.run-coverage
     runs-on: ubuntu-latest
     steps:
+      - name: Check coverage badge configuration
+        id: badge-config
+        env:
+          GIST_TOKEN: ${{ secrets.GIST_TOKEN }}
+          GIST_ID: ${{ vars.COVERAGE_GIST_ID }}
+        run: |
+          if [[ -n "$GIST_TOKEN" && -n "$GIST_ID" ]]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "Coverage badge update skipped; configure GIST_TOKEN and COVERAGE_GIST_ID to enable it."
+          fi
+        shell: bash
+
       - name: Update coverage badge
+        if: steps.badge-config.outputs.enabled == 'true'
         uses: schneegans/dynamic-badges-action@v1.7.0
         with:
           auth: ${{ secrets.GIST_TOKEN }}
