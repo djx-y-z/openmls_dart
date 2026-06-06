@@ -5,6 +5,7 @@
 #![allow(dead_code)]
 
 mod encrypted_db;
+mod hybrid_crypto;
 mod snapshot_storage;
 mod frb_generated;
 mod utils;

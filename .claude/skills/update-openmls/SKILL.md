@@ -104,6 +104,19 @@ git commit -m "fix: adapt for openmls vX.Y.Z breaking changes"
 - [ ] `make rust-check` — sync Cargo.lock
 - [ ] Commit all changes
 
+### X-Wing / RustSec checklist (extra steps on every upstream bump)
+
+- [ ] Remove the RUSTSEC ignore entries from `.cargo/audit.toml` and re-run
+      `make rust-audit` — if advisories still fire, re-verify reachability
+      before re-adding ignores (justifications are inline in that file)
+- [ ] Verify `HpkeKemType::XWingKemDraft6` and
+      `MLS_256_XWING_CHACHA20POLY1305_SHA256_Ed25519` (0x004D) still exist
+      upstream with unchanged wire semantics (a draft bump would be a NEW
+      identifier per upstream policy — groups on 0x004D must keep working)
+- [ ] `make build-web` passes (libcrux WASM compile; getrandom features)
+- [ ] Run the example app's **Post-Quantum** demo tab on native AND Chrome
+      (dart2js) — full X-Wing lifecycle smoke must print `RESULT: PASS`
+
 ---
 
 ## Quick Update (Automatic)

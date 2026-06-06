@@ -173,6 +173,22 @@ enum MlsCiphersuite {
   mls128DhkemX25519Aes128GcmSha256Ed25519,
   mls128DhkemX25519Chacha20Poly1305Sha256Ed25519,
   mls128DhkemP256Aes128GcmSha256P256,
+
+  /// **Experimental** hybrid post-quantum ciphersuite based on the X-Wing
+  /// KEM (ML-KEM-768 + X25519, draft-connolly-cfrg-xwing-kem-06).
+  ///
+  /// Provides protection against harvest-now-decrypt-later attacks within
+  /// closed deployments. Important limitations:
+  ///
+  /// - The ciphersuite value (0x004D) is **not registered with IANA** and
+  ///   comes from an expired individual draft. Interoperability is limited
+  ///   to OpenMLS-based stacks (and ts-mls).
+  /// - When an official IANA-registered post-quantum suite is standardized,
+  ///   groups using this suite will need to migrate to it.
+  /// - The underlying libcrux KEM implementation is pre-1.0 (its ML-KEM
+  ///   source is formally verified, but compiled executables carry no
+  ///   side-channel-resistance verification).
+  mls256XwingChacha20Poly1305Sha256Ed25519,
 }
 
 /// An MLS extension (type + data).

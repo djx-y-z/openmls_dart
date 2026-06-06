@@ -3943,6 +3943,7 @@ impl CstDecode<crate::api::types::MlsCiphersuite> for i32 {
             0 => crate::api::types::MlsCiphersuite::Mls128DhkemX25519Aes128gcmSha256Ed25519,
             1 => crate::api::types::MlsCiphersuite::Mls128DhkemX25519Chacha20poly1305Sha256Ed25519,
             2 => crate::api::types::MlsCiphersuite::Mls128DhkemP256Aes128gcmSha256P256,
+            3 => crate::api::types::MlsCiphersuite::Mls256XwingChacha20poly1305Sha256Ed25519,
             _ => unreachable!("Invalid variant for MlsCiphersuite: {}", self),
         }
     }
@@ -4379,6 +4380,7 @@ impl SseDecode for crate::api::types::MlsCiphersuite {
             0 => crate::api::types::MlsCiphersuite::Mls128DhkemX25519Aes128gcmSha256Ed25519,
             1 => crate::api::types::MlsCiphersuite::Mls128DhkemX25519Chacha20poly1305Sha256Ed25519,
             2 => crate::api::types::MlsCiphersuite::Mls128DhkemP256Aes128gcmSha256P256,
+            3 => crate::api::types::MlsCiphersuite::Mls256XwingChacha20poly1305Sha256Ed25519,
             _ => unreachable!("Invalid variant for MlsCiphersuite: {}", inner),
         };
     }
@@ -5091,6 +5093,7 @@ impl flutter_rust_bridge::IntoDart for crate::api::types::MlsCiphersuite {
             Self::Mls128DhkemX25519Aes128gcmSha256Ed25519 => 0.into_dart(),
             Self::Mls128DhkemX25519Chacha20poly1305Sha256Ed25519 => 1.into_dart(),
             Self::Mls128DhkemP256Aes128gcmSha256P256 => 2.into_dart(),
+            Self::Mls256XwingChacha20poly1305Sha256Ed25519 => 3.into_dart(),
             _ => unreachable!(),
         }
     }
@@ -5715,6 +5718,7 @@ impl SseEncode for crate::api::types::MlsCiphersuite {
         <i32>::sse_encode(match self {crate::api::types::MlsCiphersuite::Mls128DhkemX25519Aes128gcmSha256Ed25519 => { 0 }
 crate::api::types::MlsCiphersuite::Mls128DhkemX25519Chacha20poly1305Sha256Ed25519 => { 1 }
 crate::api::types::MlsCiphersuite::Mls128DhkemP256Aes128gcmSha256P256 => { 2 }
+crate::api::types::MlsCiphersuite::Mls256XwingChacha20poly1305Sha256Ed25519 => { 3 }
  _ => { unimplemented!(""); }}, serializer);
     }
 }

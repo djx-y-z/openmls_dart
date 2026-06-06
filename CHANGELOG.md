@@ -2,6 +2,33 @@
 
 ### For Users
 
+#### Added
+
+- **Experimental post-quantum ciphersuite**: `MlsCiphersuite.mls256XwingChacha20Poly1305Sha256Ed25519` —
+  hybrid X-Wing KEM (ML-KEM-768 + X25519, draft-connolly-cfrg-xwing-kem-06) for
+  harvest-now-decrypt-later protection. HPKE operations for this suite are delegated
+  to the formally verified libcrux ML-KEM implementation (`openmls_libcrux_crypto`,
+  same upstream `openmls-v0.8.1` pin); all classical ciphersuites continue to run
+  unchanged on RustCrypto. The libcrux provider is initialized lazily — classical
+  suites never depend on it. See the README "Post-Quantum Support (Experimental)"
+  section for important limitations (no IANA codepoint, limited interoperability,
+  future migration to the official IETF suite).
+
+#### Security
+
+- `cargo audit` reports three RustSec advisories introduced into the dependency
+  tree by `openmls_libcrux_crypto` (RUSTSEC-2026-0124, RUSTSEC-2026-0075,
+  RUSTSEC-2026-0073). Analysis: all are DoS-class (panic) or structurally
+  unreachable through this library's call paths — signatures always run on
+  RustCrypto (0075 path never invoked; libcrux's KEM/HPKE code does not link
+  ed25519), HPKE buffers are exact-size library-allocated (0124 trigger
+  impossible), and the standalone `mac()` (0073) is never called. Fixes are
+  blocked on upstream semver pins; tracked until the next upstream OpenMLS
+  release. Each advisory is ignored in `.cargo/audit.toml` with its
+  reachability justification inline — remove those entries when bumping the
+  upstream pin. The non-libcrux routing these justifications depend on is
+  enforced by the `classical_ops_do_not_init_libcrux` Rust test.
+
 #### Documentation
 
 - Document `flutter build web --wasm` (dart2wasm) limitation in README — Rust returns fail with `Type 'JSValue' is not a subtype of type 'List<dynamic>'` under dart2wasm. Upstream limitation in `flutter_rust_bridge` ([#2575](https://github.com/fzyzcjy/flutter_rust_bridge/issues/2575)), affects every FRB-based Dart package. Standard `flutter build web` (dart2js) target continues to work. ([#5](https://github.com/djx-y-z/openmls_dart/issues/5))

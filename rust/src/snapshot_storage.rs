@@ -957,14 +957,14 @@ impl StorageProvider<{ CURRENT_VERSION }> for SnapshotStorageProvider {
 // ═══════════════════════════════════════════════════════════════
 
 pub struct SnapshotOpenMlsProvider {
-    crypto: openmls_rust_crypto::RustCrypto,
+    crypto: crate::hybrid_crypto::HybridCrypto,
     storage: SnapshotStorageProvider,
 }
 
 impl SnapshotOpenMlsProvider {
     pub fn new(storage: SnapshotStorageProvider) -> Self {
         Self {
-            crypto: openmls_rust_crypto::RustCrypto::default(),
+            crypto: crate::hybrid_crypto::HybridCrypto::new(),
             storage,
         }
     }
@@ -976,8 +976,8 @@ impl SnapshotOpenMlsProvider {
 }
 
 impl OpenMlsProvider for SnapshotOpenMlsProvider {
-    type CryptoProvider = openmls_rust_crypto::RustCrypto;
-    type RandProvider = openmls_rust_crypto::RustCrypto;
+    type CryptoProvider = crate::hybrid_crypto::HybridCrypto;
+    type RandProvider = crate::hybrid_crypto::HybridCrypto;
     type StorageProvider = SnapshotStorageProvider;
 
     fn storage(&self) -> &Self::StorageProvider {

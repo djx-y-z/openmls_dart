@@ -8,8 +8,11 @@ import 'package:openmls/openmls.dart';
 final ciphersuite = MlsCiphersuite.mls128DhkemX25519Aes128GcmSha256Ed25519;
 
 /// Create a default group config for tests.
-MlsGroupConfig defaultConfig() =>
-    MlsGroupConfig.defaultConfig(ciphersuite: ciphersuite);
+///
+/// Pass [suite] to build a config for a non-default ciphersuite
+/// (e.g. the experimental X-Wing suite).
+MlsGroupConfig defaultConfig({MlsCiphersuite? suite}) =>
+    MlsGroupConfig.defaultConfig(ciphersuite: suite ?? ciphersuite);
 
 /// Extract identity bytes from a TLS-serialized Credential.
 Uint8List identityFromCredential(List<int> credentialBytes) =>

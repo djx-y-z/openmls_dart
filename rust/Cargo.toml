@@ -25,6 +25,9 @@ openmls = { git = "https://github.com/openmls/openmls", tag = "openmls-v0.8.1", 
 openmls_rust_crypto = { git = "https://github.com/openmls/openmls", tag = "openmls-v0.8.1" }
 openmls_basic_credential = { git = "https://github.com/openmls/openmls", tag = "openmls-v0.8.1", features = ["test-utils"] }
 openmls_traits = { git = "https://github.com/openmls/openmls", tag = "openmls-v0.8.1" }
+# libcrux-based provider: only used for the X-Wing hybrid post-quantum KEM
+# (HpkeKemType::XWingKemDraft6); everything else stays on openmls_rust_crypto.
+openmls_libcrux_crypto = { git = "https://github.com/openmls/openmls", tag = "openmls-v0.8.1" }
 
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
@@ -38,6 +41,8 @@ openmls = { git = "https://github.com/openmls/openmls", tag = "openmls-v0.8.1", 
 # Both need to be configured for WASM to work correctly
 getrandom_02 = { package = "getrandom", version = "0.2", features = ["js"] }
 getrandom = { version = "0.3", features = ["wasm_js"] }
+# openmls_libcrux_crypto pulls getrandom 0.4 via rand 0.10 (hpke-rs-libcrux)
+getrandom_04 = { package = "getrandom", version = "0.4", features = ["wasm_js"] }
 idb = "0.6"
 wasm-bindgen = "0.2"
 wasm-bindgen-futures = "0.4"

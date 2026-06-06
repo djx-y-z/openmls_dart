@@ -76,4 +76,25 @@ void main() {
       expect(result.keyPackageBytes, isNotEmpty);
     });
   });
+
+  group('X-Wing post-quantum keys', () {
+    const xwing = MlsCiphersuite.mls256XwingChacha20Poly1305Sha256Ed25519;
+
+    test('X-Wing ciphersuite uses Ed25519 signature scheme', () {
+      final keyPair = MlsSignatureKeyPair.generate(ciphersuite: xwing);
+      // X-Wing suite signs with Ed25519 (scheme value 0x0807).
+      expect(keyPair.signatureScheme(), equals(0x0807));
+    });
+
+    test('creates an X-Wing key package', () async {
+      final xwingId = TestIdentity.create('alice-pq', ciphersuite: xwing);
+      final result = await alice.createKeyPackage(
+        ciphersuite: xwing,
+        signerBytes: xwingId.signerBytes,
+        credentialIdentity: xwingId.credentialIdentity,
+        signerPublicKey: xwingId.publicKey,
+      );
+      expect(result.keyPackageBytes, isNotEmpty);
+    });
+  });
 }

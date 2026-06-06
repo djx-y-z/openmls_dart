@@ -36,12 +36,17 @@ void main() {
   });
 
   group('api/types', () {
-    test('supportedCiphersuites returns non-empty list', () {
-      final suites = supportedCiphersuites();
-      expect(suites, isNotEmpty);
+    test('supportedCiphersuites returns all supported suites', () {
+      // unorderedEquals asserts both membership and exact length — adding or
+      // removing a suite requires updating exactly this one list.
       expect(
-        suites,
-        contains(MlsCiphersuite.mls128DhkemX25519Aes128GcmSha256Ed25519),
+        supportedCiphersuites(),
+        unorderedEquals(const [
+          MlsCiphersuite.mls128DhkemX25519Aes128GcmSha256Ed25519,
+          MlsCiphersuite.mls128DhkemX25519Chacha20Poly1305Sha256Ed25519,
+          MlsCiphersuite.mls128DhkemP256Aes128GcmSha256P256,
+          MlsCiphersuite.mls256XwingChacha20Poly1305Sha256Ed25519,
+        ]),
       );
     });
   });

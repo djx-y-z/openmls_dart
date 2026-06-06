@@ -21,11 +21,39 @@ Dart bindings for [OpenMLS](https://github.com/openmls/openmls), providing a Rus
 
 - **MLS Protocol (RFC 9420)**: Secure group messaging with forward secrecy and post-compromise security
 - **Group Key Agreement**: Efficient tree-based group key agreement (TreeKEM)
+- **Post-Quantum (Experimental)**: Hybrid X-Wing ciphersuite (ML-KEM-768 + X25519) — see [Post-Quantum Support](#post-quantum-support-experimental)
 - **Encrypted Storage**: All MLS state encrypted at rest — SQLCipher on native, Web Crypto AES-256-GCM on WASM
 - **Basic & X.509 Credentials**: Support for both credential types
 - **Flutter & CLI Support**: Works with Flutter apps and standalone Dart CLI applications
 - **Automatic Builds**: Native libraries downloaded automatically via build hooks
 - **High Performance**: Direct Rust integration via Flutter Rust Bridge
+
+## Post-Quantum Support (Experimental)
+
+The `MlsCiphersuite.mls256XwingChacha20Poly1305Sha256Ed25519` ciphersuite uses the
+**X-Wing** hybrid KEM ([draft-connolly-cfrg-xwing-kem](https://datatracker.ietf.org/doc/draft-connolly-cfrg-xwing-kem/)):
+ML-KEM-768 combined with X25519, so group secrets stay confidential if *either*
+component remains unbroken. It protects against harvest-now-decrypt-later attacks.
+HPKE operations for this suite run on [libcrux](https://github.com/cryspen/libcrux)
+(formally verified ML-KEM); all classical suites continue to run unchanged on RustCrypto.
+
+**Read before using — honest limitations:**
+
+- **Experimental, not standardized.** The ciphersuite value (0x004D) is **not
+  registered with IANA** and originates from an expired individual draft. The
+  IETF MLS working group is standardizing *different* post-quantum suites; when
+  an official suite is published, groups using X-Wing will need to migrate.
+  We will track the official suite and provide a migration path.
+- **Limited interoperability.** Only OpenMLS-based stacks (and ts-mls) support
+  this suite. Use it in closed deployments where all clients use this library
+  or OpenMLS — not for cross-vendor federation.
+- **libcrux is pre-1.0 and not fully audited.** Its ML-KEM source is formally
+  verified (hax/F*: correctness, secret independence, panic freedom), but
+  compiled binaries carry no side-channel-resistance verification, and the
+  maintainers themselves advise consultation before production use.
+- The X-Wing construction itself is peer-reviewed
+  ([IND-CCA secure if either ML-KEM-768 or X25519 holds](https://eprint.iacr.org/2024/039))
+  and its wire format has been stable across draft revisions.
 
 ## Implementation Status
 
@@ -310,7 +338,7 @@ It also checks for copier template updates daily and creates notification PRs wi
 
 **Key Properties:**
 - **MLS Protocol (RFC 9420)** - Standardized group key agreement with forward secrecy and post-compromise security
-- **Rust Implementation** - All cryptographic operations run in Rust (OpenMLS with RustCrypto backend)
+- **Rust Implementation** - All cryptographic operations run in Rust (OpenMLS with RustCrypto backend; the experimental X-Wing post-quantum KEM is delegated to libcrux)
 - **Encrypted at Rest** - All MLS state encrypted via SQLCipher (native) or Web Crypto AES-256-GCM (WASM)
 - **Web Crypto on WASM** - Encryption key stored as non-extractable `CryptoKey` via `crypto.subtle` — raw bytes never persist in WASM memory
 - **Memory Safety** - Rust's ownership model prevents memory-related vulnerabilities

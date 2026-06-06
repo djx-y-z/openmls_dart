@@ -7,6 +7,21 @@ pub enum MlsCiphersuite {
     Mls128DhkemX25519Aes128gcmSha256Ed25519,
     Mls128DhkemX25519Chacha20poly1305Sha256Ed25519,
     Mls128DhkemP256Aes128gcmSha256P256,
+    /// **Experimental** hybrid post-quantum ciphersuite based on the X-Wing
+    /// KEM (ML-KEM-768 + X25519, draft-connolly-cfrg-xwing-kem-06).
+    ///
+    /// Provides protection against harvest-now-decrypt-later attacks within
+    /// closed deployments. Important limitations:
+    ///
+    /// - The ciphersuite value (0x004D) is **not registered with IANA** and
+    ///   comes from an expired individual draft. Interoperability is limited
+    ///   to OpenMLS-based stacks (and ts-mls).
+    /// - When an official IANA-registered post-quantum suite is standardized,
+    ///   groups using this suite will need to migrate to it.
+    /// - The underlying libcrux KEM implementation is pre-1.0 (its ML-KEM
+    ///   source is formally verified, but compiled executables carry no
+    ///   side-channel-resistance verification).
+    Mls256XwingChacha20poly1305Sha256Ed25519,
 }
 
 /// Wire format policy for MLS messages.
@@ -168,6 +183,9 @@ pub(crate) fn ciphersuite_to_native(cs: &MlsCiphersuite) -> Ciphersuite {
         MlsCiphersuite::Mls128DhkemP256Aes128gcmSha256P256 => {
             Ciphersuite::MLS_128_DHKEMP256_AES128GCM_SHA256_P256
         }
+        MlsCiphersuite::Mls256XwingChacha20poly1305Sha256Ed25519 => {
+            Ciphersuite::MLS_256_XWING_CHACHA20POLY1305_SHA256_Ed25519
+        }
     }
 }
 
@@ -181,6 +199,9 @@ pub(crate) fn native_to_ciphersuite(cs: Ciphersuite) -> Result<MlsCiphersuite, S
         }
         Ciphersuite::MLS_128_DHKEMP256_AES128GCM_SHA256_P256 => {
             Ok(MlsCiphersuite::Mls128DhkemP256Aes128gcmSha256P256)
+        }
+        Ciphersuite::MLS_256_XWING_CHACHA20POLY1305_SHA256_Ed25519 => {
+            Ok(MlsCiphersuite::Mls256XwingChacha20poly1305Sha256Ed25519)
         }
         _ => Err(format!("Unsupported ciphersuite: {:?}", cs)),
     }
@@ -246,5 +267,6 @@ pub fn supported_ciphersuites() -> Vec<MlsCiphersuite> {
         MlsCiphersuite::Mls128DhkemX25519Aes128gcmSha256Ed25519,
         MlsCiphersuite::Mls128DhkemX25519Chacha20poly1305Sha256Ed25519,
         MlsCiphersuite::Mls128DhkemP256Aes128gcmSha256P256,
+        MlsCiphersuite::Mls256XwingChacha20poly1305Sha256Ed25519,
     ]
 }

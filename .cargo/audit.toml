@@ -1,0 +1,38 @@
+# cargo-audit configuration.
+#
+# Each ignored advisory below is blocked on upstream semver pins (openmls
+# tag openmls-v0.8.1 → hpke-rs-libcrux/libcrux exact-version pins); the
+# reachability justification is inline on each entry, and the non-libcrux
+# routing they depend on is enforced by the `classical_ops_do_not_init_libcrux`
+# test in rust/src/hybrid_crypto.rs. Remove these entries when bumping to the
+# next upstream OpenMLS release — `make rust-audit` will then re-check them.
+
+[advisories]
+ignore = [
+    # libcrux-chacha20poly1305: panic on overlong ciphertext buffer (DoS-class).
+    # Introduced by the X-Wing feature: libcrux-chacha20poly1305 0.0.7 enters
+    # the tree ONLY via openmls_libcrux_crypto → hpke-rs-libcrux → libcrux-aead
+    # (openmls_rust_crypto uses the hpke-rs-rust-crypto backend, not libcrux;
+    # verified with `cargo tree -i libcrux-chacha20poly1305@0.0.7`).
+    # Trigger structurally unreachable: hpke-rs-libcrux allocates exact-size
+    # buffers (vec![0; msg.len() + tag_len], src/lib.rs:158-160) and the
+    # typed_refs Aead trait checks plaintext.len()==ciphertext.len() before the
+    # panicking free fn, so an oversized buffer can never reach encrypt(). Our
+    # message-layer AEAD routes to RustCrypto regardless. Not fixable via
+    # `cargo update`: hpke-rs-libcrux 0.6.1 (latest) pins libcrux-aead =0.0.7.
+    "RUSTSEC-2026-0124",
+
+    # libcrux-ed25519 0.0.6: all-zero key generation after 100 consecutive
+    # CSPRNG failures. Unreachable: our HybridCrypto routes ALL signature
+    # operations (key gen, sign, verify) to RustCrypto/ed25519-dalek — the
+    # vulnerable libcrux signature_key_gen is never invoked. Internally also
+    # mitigated (fed by a seeded ChaCha20 ReseedingRng; 100 consecutive
+    # all-zero outputs without an error is cryptographically impossible).
+    # Fixed in upstream OpenMLS main (libcrux-ed25519 0.0.7), unreleased.
+    "RUSTSEC-2026-0075",
+
+    # libcrux-poly1305 0.0.4: panic in the STANDALONE mac() function only.
+    # Per the advisory itself, use via libcrux-chacha20poly1305 is unaffected,
+    # and this crate's standalone API is never called from our tree.
+    "RUSTSEC-2026-0073",
+]

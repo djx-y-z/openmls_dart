@@ -11,8 +11,18 @@ Review code for security issues specific to this MLS protocol library.
 
 This library uses Flutter Rust Bridge (FRB) with OpenMLS (pure Rust):
 - **Memory safety** is handled by Rust (no manual FFI memory management)
-- **Cryptographic operations** are implemented in OpenMLS with RustCrypto backend
+- **Cryptographic operations** run through `HybridCrypto` (`rust/src/hybrid_crypto.rs`):
+  all classical ciphersuites delegate to RustCrypto; only the experimental X-Wing
+  PQ KEM (`HpkeKemType::XWingKemDraft6`) routes to `openmls_libcrux_crypto`
+  (lazily initialized — classical suites never depend on libcrux)
 - **Storage** is Rust-owned and encrypted — SQLCipher on native, IndexedDB + Web Crypto AES-256-GCM on WASM
+
+When reviewing changes to `hybrid_crypto.rs`, additionally verify:
+- Non-XWing paths delegate to RustCrypto verbatim (arguments unmodified, no rerouting)
+- Routing predicate stays `uses_xwing_kem()` everywhere (single source of dispatch)
+- RNG (`OpenMlsRand`) stays delegated to RustCrypto
+- The `.cargo/audit.toml` RustSec ignore justifications depend on this routing —
+  the `classical_ops_do_not_init_libcrux` test enforces it and must stay green
 
 ## Security Categories
 

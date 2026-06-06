@@ -750,11 +750,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0de51e6874e94e7bf76d726fc5d13ba782deca734ff60d5bb2fb2607c7406555"
 dependencies = [
  "cfg-if",
+ "js-sys",
  "libc",
  "r-efi 6.0.0",
  "rand_core 0.10.0",
  "wasip2",
  "wasip3",
+ "wasm-bindgen",
 ]
 
 [[package]]
@@ -931,7 +933,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c0ce6b7e54aebe540faee869c67ee253bede44ea6cb67c6e72c7847d6c59f1df"
 dependencies = [
  "hpke-rs-crypto",
- "libcrux-aead",
+ "libcrux-aead 0.0.7",
  "libcrux-ecdh",
  "libcrux-hkdf",
  "libcrux-kem",
@@ -1076,12 +1078,24 @@ checksum = "b5b646652bf6661599e1da8901b3b9522896f01e736bad5f723fe7a3a27f899d"
 
 [[package]]
 name = "libcrux-aead"
+version = "0.0.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f44098a02cdfd8f41cffe672e1d449538a75fd77a9a8093b3d6d77c4b43a7363"
+dependencies = [
+ "libcrux-aesgcm",
+ "libcrux-chacha20poly1305 0.0.6",
+ "libcrux-secrets",
+ "libcrux-traits",
+]
+
+[[package]]
+name = "libcrux-aead"
 version = "0.0.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "13297ce29869a5c0edab0378837b0fc5f88bf99a843712d9201c3b1150b3b476"
 dependencies = [
  "libcrux-aesgcm",
- "libcrux-chacha20poly1305",
+ "libcrux-chacha20poly1305 0.0.7",
  "libcrux-secrets",
  "libcrux-traits",
 ]
@@ -1100,13 +1114,26 @@ dependencies = [
 
 [[package]]
 name = "libcrux-chacha20poly1305"
+version = "0.0.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c627fca7f9cb4cedaa9667670de8f591859dd2417ce4006c4f0ebbe5626f5e0a"
+dependencies = [
+ "libcrux-hacl-rs",
+ "libcrux-macros",
+ "libcrux-poly1305 0.0.4",
+ "libcrux-secrets",
+ "libcrux-traits",
+]
+
+[[package]]
+name = "libcrux-chacha20poly1305"
 version = "0.0.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cc08d044676af21343b32b988411fa98dbb5cf65a03c9df478ced221bbdfdb1b"
 dependencies = [
  "libcrux-hacl-rs",
  "libcrux-macros",
- "libcrux-poly1305",
+ "libcrux-poly1305 0.0.5",
  "libcrux-secrets",
  "libcrux-traits",
 ]
@@ -1132,6 +1159,18 @@ dependencies = [
  "libcrux-curve25519",
  "libcrux-p256",
  "rand 0.9.2",
+]
+
+[[package]]
+name = "libcrux-ed25519"
+version = "0.0.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3970fc899de0a430a4bd04acdbbfb5236057a895759bea42d36b0f52afb3e418"
+dependencies = [
+ "libcrux-hacl-rs",
+ "libcrux-macros",
+ "libcrux-sha2",
+ "rand_core 0.9.5",
 ]
 
 [[package]]
@@ -1236,6 +1275,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1d9e21d7ed31a92ac539bd69a8c970b183ee883872d2d19ce27036e24cb8ecc4"
 dependencies = [
  "libc",
+]
+
+[[package]]
+name = "libcrux-poly1305"
+version = "0.0.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ccfb6399682b2dee13b728c779ab5dcc51afbe982b63508ca524806994336134"
+dependencies = [
+ "libcrux-hacl-rs",
+ "libcrux-macros",
 ]
 
 [[package]]
@@ -1481,11 +1530,13 @@ dependencies = [
  "futures",
  "getrandom 0.2.17",
  "getrandom 0.3.4",
+ "getrandom 0.4.2",
  "idb",
  "js-sys",
  "log",
  "openmls",
  "openmls_basic_credential",
+ "openmls_libcrux_crypto",
  "openmls_rust_crypto",
  "openmls_traits",
  "parking_lot 0.12.5",
@@ -1497,6 +1548,27 @@ dependencies = [
  "wasm-bindgen-futures",
  "web-sys",
  "zeroize",
+]
+
+[[package]]
+name = "openmls_libcrux_crypto"
+version = "0.3.1"
+source = "git+https://github.com/openmls/openmls?tag=openmls-v0.8.1#47dbedecad0c1fd8eb5368d582250ebfcc1e1ce6"
+dependencies = [
+ "hpke-rs",
+ "hpke-rs-crypto",
+ "hpke-rs-libcrux",
+ "libcrux-aead 0.0.6",
+ "libcrux-ed25519",
+ "libcrux-hkdf",
+ "libcrux-hmac",
+ "libcrux-sha2",
+ "libcrux-traits",
+ "openmls_memory_storage",
+ "openmls_traits",
+ "rand 0.9.2",
+ "rand_chacha 0.9.0",
+ "tls_codec",
 ]
 
 [[package]]
