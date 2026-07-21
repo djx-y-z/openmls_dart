@@ -4,6 +4,7 @@
 
 #### ✨ Highlights
 
+- **openmls** — unchanged this release (openmls-v0.8.1)
 - **openmls_frb v1.5.2** — Rust FFI bindings
 
 #### Security
@@ -49,6 +50,25 @@
 
 - **Adopt copier template v2.5.1 → v2.5.2** — source of the web build hook fix
   above.
+- **Adopt copier template v2.5.2 → v3.0.3** — release-process and dev-tooling
+  changes only; no change to the published package's runtime behavior.
+  - **Two-stage release flow** (v3.0.0) — the native `openmls_frb` crate and the
+    Dart package now release independently: `make release-frb` bumps, tags
+    (`openmls_frb-X.Y.Z`) and builds the native binary, then `make release`
+    verifies that binary exists and publishes the Dart package (`vX.Y.Z`). Adds
+    `scripts/release.dart` / `scripts/release_frb.dart` and the
+    `release-frb-crate` skill; the flow is documented in CLAUDE.md.
+  - **Repository protections** (v3.0.0) — GitHub rulesets (`.github/rulesets/`)
+    restricting who may push `main` and create release tags, a signed-commit
+    rule, a `setup_repo_protections.dart` helper, and a Dependabot config.
+  - **Removed vestigial Windows Flutter-plugin scaffolding** (v3.0.0) —
+    `windows/CMakeLists.txt` and the generated plugin registrant; this is a
+    pure-Dart FRB package (native libraries load via the build hook), so the
+    scaffolding was unused.
+  - **Release-tooling fixes** (v3.0.1 → v3.0.3) — the pub.dev dry-run now runs on
+    the clean pre-bump tree (a bumped-but-uncommitted tree tripped
+    `pub publish --dry-run`'s exit-65-on-warning), and `make release` no longer
+    leaves an empty `## [Unreleased]` heading behind.
 
 ## [1.4.1] - 2026-07-14
 
