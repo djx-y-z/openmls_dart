@@ -1,18 +1,15 @@
 //! SnapshotStorageProvider — HashMap-based OpenMLS StorageProvider.
 //!
-//! Loaded from an EncryptedDb snapshot, provides sync read/write/delete
+//! Loaded from caller-owned storage entries, provides sync read/write/delete
 //! on an in-memory HashMap. After OpenMLS operations, diff the initial
-//! vs current state to produce StorageUpdates for persistence.
+//! vs current state to produce StorageUpdates for the caller to persist.
 //!
 //! Key format matches MemoryStorage: `[LABEL || serde_json(key) || VERSION_BE_U16]`
 
-// The StorageProvider trait methods take `&self` but need interior mutation of
-// the snapshot HashMap; this module uses a small `unsafe` reborrow shim for that.
-#![allow(unsafe_code)]
-
-use std::collections::HashMap;
-use openmls_traits::storage::{traits, CURRENT_VERSION, StorageProvider};
 use openmls_traits::OpenMlsProvider;
+use openmls_traits::storage::{CURRENT_VERSION, StorageProvider, traits};
+use parking_lot::Mutex;
+use std::collections::HashMap;
 use zeroize::Zeroize;
 
 use crate::encrypted_db::StorageUpdates;
@@ -56,7 +53,7 @@ const MESSAGE_SECRETS_LABEL: &[u8] = b"MessageSecrets";
 
 pub struct SnapshotStorageProvider {
     initial: HashMap<Vec<u8>, Vec<u8>>,
-    current: HashMap<Vec<u8>, Vec<u8>>,
+    current: Mutex<HashMap<Vec<u8>, Vec<u8>>>,
 }
 
 impl Drop for SnapshotStorageProvider {
@@ -65,7 +62,7 @@ impl Drop for SnapshotStorageProvider {
             let mut v = v;
             v.zeroize();
         }
-        for (_k, v) in self.current.drain() {
+        for (_k, v) in self.current.get_mut().drain() {
             let mut v = v;
             v.zeroize();
         }
@@ -76,7 +73,7 @@ impl SnapshotStorageProvider {
     /// Create a snapshot from DB entries.
     pub fn from_entries(entries: Vec<(Vec<u8>, Vec<u8>)>) -> Self {
         let initial: HashMap<Vec<u8>, Vec<u8>> = entries.into_iter().collect();
-        let current = initial.clone();
+        let current = Mutex::new(initial.clone());
         Self { initial, current }
     }
 
@@ -84,9 +81,10 @@ impl SnapshotStorageProvider {
     pub fn into_updates(mut self) -> StorageUpdates {
         let mut upserts = Vec::new();
         let mut deletes = Vec::new();
+        let current = self.current.get_mut();
 
         // Find new or changed entries.
-        for (key, value) in &self.current {
+        for (key, value) in current.iter() {
             match self.initial.get(key) {
                 Some(old_value) if old_value == value => {} // unchanged
                 _ => upserts.push((key.clone(), value.clone())),
@@ -95,7 +93,7 @@ impl SnapshotStorageProvider {
 
         // Find deleted entries.
         for key in self.initial.keys() {
-            if !self.current.contains_key(key) {
+            if !current.contains_key(key) {
                 deletes.push(key.clone());
             }
         }
@@ -105,12 +103,10 @@ impl SnapshotStorageProvider {
             let mut v = v;
             v.zeroize();
         }
-        for (_k, v) in self.current.drain() {
+        for (_k, v) in current.drain() {
             let mut v = v;
             v.zeroize();
         }
-        // Prevent double-zeroize in Drop.
-        std::mem::forget(self);
 
         StorageUpdates { upserts, deletes }
     }
@@ -134,8 +130,8 @@ fn build_key_serde<const V: u16>(
     label: &[u8],
     key: &impl serde::Serialize,
 ) -> Result<Vec<u8>, SnapshotStorageError> {
-    let key_bytes = serde_json::to_vec(key)
-        .map_err(|e| SnapshotStorageError::Serialization(e.to_string()))?;
+    let key_bytes =
+        serde_json::to_vec(key).map_err(|e| SnapshotStorageError::Serialization(e.to_string()))?;
     Ok(build_key::<V>(label, &key_bytes))
 }
 
@@ -161,22 +157,26 @@ fn build_epoch_key<const V: u16>(
 impl SnapshotStorageProvider {
     // -- low-level operations --
 
-    fn kv_write(&mut self, key: Vec<u8>, value: Vec<u8>) {
-        self.current.insert(key, value);
+    fn kv_write(&self, key: Vec<u8>, value: Vec<u8>) {
+        if let Some(mut previous) = self.current.lock().insert(key, value) {
+            previous.zeroize();
+        }
     }
 
     fn kv_read(&self, key: &[u8]) -> Option<Vec<u8>> {
-        self.current.get(key).cloned()
+        self.current.lock().get(key).cloned()
     }
 
-    fn kv_delete(&mut self, key: &[u8]) {
-        self.current.remove(key);
+    fn kv_delete(&self, key: &[u8]) {
+        if let Some(mut removed) = self.current.lock().remove(key) {
+            removed.zeroize();
+        }
     }
 
     // -- higher-level helpers --
 
     fn write_val<const V: u16>(
-        &mut self,
+        &self,
         label: &[u8],
         key: &impl serde::Serialize,
         value: &impl serde::Serialize,
@@ -205,7 +205,7 @@ impl SnapshotStorageProvider {
     }
 
     fn delete_val<const V: u16>(
-        &mut self,
+        &self,
         label: &[u8],
         key: &impl serde::Serialize,
     ) -> Result<(), SnapshotStorageError> {
@@ -215,7 +215,7 @@ impl SnapshotStorageProvider {
     }
 
     fn append_to_list<const V: u16>(
-        &mut self,
+        &self,
         label: &[u8],
         key: &impl serde::Serialize,
         item: Vec<u8>,
@@ -256,7 +256,7 @@ impl SnapshotStorageProvider {
     }
 
     fn remove_from_list<const V: u16>(
-        &mut self,
+        &self,
         label: &[u8],
         key: &impl serde::Serialize,
         item: Vec<u8>,
@@ -296,11 +296,7 @@ impl StorageProvider<{ CURRENT_VERSION }> for SnapshotStorageProvider {
         group_id: &GroupId,
         config: &MlsGroupJoinConfig,
     ) -> Result<(), Self::Error> {
-        // Safety: StorageProvider takes &self but we need &mut self.
-        // This is sound because SnapshotStorageProvider is never shared across threads.
-        #[allow(invalid_reference_casting)]
-        let this = unsafe { &mut *(self as *const Self as *mut Self) };
-        this.write_val::<{ CURRENT_VERSION }>(JOIN_CONFIG_LABEL, group_id, config)
+        self.write_val::<{ CURRENT_VERSION }>(JOIN_CONFIG_LABEL, group_id, config)
     }
 
     fn append_own_leaf_node<
@@ -313,9 +309,7 @@ impl StorageProvider<{ CURRENT_VERSION }> for SnapshotStorageProvider {
     ) -> Result<(), Self::Error> {
         let item = serde_json::to_vec(leaf_node)
             .map_err(|e| SnapshotStorageError::Serialization(e.to_string()))?;
-        #[allow(invalid_reference_casting)]
-        let this = unsafe { &mut *(self as *const Self as *mut Self) };
-        this.append_to_list::<{ CURRENT_VERSION }>(OWN_LEAF_NODES_LABEL, group_id, item)
+        self.append_to_list::<{ CURRENT_VERSION }>(OWN_LEAF_NODES_LABEL, group_id, item)
     }
 
     fn queue_proposal<
@@ -329,16 +323,16 @@ impl StorageProvider<{ CURRENT_VERSION }> for SnapshotStorageProvider {
         proposal: &QueuedProposal,
     ) -> Result<(), Self::Error> {
         let composite_key = (
-            serde_json::to_value(group_id).map_err(|e| SnapshotStorageError::Serialization(e.to_string()))?,
-            serde_json::to_value(proposal_ref).map_err(|e| SnapshotStorageError::Serialization(e.to_string()))?,
+            serde_json::to_value(group_id)
+                .map_err(|e| SnapshotStorageError::Serialization(e.to_string()))?,
+            serde_json::to_value(proposal_ref)
+                .map_err(|e| SnapshotStorageError::Serialization(e.to_string()))?,
         );
-        #[allow(invalid_reference_casting)]
-        let this = unsafe { &mut *(self as *const Self as *mut Self) };
-        this.write_val::<{ CURRENT_VERSION }>(QUEUED_PROPOSAL_LABEL, &composite_key, proposal)?;
+        self.write_val::<{ CURRENT_VERSION }>(QUEUED_PROPOSAL_LABEL, &composite_key, proposal)?;
 
         let ref_bytes = serde_json::to_vec(proposal_ref)
             .map_err(|e| SnapshotStorageError::Serialization(e.to_string()))?;
-        this.append_to_list::<{ CURRENT_VERSION }>(PROPOSAL_QUEUE_REFS_LABEL, group_id, ref_bytes)
+        self.append_to_list::<{ CURRENT_VERSION }>(PROPOSAL_QUEUE_REFS_LABEL, group_id, ref_bytes)
     }
 
     fn write_tree<
@@ -349,9 +343,7 @@ impl StorageProvider<{ CURRENT_VERSION }> for SnapshotStorageProvider {
         group_id: &GroupId,
         tree: &TreeSync,
     ) -> Result<(), Self::Error> {
-        #[allow(invalid_reference_casting)]
-        let this = unsafe { &mut *(self as *const Self as *mut Self) };
-        this.write_val::<{ CURRENT_VERSION }>(TREE_LABEL, group_id, tree)
+        self.write_val::<{ CURRENT_VERSION }>(TREE_LABEL, group_id, tree)
     }
 
     fn write_interim_transcript_hash<
@@ -362,9 +354,11 @@ impl StorageProvider<{ CURRENT_VERSION }> for SnapshotStorageProvider {
         group_id: &GroupId,
         interim_transcript_hash: &InterimTranscriptHash,
     ) -> Result<(), Self::Error> {
-        #[allow(invalid_reference_casting)]
-        let this = unsafe { &mut *(self as *const Self as *mut Self) };
-        this.write_val::<{ CURRENT_VERSION }>(INTERIM_TRANSCRIPT_HASH_LABEL, group_id, interim_transcript_hash)
+        self.write_val::<{ CURRENT_VERSION }>(
+            INTERIM_TRANSCRIPT_HASH_LABEL,
+            group_id,
+            interim_transcript_hash,
+        )
     }
 
     fn write_context<
@@ -375,9 +369,7 @@ impl StorageProvider<{ CURRENT_VERSION }> for SnapshotStorageProvider {
         group_id: &GroupId,
         group_context: &GroupContext,
     ) -> Result<(), Self::Error> {
-        #[allow(invalid_reference_casting)]
-        let this = unsafe { &mut *(self as *const Self as *mut Self) };
-        this.write_val::<{ CURRENT_VERSION }>(GROUP_CONTEXT_LABEL, group_id, group_context)
+        self.write_val::<{ CURRENT_VERSION }>(GROUP_CONTEXT_LABEL, group_id, group_context)
     }
 
     fn write_confirmation_tag<
@@ -388,9 +380,7 @@ impl StorageProvider<{ CURRENT_VERSION }> for SnapshotStorageProvider {
         group_id: &GroupId,
         confirmation_tag: &ConfirmationTag,
     ) -> Result<(), Self::Error> {
-        #[allow(invalid_reference_casting)]
-        let this = unsafe { &mut *(self as *const Self as *mut Self) };
-        this.write_val::<{ CURRENT_VERSION }>(CONFIRMATION_TAG_LABEL, group_id, confirmation_tag)
+        self.write_val::<{ CURRENT_VERSION }>(CONFIRMATION_TAG_LABEL, group_id, confirmation_tag)
     }
 
     fn write_group_state<
@@ -401,9 +391,7 @@ impl StorageProvider<{ CURRENT_VERSION }> for SnapshotStorageProvider {
         group_id: &GroupId,
         group_state: &GroupState,
     ) -> Result<(), Self::Error> {
-        #[allow(invalid_reference_casting)]
-        let this = unsafe { &mut *(self as *const Self as *mut Self) };
-        this.write_val::<{ CURRENT_VERSION }>(GROUP_STATE_LABEL, group_id, group_state)
+        self.write_val::<{ CURRENT_VERSION }>(GROUP_STATE_LABEL, group_id, group_state)
     }
 
     fn write_message_secrets<
@@ -414,9 +402,7 @@ impl StorageProvider<{ CURRENT_VERSION }> for SnapshotStorageProvider {
         group_id: &GroupId,
         message_secrets: &MessageSecrets,
     ) -> Result<(), Self::Error> {
-        #[allow(invalid_reference_casting)]
-        let this = unsafe { &mut *(self as *const Self as *mut Self) };
-        this.write_val::<{ CURRENT_VERSION }>(MESSAGE_SECRETS_LABEL, group_id, message_secrets)
+        self.write_val::<{ CURRENT_VERSION }>(MESSAGE_SECRETS_LABEL, group_id, message_secrets)
     }
 
     fn write_resumption_psk_store<
@@ -427,9 +413,11 @@ impl StorageProvider<{ CURRENT_VERSION }> for SnapshotStorageProvider {
         group_id: &GroupId,
         resumption_psk_store: &ResumptionPskStore,
     ) -> Result<(), Self::Error> {
-        #[allow(invalid_reference_casting)]
-        let this = unsafe { &mut *(self as *const Self as *mut Self) };
-        this.write_val::<{ CURRENT_VERSION }>(RESUMPTION_PSK_STORE_LABEL, group_id, resumption_psk_store)
+        self.write_val::<{ CURRENT_VERSION }>(
+            RESUMPTION_PSK_STORE_LABEL,
+            group_id,
+            resumption_psk_store,
+        )
     }
 
     fn write_own_leaf_index<
@@ -440,9 +428,7 @@ impl StorageProvider<{ CURRENT_VERSION }> for SnapshotStorageProvider {
         group_id: &GroupId,
         own_leaf_index: &LeafNodeIndex,
     ) -> Result<(), Self::Error> {
-        #[allow(invalid_reference_casting)]
-        let this = unsafe { &mut *(self as *const Self as *mut Self) };
-        this.write_val::<{ CURRENT_VERSION }>(OWN_LEAF_NODE_INDEX_LABEL, group_id, own_leaf_index)
+        self.write_val::<{ CURRENT_VERSION }>(OWN_LEAF_NODE_INDEX_LABEL, group_id, own_leaf_index)
     }
 
     fn write_group_epoch_secrets<
@@ -453,9 +439,7 @@ impl StorageProvider<{ CURRENT_VERSION }> for SnapshotStorageProvider {
         group_id: &GroupId,
         group_epoch_secrets: &GroupEpochSecrets,
     ) -> Result<(), Self::Error> {
-        #[allow(invalid_reference_casting)]
-        let this = unsafe { &mut *(self as *const Self as *mut Self) };
-        this.write_val::<{ CURRENT_VERSION }>(EPOCH_SECRETS_LABEL, group_id, group_epoch_secrets)
+        self.write_val::<{ CURRENT_VERSION }>(EPOCH_SECRETS_LABEL, group_id, group_epoch_secrets)
     }
 
     // ═══════════════════════════════════════════════════════════
@@ -470,9 +454,11 @@ impl StorageProvider<{ CURRENT_VERSION }> for SnapshotStorageProvider {
         public_key: &SignaturePublicKey,
         signature_key_pair: &SignatureKeyPair,
     ) -> Result<(), Self::Error> {
-        #[allow(invalid_reference_casting)]
-        let this = unsafe { &mut *(self as *const Self as *mut Self) };
-        this.write_val::<{ CURRENT_VERSION }>(SIGNATURE_KEY_PAIR_LABEL, public_key, signature_key_pair)
+        self.write_val::<{ CURRENT_VERSION }>(
+            SIGNATURE_KEY_PAIR_LABEL,
+            public_key,
+            signature_key_pair,
+        )
     }
 
     fn write_encryption_key_pair<
@@ -483,9 +469,7 @@ impl StorageProvider<{ CURRENT_VERSION }> for SnapshotStorageProvider {
         public_key: &EncryptionKey,
         key_pair: &HpkeKeyPair,
     ) -> Result<(), Self::Error> {
-        #[allow(invalid_reference_casting)]
-        let this = unsafe { &mut *(self as *const Self as *mut Self) };
-        this.write_val::<{ CURRENT_VERSION }>(ENCRYPTION_KEY_PAIR_LABEL, public_key, key_pair)
+        self.write_val::<{ CURRENT_VERSION }>(ENCRYPTION_KEY_PAIR_LABEL, public_key, key_pair)
     }
 
     fn write_encryption_epoch_key_pairs<
@@ -502,9 +486,7 @@ impl StorageProvider<{ CURRENT_VERSION }> for SnapshotStorageProvider {
         let storage_key = build_epoch_key::<{ CURRENT_VERSION }>(group_id, epoch, leaf_index)?;
         let val_bytes = serde_json::to_vec(key_pairs)
             .map_err(|e| SnapshotStorageError::Serialization(e.to_string()))?;
-        #[allow(invalid_reference_casting)]
-        let this = unsafe { &mut *(self as *const Self as *mut Self) };
-        this.kv_write(storage_key, val_bytes);
+        self.kv_write(storage_key, val_bytes);
         Ok(())
     }
 
@@ -516,9 +498,7 @@ impl StorageProvider<{ CURRENT_VERSION }> for SnapshotStorageProvider {
         hash_ref: &HashReference,
         key_package: &KeyPackage,
     ) -> Result<(), Self::Error> {
-        #[allow(invalid_reference_casting)]
-        let this = unsafe { &mut *(self as *const Self as *mut Self) };
-        this.write_val::<{ CURRENT_VERSION }>(KEY_PACKAGE_LABEL, hash_ref, key_package)
+        self.write_val::<{ CURRENT_VERSION }>(KEY_PACKAGE_LABEL, hash_ref, key_package)
     }
 
     fn write_psk<
@@ -529,9 +509,7 @@ impl StorageProvider<{ CURRENT_VERSION }> for SnapshotStorageProvider {
         psk_id: &PskId,
         psk: &PskBundle,
     ) -> Result<(), Self::Error> {
-        #[allow(invalid_reference_casting)]
-        let this = unsafe { &mut *(self as *const Self as *mut Self) };
-        this.write_val::<{ CURRENT_VERSION }>(PSK_LABEL, psk_id, psk)
+        self.write_val::<{ CURRENT_VERSION }>(PSK_LABEL, psk_id, psk)
     }
 
     // ═══════════════════════════════════════════════════════════
@@ -586,9 +564,10 @@ impl StorageProvider<{ CURRENT_VERSION }> for SnapshotStorageProvider {
                 serde_json::to_value(&prop_ref)
                     .map_err(|e| SnapshotStorageError::Serialization(e.to_string()))?,
             );
-            if let Some(proposal) =
-                self.read_val::<{ CURRENT_VERSION }, QueuedProposal>(QUEUED_PROPOSAL_LABEL, &composite_key)?
-            {
+            if let Some(proposal) = self.read_val::<{ CURRENT_VERSION }, QueuedProposal>(
+                QUEUED_PROPOSAL_LABEL,
+                &composite_key,
+            )? {
                 result.push((prop_ref, proposal));
             }
         }
@@ -768,112 +747,88 @@ impl StorageProvider<{ CURRENT_VERSION }> for SnapshotStorageProvider {
             serde_json::to_value(proposal_ref)
                 .map_err(|e| SnapshotStorageError::Serialization(e.to_string()))?,
         );
-        #[allow(invalid_reference_casting)]
-        let this = unsafe { &mut *(self as *const Self as *mut Self) };
-        this.delete_val::<{ CURRENT_VERSION }>(QUEUED_PROPOSAL_LABEL, &composite_key)?;
+        self.delete_val::<{ CURRENT_VERSION }>(QUEUED_PROPOSAL_LABEL, &composite_key)?;
 
         let ref_bytes = serde_json::to_vec(proposal_ref)
             .map_err(|e| SnapshotStorageError::Serialization(e.to_string()))?;
-        this.remove_from_list::<{ CURRENT_VERSION }>(PROPOSAL_QUEUE_REFS_LABEL, group_id, ref_bytes)
+        self.remove_from_list::<{ CURRENT_VERSION }>(PROPOSAL_QUEUE_REFS_LABEL, group_id, ref_bytes)
     }
 
     fn delete_own_leaf_nodes<GroupId: traits::GroupId<{ CURRENT_VERSION }>>(
         &self,
         group_id: &GroupId,
     ) -> Result<(), Self::Error> {
-        #[allow(invalid_reference_casting)]
-        let this = unsafe { &mut *(self as *const Self as *mut Self) };
-        this.delete_val::<{ CURRENT_VERSION }>(OWN_LEAF_NODES_LABEL, group_id)
+        self.delete_val::<{ CURRENT_VERSION }>(OWN_LEAF_NODES_LABEL, group_id)
     }
 
     fn delete_group_config<GroupId: traits::GroupId<{ CURRENT_VERSION }>>(
         &self,
         group_id: &GroupId,
     ) -> Result<(), Self::Error> {
-        #[allow(invalid_reference_casting)]
-        let this = unsafe { &mut *(self as *const Self as *mut Self) };
-        this.delete_val::<{ CURRENT_VERSION }>(JOIN_CONFIG_LABEL, group_id)
+        self.delete_val::<{ CURRENT_VERSION }>(JOIN_CONFIG_LABEL, group_id)
     }
 
     fn delete_tree<GroupId: traits::GroupId<{ CURRENT_VERSION }>>(
         &self,
         group_id: &GroupId,
     ) -> Result<(), Self::Error> {
-        #[allow(invalid_reference_casting)]
-        let this = unsafe { &mut *(self as *const Self as *mut Self) };
-        this.delete_val::<{ CURRENT_VERSION }>(TREE_LABEL, group_id)
+        self.delete_val::<{ CURRENT_VERSION }>(TREE_LABEL, group_id)
     }
 
     fn delete_confirmation_tag<GroupId: traits::GroupId<{ CURRENT_VERSION }>>(
         &self,
         group_id: &GroupId,
     ) -> Result<(), Self::Error> {
-        #[allow(invalid_reference_casting)]
-        let this = unsafe { &mut *(self as *const Self as *mut Self) };
-        this.delete_val::<{ CURRENT_VERSION }>(CONFIRMATION_TAG_LABEL, group_id)
+        self.delete_val::<{ CURRENT_VERSION }>(CONFIRMATION_TAG_LABEL, group_id)
     }
 
     fn delete_group_state<GroupId: traits::GroupId<{ CURRENT_VERSION }>>(
         &self,
         group_id: &GroupId,
     ) -> Result<(), Self::Error> {
-        #[allow(invalid_reference_casting)]
-        let this = unsafe { &mut *(self as *const Self as *mut Self) };
-        this.delete_val::<{ CURRENT_VERSION }>(GROUP_STATE_LABEL, group_id)
+        self.delete_val::<{ CURRENT_VERSION }>(GROUP_STATE_LABEL, group_id)
     }
 
     fn delete_context<GroupId: traits::GroupId<{ CURRENT_VERSION }>>(
         &self,
         group_id: &GroupId,
     ) -> Result<(), Self::Error> {
-        #[allow(invalid_reference_casting)]
-        let this = unsafe { &mut *(self as *const Self as *mut Self) };
-        this.delete_val::<{ CURRENT_VERSION }>(GROUP_CONTEXT_LABEL, group_id)
+        self.delete_val::<{ CURRENT_VERSION }>(GROUP_CONTEXT_LABEL, group_id)
     }
 
     fn delete_interim_transcript_hash<GroupId: traits::GroupId<{ CURRENT_VERSION }>>(
         &self,
         group_id: &GroupId,
     ) -> Result<(), Self::Error> {
-        #[allow(invalid_reference_casting)]
-        let this = unsafe { &mut *(self as *const Self as *mut Self) };
-        this.delete_val::<{ CURRENT_VERSION }>(INTERIM_TRANSCRIPT_HASH_LABEL, group_id)
+        self.delete_val::<{ CURRENT_VERSION }>(INTERIM_TRANSCRIPT_HASH_LABEL, group_id)
     }
 
     fn delete_message_secrets<GroupId: traits::GroupId<{ CURRENT_VERSION }>>(
         &self,
         group_id: &GroupId,
     ) -> Result<(), Self::Error> {
-        #[allow(invalid_reference_casting)]
-        let this = unsafe { &mut *(self as *const Self as *mut Self) };
-        this.delete_val::<{ CURRENT_VERSION }>(MESSAGE_SECRETS_LABEL, group_id)
+        self.delete_val::<{ CURRENT_VERSION }>(MESSAGE_SECRETS_LABEL, group_id)
     }
 
     fn delete_all_resumption_psk_secrets<GroupId: traits::GroupId<{ CURRENT_VERSION }>>(
         &self,
         group_id: &GroupId,
     ) -> Result<(), Self::Error> {
-        #[allow(invalid_reference_casting)]
-        let this = unsafe { &mut *(self as *const Self as *mut Self) };
-        this.delete_val::<{ CURRENT_VERSION }>(RESUMPTION_PSK_STORE_LABEL, group_id)
+        self.delete_val::<{ CURRENT_VERSION }>(RESUMPTION_PSK_STORE_LABEL, group_id)
     }
 
     fn delete_own_leaf_index<GroupId: traits::GroupId<{ CURRENT_VERSION }>>(
         &self,
         group_id: &GroupId,
     ) -> Result<(), Self::Error> {
-        #[allow(invalid_reference_casting)]
-        let this = unsafe { &mut *(self as *const Self as *mut Self) };
-        this.delete_val::<{ CURRENT_VERSION }>(OWN_LEAF_NODE_INDEX_LABEL, group_id)
+        self.delete_val::<{ CURRENT_VERSION }>(OWN_LEAF_NODE_INDEX_LABEL, group_id)
     }
 
     fn delete_group_epoch_secrets<GroupId: traits::GroupId<{ CURRENT_VERSION }>>(
         &self,
         group_id: &GroupId,
     ) -> Result<(), Self::Error> {
-        #[allow(invalid_reference_casting)]
-        let this = unsafe { &mut *(self as *const Self as *mut Self) };
-        this.delete_val::<{ CURRENT_VERSION }>(EPOCH_SECRETS_LABEL, group_id)
+        self.delete_val::<{ CURRENT_VERSION }>(EPOCH_SECRETS_LABEL, group_id)
     }
 
     fn clear_proposal_queue<
@@ -885,8 +840,6 @@ impl StorageProvider<{ CURRENT_VERSION }> for SnapshotStorageProvider {
     ) -> Result<(), Self::Error> {
         let refs: Vec<ProposalRef> =
             self.read_list::<{ CURRENT_VERSION }, _>(PROPOSAL_QUEUE_REFS_LABEL, group_id)?;
-        #[allow(invalid_reference_casting)]
-        let this = unsafe { &mut *(self as *const Self as *mut Self) };
         for prop_ref in &refs {
             let composite_key = (
                 serde_json::to_value(group_id)
@@ -894,31 +847,29 @@ impl StorageProvider<{ CURRENT_VERSION }> for SnapshotStorageProvider {
                 serde_json::to_value(prop_ref)
                     .map_err(|e| SnapshotStorageError::Serialization(e.to_string()))?,
             );
-            this.delete_val::<{ CURRENT_VERSION }>(QUEUED_PROPOSAL_LABEL, &composite_key)?;
+            self.delete_val::<{ CURRENT_VERSION }>(QUEUED_PROPOSAL_LABEL, &composite_key)?;
         }
-        this.delete_val::<{ CURRENT_VERSION }>(PROPOSAL_QUEUE_REFS_LABEL, group_id)
+        self.delete_val::<{ CURRENT_VERSION }>(PROPOSAL_QUEUE_REFS_LABEL, group_id)
     }
 
     // ═══════════════════════════════════════════════════════════
     // F. DELETERS — CRYPTO OBJECTS
     // ═══════════════════════════════════════════════════════════
 
-    fn delete_signature_key_pair<SignaturePublicKey: traits::SignaturePublicKey<{ CURRENT_VERSION }>>(
+    fn delete_signature_key_pair<
+        SignaturePublicKey: traits::SignaturePublicKey<{ CURRENT_VERSION }>,
+    >(
         &self,
         public_key: &SignaturePublicKey,
     ) -> Result<(), Self::Error> {
-        #[allow(invalid_reference_casting)]
-        let this = unsafe { &mut *(self as *const Self as *mut Self) };
-        this.delete_val::<{ CURRENT_VERSION }>(SIGNATURE_KEY_PAIR_LABEL, public_key)
+        self.delete_val::<{ CURRENT_VERSION }>(SIGNATURE_KEY_PAIR_LABEL, public_key)
     }
 
     fn delete_encryption_key_pair<EncryptionKey: traits::EncryptionKey<{ CURRENT_VERSION }>>(
         &self,
         public_key: &EncryptionKey,
     ) -> Result<(), Self::Error> {
-        #[allow(invalid_reference_casting)]
-        let this = unsafe { &mut *(self as *const Self as *mut Self) };
-        this.delete_val::<{ CURRENT_VERSION }>(ENCRYPTION_KEY_PAIR_LABEL, public_key)
+        self.delete_val::<{ CURRENT_VERSION }>(ENCRYPTION_KEY_PAIR_LABEL, public_key)
     }
 
     fn delete_encryption_epoch_key_pairs<
@@ -931,9 +882,7 @@ impl StorageProvider<{ CURRENT_VERSION }> for SnapshotStorageProvider {
         leaf_index: u32,
     ) -> Result<(), Self::Error> {
         let storage_key = build_epoch_key::<{ CURRENT_VERSION }>(group_id, epoch, leaf_index)?;
-        #[allow(invalid_reference_casting)]
-        let this = unsafe { &mut *(self as *const Self as *mut Self) };
-        this.kv_delete(&storage_key);
+        self.kv_delete(&storage_key);
         Ok(())
     }
 
@@ -941,18 +890,14 @@ impl StorageProvider<{ CURRENT_VERSION }> for SnapshotStorageProvider {
         &self,
         hash_ref: &KeyPackageRef,
     ) -> Result<(), Self::Error> {
-        #[allow(invalid_reference_casting)]
-        let this = unsafe { &mut *(self as *const Self as *mut Self) };
-        this.delete_val::<{ CURRENT_VERSION }>(KEY_PACKAGE_LABEL, hash_ref)
+        self.delete_val::<{ CURRENT_VERSION }>(KEY_PACKAGE_LABEL, hash_ref)
     }
 
     fn delete_psk<PskKey: traits::PskId<{ CURRENT_VERSION }>>(
         &self,
         psk_id: &PskKey,
     ) -> Result<(), Self::Error> {
-        #[allow(invalid_reference_casting)]
-        let this = unsafe { &mut *(self as *const Self as *mut Self) };
-        this.delete_val::<{ CURRENT_VERSION }>(PSK_LABEL, psk_id)
+        self.delete_val::<{ CURRENT_VERSION }>(PSK_LABEL, psk_id)
     }
 }
 
@@ -994,5 +939,55 @@ impl OpenMlsProvider for SnapshotOpenMlsProvider {
 
     fn rand(&self) -> &Self::RandProvider {
         &self.crypto
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn unchanged_snapshot_has_no_updates() {
+        let provider =
+            SnapshotStorageProvider::from_entries(vec![(b"key".to_vec(), b"value".to_vec())]);
+
+        let updates = provider.into_updates();
+        assert!(updates.upserts.is_empty());
+        assert!(updates.deletes.is_empty());
+    }
+
+    #[test]
+    fn snapshot_reads_its_own_writes_and_deletes() {
+        let provider = SnapshotStorageProvider::from_entries(Vec::new());
+
+        provider.kv_write(b"key".to_vec(), b"value".to_vec());
+        assert_eq!(provider.kv_read(b"key"), Some(b"value".to_vec()));
+
+        provider.kv_delete(b"key");
+        assert_eq!(provider.kv_read(b"key"), None);
+    }
+
+    #[test]
+    fn snapshot_reports_upserts_and_deletes() {
+        let provider = SnapshotStorageProvider::from_entries(vec![
+            (b"changed".to_vec(), b"old".to_vec()),
+            (b"deleted".to_vec(), b"old".to_vec()),
+        ]);
+        provider.kv_write(b"changed".to_vec(), b"new".to_vec());
+        provider.kv_write(b"created".to_vec(), b"new".to_vec());
+        provider.kv_delete(b"deleted");
+
+        let mut updates = provider.into_updates();
+        updates.upserts.sort_by(|left, right| left.0.cmp(&right.0));
+        updates.deletes.sort();
+
+        assert_eq!(
+            updates.upserts,
+            vec![
+                (b"changed".to_vec(), b"new".to_vec()),
+                (b"created".to_vec(), b"new".to_vec()),
+            ]
+        );
+        assert_eq!(updates.deletes, vec![b"deleted".to_vec()]);
     }
 }
