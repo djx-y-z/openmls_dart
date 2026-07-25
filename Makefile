@@ -8,7 +8,7 @@
 # On Windows CI (Git Bash), use cmd to run fvm.bat from PATH:
 # Example: make build ARGS="--target x86_64-pc-windows-msvc" FVM="cmd //c fvm"
 
-.PHONY: help setup setup-fvm setup-rust-tools setup-frb-codegen setup-android setup-web setup-fuzz codegen regen build build-android build-web test coverage analyze format format-check get clean version check-new-openmls-version check-exists-openmls-frb-release check-template-updates check-targets rust-audit rust-deny rust-check rust-clippy fuzz fuzz-list fuzz-seed doc publish publish-dry-run rust-update update-changelog release-frb release setup-repo-protections
+.PHONY: help setup setup-fvm setup-rust-tools setup-frb-codegen setup-android setup-web setup-fuzz codegen regen build build-android build-web test coverage analyze format format-check get clean version check-new-openmls-version check-exists-openmls-frb-release check-template-updates check-targets rust-audit rust-deny rust-check rust-test rust-clippy fuzz fuzz-list fuzz-seed doc publish publish-dry-run rust-update update-changelog release-frb release setup-repo-protections
 
 # FVM command - can be overridden to provide full path on Windows CI
 FVM ?= fvm
@@ -65,6 +65,7 @@ help:
 	@echo ""
 	@echo "  RUST QUALITY"
 	@echo "    make rust-check                   - Check Rust code compiles"
+	@echo "    make rust-test                    - Run Rust unit tests"
 	@echo "    make rust-clippy                  - Lint Rust code with clippy (warnings = errors)"
 	@echo "    make rust-audit                   - Audit Rust dependencies for vulnerabilities"
 	@echo "    make rust-deny                    - Check advisories/licenses/sources (cargo-deny)"
@@ -243,6 +244,13 @@ build-web:
 
 rust-check:
 	cargo check --manifest-path rust/Cargo.toml
+
+# Run the crate's own `#[cfg(test)]` unit tests. These cover invariants the Dart
+# suite cannot reach — notably `classical_ops_do_not_init_libcrux`, which is the
+# stated justification for several advisory ignores in .cargo/audit.toml and
+# rust/deny.toml. Without this in CI those justifications go unverified.
+rust-test:
+	cargo test --manifest-path rust/Cargo.toml $(ARGS)
 
 # Lint hand-written Rust with clippy; warnings are errors so CI fails on any lint.
 # --all-targets covers the lib, its tests, and examples of this crate.

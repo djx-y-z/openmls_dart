@@ -54,11 +54,28 @@ jobs:
           ARGS="--ci-output $GITHUB_OUTPUT"
 
           if [ -n "$TARGET_VERSION" ]; then
+            # Manual input is interpolated into ARGS and reaches a shell before
+            # the Dart checker can validate it. Reject anything that is not a
+            # plain semver tag here as well.
+            if [[ ! "$TARGET_VERSION" =~ ^v?(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$ ]]; then
+              echo "::error::target_version must use the vX.Y.Z or X.Y.Z form."
+              exit 2
+            fi
             ARGS="$ARGS --version $TARGET_VERSION"
           fi
 
           echo "Running: make check-template-updates ARGS=\"$ARGS\""
-          make check-template-updates ARGS="$ARGS" || true
+          set +e
+          make check-template-updates ARGS="$ARGS"
+          STATUS=$?
+          set -e
+          # 0 = up to date, 1 = update available (outputs written). Anything
+          # higher is the checker itself failing and must fail the workflow —
+          # a blanket `|| true` here hid a broken checker behind a green run.
+          if [ "$STATUS" -gt 1 ]; then
+            echo "::error::Template update checker failed with exit code $STATUS."
+            exit "$STATUS"
+          fi
 
           echo "Check completed. Outputs:"
           cat $GITHUB_OUTPUT || true

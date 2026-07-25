@@ -18,6 +18,9 @@ on:
       - 'lib/**'
       - 'test/**'
       - 'rust/**'
+      - 'hook/**'
+      - 'scripts/**'
+      - 'Makefile'
       - 'pubspec.yaml'
       - '.github/workflows/test.yml'
       - '.github/workflows/test-reusable.yml'
@@ -26,7 +29,12 @@ on:
       - 'lib/**'
       - 'test/**'
       - 'rust/**'
+      - 'hook/**'
+      - 'scripts/**'
+      - 'Makefile'
       - 'pubspec.yaml'
+      - '.github/workflows/test.yml'
+      - '.github/workflows/test-reusable.yml'
   workflow_run:
     workflows: ["Build openmls FRB Libraries"]
     types:
