@@ -1,3 +1,71 @@
+## [Unreleased]
+
+### For Users
+
+#### Security
+
+- **Removed undefined behavior from the snapshot storage provider** — the
+  `StorageProvider` implementation reached its snapshot through 35 `&self` →
+  `&mut self` pointer casts guarded by `#[allow(invalid_reference_casting)]`.
+  That cast is undefined behavior regardless of threading: `&self` carries LLVM's
+  `noalias`, so a release build (`lto = true`, `opt-level = "z"`) is entitled to
+  cache or reorder reads across those writes. Replaced with proper interior
+  mutability (`parking_lot::Mutex`), which lets the module drop its
+  `#![allow(unsafe_code)]` escape hatch — the crate now denies `unsafe_code`
+  everywhere except the generated FRB bridge.
+- **Zeroize storage values on overwrite and delete** — replacing or removing a
+  snapshot entry previously dropped the old value without wiping it, leaving
+  plaintext MLS secrets in freed heap memory for the rest of the operation.
+
+#### Fixed
+
+- **Stopped leaking snapshot allocations on every MLS operation** —
+  `into_updates()` ended with `std::mem::forget(self)`, so both `HashMap`
+  backing tables were never freed. The `forget` was unnecessary: after both maps
+  are drained, the `Drop` impl is a no-op.
+- **Build hook no longer re-runs on every build** — the hook declared the
+  `.skip_openmls_hook` marker as a build dependency unconditionally, including
+  when the marker does not exist (the normal case for every consumer).
+  `hooks_runner` treats a declared-but-missing file as modified during the
+  build, forcing a redundant second hook pass on each build. The marker is now
+  declared only while it exists, which still invalidates the skipped result once
+  the marker is removed.
+
+### For Contributors
+
+#### Fixed
+
+- **Repaired the scheduled openmls update check** — the upstream tag guard
+  adopted with copier template v3.0.0 hardcoded `^v?\d+\.\d+\.\d+$`, which
+  rejects this repo's own `openmls-v` tag prefix, so every run failed with
+  `Refusing unexpected upstream tag_name format`. The workflow's blanket
+  `|| true` hid that behind a green run. The pattern is now derived from the
+  configured tag prefix. No upstream release was actually missed —
+  `openmls-v0.8.1` is still the latest — but the next one would have been.
+
+#### Added
+
+- **`make rust-test` and a CI step that runs it** — the crate's unit tests were
+  never executed in CI, including `classical_ops_do_not_init_libcrux`, which
+  several advisory ignores in `.cargo/audit.toml` and `rust/deny.toml` cite as
+  their justification.
+- **Regression tests for upstream tag validation** —
+  `test/scripts/check_updates_test.dart` covers the configured prefix, shell
+  metacharacters, newline injection (including a bare trailing newline), path
+  traversal and non-canonical version segments.
+
+#### Changed
+
+- **Update workflows now fail on checker errors** — `make check-…` exits 0 when
+  up to date, 1 when an update is available and >1 on failure; the workflows
+  distinguish these instead of swallowing every outcome with `|| true`. Manual
+  `target_version` input is also validated in the workflow shell, before it is
+  interpolated into `ARGS`.
+- **Test workflow now triggers on `scripts/`, `hook/` and `Makefile` changes** —
+  edits to the build hook, tooling scripts and the Makefile previously ran no
+  tests at all. Workflow-file paths are now also watched on pull requests, not
+  only on pushes.
+
 ## [1.4.2] - 2026-07-21
 
 ### For Users
