@@ -83,11 +83,13 @@ void main(List<String> args) async {
     final skipMarkerUri = packageRoot.resolve('.skip_openmls_hook');
     final skipFile = File.fromUri(skipMarkerUri);
 
-    // Add marker file as dependency for cache invalidation
-    // This ensures hook reruns when marker is created/deleted
-    output.dependencies.add(skipMarkerUri);
-
     if (skipFile.existsSync()) {
+      // Declare the marker only while it exists. Declaring a missing file makes
+      // hooks_runner treat it as "modified during build" on every invocation,
+      // forcing a redundant hook pass. Once the Makefile removes an existing
+      // marker, this dependency becomes missing and invalidates the skipped
+      // result as intended.
+      output.dependencies.add(skipMarkerUri);
       return;
     }
 
