@@ -19,6 +19,7 @@ import 'dart:io';
 
 import 'common.dart';
 import 'release_common.dart';
+import 'third_party_notices.dart';
 
 /// Cut a Dart package release for [version] (plain `X.Y.Z`).
 ///
@@ -60,6 +61,11 @@ Future<void> releasePackage({
       'Working tree is not clean. Commit or stash changes first.',
     );
   }
+
+  // THIRD_PARTY_NOTICES.txt ships inside the published package, and a pub.dev
+  // version cannot be replaced once published.
+  logStep('Verifying third-party notices match the dependency graph...');
+  assertNoticesCurrent();
 
   final current = getPackageVersion();
   if (!isNewerVersion(version, current)) {

@@ -135,6 +135,14 @@ jobs:
         run: make rust-test
         shell: bash
 
+      # The notice inventory is generated from the resolved dependency graph, so
+      # any dependency change invalidates it. Verified once, on Linux x86_64:
+      # the generator unions every release target regardless of the host.
+      - name: Verify third-party notices
+        if: matrix.name == 'Linux x86_64'
+        run: make verify-third-party-notices
+        shell: bash
+
       - name: Analyze
         run: make analyze ARGS="--fatal-infos"
         shell: bash

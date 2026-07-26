@@ -18,6 +18,7 @@ import 'dart:io';
 
 import 'common.dart';
 import 'release_common.dart';
+import 'third_party_notices.dart';
 
 /// Cut a `openmls_frb` release for crate [version] (plain `X.Y.Z`).
 ///
@@ -53,6 +54,12 @@ Future<void> releaseFrb({
       'Working tree is not clean. Commit or stash changes first.',
     );
   }
+
+  // Every archive built from this tag embeds THIRD_PARTY_NOTICES.txt, and a
+  // pushed release tag cannot be taken back. Checked here rather than trusting
+  // the last CI run, which may predate a local dependency change.
+  logStep('Verifying third-party notices match the dependency graph...');
+  assertNoticesCurrent();
 
   final current = getCrateVersion();
   if (!isNewerVersion(version, current)) {

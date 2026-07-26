@@ -20,6 +20,19 @@
 
 #### Changed
 
+- **The package ships `THIRD_PARTY_NOTICES.txt`** — the prebuilt native library
+  is statically linked against its Rust dependency tree, and MIT, BSD and
+  Apache-2.0 all require those notices to travel with a binary distribution,
+  including an application that embeds the library. Flutter's `LicenseRegistry`
+  does not cover them: it aggregates `LICENSE` files of pub packages, and Rust
+  crates are not pub packages. The file sits at the package root and inside
+  every native release archive, and is generated from the resolved dependency
+  graph across all released targets, so build- and dev-only dependencies are
+  excluded (226 crates, 129 distinct licence texts). It is deliberately **not**
+  declared under `flutter: assets:` — a package-declared asset is bundled into
+  every consuming application whether or not it is used. README documents the
+  two lines needed to surface the notices at runtime for apps that want them.
+
 - **Durability settings are explicit** — connections are opened with
   `journal_mode = DELETE`, verified, so a database left in WAL mode is
   converted instead of silently keeping a side file that a crash or a
@@ -114,6 +127,14 @@
   never executed in CI, including `classical_ops_do_not_init_libcrux`, which
   several advisory ignores in `.cargo/audit.toml` and `rust/deny.toml` cite as
   their justification.
+- **Third-party notice generator** (`make third-party-notices`,
+  `make verify-third-party-notices`) — unions `cargo tree --edges normal` across
+  all twelve released targets, resolves each crate's SPDX expression and shipped
+  licence texts via `cargo metadata`, and pools identical texts by reference
+  (the Apache-2.0 text alone appears in over a hundred crates; pooling takes the
+  file from 1.9 MB to 423 KB). Output is deterministic — crates sorted, texts
+  sorted, no timestamps — so CI can diff it byte-for-byte and fail when a
+  dependency change leaves the committed file stale.
 - **Regression tests for upstream tag validation** —
   `test/scripts/check_updates_test.dart` covers the configured prefix, shell
   metacharacters, newline injection (including a bare trailing newline), path

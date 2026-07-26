@@ -374,47 +374,57 @@ jobs:
           VERSION=${{ env.VERSION }}
           mkdir -p release-archives
 
+          # Every archive distributes the native binary, so it must carry the
+          # licence of this package plus the attribution for the Rust crates
+          # statically linked into it. THIRD_PARTY_NOTICES.txt is generated from
+          # the dependency graph and verified against it by the test workflow
+          # (`make verify-third-party-notices`), so the committed copy is
+          # authoritative here.
+          for dir in artifacts/*/; do
+            cp LICENSE THIRD_PARTY_NOTICES.txt "$dir"
+          done
+
           # Linux x86_64
           tar -czvf release-archives/openmls_frb-${VERSION}-linux-x86_64.tar.gz \
-            -C artifacts/openmls-linux-x86_64 libopenmls_frb.so
+            -C artifacts/openmls-linux-x86_64 libopenmls_frb.so LICENSE THIRD_PARTY_NOTICES.txt
 
           # Linux arm64
           tar -czvf release-archives/openmls_frb-${VERSION}-linux-arm64.tar.gz \
-            -C artifacts/openmls-linux-arm64 libopenmls_frb.so
+            -C artifacts/openmls-linux-arm64 libopenmls_frb.so LICENSE THIRD_PARTY_NOTICES.txt
 
           # macOS arm64
           tar -czvf release-archives/openmls_frb-${VERSION}-macos-arm64.tar.gz \
-            -C artifacts/openmls-macos-arm64 libopenmls_frb.dylib
+            -C artifacts/openmls-macos-arm64 libopenmls_frb.dylib LICENSE THIRD_PARTY_NOTICES.txt
 
           # macOS x86_64
           tar -czvf release-archives/openmls_frb-${VERSION}-macos-x86_64.tar.gz \
-            -C artifacts/openmls-macos-x86_64 libopenmls_frb.dylib
+            -C artifacts/openmls-macos-x86_64 libopenmls_frb.dylib LICENSE THIRD_PARTY_NOTICES.txt
 
           # Windows x86_64
           tar -czvf release-archives/openmls_frb-${VERSION}-windows-x86_64.tar.gz \
-            -C artifacts/openmls-windows-x86_64 openmls_frb.dll
+            -C artifacts/openmls-windows-x86_64 openmls_frb.dll LICENSE THIRD_PARTY_NOTICES.txt
 
           # Android ABIs
           for abi in arm64-v8a armeabi-v7a x86_64; do
             tar -czvf release-archives/openmls_frb-${VERSION}-android-${abi}.tar.gz \
-              -C artifacts/openmls-android-${abi} libopenmls_frb.so
+              -C artifacts/openmls-android-${abi} libopenmls_frb.so LICENSE THIRD_PARTY_NOTICES.txt
           done
 
           # iOS device arm64
           tar -czvf release-archives/openmls_frb-${VERSION}-ios-device-arm64.tar.gz \
-            -C artifacts/openmls-ios-device-arm64 libopenmls_frb.dylib
+            -C artifacts/openmls-ios-device-arm64 libopenmls_frb.dylib LICENSE THIRD_PARTY_NOTICES.txt
 
           # iOS simulator arm64
           tar -czvf release-archives/openmls_frb-${VERSION}-ios-simulator-arm64.tar.gz \
-            -C artifacts/openmls-ios-simulator-arm64 libopenmls_frb.dylib
+            -C artifacts/openmls-ios-simulator-arm64 libopenmls_frb.dylib LICENSE THIRD_PARTY_NOTICES.txt
 
           # iOS simulator x86_64
           tar -czvf release-archives/openmls_frb-${VERSION}-ios-simulator-x86_64.tar.gz \
-            -C artifacts/openmls-ios-simulator-x86_64 libopenmls_frb.dylib
+            -C artifacts/openmls-ios-simulator-x86_64 libopenmls_frb.dylib LICENSE THIRD_PARTY_NOTICES.txt
 
           # WebAssembly
           tar -czvf release-archives/openmls_frb-${VERSION}-wasm32.tar.gz \
-            -C artifacts/openmls-wasm32 openmls_frb.js openmls_frb_bg.wasm
+            -C artifacts/openmls-wasm32 openmls_frb.js openmls_frb_bg.wasm LICENSE THIRD_PARTY_NOTICES.txt
 
           # Generate SHA256 checksums
           cd release-archives

@@ -372,6 +372,39 @@ See [SECURITY.md](SECURITY.md) for security policy and reporting vulnerabilities
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
+### Third-party notices
+
+The prebuilt native library is statically linked against its Rust dependency
+tree (MIT, Apache-2.0, BSD, ISC and similar). Those licenses require their
+notices to travel with any binary distribution — including an application that
+embeds the library — and Flutter's `LicenseRegistry` does not cover them,
+because it aggregates `LICENSE` files of pub packages and Rust crates are not
+pub packages.
+
+[`THIRD_PARTY_NOTICES.txt`](THIRD_PARTY_NOTICES.txt) ships at the root of this
+package and inside every native release archive. It is generated from the
+resolved dependency graph across all released targets, so build- and dev-only
+dependencies are excluded, and CI verifies it stays in sync with `Cargo.lock`.
+
+The file is deliberately **not** declared under `flutter: assets:` — a
+package-declared asset is bundled into every consuming application whether or
+not it is used, and most applications never display these notices. To surface
+them at runtime, copy the file into your own assets and register it:
+
+```yaml
+# your app's pubspec.yaml
+flutter:
+  assets:
+    - assets/THIRD_PARTY_NOTICES.txt
+```
+
+```dart
+LicenseRegistry.addLicense(() async* {
+  final text = await rootBundle.loadString('assets/THIRD_PARTY_NOTICES.txt');
+  yield LicenseEntryWithLineBreaks(const ['openmls'], text);
+});
+```
+
 ## Related Projects
 
 - [OpenMLS](https://github.com/openmls/openmls) - The underlying Rust MLS library
