@@ -12,11 +12,14 @@
   engine's group state. `close()` releases the lock, and an overlapping opener
   waits out SQLite's five-second busy timeout first, so handing the file over
   during teardown still works.
-  **Action required:** if more than one place in your app opens the MLS
-  database — a background isolate, a share extension, a second engine instance
-  — route them through one engine or give each its own file, and call
-  `close()` when done: that, rather than the garbage collector's finalizer, is
-  now what releases the file for the next engine.
+  **Action required — only if your app opens the MLS database from more than
+  one place** (a background isolate, a share extension, a second engine
+  instance): route them through a single engine, or give each its own file.
+  One engine kept open for the lifetime of the app needs no changes and no
+  lifecycle handling. `close()` is what hands the file from one engine to the
+  next; a hot restart during development or a killed process releases the lock
+  on its own, so the engine that follows opens without waiting out the busy
+  timeout.
 
 #### Changed
 
