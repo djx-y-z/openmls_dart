@@ -77,7 +77,9 @@ make doc                                 # Generate documentation
 make get                          # Get dependencies
 make clean                        # Clean build artifacts (including rust/target)
 make version                      # Show current crate version
-make rust-update                  # Update Cargo.lock
+make rust-update                  # Update Cargo.lock + regenerate notices
+make third-party-notices          # Regenerate THIRD_PARTY_NOTICES.txt
+make verify-third-party-notices   # Check it matches the dependency graph
 make check-new-openmls-version  # Check for new upstream openmls version
 make check-new-openmls-version ARGS="--update"  # Apply update
 make check-template-updates       # Check for copier template updates

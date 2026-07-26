@@ -2,9 +2,9 @@
 
 /// Generate or verify THIRD_PARTY_NOTICES.txt for the shipped native library.
 ///
-/// The prebuilt `openmls_frb` library is statically linked against its whole
-/// Rust dependency tree. MIT, BSD and Apache-2.0 all require the corresponding
-/// notices to travel with a binary distribution, and Flutter's
+/// The prebuilt `openmls_frb` library is statically linked against its
+/// whole Rust dependency tree. MIT, BSD and Apache-2.0 all require the
+/// corresponding notices to travel with a binary distribution, and Flutter's
 /// `LicenseRegistry` does not cover them — it only aggregates `LICENSE` files
 /// of pub packages, and Rust crates are not pub packages.
 ///

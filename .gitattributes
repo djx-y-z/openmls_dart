@@ -1,0 +1,5 @@
+# THIRD_PARTY_NOTICES.txt is generated and then compared byte-for-byte by
+# `make verify-third-party-notices`. The generator always writes LF, so a
+# CRLF checkout (git's autocrlf on Windows) would make the check fail on a
+# file nobody touched.
+THIRD_PARTY_NOTICES.txt text eol=lf

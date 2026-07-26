@@ -89,6 +89,20 @@ jobs:
           fi
           echo "Tag matches crate version: $CRATE_VERSION"
 
+      # Every archive built below embeds THIRD_PARTY_NOTICES.txt, so the
+      # committed copy must match the dependency graph these binaries are built
+      # from. `make release-frb` checks this too, but a tag pushed by hand does
+      # not go through it — and a published release cannot be taken back.
+      # Checked here rather than at archive time so a stale inventory fails in
+      # a minute instead of after the whole build matrix.
+      - name: Setup Rust
+        if: steps.check.outputs.skip != 'true'
+        uses: ./.github/actions/setup-rust
+
+      - name: Verify third-party notices
+        if: steps.check.outputs.skip != 'true'
+        run: make verify-third-party-notices
+
   # ============================================
   # Linux (x86_64 + arm64 on separate runners)
   # ============================================
@@ -376,10 +390,10 @@ jobs:
 
           # Every archive distributes the native binary, so it must carry the
           # licence of this package plus the attribution for the Rust crates
-          # statically linked into it. THIRD_PARTY_NOTICES.txt is generated from
-          # the dependency graph and verified against it by the test workflow
-          # (`make verify-third-party-notices`), so the committed copy is
-          # authoritative here.
+          # statically linked into it. THIRD_PARTY_NOTICES.txt was verified
+          # against the dependency graph by the check-release job before any of
+          # these binaries were built, so the committed copy is authoritative
+          # here.
           for dir in artifacts/*/; do
             cp LICENSE THIRD_PARTY_NOTICES.txt "$dir"
           done

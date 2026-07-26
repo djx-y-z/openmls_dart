@@ -30,11 +30,19 @@
   does not cover them: it aggregates `LICENSE` files of pub packages, and Rust
   crates are not pub packages. The file sits at the package root and inside
   every native release archive, and is generated from the resolved dependency
-  graph across all released targets, so build- and dev-only dependencies are
-  excluded (226 crates, 129 distinct licence texts). It is deliberately **not**
-  declared under `flutter: assets:` — a package-declared asset is bundled into
-  every consuming application whether or not it is used. README documents the
-  two lines needed to surface the notices at runtime for apps that want them.
+  graph across all released targets — build edges included, because that is how
+  vendored native code reaches the binary: the bundled OpenSSL arrives as a
+  build-dependency of `openssl-sys` and would otherwise go unattributed
+  (237 crates, 141 shipped licence texts). Licences a crate keeps beside
+  vendored code are collected too — SQLCipher's, the Dart SDK headers', the
+  Unicode tables' — as are those a git dependency keeps at its repository root
+  rather than in the member directory, which is where every upstream MLS crate
+  keeps its own. Where a crate ships no licence file at all, the canonical text
+  of the licence it declares is supplied in its place, so the file delivers the
+  licences rather than merely naming them. It is deliberately **not** declared
+  under `flutter: assets:` — a package-declared asset is bundled into every
+  consuming application whether or not it is used. README documents the two
+  lines needed to surface the notices at runtime for apps that want them.
 
 - **Durability settings are explicit** — connections are opened with
   `journal_mode = DELETE`, verified, so a database left in WAL mode is
@@ -131,13 +139,19 @@
   several advisory ignores in `.cargo/audit.toml` and `rust/deny.toml` cite as
   their justification.
 - **Third-party notice generator** (`make third-party-notices`,
-  `make verify-third-party-notices`) — unions `cargo tree --edges normal` across
-  all twelve released targets, resolves each crate's SPDX expression and shipped
-  licence texts via `cargo metadata`, and pools identical texts by reference
-  (the Apache-2.0 text alone appears in over a hundred crates; pooling takes the
-  file from 1.9 MB to 423 KB). Output is deterministic — crates sorted, texts
-  sorted, no timestamps — so CI can diff it byte-for-byte and fail when a
-  dependency change leaves the committed file stale.
+  `make verify-third-party-notices`) — unions `cargo tree --locked --edges
+  normal,build` across all twelve released targets, resolves each crate's SPDX
+  expression and licence texts via `cargo metadata`, and pools identical texts
+  by reference (the Apache-2.0 text alone appears in over a hundred crates;
+  pooling takes the file from 1.9 MB to under 500 KB). `--locked` is what keeps
+  the output machine-independent: without it a stale `Cargo.lock` lets cargo
+  silently re-resolve the graph, so the same commit could generate different
+  inventories. Output is otherwise deterministic — crates sorted, texts sorted,
+  no timestamps — so CI can diff it byte-for-byte and fail when a dependency
+  change leaves the committed file stale. The check also runs in
+  `build-openmls.yml` before the build matrix starts, since a hand-pushed tag
+  skips the release script's own gate and the archives it produces embed the
+  file.
 - **Regression tests for upstream tag validation** —
   `test/scripts/check_updates_test.dart` covers the configured prefix, shell
   metacharacters, newline injection (including a bare trailing newline), path
