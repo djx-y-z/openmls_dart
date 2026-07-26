@@ -2,8 +2,73 @@
 
 ### For Users
 
+#### Changed (Breaking)
+
+- **Only one engine may hold a database file** — the SQLCipher connection now
+  takes an exclusive lock at open. A second `MlsEngine` on the same path —
+  another instance, isolate, or process — fails with *"Database is already open
+  by another connection or process"* instead of quietly running its own
+  load → operate → save cycle over the same rows and overwriting the first
+  engine's group state. `close()` releases the lock, and an overlapping opener
+  waits out SQLite's five-second busy timeout first, so handing the file over
+  during teardown still works.
+  **Action required:** if more than one place in your app opens the MLS
+  database — a background isolate, a share extension, a second engine instance
+  — route them through one engine or give each its own file, and call
+  `close()` when done: that, rather than the garbage collector's finalizer, is
+  now what releases the file for the next engine.
+
+#### Changed
+
+- **Durability settings are explicit** — connections are opened with
+  `journal_mode = DELETE`, verified, so a database left in WAL mode is
+  converted instead of silently keeping a side file that a crash or a
+  file-level backup can drop, and with `synchronous = FULL`. `fullfsync` is
+  deliberately left off: on Apple platforms it also flushes the drive's own
+  write cache, measured at 16 ms per MLS operation against 318 µs without it —
+  paid on every message sent and received. SECURITY.md records the trade-off.
+
 #### Security
 
+- **Serialized concurrent operations on an engine** — every engine method loads
+  a snapshot of the stored group state, lets OpenMLS mutate it, then writes the
+  diff back, but nothing held that span together: two overlapping calls loaded
+  the same base snapshot and the later write-back dropped the other's changes.
+  A merged commit, an epoch advance, a stored proposal or a ratchet step could
+  silently disappear, desynchronizing the group and leaving messages
+  undecryptable. Each operation now runs under an engine-wide async lock —
+  async because the span contains `.await` points, and because the same
+  interleaving happens on WASM's single thread with no threads involved at all.
+  This was a lost update, not key reuse: MLS gives every message a fresh random
+  `reuse_guard`, so two sends off one snapshot still got different nonces.
+- **SQLCipher now wipes its own memory** — connections set
+  `cipher_memory_security = ON`, verified on open, so SQLCipher zeroes its
+  working buffers when freeing them and asks the OS to keep them out of swap.
+  Those buffers hold MLS plaintext while it is being encrypted — the residue
+  the wrapper's own zeroization cannot reach. Measured cost: +20% per operation
+  (~62 µs).
+- **Wiped the storage layer's remaining plaintext copies** — the diff handed to
+  the database cloned every changed value out of the snapshot and dropped those
+  clones unwiped; they are zeroized once written. The encryption key's hex form
+  was built with a `format!` per byte, leaving 32 small allocations of key
+  material behind; it is now built into a single `Zeroizing` buffer and wiped
+  as soon as the key pragma has run.
+- **`deleteGroup` is atomic** — it wrote the group's final state and then
+  purged the group's rows in two transactions; a crash in between left rows of
+  a deleted group behind. Both happen in one transaction now, on native and on
+  WASM.
+- **Database files are created owner-only** — on Unix the file is pre-created
+  with mode `0600` rather than inheriting the process umask (typically
+  world-readable `0644` on desktops), and an existing file is tightened on
+  open. SQLite gives the journal file the same mode.
+- **Documented the anti-rollback requirement** — encryption at rest does not
+  protect freshness: restoring an older copy of the database replays MLS state
+  that was already spent, and the 32-bit `reuse_guard` that makes a single
+  rollback merely a rejected message erodes across a large or repeated one.
+  SECURITY.md now asks deployments to place the database on rollback-protected
+  storage (hardware monotonic counter, TPM 2.0 NV, Android StrongBox), notes
+  that sealing the key in hardware protects confidentiality rather than
+  freshness, and records that iOS exposes no such counter to apps.
 - **Removed undefined behavior from the snapshot storage provider** — the
   `StorageProvider` implementation reached its snapshot through 35 `&self` →
   `&mut self` pointer casts guarded by `#[allow(invalid_reference_casting)]`.
@@ -53,6 +118,12 @@
   `test/scripts/check_updates_test.dart` covers the configured prefix, shell
   metacharacters, newline injection (including a bare trailing newline), path
   traversal and non-canonical version segments.
+- **Storage hardening tests** — `test/concurrency_test.dart` drives overlapping
+  calls on one engine (they fail against the pre-fix build with a consumed
+  ratchet secret and a dropped proposal), `test/security/encrypted_db_test.dart`
+  covers encryption at rest, wrong-key fail-closed and the single-writer
+  refusal, and `encrypted_db.rs` gained unit tests pinning the raw-key pragma
+  shape, the connection pragmas that must be in force, and the `0600` file mode.
 
 #### Changed
 

@@ -71,7 +71,7 @@ fn mls_message_from_exact_bytes(bytes: &[u8]) -> Result<MlsMessageIn, TlsCodecEr
 }
 
 /// Load an MlsGroup from the provider's storage.
-fn load_group(group_id: &[u8], provider: &SnapshotOpenMlsProvider) -> Result<MlsGroup, String> {
+fn load_group<P: OpenMlsProvider>(group_id: &[u8], provider: &P) -> Result<MlsGroup, String> {
     let gid = GroupId::from_slice(group_id);
     MlsGroup::load(provider.storage(), &gid)
         .map_err(|e| format!("Failed to load group: {}", e))?
@@ -157,6 +157,50 @@ pub struct GroupConfigurationResult {
 
 pub struct MlsEngine {
     db: parking_lot::RwLock<Option<std::sync::Arc<crate::encrypted_db::EncryptedDb>>>,
+    /// Serializes the load → operate → save sequence of every operation.
+    ///
+    /// Each method loads a snapshot of the stored group state, lets OpenMLS
+    /// mutate it in memory, then writes back the diff. Two calls that overlap
+    /// would load the same base snapshot and the later write-back would drop
+    /// the other one's changes — a merged commit, an advanced ratchet or a
+    /// stored proposal would silently disappear and desynchronize the group.
+    ///
+    /// This is an async mutex on purpose: the guarded span contains `.await`
+    /// points, and a blocking mutex would deadlock the single-threaded WASM
+    /// event loop (where the same interleaving happens without threads).
+    op_lock: futures::lock::Mutex<()>,
+}
+
+/// Exclusive session over one engine's storage.
+///
+/// Owns the snapshot provider *and* the engine-wide operation lock, so a
+/// provider cannot exist without the lock being held. The guard lives until
+/// the session is consumed by [`MlsEngine::commit`] (or dropped by a method
+/// that only reads), which keeps the whole load → operate → save span
+/// serialized.
+struct OpSession<'a> {
+    _guard: futures::lock::MutexGuard<'a, ()>,
+    provider: SnapshotOpenMlsProvider,
+}
+
+/// Delegates to the wrapped snapshot provider so `OpSession` can be handed to
+/// OpenMLS directly — call sites never see the guard.
+impl OpenMlsProvider for OpSession<'_> {
+    type CryptoProvider = <SnapshotOpenMlsProvider as OpenMlsProvider>::CryptoProvider;
+    type RandProvider = <SnapshotOpenMlsProvider as OpenMlsProvider>::RandProvider;
+    type StorageProvider = <SnapshotOpenMlsProvider as OpenMlsProvider>::StorageProvider;
+
+    fn storage(&self) -> &Self::StorageProvider {
+        self.provider.storage()
+    }
+
+    fn crypto(&self) -> &Self::CryptoProvider {
+        self.provider.crypto()
+    }
+
+    fn rand(&self) -> &Self::RandProvider {
+        self.provider.rand()
+    }
 }
 
 impl MlsEngine {
@@ -183,9 +227,24 @@ impl MlsEngine {
     ///   Recommended pattern: generate a random key on first launch and persist it
     ///   in platform secure storage (e.g. Keychain on iOS/macOS, Android Keystore,
     ///   or `flutter_secure_storage`).
+    ///
+    /// # One engine per database file
+    ///
+    /// On native the database is locked exclusively. A second engine on the same
+    /// file — another instance, isolate or process — fails with "Database is
+    /// already open by another connection or process" rather than silently
+    /// overwriting this one's group state. [`MlsEngine::close`] releases the
+    /// lock; an overlapping opener waits out SQLite's five-second busy timeout
+    /// first, so handing the file over during teardown still works.
+    ///
+    /// Calls on one engine are safe to make concurrently: each runs its
+    /// load → operate → save cycle under an engine-wide lock.
     pub async fn create(db_path: String, encryption_key: Vec<u8>) -> Result<MlsEngine, String> {
         let db = crate::encrypted_db::EncryptedDb::open(db_path, encryption_key).await?;
-        Ok(MlsEngine { db: parking_lot::RwLock::new(Some(std::sync::Arc::new(db))) })
+        Ok(MlsEngine {
+            db: parking_lot::RwLock::new(Some(std::sync::Arc::new(db))),
+            op_lock: futures::lock::Mutex::new(()),
+        })
     }
 
     // ═══════════════════════════════════════════════════════════
@@ -196,17 +255,33 @@ impl MlsEngine {
         self.db.read().as_ref().cloned().ok_or_else(|| "MlsEngine is closed".to_string())
     }
 
-    async fn load_for_group(&self, group_id: &[u8]) -> Result<SnapshotOpenMlsProvider, String> {
+    /// Take the operation lock and load a group's snapshot under it.
+    async fn load_for_group(&self, group_id: &[u8]) -> Result<OpSession<'_>, String> {
+        let guard = self.op_lock.lock().await;
         let entries = self.db()?.load_for_group(group_id).await?;
-        Ok(SnapshotOpenMlsProvider::new(SnapshotStorageProvider::from_entries(entries)))
+        Ok(OpSession {
+            _guard: guard,
+            provider: SnapshotOpenMlsProvider::new(SnapshotStorageProvider::from_entries(entries)),
+        })
     }
 
-    async fn load_global(&self) -> Result<SnapshotOpenMlsProvider, String> {
+    /// Take the operation lock and load the global (group-independent)
+    /// snapshot under it.
+    async fn load_global(&self) -> Result<OpSession<'_>, String> {
+        let guard = self.op_lock.lock().await;
         let entries = self.db()?.load_global().await?;
-        Ok(SnapshotOpenMlsProvider::new(SnapshotStorageProvider::from_entries(entries)))
+        Ok(OpSession {
+            _guard: guard,
+            provider: SnapshotOpenMlsProvider::new(SnapshotStorageProvider::from_entries(entries)),
+        })
     }
 
-    async fn commit(&self, provider: SnapshotOpenMlsProvider, group_id: Option<&[u8]>) -> Result<(), String> {
+    /// Diff a session's snapshot, write it back, and release the operation
+    /// lock.
+    async fn commit(&self, session: OpSession<'_>, group_id: Option<&[u8]>) -> Result<(), String> {
+        // Destructuring keeps the guard alive until this function returns, so
+        // the write-back still happens under the lock.
+        let OpSession { _guard, provider } = session;
         let updates = provider.into_storage().into_updates();
         if updates.upserts.is_empty() && updates.deletes.is_empty() {
             return Ok(());
@@ -1694,12 +1769,17 @@ impl MlsEngine {
         &self,
         group_id_bytes: Vec<u8>,
     ) -> Result<(), String> {
-        let provider = self.load_for_group(&group_id_bytes).await?;
-        let mut group = load_group(&group_id_bytes, &provider)?;
-        group.delete(provider.storage()).map_err(|e| format!("Failed to delete group: {}", e))?;
+        let session = self.load_for_group(&group_id_bytes).await?;
+        let mut group = load_group(&group_id_bytes, &session)?;
+        group.delete(session.storage()).map_err(|e| format!("Failed to delete group: {}", e))?;
 
-        self.commit(provider, Some(&group_id_bytes)).await?;
-        self.db()?.delete_group(&group_id_bytes).await
+        // One transaction for the final state and the purge of whatever rows
+        // OpenMLS left behind, so a crash cannot half-delete the group.
+        let OpSession { _guard, provider } = session;
+        let updates = provider.into_storage().into_updates();
+        self.db()?
+            .save_updates_and_purge_group(updates, &group_id_bytes)
+            .await
     }
 
     pub async fn delete_key_package(
@@ -1784,6 +1864,9 @@ impl MlsEngine {
     /// "MlsEngine is closed". Idempotent — calling close on an already-closed
     /// engine is a no-op.
     pub async fn close(&self) -> Result<(), String> {
+        // Wait for any in-flight operation to finish its load → operate → save
+        // sequence before tearing the connection down.
+        let _op = self.op_lock.lock().await;
         let arc = { self.db.write().take() };
         match arc {
             Some(arc) => match std::sync::Arc::try_unwrap(arc) {

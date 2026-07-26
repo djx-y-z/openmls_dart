@@ -64,6 +64,32 @@ pub struct StorageUpdates {
     pub deletes: Vec<Vec<u8>>,
 }
 
+impl StorageUpdates {
+    /// Wipe the plaintext values.
+    ///
+    /// The values are clones of snapshot entries — MLS secrets. The snapshot
+    /// wipes its own two copies when it is dropped; these clones need the same
+    /// treatment. Keys stay: they are labels plus serialized group ids, epochs
+    /// and leaf indices, not secrets.
+    fn zeroize_values(&mut self) {
+        for (_key, value) in &mut self.upserts {
+            value.zeroize();
+        }
+    }
+}
+
+impl Drop for StorageUpdates {
+    /// Wipes our copy of the values once they have been written.
+    ///
+    /// The copies the database layer makes are not ours to wipe: on native
+    /// they live in SQLite's statement memory and page cache, which
+    /// `cipher_memory_security` (set in `open`) zeroes on free; on WASM they
+    /// pass through `crypto.subtle` buffers owned by the browser.
+    fn drop(&mut self) {
+        self.zeroize_values();
+    }
+}
+
 /// Wrapper around `web_sys::CryptoKey` that is `Send + Sync`.
 ///
 /// WASM is single-threaded, so this is safe. FRB requires opaque types to be
@@ -104,24 +130,107 @@ impl EncryptedDb {
             ));
         }
 
+        // Create the file owner-only *before* SQLite touches it, so it never
+        // exists with the default world-readable mode.
+        restrict_permissions(&db_path);
+
         let conn = rusqlite::Connection::open(&db_path)
             .map_err(|e| format!("Failed to open database: {e}"))?;
 
-        // Set the encryption key via PRAGMA key (hex-encoded for SQLCipher).
-        let hex_key = hex_string(&encryption_key);
-        encryption_key.zeroize();
-        conn.pragma_update(None, "key", format!("x'{hex_key}'"))
-            .map_err(|e| format!("Failed to set encryption key: {e}"))?;
+        // Before the key, because this governs how SQLCipher allocates every
+        // buffer that follows: with it on, SQLCipher wipes its own working
+        // memory when freeing it and asks the OS to keep it out of swap. That
+        // memory holds MLS plaintext while it is being encrypted, which is
+        // exactly the residue `StorageUpdates`' own wipe cannot reach.
+        conn.execute_batch("PRAGMA cipher_memory_security = ON;")
+            .map_err(|e| format!("Failed to enable cipher_memory_security: {e}"))?;
 
-        // Verify key is correct by querying.
+        // The key has to be set before anything reads or writes the file.
+        let pragma_key = raw_key_pragma(&encryption_key);
+        encryption_key.zeroize();
+        let keyed = conn.pragma_update(None, "key", pragma_key.as_str());
+        drop(pragma_key);
+        keyed.map_err(|e| format!("Failed to set encryption key: {e}"))?;
+
+        // First access to the file: proves the key decrypts it — and is where
+        // an exclusive lock held by another connection first shows up.
         conn.execute_batch("SELECT count(*) FROM sqlite_master;")
-            .map_err(|e| format!("Encryption key verification failed (wrong key?): {e}"))?;
+            .map_err(|e| match busy_error(&e) {
+                Some(message) => message,
+                None => format!("Encryption key verification failed (wrong key?): {e}"),
+            })?;
+
+        Self::apply_pragmas(&conn)?;
 
         let db = Self {
             conn: std::sync::Mutex::new(conn),
         };
         db.run_migrations()?;
         Ok(db)
+    }
+
+    /// Durability and single-writer settings, applied to every connection.
+    fn apply_pragmas(conn: &rusqlite::Connection) -> Result<(), String> {
+        // Confirm the memory-security pragma set in `open()` took effect. It
+        // can only be read back once SQLCipher's allocator has run, hence the
+        // check here rather than next to the statement that sets it. Failing
+        // to lock memory is not covered by this: SQLCipher only logs that and
+        // carries on, so a small RLIMIT_MEMLOCK degrades to wiping without
+        // swap protection instead of failing to open.
+        let memory_security: String = conn
+            .query_row("PRAGMA cipher_memory_security;", [], |row| row.get(0))
+            .map_err(|e| format!("Failed to read cipher_memory_security: {e}"))?;
+        if memory_security != "1" {
+            return Err(format!(
+                "cipher_memory_security is {memory_security:?}, expected \"1\""
+            ));
+        }
+
+        // Rollback journal, never WAL. `journal_mode` is persisted *in the
+        // database file*, so a file that was ever opened in WAL mode keeps it,
+        // and WAL leaves committed data in a side file that a crash or a
+        // careless file-level backup can drop. In-memory databases report
+        // `memory` and cannot be changed — they have no journal file at all,
+        // which is equally safe.
+        let journal_mode = read_back(conn, "journal_mode", "DELETE")?;
+        if !journal_mode.eq_ignore_ascii_case("delete")
+            && !journal_mode.eq_ignore_ascii_case("memory")
+        {
+            return Err(format!(
+                "Failed to leave WAL mode: journal_mode is {journal_mode:?}, expected \"delete\""
+            ));
+        }
+
+        // fsync on every commit, so a crash cannot lose an operation that was
+        // reported as done. Deliberately *not* `fullfsync`: on Apple platforms
+        // that additionally flushes the drive's own write cache, which measured
+        // at 16 ms per operation here versus 318 µs without it — 51× on the
+        // path every message send and receive takes. What it would buy is
+        // narrow: `synchronous = FULL` already fsyncs, so the residual exposure
+        // is data still in a volatile drive cache when power is cut, and losing
+        // the last operation is recoverable (the MLS reuse guard makes a lost
+        // ratchet step a rejected message, not a repeated keystream).
+        let _ = conn.execute_batch("PRAGMA synchronous = FULL;");
+
+        // Single writer. A second connection to the same file — another engine
+        // instance, isolate or process — runs its own load → operate → save
+        // cycle and would silently overwrite this one's group state. Exclusive
+        // locking mode makes the operating system enforce that; the write
+        // transaction below takes the lock immediately so a second opener
+        // fails here instead of corrupting state later.
+        let locking_mode = read_back(conn, "locking_mode", "EXCLUSIVE")?;
+        if !locking_mode.eq_ignore_ascii_case("exclusive") {
+            return Err(format!(
+                "Failed to enter exclusive locking mode: locking_mode is {locking_mode:?}"
+            ));
+        }
+        conn.execute_batch("BEGIN EXCLUSIVE; COMMIT;")
+            .map_err(|e| match busy_error(&e) {
+                Some(message) => message,
+                None => format!("Failed to lock the database for exclusive use: {e}"),
+            })?;
+
+        Ok(())
     }
 
     fn run_migrations(&self) -> Result<(), String> {
@@ -237,7 +346,39 @@ impl EncryptedDb {
         let tx = conn
             .unchecked_transaction()
             .map_err(|e| format!("Failed to begin transaction: {e}"))?;
+        Self::apply_updates(&tx, &updates, group_id)?;
+        tx.commit()
+            .map_err(|e| format!("Failed to commit transaction: {e}"))?;
+        Ok(())
+    }
 
+    /// Save updates *and* drop every remaining row of `group_id`, in one
+    /// transaction — a crash cannot leave a deleted group half-purged.
+    pub async fn save_updates_and_purge_group(
+        &self,
+        updates: StorageUpdates,
+        group_id: &[u8],
+    ) -> Result<(), String> {
+        let conn = self.conn.lock().unwrap();
+        let tx = conn
+            .unchecked_transaction()
+            .map_err(|e| format!("Failed to begin transaction: {e}"))?;
+        Self::apply_updates(&tx, &updates, Some(group_id))?;
+        tx.execute(
+            "DELETE FROM mls_storage WHERE group_id = ?1",
+            rusqlite::params![group_id],
+        )
+        .map_err(|e| format!("Failed to purge group: {e}"))?;
+        tx.commit()
+            .map_err(|e| format!("Failed to commit transaction: {e}"))?;
+        Ok(())
+    }
+
+    fn apply_updates(
+        tx: &rusqlite::Transaction<'_>,
+        updates: &StorageUpdates,
+        group_id: Option<&[u8]>,
+    ) -> Result<(), String> {
         for (key, value) in &updates.upserts {
             let gid: Option<&[u8]> = if is_global_key(key) {
                 None
@@ -259,19 +400,6 @@ impl EncryptedDb {
             .map_err(|e| format!("Failed to delete: {e}"))?;
         }
 
-        tx.commit()
-            .map_err(|e| format!("Failed to commit transaction: {e}"))?;
-        Ok(())
-    }
-
-    /// Delete all entries for a specific group.
-    pub async fn delete_group(&self, group_id: &[u8]) -> Result<(), String> {
-        let conn = self.conn.lock().unwrap();
-        conn.execute(
-            "DELETE FROM mls_storage WHERE group_id = ?1",
-            rusqlite::params![group_id],
-        )
-        .map_err(|e| format!("Failed to delete group: {e}"))?;
         Ok(())
     }
 
@@ -282,10 +410,98 @@ impl EncryptedDb {
     }
 }
 
+/// Build the SQLCipher `PRAGMA key` value for a raw 32-byte key.
+///
+/// SQLCipher treats a passphrase of exactly `x'<64 hex digits>'` as the raw
+/// key and uses those bytes directly; anything else is a passphrase run
+/// through 256k PBKDF2-HMAC-SHA512 iterations. rusqlite passes this string as
+/// a SQL string literal, which SQLite unescapes back to these exact characters
+/// before SQLCipher inspects them.
+///
+/// The result is a plaintext copy of the key, hence `Zeroizing`. SQLite makes
+/// its own copy in the pragma's statement text; `cipher_memory_security` (set
+/// before the key in `open`) is what wipes that one when SQLite frees it.
 #[cfg(not(target_arch = "wasm32"))]
-fn hex_string(bytes: &[u8]) -> String {
-    bytes.iter().map(|b| format!("{b:02x}")).collect()
+fn raw_key_pragma(key: &[u8]) -> zeroize::Zeroizing<String> {
+    const HEX_DIGITS: &[u8; 16] = b"0123456789abcdef";
+    let mut pragma = zeroize::Zeroizing::new(String::with_capacity(key.len() * 2 + 3));
+    pragma.push_str("x'");
+    for byte in key {
+        pragma.push(HEX_DIGITS[(byte >> 4) as usize] as char);
+        pragma.push(HEX_DIGITS[(byte & 0x0f) as usize] as char);
+    }
+    pragma.push('\'');
+    pragma
 }
+
+/// Apply a pragma and read the value the connection actually ended up with.
+#[cfg(not(target_arch = "wasm32"))]
+fn read_back(conn: &rusqlite::Connection, name: &str, value: &str) -> Result<String, String> {
+    // `name` and `value` are crate-internal literals — never caller input.
+    conn.execute_batch(&format!("PRAGMA {name} = {value};"))
+        .map_err(|e| match busy_error(&e) {
+            Some(message) => message,
+            None => format!("Failed to set {name}: {e}"),
+        })?;
+    conn.query_row(&format!("PRAGMA {name};"), [], |row| row.get(0))
+        .map_err(|e| format!("Failed to read {name}: {e}"))
+}
+
+/// Recognize "another connection holds the database" and explain it.
+#[cfg(not(target_arch = "wasm32"))]
+fn busy_error(error: &rusqlite::Error) -> Option<String> {
+    let code = match error {
+        rusqlite::Error::SqliteFailure(err, _) => err.code,
+        _ => return None,
+    };
+    matches!(
+        code,
+        rusqlite::ErrorCode::DatabaseBusy | rusqlite::ErrorCode::DatabaseLocked
+    )
+    .then(|| {
+        "Database is already open by another connection or process. openmls \
+         keeps an exclusive lock so that only one MlsEngine can use a database \
+         file at a time — close the other engine first."
+            .to_string()
+    })
+}
+
+/// Restrict a database file to its owner (`0600`).
+///
+/// Creating it here rather than letting SQLite do it avoids the window in
+/// which the file exists with the process umask's default mode (typically
+/// world-readable `0644` on desktops). SQLite gives the journal file the same
+/// mode as the database, so it is covered too. Best effort: a failure here is
+/// not fatal — SQLite reports a real problem with the path in a better way,
+/// and the mode is moot inside a mobile app sandbox.
+#[cfg(all(unix, not(target_arch = "wasm32")))]
+fn restrict_permissions(db_path: &str) {
+    use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
+
+    // ":memory:" has no file; "file:…" URIs carry query parameters that are
+    // not a path (and may name a memory database).
+    if db_path == ":memory:" || db_path.is_empty() || db_path.starts_with("file:") {
+        return;
+    }
+
+    match std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .mode(0o600)
+        .open(db_path)
+    {
+        Ok(_) => {}
+        // Already there — tighten a database written before this change.
+        Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {
+            let _ = std::fs::set_permissions(db_path, std::fs::Permissions::from_mode(0o600));
+        }
+        Err(_) => {}
+    }
+}
+
+/// No-op: file modes are a Unix concept.
+#[cfg(all(not(unix), not(target_arch = "wasm32")))]
+fn restrict_permissions(_db_path: &str) {}
 
 // ═══════════════════════════════════════════════════════════════
 // WASM IMPLEMENTATION (IndexedDB + Web Crypto AES-256-GCM)
@@ -518,6 +734,36 @@ impl EncryptedDb {
         updates: StorageUpdates,
         _group_id: Option<&[u8]>,
     ) -> Result<(), String> {
+        self.write_all(updates, Vec::new()).await
+    }
+
+    /// Save updates *and* drop every remaining row of the group, in one
+    /// transaction — a crash cannot leave a deleted group half-purged.
+    ///
+    /// As in `delete_group`, "the group's rows" means every non-global entry:
+    /// IDB keys carry no group column to filter on.
+    pub async fn save_updates_and_purge_group(
+        &self,
+        updates: StorageUpdates,
+        _group_id: &[u8],
+    ) -> Result<(), String> {
+        // Collected before the write transaction opens: an IDB transaction
+        // auto-commits as soon as the event loop goes idle, so no await may
+        // happen inside it.
+        let purge: Vec<Vec<u8>> = self
+            .idb_get_all_keys()
+            .await?
+            .into_iter()
+            .filter(|key| !is_global_key(key))
+            .collect();
+        self.write_all(updates, purge).await
+    }
+
+    async fn write_all(
+        &self,
+        updates: StorageUpdates,
+        purge: Vec<Vec<u8>>,
+    ) -> Result<(), String> {
         use idb::TransactionMode;
         use js_sys::Uint8Array;
         use wasm_bindgen::JsValue;
@@ -549,45 +795,7 @@ impl EncryptedDb {
                 .map_err(|e| format!("put.await failed: {e}"))?;
         }
 
-        for key in &updates.deletes {
-            let js_key: JsValue = Uint8Array::from(key.as_slice()).into();
-            store
-                .delete(js_key)
-                .map_err(|e| format!("delete failed: {e}"))?
-                .await
-                .map_err(|e| format!("delete.await failed: {e}"))?;
-        }
-
-        txn.commit()
-            .map_err(|e| format!("commit failed: {e}"))?
-            .await
-            .map_err(|e| format!("commit.await failed: {e}"))?;
-        db.close();
-        Ok(())
-    }
-
-    /// Delete all entries for a specific group.
-    /// On WASM, deletes all non-global entries (since we can't filter by group_id column).
-    pub async fn delete_group(&self, _group_id: &[u8]) -> Result<(), String> {
-        let all_keys = self.idb_get_all_keys().await?;
-        let non_global: Vec<_> = all_keys.into_iter().filter(|k| !is_global_key(k)).collect();
-        if non_global.is_empty() {
-            return Ok(());
-        }
-
-        use idb::TransactionMode;
-        use js_sys::Uint8Array;
-        use wasm_bindgen::JsValue;
-
-        let db = self.idb_open().await?;
-        let txn = db
-            .transaction(&["mls_storage"], TransactionMode::ReadWrite)
-            .map_err(|e| format!("transaction failed: {e}"))?;
-        let store = txn
-            .object_store("mls_storage")
-            .map_err(|e| format!("object_store failed: {e}"))?;
-
-        for key in &non_global {
+        for key in updates.deletes.iter().chain(purge.iter()) {
             let js_key: JsValue = Uint8Array::from(key.as_slice()).into();
             store
                 .delete(js_key)
@@ -803,4 +1011,238 @@ async fn wasm_decrypt(key: &web_sys::CryptoKey, data: &[u8]) -> Result<Vec<u8>, 
 
     let pt_array = Uint8Array::new(&result.unchecked_into::<js_sys::ArrayBuffer>());
     Ok(pt_array.to_vec())
+}
+
+// ═══════════════════════════════════════════════════════════════
+// TESTS (native)
+// ═══════════════════════════════════════════════════════════════
+
+#[cfg(all(test, not(target_arch = "wasm32")))]
+mod tests {
+    use super::*;
+    use futures::executor::block_on;
+
+    /// A database path in the temp directory that cleans up after itself.
+    struct TempDb {
+        path: std::path::PathBuf,
+    }
+
+    impl TempDb {
+        fn new(name: &str) -> Self {
+            static COUNTER: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+            let unique = COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            let path = std::env::temp_dir().join(format!(
+                "openmls_frb_{name}_{}_{unique}.db",
+                std::process::id()
+            ));
+            let _ = std::fs::remove_file(&path);
+            Self { path }
+        }
+
+        fn as_str(&self) -> &str {
+            self.path.to_str().expect("temp path is valid UTF-8")
+        }
+    }
+
+    impl Drop for TempDb {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_file(&self.path);
+            // Rollback journals are named "<database>-journal". SQLite removes
+            // one on commit; this only catches a run that died mid-write.
+            let _ = std::fs::remove_file(std::path::PathBuf::from(format!(
+                "{}-journal",
+                self.path.display()
+            )));
+        }
+    }
+
+    fn open_db(path: &str) -> Result<EncryptedDb, String> {
+        block_on(EncryptedDb::open(path.to_string(), vec![0x5a; 32]))
+    }
+
+    fn store(db: &EncryptedDb, key: &[u8], value: &[u8]) {
+        let updates = StorageUpdates {
+            upserts: vec![(key.to_vec(), value.to_vec())],
+            deletes: Vec::new(),
+        };
+        block_on(db.save_updates(updates, None)).expect("save_updates");
+    }
+
+    fn contains(haystack: &[u8], needle: &[u8]) -> bool {
+        haystack.windows(needle.len()).any(|window| window == needle)
+    }
+
+    /// Take the error of a failed open (`EncryptedDb` has no `Debug`, so
+    /// `expect_err` is unavailable).
+    fn open_error(result: Result<EncryptedDb, String>, expectation: &str) -> String {
+        match result {
+            Ok(_) => panic!("{expectation}"),
+            Err(error) => error,
+        }
+    }
+
+    #[test]
+    fn raw_key_pragma_uses_sqlcipher_raw_key_form() {
+        let pragma = raw_key_pragma(&[0xab; 32]);
+        // Exactly "x'" + 64 hex digits + "'" (67 chars). Any other shape and
+        // SQLCipher treats the value as a passphrase to run through PBKDF2
+        // instead of using the caller's key directly.
+        assert_eq!(pragma.len(), 67);
+        assert_eq!(pragma.as_str(), format!("x'{}'", "ab".repeat(32)));
+    }
+
+    #[test]
+    fn storage_updates_wipes_values_and_keeps_keys() {
+        let mut updates = StorageUpdates {
+            upserts: vec![(b"GroupContext".to_vec(), b"secret".to_vec())],
+            deletes: vec![b"Tree".to_vec()],
+        };
+
+        updates.zeroize_values();
+
+        assert_eq!(updates.upserts[0].0, b"GroupContext");
+        assert!(updates.upserts[0].1.is_empty());
+        assert_eq!(updates.deletes[0], b"Tree");
+    }
+
+    #[test]
+    fn stored_values_are_encrypted_at_rest() {
+        let temp = TempDb::new("at_rest");
+        let db = open_db(temp.as_str()).expect("open");
+        store(&db, b"KeyPackage/at-rest", b"plaintext-canary-value");
+        drop(db);
+
+        let bytes = std::fs::read(&temp.path).expect("read database file");
+        assert!(
+            !bytes.starts_with(b"SQLite format 3\0"),
+            "database header is not encrypted"
+        );
+        assert!(!contains(&bytes, b"plaintext-canary-value"));
+        assert!(!contains(&bytes, b"KeyPackage/at-rest"));
+    }
+
+    #[test]
+    fn wrong_key_fails_closed() {
+        let temp = TempDb::new("wrong_key");
+        let db = open_db(temp.as_str()).expect("open");
+        store(&db, b"KeyPackage/wrong-key", b"value");
+        drop(db);
+
+        let error = open_error(
+            block_on(EncryptedDb::open(temp.as_str().to_string(), vec![0x11; 32])),
+            "a wrong key must not open the database",
+        );
+        assert!(
+            error.contains("Encryption key verification failed"),
+            "unexpected error: {error}"
+        );
+
+        // The right key still works — the failure above is not a corrupted file.
+        let db = open_db(temp.as_str()).expect("reopen with the correct key");
+        let entries = block_on(db.load_global()).expect("load_global");
+        assert_eq!(entries.len(), 1);
+    }
+
+    #[test]
+    fn purging_a_group_keeps_global_entries() {
+        let temp = TempDb::new("purge");
+        let db = open_db(temp.as_str()).expect("open");
+
+        // One group-scoped row and one global row.
+        let updates = StorageUpdates {
+            upserts: vec![
+                (b"Tree/group-a".to_vec(), b"group state".to_vec()),
+                (b"KeyPackage/global".to_vec(), b"key package".to_vec()),
+            ],
+            deletes: Vec::new(),
+        };
+        block_on(db.save_updates(updates, Some(b"group-a"))).expect("save");
+
+        // Deleting the group writes its final state and purges its rows at once.
+        let final_state = StorageUpdates {
+            upserts: Vec::new(),
+            deletes: vec![b"Tree/group-a".to_vec()],
+        };
+        block_on(db.save_updates_and_purge_group(final_state, b"group-a")).expect("purge");
+
+        let remaining = block_on(db.load_for_group(b"group-a")).expect("load");
+        assert_eq!(remaining.len(), 1);
+        assert_eq!(remaining[0].0, b"KeyPackage/global");
+    }
+
+    #[test]
+    fn connection_pragmas_are_applied() {
+        let temp = TempDb::new("pragmas");
+        let db = open_db(temp.as_str()).expect("open");
+        let conn = db.conn.lock().unwrap();
+
+        let text = |pragma: &str| -> String {
+            conn.query_row(&format!("PRAGMA {pragma};"), [], |row| row.get(0))
+                .expect("read pragma")
+        };
+        let number = |pragma: &str| -> i64 {
+            conn.query_row(&format!("PRAGMA {pragma};"), [], |row| row.get(0))
+                .expect("read pragma")
+        };
+
+        assert_eq!(text("journal_mode"), "delete", "WAL must stay off");
+        assert_eq!(text("locking_mode"), "exclusive", "single writer");
+        assert_eq!(text("cipher_memory_security"), "1", "wipe SQLCipher buffers");
+        assert_eq!(number("synchronous"), 2, "synchronous must be FULL");
+        // fullfsync stays off on purpose — see `apply_pragmas`. Asserted so
+        // that turning it on becomes a deliberate change with a test to update.
+        assert_eq!(number("fullfsync"), 0, "fullfsync costs 16 ms per operation");
+    }
+
+    #[test]
+    fn a_second_connection_is_refused_until_the_first_closes() {
+        let temp = TempDb::new("exclusive");
+        let first = open_db(temp.as_str()).expect("first open");
+
+        let error = open_error(
+            open_db(temp.as_str()),
+            "a second connection must be refused",
+        );
+        assert!(error.contains("already open"), "unexpected error: {error}");
+
+        // Closing the first connection releases the lock.
+        drop(first);
+        open_db(temp.as_str()).expect("reopen after the first connection closed");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn database_file_is_owner_only() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let temp = TempDb::new("permissions");
+        let _db = open_db(temp.as_str()).expect("open");
+
+        let mode = std::fs::metadata(&temp.path)
+            .expect("stat database file")
+            .permissions()
+            .mode()
+            & 0o777;
+        assert_eq!(mode, 0o600, "database file mode is {mode:o}");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn existing_world_readable_database_is_tightened() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let temp = TempDb::new("tighten");
+        std::fs::write(&temp.path, b"").expect("create database file");
+        std::fs::set_permissions(&temp.path, std::fs::Permissions::from_mode(0o644))
+            .expect("relax permissions");
+
+        let _db = open_db(temp.as_str()).expect("open");
+
+        let mode = std::fs::metadata(&temp.path)
+            .expect("stat database file")
+            .permissions()
+            .mode()
+            & 0o777;
+        assert_eq!(mode, 0o600, "database file mode is {mode:o}");
+    }
 }

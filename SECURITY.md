@@ -118,6 +118,30 @@ engine = await MlsEngine.create(dbPath: 'mls_data.db', encryptionKey: myKey);
 - **Access control** - only the app should read/write MLS state
 - **Backup considerations** - MLS state includes forward-secrecy keys; restoring old state breaks protocol guarantees
 
+**Native hardening (SQLCipher).** Every connection is opened with:
+
+| Setting | Why |
+|---------|-----|
+| raw key `x'<hex>'` | your 32 bytes are the AES key — no PBKDF2 pass over a passphrase |
+| `cipher_memory_security = ON` | SQLCipher wipes its own working buffers on free and keeps them out of swap; those buffers hold MLS plaintext while it is being encrypted |
+| `journal_mode = DELETE` | never WAL — a WAL side file holds committed data that a file-level backup or crash can drop |
+| `synchronous = FULL` | fsync on every commit |
+| `locking_mode = EXCLUSIVE` | single writer, see below |
+| file mode `0600` (Unix) | the file is created owner-only rather than with the process umask default (typically world-readable on desktops) |
+
+`fullfsync` is deliberately **off**. On Apple platforms it additionally flushes the drive's own write cache, which measured **16 ms per MLS operation** against 318 µs without it — paid on every message sent and received. `synchronous = FULL` still fsyncs each commit, so the residual exposure is a power cut with data in a volatile drive cache, costing at most the last operation.
+
+The wrapper zeroizes its own copies of stored values and of the hex-encoded key; the 32-byte key you pass in from Dart still lives in Dart's heap (see [Known Limitations](#known-limitations) #1).
+
+**One engine per database file.** The database is locked exclusively: a second `MlsEngine` on the same file — another instance, isolate, or process — is refused with *"Database is already open by another connection or process"* instead of silently overwriting the first one's group state. `close()` releases the lock, and a second opener waits out SQLite's 5-second busy timeout before failing, which covers a brief overlap while the previous engine tears down. Do not share one database file between an app and an extension or background process.
+
+**Anti-rollback storage (deployment requirement).** Encryption at rest does not protect *freshness*. Anyone who can replace the database file with an older copy of itself — a snapshot restore, a backup rollback, a filesystem-level attacker — makes the engine reuse MLS state it has already spent.
+
+- Put the database on rollback-protected storage: a hardware monotonic counter, TPM 2.0 NV storage, or Android StrongBox, and refuse to run when the counter and the database disagree.
+- **Sealing the key in hardware is not a fix.** Secure Enclave / StrongBox / TPM protect confidentiality; the same key still decrypts the stale copy.
+- MLS is not defenceless: every application message carries a fresh random `reuse_guard` (RFC 9420 §6.3.2), so a single rollback produces a rejected message rather than a repeated keystream. But the guard is 32 bits — across a large or repeated rollback the birthday bound (~2¹⁶ messages under one key) makes an actual collision, and with it keystream reuse, plausible.
+- **iOS provides no app-accessible monotonic counter**, so on iOS this cannot be fully closed today; it is an accepted limitation.
+
 ### D: Initialization
 
 Always initialize the library before use:
@@ -138,6 +162,8 @@ MLS group state must be consistent. Avoid:
 - Restoring old group state from backup (breaks forward secrecy)
 
 The library returns errors for protocol violations. Handle them appropriately rather than silently ignoring.
+
+Concurrent Dart calls on one `MlsEngine` are safe: each operation loads its snapshot, runs, and writes back under an engine-wide lock, so overlapping calls queue instead of overwriting each other's state. Ordering across the *protocol* is still yours to get right — the lock decides who goes first, not what the correct order is.
 
 ## Supply Chain Security
 
@@ -271,9 +297,9 @@ Since `crypto.subtle` protects the key but not the plaintext at the API boundary
 
 3. **Minimal `unsafe` code:** The wrapper layer has one `unsafe` usage: `Send + Sync` impl for `WasmCryptoKey` (wrapping `web_sys::CryptoKey`), which is safe because WASM is single-threaded. All other `unsafe` usage is in upstream OpenMLS, RustCrypto, and `web-sys` crates.
 
-4. **Concurrency:** There is no internal synchronization for concurrent access to the same MLS group. Callers must serialize operations on the same group (e.g., process messages in order from a single async task).
+4. **Concurrency:** Operations on one `MlsEngine` are serialized internally — each load → operate → save runs under an engine-wide async lock — and a second connection to the same database file is refused, so concurrent calls cannot lose each other's state. What the library cannot decide for you is *protocol* order: handing `processMessage` messages out of order still breaks the group's epoch sequence.
 
-5. **Storage atomicity:** Regular storage operations (snapshot commit) are not transactional. If the app crashes mid-operation, storage may be left in an inconsistent state. However, database **migrations** are transactional — each migration runs in its own SQL transaction (native) or IDB transaction (WASM), with the version written atomically inside the same transaction. A failed migration is fully rolled back.
+5. **Storage atomicity:** Each operation's write-back is a single SQL transaction (native) or IDB transaction (WASM) — including `deleteGroup`, which writes the group's final state and purges its rows together — so a crash cannot apply half of one operation. Durability is `synchronous = FULL` without `fullfsync` (see Section C), so a power cut can still lose the last committed operation on Apple hardware. Database **migrations** are transactional — each runs in its own transaction with the version written atomically inside it, and a failed migration is fully rolled back.
 
 6. **`test-utils` feature dependency:** The `openmls` and `openmls_basic_credential` crates are compiled with the `test-utils` feature enabled. This is required for `SignatureKeyPair::private()`, which powers the `privateKey()` API. The feature only enables accessor methods — no test-only code paths are activated in production.
 
@@ -295,6 +321,8 @@ When reviewing code changes, verify:
 - [ ] No key material in logs or error messages
 - [ ] `Openmls.init()` called before any operations
 - [ ] `engine.close()` called on screen lock / app background
+- [ ] One `MlsEngine` per database file — no second engine, isolate, or process on the same path
+- [ ] Database stored on rollback-protected storage (see Section C)
 - [ ] Encryption key stored in platform secure storage (not hardcoded)
 - [ ] Error handling doesn't leak sensitive information
 - [ ] MLS protocol messages processed in order

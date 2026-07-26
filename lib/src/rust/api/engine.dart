@@ -85,6 +85,18 @@ abstract class MlsEngine implements RustOpaqueInterface {
   ///   Recommended pattern: generate a random key on first launch and persist it
   ///   in platform secure storage (e.g. Keychain on iOS/macOS, Android Keystore,
   ///   or `flutter_secure_storage`).
+  ///
+  /// # One engine per database file
+  ///
+  /// On native the database is locked exclusively. A second engine on the same
+  /// file — another instance, isolate or process — fails with "Database is
+  /// already open by another connection or process" rather than silently
+  /// overwriting this one's group state. [`MlsEngine::close`] releases the
+  /// lock; an overlapping opener waits out SQLite's five-second busy timeout
+  /// first, so handing the file over during teardown still works.
+  ///
+  /// Calls on one engine are safe to make concurrently: each runs its
+  /// load → operate → save cycle under an engine-wide lock.
   static Future<MlsEngine> create({
     required String dbPath,
     required List<int> encryptionKey,
