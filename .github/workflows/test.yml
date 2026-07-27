@@ -3,7 +3,7 @@
 # Triggers:
 # - Manual dispatch (workflow_dispatch)
 # - Push to main branch (relevant files)
-# - Pull requests (relevant files) - skipped for bot PRs (e.g., automated updates)
+# - Pull requests (relevant files) - skipped for native-version update PRs
 # - After successful build-openmls workflow
 #
 # The path filters carry THIRD_PARTY_NOTICES.txt and .gitattributes because
@@ -12,6 +12,18 @@
 # for it. Without them the one commit that can break — or fix — that check is
 # also the one commit that does not run it, so a stale inventory reaches main
 # unverified and only surfaces in the release preflight of both stages.
+#
+# They carry all of .github/** for the same reason, one level up: this workflow
+# and the composite actions it calls are themselves only exercised here. Listing
+# just this file and test-reusable.yml left the actions unwatched, so a change to
+# setup-fvm or setup-rust could not be validated before merge — and a
+# pull_request run resolves them from the merge ref, so the PR's own versions are
+# what execute. The release-only workflows (publish, build-openmls) are in scope
+# too: they run once, at a moment when a failure is expensive.
+#
+# The same filter has to be on push, not just pull_request: a PR run can read the
+# base branch's cache scope but never the reverse, so a CI change that lands
+# without a main-branch run leaves every later PR starting from a cold cache.
 #
 # Platforms: Linux x86_64, Linux ARM64, macOS ARM64, Windows x86_64
 
@@ -31,8 +43,7 @@ on:
       - 'pubspec.yaml'
       - 'THIRD_PARTY_NOTICES.txt'
       - '.gitattributes'
-      - '.github/workflows/test.yml'
-      - '.github/workflows/test-reusable.yml'
+      - '.github/**'
   pull_request:
     paths:
       - 'lib/**'
@@ -44,8 +55,7 @@ on:
       - 'pubspec.yaml'
       - 'THIRD_PARTY_NOTICES.txt'
       - '.gitattributes'
-      - '.github/workflows/test.yml'
-      - '.github/workflows/test-reusable.yml'
+      - '.github/**'
   workflow_run:
     workflows: ["Build openmls FRB Libraries"]
     types:
@@ -61,10 +71,18 @@ jobs:
   test:
     # Skip tests for:
     # - Failed workflow_run triggers
-    # - Bot PRs (automated updates) - native libraries not yet built
+    # - openmls update PRs, which move native_version ahead of the binaries
+    #
+    # The second condition used to skip every PR opened by a bot, which also
+    # silenced Dependabot's action bumps and the template update PRs — precisely
+    # the PRs that change CI and so most need to be exercised before merge.
+    # Matching the branch prefix instead narrows the skip to the PRs
+    # check-openmls-updates.yml opens for itself (`update-openmls-<version>`).
+    # head_ref is empty outside pull_request, so push, workflow_dispatch and
+    # workflow_run runs are unaffected.
     if: |
       (github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success') &&
-      (github.event_name != 'pull_request' || github.event.pull_request.user.type != 'Bot')
+      !startsWith(github.head_ref, 'update-openmls-')
     uses: ./.github/workflows/test-reusable.yml
     with:
       run-coverage: true

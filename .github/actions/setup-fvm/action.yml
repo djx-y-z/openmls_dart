@@ -31,23 +31,54 @@ runs:
         [System.IO.File]::WriteAllText($wrapperPath, $wrapperContent)
       shell: pwsh
 
+    # Pin where fvm keeps its SDKs instead of inheriting the default. fvm is
+    # installed unpinned above (`dart pub global activate fvm` takes the latest),
+    # so without this the cache path below is a guess about a moving target.
+    # FVM_CACHE_PATH sets `fvmDir`; SDKs land in `$fvmDir/versions`. The value
+    # matches the default (`$HOME/fvm`) so nothing moves today — it just stops a
+    # future fvm release from relocating the SDKs out from under the cache.
+    # Windows uses forward slashes so the same value works in pwsh and Git Bash.
+    # `path:` below names the same directory through `~`, which actions/cache
+    # resolves against the same home — keep the two in sync.
+    - name: Set FVM cache path (Unix)
+      if: runner.os != 'Windows'
+      run: echo "FVM_CACHE_PATH=$HOME/fvm" >> $GITHUB_ENV
+      shell: bash
+
+    - name: Set FVM cache path (Windows)
+      if: runner.os == 'Windows'
+      run: |
+        $fvmHome = "$($env:USERPROFILE -replace '\\', '/')/fvm"
+        echo "FVM_CACHE_PATH=$fvmHome" | Out-File -FilePath $env:GITHUB_ENV -Append
+      shell: pwsh
+
+    # Cache the installed SDKs (~2.5 GB per version uncompressed). Note the path
+    # is NOT `~/.fvm` — that name belongs to the per-project directory fvm
+    # symlinks inside a checkout, and pointing the cache there meant the path
+    # never existed on a runner, so actions/cache warned and saved nothing on
+    # every job.
+    #
+    # runner.arch is part of the key because Linux x86_64 and Linux ARM64 both
+    # report runner.os == 'Linux'. Sharing one key across them would let a leg
+    # restore the other architecture's `bin/cache/dart-sdk`, which Flutter keeps
+    # (its revision stamp matches) and then fails to execute.
+    #
+    # No restore-keys: a near-miss would restore the previous SDK and then
+    # install the new one alongside it, so the entry would grow by a full SDK on
+    # every Flutter bump. Missing outright costs one reinstall instead.
     - name: Cache FVM (Unix)
       if: runner.os != 'Windows'
       uses: actions/cache@v6
       with:
-        path: ~/.fvm
-        key: fvm-${{ runner.os }}-${{ hashFiles('.fvmrc') }}
-        restore-keys: |
-          fvm-${{ runner.os }}-
+        path: ~/fvm/versions
+        key: fvm-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('.fvmrc') }}
 
     - name: Cache FVM (Windows)
       if: runner.os == 'Windows'
       uses: actions/cache@v6
       with:
-        path: ~\.fvm
-        key: fvm-${{ runner.os }}-${{ hashFiles('.fvmrc') }}
-        restore-keys: |
-          fvm-${{ runner.os }}-
+        path: ~\fvm\versions
+        key: fvm-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('.fvmrc') }}
 
     - name: Install Flutter via FVM (Unix)
       if: runner.os != 'Windows'
@@ -58,6 +89,32 @@ runs:
       if: runner.os == 'Windows'
       run: fvm install
       shell: pwsh
+
+    # A cache whose `path` does not exist is not an error to actions/cache: it
+    # warns in the post step and reports success, so a cache that never saves
+    # anything is indistinguishable from a healthy one in the job summary. That
+    # is how the `~/.fvm` typo survived unnoticed. Assert the layout here so the
+    # day fvm relocates its SDKs we get a failing job pointing at this file,
+    # rather than every platform quietly reinstalling the SDK on every run.
+    #
+    # Failing rather than annotating is deliberate, and cheap because of the pin
+    # above: if a future fvm stops honouring FVM_CACHE_PATH it falls back to the
+    # same `$HOME/fvm` default, so this only fires if fvm changes the layout
+    # itself. That is a real breakage worth stopping for, and it stops before
+    # anything irreversible — setup-fvm runs long before a tag is cut or a
+    # version is published, so a release just gets re-run after the fix.
+    #
+    # The size print is the cheapest way to keep the cache budget visible: the
+    # repository-wide 10 GB limit is shared with the Rust caches, and eviction is
+    # LRU across all of them.
+    - name: Verify FVM cache layout
+      run: |
+        if [ -z "$(ls -A "$FVM_CACHE_PATH/versions" 2>/dev/null)" ]; then
+          echo "::error::fvm did not populate \$FVM_CACHE_PATH/versions ($FVM_CACHE_PATH/versions) — its cache layout moved, so the cache step in this action saves nothing. Update FVM_CACHE_PATH and path: in .github/actions/setup-fvm/action.yml."
+          exit 1
+        fi
+        du -sh "$FVM_CACHE_PATH/versions"/* 2>/dev/null || true
+      shell: bash
 
     - name: Discard FVM config changes
       run: git checkout -- .fvmrc .vscode/settings.json 2>/dev/null || true

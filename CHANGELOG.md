@@ -148,6 +148,39 @@
   `|| true` hid that behind a green run. The pattern is now derived from the
   configured tag prefix. No upstream release was actually missed —
   `openmls-v0.8.1` is still the latest — but the next one would have been.
+- **The CI Flutter cache never saved anything** — `setup-fvm` cached `~/.fvm`,
+  but fvm keeps installed SDKs in `~/fvm/versions`; `~/.fvm` is the per-project
+  directory it symlinks inside a checkout, not the global cache. That path
+  exists on no runner, and a missing path is not an error to `actions/cache` —
+  it warns in the post step and reports success — so every job on all four
+  platforms reinstalled the SDK from scratch (`fvm install` measured at 71 s on
+  Linux, inside a 163 s setup step on Windows) while the step stayed green and
+  the repository held no `fvm-*` cache entry at all. The key now also carries
+  `runner.arch`, because Linux x86_64 and Linux ARM64 both report
+  `runner.os == 'Linux'` and were producing one byte-identical key: with saving
+  repaired but the key unchanged, one leg would have restored the other
+  architecture's `bin/cache/dart-sdk`, which Flutter keeps rather than
+  redownloads — its revision stamp matches — and then fails to execute.
+  `restore-keys` is gone, since a near-miss restored the previous SDK and then
+  installed the new one beside it, growing the entry by a full SDK on every
+  Flutter bump. Two changes keep it from drifting again: `FVM_CACHE_PATH` is now
+  set explicitly rather than inherited (fvm is installed unpinned, so the cached
+  path was otherwise a guess about a moving target), and a step after
+  `fvm install` asserts the directory is populated — a failing job pointing at
+  the action, instead of another silent warning. It also prints the SDK size
+  (2.5 GB per version uncompressed), because the 10 GB repository cache limit is
+  shared with the Rust caches and evicted LRU across all of them.
+- **CI was blind to changes in its own workflows and actions** — the path
+  filters named `test.yml` and `test-reusable.yml` but not
+  `.github/actions/**`, so a PR touching a composite action ran no tests at
+  all, and the job additionally skipped every PR opened by a bot. Dependabot's
+  grouped action bumps were therefore merged unverified — run `30289222353`
+  completed as `skipped` in one second — which is precisely the class of PR
+  that changes what CI executes. The filters now carry `.github/**` on both
+  push and pull_request, and the skip is narrowed to `update-openmls-*`
+  branches, the update PRs that move `native_version` ahead of the released
+  binaries. A `pull_request` run resolves reusable workflows and composite
+  actions from the merge ref, so the PR's own versions are what execute.
 
 #### Added
 
