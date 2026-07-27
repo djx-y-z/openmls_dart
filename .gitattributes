@@ -1,5 +1,12 @@
 # THIRD_PARTY_NOTICES.txt is generated and then compared byte-for-byte by
-# `make verify-third-party-notices`. The generator always writes LF, so a
-# CRLF checkout (git's autocrlf on Windows) would make the check fail on a
-# file nobody touched.
-THIRD_PARTY_NOTICES.txt text eol=lf
+# `make verify-third-party-notices`, so git must round-trip it unchanged.
+#
+# `-text` — not `text eol=lf`. The generator itself writes LF, but it embeds
+# third-party licence texts verbatim, and some of those carry CRLF of their
+# own. Under `text eol=lf` git strips those CRs on the way into the blob, so
+# the committed file can never byte-match a freshly generated one: the check
+# fails on every clean checkout (CI, and the release preflight of both stages)
+# while passing locally, where the working-tree file is still the one the
+# generator wrote. `-text` disables eol conversion in both directions, which
+# also covers the Windows `core.autocrlf` case the previous rule was aiming at.
+THIRD_PARTY_NOTICES.txt -text
