@@ -163,11 +163,16 @@
   redownloads — its revision stamp matches — and then fails to execute.
   `restore-keys` is gone, since a near-miss restored the previous SDK and then
   installed the new one beside it, growing the entry by a full SDK on every
-  Flutter bump. Two changes keep it from drifting again: `FVM_CACHE_PATH` is now
-  set explicitly rather than inherited (fvm is installed unpinned, so the cached
-  path was otherwise a guess about a moving target), and a step after
-  `fvm install` asserts the directory is populated — a failing job pointing at
-  the action, instead of another silent warning. It also prints the SDK size
+  Flutter bump. Three changes keep it from drifting again. fvm itself is pinned
+  (`dart pub global activate fvm 4.1.2` instead of whatever is latest that day),
+  since this action hardcodes where fvm stores SDKs and an unannounced major
+  that relocated them would break every job at once. `FVM_CACHE_PATH` is set
+  explicitly rather than inherited, so the cached path is a contract instead of
+  a guess. And a step after `fvm install` asserts the directory is populated —
+  a failing job pointing at the action, rather than another silent warning;
+  annotate-and-continue is precisely the mode that hid this for months, and
+  nothing irreversible sits behind the check, which runs before the release
+  archives, the tag and the pub.dev publish. It also prints the SDK size
   (2.5 GB per version uncompressed), because the 10 GB repository cache limit is
   shared with the Rust caches and evicted LRU across all of them.
 - **CI was blind to changes in its own workflows and actions** — the path

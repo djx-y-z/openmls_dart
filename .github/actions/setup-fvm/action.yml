@@ -1,6 +1,18 @@
 name: Setup FVM and Flutter
 description: Setup Dart SDK, FVM, and install Flutter version from .fvmrc
 
+inputs:
+  fvm-version:
+    description: >-
+      Exact fvm version to install. Pinned rather than floating because this
+      action hardcodes where fvm stores SDKs (see FVM_CACHE_PATH below): an
+      unpinned major that relocates the cache would break every job at once,
+      including a release in progress. Bumping is deliberate — confirm the new
+      version still resolves its cache to $FVM_CACHE_PATH/versions first.
+      Dependabot cannot see this pin; it is not a manifest it scans.
+    default: '4.1.2'
+    required: false
+
 runs:
   using: composite
   steps:
@@ -12,14 +24,14 @@ runs:
     - name: Install FVM (Unix)
       if: runner.os != 'Windows'
       run: |
-        dart pub global activate fvm
+        dart pub global activate fvm ${{ inputs.fvm-version }}
         echo "$HOME/.pub-cache/bin" >> $GITHUB_PATH
       shell: bash
 
     - name: Install FVM (Windows)
       if: runner.os == 'Windows'
       run: |
-        dart pub global activate fvm
+        dart pub global activate fvm ${{ inputs.fvm-version }}
         # Determine pub-cache bin path (use PUB_CACHE if set, otherwise default)
         $pubCacheBin = if ($env:PUB_CACHE) { "$env:PUB_CACHE\bin" } else { "$env:USERPROFILE\.pub-cache\bin" }
         # Add pub-cache bin to PATH
@@ -31,12 +43,12 @@ runs:
         [System.IO.File]::WriteAllText($wrapperPath, $wrapperContent)
       shell: pwsh
 
-    # Pin where fvm keeps its SDKs instead of inheriting the default. fvm is
-    # installed unpinned above (`dart pub global activate fvm` takes the latest),
-    # so without this the cache path below is a guess about a moving target.
+    # Pin where fvm keeps its SDKs instead of inheriting the default, so the
+    # `path:` below is a contract rather than a guess. This is the second half of
+    # the version pin above: that one stops fvm from changing under us at all,
+    # this one keeps a deliberate bump from silently relocating the SDKs.
     # FVM_CACHE_PATH sets `fvmDir`; SDKs land in `$fvmDir/versions`. The value
-    # matches the default (`$HOME/fvm`) so nothing moves today — it just stops a
-    # future fvm release from relocating the SDKs out from under the cache.
+    # matches fvm's own default (`$HOME/fvm`), so nothing moves today.
     # Windows uses forward slashes so the same value works in pwsh and Git Bash.
     # `path:` below names the same directory through `~`, which actions/cache
     # resolves against the same home — keep the two in sync.
@@ -97,12 +109,13 @@ runs:
     # day fvm relocates its SDKs we get a failing job pointing at this file,
     # rather than every platform quietly reinstalling the SDK on every run.
     #
-    # Failing rather than annotating is deliberate, and cheap because of the pin
-    # above: if a future fvm stops honouring FVM_CACHE_PATH it falls back to the
-    # same `$HOME/fvm` default, so this only fires if fvm changes the layout
-    # itself. That is a real breakage worth stopping for, and it stops before
-    # anything irreversible — setup-fvm runs long before a tag is cut or a
-    # version is published, so a release just gets re-run after the fix.
+    # Failing rather than annotating is deliberate. Annotate-and-continue is the
+    # mode that hid this bug for months, so it is not the safe option — it is the
+    # broken one with a louder log line. It is also cheap here: the version is
+    # pinned, so fvm cannot move on its own, and a bump that did relocate the
+    # SDKs would fail on the branch that raised it. Nothing irreversible sits
+    # behind this step either — setup-fvm runs before the release archives, the
+    # tag and the pub.dev publish, so a release is just re-run after the fix.
     #
     # The size print is the cheapest way to keep the cache budget visible: the
     # repository-wide 10 GB limit is shared with the Rust caches, and eviction is
