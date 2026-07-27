@@ -196,7 +196,12 @@
 - **Test workflow now triggers on `scripts/`, `hook/` and `Makefile` changes** —
   edits to the build hook, tooling scripts and the Makefile previously ran no
   tests at all. Workflow-file paths are now also watched on pull requests, not
-  only on pushes.
+  only on pushes. `THIRD_PARTY_NOTICES.txt` and `.gitattributes` are watched
+  too: `make verify-third-party-notices` runs in this workflow, so the notices
+  file is the artefact being checked and `.gitattributes` decides which bytes a
+  checkout materialises for it. Without them the one commit that can break — or
+  fix — that check was also the one commit that did not run it, letting a stale
+  inventory reach `main` unverified and surface only in the release preflight.
 - **GitHub Actions moved to their current majors** — `actions/checkout` v4→v7,
   `actions/upload-artifact` v4→v7, `actions/download-artifact` v4→v8,
   `actions/cache` v4→v6, `actions/create-github-app-token` v2→v3,

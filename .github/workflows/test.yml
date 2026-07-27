@@ -6,6 +6,13 @@
 # - Pull requests (relevant files) - skipped for bot PRs (e.g., automated updates)
 # - After successful build-openmls workflow
 #
+# The path filters carry THIRD_PARTY_NOTICES.txt and .gitattributes because
+# `make verify-third-party-notices` runs here: the notices file is the artefact
+# being checked, and .gitattributes decides which bytes a checkout materialises
+# for it. Without them the one commit that can break — or fix — that check is
+# also the one commit that does not run it, so a stale inventory reaches main
+# unverified and only surfaces in the release preflight of both stages.
+#
 # Platforms: Linux x86_64, Linux ARM64, macOS ARM64, Windows x86_64
 
 name: Tests
@@ -22,6 +29,8 @@ on:
       - 'scripts/**'
       - 'Makefile'
       - 'pubspec.yaml'
+      - 'THIRD_PARTY_NOTICES.txt'
+      - '.gitattributes'
       - '.github/workflows/test.yml'
       - '.github/workflows/test-reusable.yml'
   pull_request:
@@ -33,6 +42,8 @@ on:
       - 'scripts/**'
       - 'Makefile'
       - 'pubspec.yaml'
+      - 'THIRD_PARTY_NOTICES.txt'
+      - '.gitattributes'
       - '.github/workflows/test.yml'
       - '.github/workflows/test-reusable.yml'
   workflow_run:
