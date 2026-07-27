@@ -45,7 +45,7 @@ jobs:
     name: Security Audit (Rust)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Setup Rust tools
         run: make setup-rust-tools
@@ -60,7 +60,7 @@ jobs:
     name: Dependency Policy (cargo-deny)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Setup Rust tools
         run: make setup-rust-tools
@@ -92,7 +92,7 @@ jobs:
       coverage: ${{ steps.coverage.outputs.percentage }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # Install make (Windows only, pre-installed on Linux/macOS)
       - name: Setup Make
@@ -194,7 +194,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Update coverage badge
-        uses: schneegans/dynamic-badges-action@e9a478b16159b4d31420099ba146cdc50f134483 # v1.7.0
+        uses: schneegans/dynamic-badges-action@28b0fa8bdeb46170ac397105ece0c1fe58f68910 # v1.9.0
         with:
           auth: ${{ secrets.GIST_TOKEN }}
           gistID: ${{ vars.COVERAGE_GIST_ID }}
