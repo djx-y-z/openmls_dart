@@ -24,7 +24,7 @@ native_library_name: openmls
 native_repo: openmls/openmls
 package_name: openmls
 rust_edition: '2024'
-rust_version: '1.88'
+rust_version: '1.89'
 topics: mls,encryption,messaging,e2ee,rust
 upstream_crates: openmls,openmls_rust_crypto,openmls_basic_credential,openmls_traits,openmls_memory_storage
 upstream_version: openmls-v0.8.1

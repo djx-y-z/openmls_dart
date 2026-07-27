@@ -29,7 +29,7 @@ Please be respectful and considerate of others. We expect all contributors to:
 
 - [Dart SDK](https://dart.dev/get-dart) (3.10.0+)
 - Git
-- **For running tests:** Rust toolchain (1.88+)
+- **For running tests:** Rust toolchain (1.89+)
 
 ### Fork and Clone
 

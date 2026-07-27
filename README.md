@@ -214,7 +214,7 @@ If you want to build from source (or precompiled binaries are not available):
 
 - [Flutter](https://flutter.dev/) 3.38+
 - [FVM](https://fvm.app/) (optional, for version management)
-- **Rust toolchain** (1.88+):
+- **Rust toolchain** (1.89+):
   - [rustup](https://rustup.rs/) - Rust toolchain installer
   - `cargo` - Rust package manager (installed with rustup)
 

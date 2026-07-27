@@ -133,7 +133,25 @@ engine = await MlsEngine.create(dbPath: 'mls_data.db', encryptionKey: myKey);
 
 The wrapper zeroizes its own copies of stored values and of the hex-encoded key; the 32-byte key you pass in from Dart still lives in Dart's heap (see [Known Limitations](#known-limitations) #1).
 
-**One engine per database file.** The database is locked exclusively: a second `MlsEngine` on the same file — another instance, isolate, or process — is refused with *"Database is already open by another connection or process"* instead of silently overwriting the first one's group state. `close()` releases the lock, and a second opener waits out SQLite's 5-second busy timeout before failing, which covers a brief overlap while the previous engine tears down. Do not share one database file between an app and an extension or background process. (An app-group shared container is doubly unsuitable on iOS: the system terminates a suspended app that still holds a lock on a file there — exception code `0xdead10cc`.)
+**One engine per database file.** The database is locked exclusively: a second `MlsEngine` on the same file — another instance, isolate, or process — is refused with *"Database is already open by another connection or process"* instead of silently overwriting the first one's group state. `close()` releases the lock, and a second opener waits out a 5-second timeout before failing, which covers a brief overlap while the previous engine tears down. Do not share one database file between an app and an extension or background process. (An app-group shared container is doubly unsuitable on iOS: the system terminates a suspended app that still holds a lock on a file there — exception code `0xdead10cc`.)
+
+Two mechanisms hold that lock, because on Unix neither is sufficient alone:
+
+| mechanism | what it covers |
+|---|---|
+| `locking_mode = EXCLUSIVE` + a write transaction at open | SQLite's own locks, taken immediately so a second opener fails at `create()` rather than colliding on a later write |
+| `<db_path>.lock`, held with `flock` for the engine's lifetime | keeps other engines out **across processes**, for as long as this one lives — which SQLite's locks alone do not |
+
+The lock file exists because SQLite's locks are POSIX advisory (`fcntl`) locks, and POSIX releases *every* advisory lock a process holds on a file the moment that process closes *any* descriptor for it. SQLite compensates for descriptors it opened itself, but it cannot know about anyone else's. So a single ordinary read of the database file from elsewhere in your app — a backup copy, an integrity check, a crash reporter attaching the file — silently drops the exclusive lock while the engine is still running, with no error anywhere, and another process can then open the same database. A lock on a separate file is immune to that: `flock` binds the lock to one open file description rather than to the process, and nothing else ever opens that file.
+
+What the lock file restores is precisely that **no second `MlsEngine` can open the database**. It does not put SQLite's own lock back: after such a read the engine keeps writing with no lock held on the database file itself, so a *non-engine* SQLite writer that has the key — a migration script, a `sqlite3` shell, a SQLite-based backup tool — is not excluded either before or after this change. Do not point one at a database an engine currently holds.
+
+Consequences worth knowing:
+
+- **An empty `<db_path>.lock` appears beside every database** on Unix (`0600`). The engine creates it and never deletes it — unlinking it would let the next opener create a fresh inode and lock that instead, which guards nothing. It holds no data, so it needs no special handling in backups; it is safe to delete only when no engine is running. Deleting it while one is running lets a second engine open the same database.
+- **`":memory:"` databases take no lock file.** Each is private to its engine, so several may run at once.
+- **A `file:` URI is rejected**, because the path it resolves to cannot be identified without parsing the URI's query parameters — such a database would silently get neither owner-only permissions nor a lock file. Pass a plain path.
+- **Windows is not affected by the underlying defect** (its locks are mandatory and tied to the handle), and takes no lock file.
 
 **Holding one engine open is fine.** The exclusive lock costs nothing while a single engine owns the file, and releasing it does not require lifecycle handling. Measured on macOS with an engine that is deliberately never closed: a Flutter hot restart drops the previous engine as the isolate tears down, and the next open completes in tens of milliseconds rather than waiting out the busy timeout; a `SIGKILL`ed process leaves behind neither a lock nor a journal, because the operating system releases file locks when a process exits. `close()` earns its keep in three places — handing the file to another engine, releasing the encryption key at screen lock, and switching accounts — not as a routine per-operation step.
 

@@ -105,6 +105,15 @@ unsafe impl Sync for WasmCryptoKey {}
 pub struct EncryptedDb {
     #[cfg(not(target_arch = "wasm32"))]
     conn: std::sync::Mutex<rusqlite::Connection>,
+    /// Sidecar single-writer lock — see `acquire_single_writer_lock`. `None` for
+    /// databases that have no file to sit beside (`":memory:"`).
+    ///
+    /// Declared *after* `conn` on purpose: fields drop in declaration order, so
+    /// the connection is closed before the lock is released. The reverse order
+    /// would leave a window in which another process holds the lock while this
+    /// one is still writing.
+    #[cfg(all(unix, not(target_arch = "wasm32")))]
+    _single_writer_lock: Option<std::fs::File>,
     #[cfg(target_arch = "wasm32")]
     db_name: String,
     #[cfg(target_arch = "wasm32")]
@@ -128,6 +137,19 @@ impl EncryptedDb {
                 "encryption_key must be 32 bytes, got {}",
                 encryption_key.len()
             ));
+        }
+
+        // A `"file:…"` URI names its database through query parameters, so the
+        // path it resolves to cannot be recovered without parsing them. Such a
+        // database would silently get neither owner-only permissions nor the
+        // single-writer lock file — two security properties quietly missing on
+        // a database that otherwise looks like it has them. Refuse it instead.
+        if db_path.starts_with("file:") {
+            encryption_key.zeroize();
+            return Err("db_path must be a plain file path or \":memory:\", not a \
+                        \"file:…\" URI: a URI-named database would get neither \
+                        owner-only permissions nor the single-writer lock file."
+                .to_string());
         }
 
         // Create the file owner-only *before* SQLite touches it, so it never
@@ -162,8 +184,15 @@ impl EncryptedDb {
 
         Self::apply_pragmas(&conn)?;
 
+        // After the pragmas, so an opener that SQLite itself refuses reports
+        // that without first waiting on the sidecar.
+        #[cfg(unix)]
+        let single_writer_lock = acquire_single_writer_lock(&db_path)?;
+
         let db = Self {
             conn: std::sync::Mutex::new(conn),
+            #[cfg(unix)]
+            _single_writer_lock: single_writer_lock,
         };
         db.run_migrations()?;
         Ok(db)
@@ -212,12 +241,18 @@ impl EncryptedDb {
         // ratchet step a rejected message, not a repeated keystream).
         let _ = conn.execute_batch("PRAGMA synchronous = FULL;");
 
-        // Single writer. A second connection to the same file — another engine
-        // instance, isolate or process — runs its own load → operate → save
-        // cycle and would silently overwrite this one's group state. Exclusive
-        // locking mode makes the operating system enforce that; the write
-        // transaction below takes the lock immediately so a second opener
-        // fails here instead of corrupting state later.
+        // Single writer, part one. A second connection to the same file —
+        // another engine instance, isolate or process — runs its own
+        // load → operate → save cycle and would silently overwrite this one's
+        // group state. Exclusive locking mode keeps SQLite's locks held between
+        // transactions, and the write transaction below takes them immediately
+        // so a second opener fails here instead of corrupting state later.
+        //
+        // This alone does not hold across processes for as long as the engine
+        // lives: SQLite's locks are POSIX advisory locks, which any unrelated
+        // file access in this process silently drops. Part two —
+        // `acquire_single_writer_lock`, called from `open` — is what closes
+        // that; see its comment for the mechanism.
         let locking_mode = read_back(conn, "locking_mode", "EXCLUSIVE")?;
         if !locking_mode.eq_ignore_ascii_case("exclusive") {
             return Err(format!(
@@ -458,12 +493,19 @@ fn busy_error(error: &rusqlite::Error) -> Option<String> {
         code,
         rusqlite::ErrorCode::DatabaseBusy | rusqlite::ErrorCode::DatabaseLocked
     )
-    .then(|| {
-        "Database is already open by another connection or process. openmls \
-         keeps an exclusive lock so that only one MlsEngine can use a database \
-         file at a time — close the other engine first."
-            .to_string()
-    })
+    .then(in_use_error)
+}
+
+/// The one message for "another engine already has this database".
+///
+/// Both single-writer mechanisms report it, so which of them refused an open is
+/// not something a caller has to distinguish. Tests match on `already open`.
+#[cfg(not(target_arch = "wasm32"))]
+fn in_use_error() -> String {
+    "Database is already open by another connection or process. openmls \
+     keeps an exclusive lock so that only one MlsEngine can use a database \
+     file at a time — close the other engine first."
+        .to_string()
 }
 
 /// Restrict a database file to its owner (`0600`).
@@ -478,9 +520,7 @@ fn busy_error(error: &rusqlite::Error) -> Option<String> {
 fn restrict_permissions(db_path: &str) {
     use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
 
-    // ":memory:" has no file; "file:…" URIs carry query parameters that are
-    // not a path (and may name a memory database).
-    if db_path == ":memory:" || db_path.is_empty() || db_path.starts_with("file:") {
+    if !is_plain_file_path(db_path) {
         return;
     }
 
@@ -502,6 +542,98 @@ fn restrict_permissions(db_path: &str) {
 /// No-op: file modes are a Unix concept.
 #[cfg(all(not(unix), not(target_arch = "wasm32")))]
 fn restrict_permissions(_db_path: &str) {}
+
+/// Whether `db_path` names an ordinary file this code may touch directly.
+///
+/// `":memory:"` has no file at all, and an empty path asks SQLite for a private
+/// temporary database it deletes on close — neither has a file to set a mode on
+/// or to place a lock beside, and both are private to their connection, so
+/// neither needs one. `"file:…"` is rejected by `open` before it gets here; the
+/// arm is kept so these helpers stay correct on their own.
+#[cfg(all(unix, not(target_arch = "wasm32")))]
+fn is_plain_file_path(db_path: &str) -> bool {
+    !(db_path == ":memory:" || db_path.is_empty() || db_path.starts_with("file:"))
+}
+
+/// Hold `<db_path>.lock` for as long as this engine owns the database.
+///
+/// `locking_mode = EXCLUSIVE` plus the opening write transaction is not enough
+/// on its own. SQLite's locks are POSIX advisory (`fcntl`) locks, and POSIX
+/// releases *every* lock a process holds on an inode as soon as that process
+/// closes *any* descriptor for it. SQLite works around this for the descriptors
+/// it opened itself (`setPendingFd`), but it cannot know about anyone else's: a
+/// single ordinary read of the database file from elsewhere in the same process
+/// — a backup copy, an integrity check, a crash reporter collecting the file —
+/// drops the exclusive lock while this engine is still live and still writing.
+/// Nothing reports it, and another *process* can then open the same database
+/// and overwrite this one's group state.
+///
+/// Measured on macOS against this code: with an engine open, a separate process
+/// is refused; after one in-process `std::fs::read` of the database file, that
+/// same process takes `BEGIN EXCLUSIVE` on it. A second engine in *this* process
+/// stays refused either way, because SQLite tracks its own open inodes before it
+/// reaches `fcntl` — which is why no black-box "a second engine is refused" test
+/// can see the difference.
+///
+/// A lock on a separate file cannot be dropped that way: `File::try_lock` is
+/// `flock`-based, which ties the lock to this one open file description rather
+/// than to the process, and nothing else ever opens this file. The file is
+/// deliberately never unlinked — removing it would let the next opener create a
+/// fresh inode and lock that instead, which locks nothing at all.
+#[cfg(all(unix, not(target_arch = "wasm32")))]
+fn acquire_single_writer_lock(db_path: &str) -> Result<Option<std::fs::File>, String> {
+    use std::os::unix::fs::OpenOptionsExt;
+
+    // No file to sit beside, and none needed: `":memory:"` and the empty path
+    // are private to their own connection, so two of them are two unrelated
+    // databases that must not contend for one lock. (`open` has already
+    // rejected the one case that would have silently skipped the lock while
+    // being shareable — a `"file:…"` URI.)
+    if !is_plain_file_path(db_path) {
+        return Ok(None);
+    }
+
+    let lock_path = format!("{db_path}.lock");
+    let file = std::fs::OpenOptions::new()
+        .read(true)
+        .write(true)
+        .create(true)
+        .truncate(false) // The inode has to outlive every opener.
+        .mode(0o600)
+        .open(&lock_path)
+        .map_err(|e| format!("Failed to open the lock file {lock_path}: {e}"))?;
+
+    // Wait as long as SQLite would (rusqlite sets a 5-second busy timeout on
+    // every connection). That matters on the path this lock exists for: with
+    // SQLite's locks already released, this one is the only thing still holding
+    // the database, so it owes the caller the same documented wait — and the
+    // same refusal — that SQLite would have given.
+    //
+    // It also covers a much narrower race. Fields drop in declaration order, so
+    // a closing engine releases its SQLite locks just before this lock, and an
+    // opener that cleared `apply_pragmas` in that window would otherwise fail
+    // where it used to succeed. `EncryptedDb::close` takes `self` by value, so
+    // the gap is a few instructions wide; this is belt and braces.
+    const DEADLINE: std::time::Duration = std::time::Duration::from_secs(5);
+    const RETRY_DELAY: std::time::Duration = std::time::Duration::from_millis(25);
+
+    // Measured against the clock, not by adding up the nominal delays: `sleep`
+    // overshoots, so counting 200 × 25 ms as five seconds waits longer than the
+    // five seconds this promises.
+    let started = std::time::Instant::now();
+    loop {
+        match file.try_lock() {
+            Ok(()) => return Ok(Some(file)),
+            Err(std::fs::TryLockError::WouldBlock) if started.elapsed() < DEADLINE => {
+                std::thread::sleep(RETRY_DELAY);
+            }
+            Err(std::fs::TryLockError::WouldBlock) => return Err(in_use_error()),
+            Err(std::fs::TryLockError::Error(e)) => {
+                return Err(format!("Failed to lock {lock_path}: {e}"));
+            }
+        }
+    }
+}
 
 // ═══════════════════════════════════════════════════════════════
 // WASM IMPLEMENTATION (IndexedDB + Web Crypto AES-256-GCM)
@@ -1053,6 +1185,12 @@ mod tests {
                 "{}-journal",
                 self.path.display()
             )));
+            // The sidecar lock file is never unlinked in production — see
+            // `acquire_single_writer_lock` — so a test has to clean it up.
+            let _ = std::fs::remove_file(std::path::PathBuf::from(format!(
+                "{}.lock",
+                self.path.display()
+            )));
         }
     }
 
@@ -1208,6 +1346,181 @@ mod tests {
         // Closing the first connection releases the lock.
         drop(first);
         open_db(temp.as_str()).expect("reopen after the first connection closed");
+    }
+
+    /// A keyed connection with no sidecar lock, for testing `apply_pragmas` on
+    /// its own. `open` layers the sidecar over this; these tests need the
+    /// connection-level mechanism in isolation to attribute a refusal to it.
+    fn keyed_connection(path: &str) -> rusqlite::Connection {
+        let conn = rusqlite::Connection::open(path).expect("open connection");
+        conn.execute_batch("PRAGMA cipher_memory_security = ON;")
+            .expect("cipher_memory_security");
+        let pragma = raw_key_pragma(&[0x5a; 32]);
+        conn.pragma_update(None, "key", pragma.as_str())
+            .expect("set key");
+        conn
+    }
+
+    #[test]
+    fn apply_pragmas_takes_the_write_lock_immediately() {
+        // Attribution for `BEGIN EXCLUSIVE; COMMIT;`. The sidecar lock refuses a
+        // second *engine* even without it, which would leave that statement
+        // untested through `open`; `locking_mode = EXCLUSIVE` on its own only
+        // keeps a read lock, letting two connections both open and collide on
+        // the first write instead. So drive the connection layer directly.
+        let temp = TempDb::new("write_lock");
+        drop(open_db(temp.as_str()).expect("create the database"));
+
+        let first = keyed_connection(temp.as_str());
+        EncryptedDb::apply_pragmas(&first).expect("first connection");
+
+        let second = keyed_connection(temp.as_str());
+        let error = EncryptedDb::apply_pragmas(&second)
+            .expect_err("a second connection must not get the write lock");
+        assert!(error.contains("already open"), "unexpected error: {error}");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn the_sidecar_lock_survives_an_in_process_descriptor_close() {
+        // The defect this lock exists for: POSIX releases every advisory lock a
+        // process holds on an inode when the process closes *any* descriptor for
+        // it, so one ordinary read of the database file drops the SQLite locks
+        // taken at open. Verified below on the real file, then verified that the
+        // sidecar is unaffected — it lives on a different inode that nothing
+        // else in the process opens.
+        let temp = TempDb::new("sidecar");
+        let db = open_db(temp.as_str()).expect("open");
+        let lock_path = format!("{}.lock", temp.path.display());
+
+        let sidecar_is_held = || {
+            // `File::try_lock` is `flock`-based: the lock belongs to one open
+            // file description, not to the process, so an independently opened
+            // handle here contends exactly as another process would.
+            let probe = std::fs::File::open(&lock_path).expect("open the lock file");
+            matches!(probe.try_lock(), Err(std::fs::TryLockError::WouldBlock))
+        };
+
+        assert!(sidecar_is_held(), "the engine must hold the sidecar lock");
+
+        // One read of the database file, exactly as a backup or an integrity
+        // check would do it. This is what silently drops SQLite's own locks.
+        let bytes = std::fs::read(&temp.path).expect("read the database file");
+        assert!(!bytes.is_empty());
+
+        assert!(
+            sidecar_is_held(),
+            "the sidecar lock must outlive an unrelated read of the database"
+        );
+
+        // And it is released when the engine goes away, not before.
+        drop(db);
+        assert!(!sidecar_is_held(), "closing the engine releases the lock");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_held_sidecar_alone_reports_in_use() {
+        // The sidecar carries the refusal on its own, with SQLite's locks free —
+        // which is the state the previous test creates. Same message as a
+        // SQLite-level refusal, so callers need not tell them apart.
+        let temp = TempDb::new("sidecar_only");
+        drop(open_db(temp.as_str()).expect("create the database"));
+
+        let lock_path = format!("{}.lock", temp.path.display());
+        let holder = std::fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .open(&lock_path)
+            .expect("open the lock file");
+        holder.try_lock().expect("take the lock");
+
+        let error = open_error(
+            open_db(temp.as_str()),
+            "an engine must not open a database whose sidecar lock is held",
+        );
+        assert!(error.contains("already open"), "unexpected error: {error}");
+
+        // Releasing it hands the database over.
+        drop(holder);
+        open_db(temp.as_str()).expect("reopen once the lock is released");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn in_memory_databases_take_no_lock_file() {
+        // `":memory:"` is a documented path and every example app uses it. Each
+        // one is a private database, so several must be able to run at once —
+        // which they could not if they all contended for one lock file. There is
+        // no file to put a lock beside in the first place: the name would be
+        // taken literally and land in the working directory.
+        let cwd = std::env::current_dir().expect("current directory");
+        let stray = cwd.join(":memory:.lock");
+        // `restrict_permissions` shares the same guard and would likewise create
+        // a literal `:memory:` file without it; clean up after both so breaking
+        // the guard on purpose (to check this test still fails) leaves no litter.
+        let stray_db = cwd.join(":memory:");
+        let _ = std::fs::remove_file(&stray);
+
+        // Nothing below may panic before the cleanup, or a failing run leaves a
+        // locked file behind: check and collect first, assert last.
+        let first = open_db(":memory:").expect("first in-memory engine");
+        let created = stray.exists();
+        let second = open_db(":memory:");
+        let coexist = second.is_ok();
+        drop((first, second));
+        let _ = std::fs::remove_file(&stray);
+        let _ = std::fs::remove_file(&stray_db);
+
+        assert!(!created, "an in-memory database created {}", stray.display());
+        assert!(coexist, "two in-memory engines must be able to run at once");
+    }
+
+    #[test]
+    fn file_uris_are_rejected() {
+        // rusqlite enables SQLITE_OPEN_URI by default, so a `file:…` URI does
+        // open a real, file-backed database — but the path it resolves to
+        // cannot be recovered without parsing the URI's query parameters, so it
+        // would get neither owner-only permissions nor a lock file. Refused
+        // rather than handed back with both quietly missing.
+        let temp = TempDb::new("file_uri");
+        let uri = format!("file:{}", temp.path.display());
+
+        let error = open_error(
+            block_on(EncryptedDb::open(uri, vec![0x5a; 32])),
+            "a file: URI must be refused",
+        );
+        assert!(error.contains("plain file path"), "unexpected error: {error}");
+
+        // Refused before anything touched the filesystem.
+        assert!(
+            !temp.path.exists(),
+            "a rejected open must not create the database"
+        );
+        assert!(
+            !std::path::Path::new(&format!("{}.lock", temp.path.display())).exists(),
+            "a rejected open must not create a lock file"
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn the_lock_file_is_owner_only_and_survives_reopening() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let temp = TempDb::new("lock_mode");
+        let lock_path = std::path::PathBuf::from(format!("{}.lock", temp.path.display()));
+
+        // Handing the file from one engine to the next, repeatedly: the lock file
+        // is reused rather than recreated, because unlinking it would let the
+        // next opener lock a fresh inode that guards nothing.
+        for _ in 0..3 {
+            let db = open_db(temp.as_str()).expect("open");
+            let inode = std::fs::metadata(&lock_path).expect("stat lock file");
+            assert_eq!(inode.permissions().mode() & 0o777, 0o600);
+            drop(db);
+            assert!(lock_path.exists(), "the lock file is never unlinked");
+        }
     }
 
     #[cfg(unix)]

@@ -215,7 +215,9 @@ impl MlsEngine {
     /// * `db_path` — Database location.
     ///   - **Native**: file path for SQLCipher (e.g. `"path/to/mls.db"`).
     ///     Use `":memory:"` for an ephemeral in-memory database (destroyed on drop,
-    ///     useful for tests).
+    ///     useful for tests). A `"file:…"` URI is rejected: the path it resolves
+    ///     to cannot be recovered without parsing the URI, so such a database
+    ///     would get neither owner-only permissions nor the lock file below.
     ///   - **WASM**: IndexedDB database name (e.g. `"mls_account_123"`).
     ///     `":memory:"` generates a unique random name per instance to match the
     ///     native ephemeral behavior.
@@ -234,8 +236,13 @@ impl MlsEngine {
     /// file — another instance, isolate or process — fails with "Database is
     /// already open by another connection or process" rather than silently
     /// overwriting this one's group state. [`MlsEngine::close`] releases the
-    /// lock; an overlapping opener waits out SQLite's five-second busy timeout
-    /// first, so handing the file over during teardown still works.
+    /// lock; an overlapping opener waits out a five-second timeout first, so
+    /// handing the file over during teardown still works.
+    ///
+    /// On Unix this is held partly by a lock file next to the database, named
+    /// `<db_path>.lock`, which the engine creates and never deletes. An empty
+    /// file beside the database is expected; deleting it while an engine is
+    /// running removes the protection.
     ///
     /// Calls on one engine are safe to make concurrently: each runs its
     /// load → operate → save cycle under an engine-wide lock.

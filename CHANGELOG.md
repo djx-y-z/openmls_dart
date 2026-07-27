@@ -10,16 +10,33 @@
   by another connection or process"* instead of quietly running its own
   load → operate → save cycle over the same rows and overwriting the first
   engine's group state. `close()` releases the lock, and an overlapping opener
-  waits out SQLite's five-second busy timeout first, so handing the file over
-  during teardown still works.
+  waits out a five-second timeout first, so handing the file over during
+  teardown still works.
+  On Unix the lock is held partly by a new file next to the database,
+  `<db_path>.lock`, because SQLite's own locks are POSIX advisory locks and
+  POSIX drops every one a process holds on a file as soon as that process
+  closes *any* descriptor for it — so one unrelated read of the database from
+  elsewhere in an app (a backup copy, an integrity check, a crash reporter)
+  silently released the exclusive lock while the engine was still running, with
+  no error, letting another process in. The lock file is created empty and
+  `0600` and is never deleted; it holds no data, so it needs no special
+  handling in backups, but deleting it while an engine is running lets a second
+  engine open the same database. `":memory:"` databases and Windows do not get
+  one.
   **Action required — only if your app opens the MLS database from more than
   one place** (a background isolate, a share extension, a second engine
   instance): route them through a single engine, or give each its own file.
   One engine kept open for the lifetime of the app needs no changes and no
   lifecycle handling. `close()` is what hands the file from one engine to the
   next; a hot restart during development or a killed process releases the lock
-  on its own, so the engine that follows opens without waiting out the busy
+  on its own, so the engine that follows opens without waiting out that
   timeout.
+- **A `file:` URI as `dbPath` is now rejected** — `create()` fails instead of
+  opening a database that silently gets neither owner-only permissions nor the
+  single-writer lock file above, because the path a URI resolves to cannot be
+  recovered without parsing its query parameters.
+  **Action required — only if you pass a `file:` URI:** pass the plain path
+  instead. Plain paths and `":memory:"` are unaffected.
 
 #### Changed
 
@@ -165,6 +182,12 @@
 
 #### Changed
 
+- **Minimum supported Rust version is now 1.89** (was 1.88) — `std::fs::File::try_lock`,
+  which stabilised there, holds the single-writer lock file. The alternative,
+  `libc::flock`, is an `unsafe fn`, and the crate denies unsafe code outside the
+  two modules that cannot avoid it. This affects only building from source: the
+  published package downloads a prebuilt native library, so nothing changes for
+  an app that consumes it.
 - **Update workflows now fail on checker errors** — `make check-…` exits 0 when
   up to date, 1 when an update is available and >1 on failure; the workflows
   distinguish these instead of swallowing every outcome with `|| true`. Manual

@@ -2,7 +2,10 @@
 name = "openmls_frb"
 version = "1.5.2"
 edition = "2024"
-rust-version = "1.88"
+# 1.89 for `std::fs::File::try_lock` (the single-writer sidecar lock in
+# `encrypted_db.rs`). The alternative, `libc::flock`, is an `unsafe fn` and this
+# crate denies unsafe code outside the two modules that must have it.
+rust-version = "1.89"
 description = "Dart wrapper for OpenMLS — a Rust implementation of the Messaging Layer Security (MLS) protocol (RFC 9420)"
 repository = "https://github.com/djx-y-z/openmls_dart"
 license = "MIT"
