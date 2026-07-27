@@ -41,8 +41,8 @@ Maintain = 4, **Admin = 5**.
 | File | Ruleset | Target | Rules | Bypass |
 |------|---------|--------|-------|--------|
 | `protect-main.json` | Protect main branch | `~DEFAULT_BRANCH` | pull_request (0 approvals), non_fast_forward, deletion | Admin (5) |
-| `signing-commit.json` | Signing commit | `~ALL` branches | required_signatures, non_fast_forward | none by default |
-| `delete-branches.json` | Delete branches | `~ALL` branches | deletion | Admin (5) |
+| `signing-commit.json` | Signing commit | `~ALL` branches except `dependabot/**/*` | required_signatures, non_fast_forward | none by default |
+| `delete-branches.json` | Delete branches | `~ALL` branches except `dependabot/**/*` | deletion | Admin (5) |
 | `protect-release-tags.json` | Protect release tags | all tags (`~ALL`) | creation, update, deletion, required_signatures | Admin (5), Maintain (4) |
 
 The load-bearing one is **Protect release tags**. It targets **all tags**
@@ -55,6 +55,43 @@ new trigger pattern.) `update`+`deletion` make tags immutable;
 `required_signatures` is belt-and-suspenders (`make release-frb` / `make release`
 already sign tags). If GitHub ever rejects `required_signatures` on a tag target,
 drop that one rule.
+
+### Why Dependabot branches are excluded
+
+**Signing commit** and **Delete branches** target `~ALL` branches, and the former
+has *no* bypass actors — so nothing, not even an admin, may force-push or delete
+a branch. That silently breaks Dependabot: it refreshes an open PR by
+force-pushing a rewritten commit, so `non_fast_forward` makes it impossible for a
+grouped action-bump PR to ever be rebased onto a moved `main` (it comments
+"because the branch … is protected it was unable to do so" and gives up), and
+`deletion` blocks `@dependabot recreate` and post-merge branch cleanup.
+
+Excluding `refs/heads/dependabot/**/*` costs nothing in practice: Dependabot's
+commits carry a valid GitHub signature regardless of the rule, and the branches
+still have to pass `~DEFAULT_BRANCH`'s `pull_request` gate plus `main`'s own
+`required_signatures` to reach `main`. Scope this with `ref_name.exclude`, **not**
+with a bypass actor — the rulesets target `~ALL`, so a bypass actor would also
+be exempt on `main` itself, which is the opposite of what is wanted.
+
+Mind the pattern's trailing `/*`. These are `fnmatch` patterns in pathname mode,
+where a bare `**` does **not** cross a `/`: `refs/heads/dependabot/**` matches
+`dependabot/foo` but *not* `dependabot/github_actions/github-actions-1f84650690`,
+which is the shape Dependabot actually uses (and it goes deeper still when a
+config scopes updates to a directory). Only `**/*` matches at any depth. Verify a
+change to these patterns against the real branch name rather than by eye:
+
+```bash
+gh api repos/djx-y-z/openmls_dart/rules/branches/dependabot%2Fgithub_actions%2Fsome-branch \
+  --jq '[.[] | .type] | join(", ")'    # expect empty
+gh api repos/djx-y-z/openmls_dart/rules/branches/main \
+  --jq '[.[] | .type] | join(", ")'    # expect the full set, unchanged
+```
+
+Branches from `peter-evans/create-pull-request` (`update-openmls-*`,
+`update-template-*`) are deliberately *not* excluded: those PRs are recreated
+per version rather than refreshed in place, so the force-push path has never been
+exercised. If an update PR is ever seen failing to refresh, extend the same
+`exclude` list rather than adding a bypass actor.
 
 ## Apply
 
@@ -108,7 +145,10 @@ it off an arbitrary ref, add a deployment-branch policy allowing only
   { "actor_id": <APP_ID>, "actor_type": "Integration", "bypass_mode": "always" }
   ```
   If the bot commits via the API with `sign-commits: true` (already signed), it
-  needs no bypass — leave the array empty.
+  needs no bypass — leave the array empty. And if what the bot actually needs is
+  to *force-push* or *delete* its own branch, add its ref pattern to
+  `ref_name.exclude` instead: this ruleset covers `~ALL` branches, so a bypass
+  actor would be exempt on `main` too.
 
 ## Optional hardening (review, not required)
 

@@ -4,7 +4,10 @@
   "enforcement": "active",
   "bypass_actors": [],
   "conditions": {
-    "ref_name": { "include": ["~ALL"], "exclude": [] }
+    "ref_name": {
+      "include": ["~ALL"],
+      "exclude": ["refs/heads/dependabot/**/*"]
+    }
   },
   "rules": [
     { "type": "non_fast_forward" },
