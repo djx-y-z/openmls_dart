@@ -186,6 +186,17 @@
   branches, the update PRs that move `native_version` ahead of the released
   binaries. A `pull_request` run resolves reusable workflows and composite
   actions from the merge ref, so the PR's own versions are what execute.
+- **A native-update entry lands at the top of `[Unreleased]`, not below
+  `### For Contributors`** — `insertChangelogEntry` created its `### For Users`
+  block at the point where the `[Unreleased]` section *ends*, so whenever the
+  accumulated changes were CI or tooling only — the section then holds
+  `### For Contributors` and nothing else, which is its normal shape between
+  feature work — the user-facing highlight was filed underneath them, the
+  reverse of the order every released section uses. It also emitted a second
+  `### For Users` heading when the section already had one that ran to the end
+  of `[Unreleased]` with no `#### ✨ Highlights` / `#### Changed` under it. The
+  insertion point is now the top of the section, and an existing
+  `### For Users` is extended rather than duplicated.
 
 #### Added
 
@@ -226,11 +237,23 @@
   two modules that cannot avoid it. This affects only building from source: the
   published package downloads a prebuilt native library, so nothing changes for
   an app that consumes it.
-- **Update workflows now fail on checker errors** — `make check-…` exits 0 when
-  up to date, 1 when an update is available and >1 on failure; the workflows
-  distinguish these instead of swallowing every outcome with `|| true`. Manual
-  `target_version` input is also validated in the workflow shell, before it is
-  interpolated into `ARGS`.
+- **Update workflows detect a crashed checker by what it wrote, not by its exit
+  code** — the checkers exit 0 when up to date, 1 when an update is available
+  and 2 on failure, but the workflows ran them under `|| true`, making a crashed
+  checker indistinguishable from "no updates available". Discriminating on the
+  exit code cannot work here, and an earlier revision of this change assumed it
+  could: the checkers are invoked through `make`, and GNU make collapses any
+  non-zero recipe status into its own exit 2 (verified: a recipe exiting 1 makes
+  `make` exit 2), so an `exit_code > 1` guard fires on the ordinary "update
+  available" path and would have failed both workflows on exactly the event they
+  exist to serve — no update PR and no template notification would ever be
+  opened again. It stayed green only because no update came up while it was in
+  place. The gate is the artefact instead: the checker writes `needs_update=` to
+  its outputs file *before* signalling, and writes nothing at all when it
+  throws, so a missing `needs_update=` line means it failed, and the step fails
+  with an `::error::` that tells the reader not to interpret it as "up to date".
+  Manual `target_version` input is also validated in the workflow shell, before
+  it is interpolated into `ARGS`.
 - **Test workflow now triggers on `scripts/`, `hook/` and `Makefile` changes** —
   edits to the build hook, tooling scripts and the Makefile previously ran no
   tests at all. Workflow-file paths are now also watched on pull requests, not

@@ -286,7 +286,10 @@ Return ONLY valid JSON, no markdown code blocks.
 /// testing.
 ///
 /// Strategy:
-/// 1. If [Unreleased] section exists, add entry to Highlights and Changed
+/// 1. If [Unreleased] section exists, add entry to Highlights and Changed,
+///    creating whichever are missing. A missing `### For Users` is created at the
+///    top of the section, ahead of any `### For Contributors`, matching the order
+///    of the released sections.
 /// 2. If no [Unreleased] section, create it before first version (this is the
 ///    normal path after a release, which no longer leaves an empty
 ///    `## [Unreleased]` behind).
@@ -318,6 +321,9 @@ String _insertIntoUnreleased(
   var inForUsers = false;
   var insertedHighlights = false;
   var insertedChanged = false;
+  // Index of the `## [Unreleased]` heading within [result], so the fallback
+  // below can splice at the top of the section instead of the bottom.
+  var unreleasedIdx = -1;
 
   for (var i = 0; i < lines.length; i++) {
     final line = lines[i];
@@ -326,6 +332,7 @@ String _insertIntoUnreleased(
     if (line.startsWith('## [Unreleased]')) {
       inUnreleased = true;
       result.add(line);
+      unreleasedIdx = result.length - 1;
       continue;
     }
 
@@ -335,9 +342,7 @@ String _insertIntoUnreleased(
         !line.contains('Unreleased')) {
       // If we haven't inserted yet, create the structure
       if (!insertedHighlights || !insertedChanged) {
-        result.addAll([
-          '',
-          '### For Users',
+        final entry = <String>[
           '',
           '#### ✨ Highlights',
           '',
@@ -346,8 +351,19 @@ String _insertIntoUnreleased(
           '#### Changed',
           '',
           changed,
-          '',
-        ]);
+        ];
+        if (inForUsers) {
+          // A `### For Users` heading exists and runs to the end of the section,
+          // so its missing subsections belong here, under it. Adding another
+          // `### For Users` would duplicate the heading.
+          result.addAll([...entry, '']);
+        } else {
+          // No `### For Users` anywhere in [Unreleased]. Create it at the TOP of
+          // the section rather than here at the bottom: appending would file a
+          // user-facing entry below every existing subsection (`### For
+          // Contributors`), and every released section puts For Users first.
+          result.insertAll(unreleasedIdx + 1, ['', '### For Users', ...entry]);
+        }
         insertedHighlights = true;
         insertedChanged = true;
       }

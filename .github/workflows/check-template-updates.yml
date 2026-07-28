@@ -65,16 +65,19 @@ jobs:
           fi
 
           echo "Running: make check-template-updates ARGS=\"$ARGS\""
-          set +e
-          make check-template-updates ARGS="$ARGS"
-          STATUS=$?
-          set -e
-          # 0 = up to date, 1 = update available (outputs written). Anything
-          # higher is the checker itself failing and must fail the workflow —
-          # a blanket `|| true` here hid a broken checker behind a green run.
-          if [ "$STATUS" -gt 1 ]; then
-            echo "::error::Template update checker failed with exit code $STATUS."
-            exit "$STATUS"
+          # `|| true` is unavoidable, and the exit code is unusable as a signal:
+          # the checker exits 1 for "update available", and GNU make collapses any
+          # non-zero recipe status into its own exit 2 (verified: a recipe exiting
+          # 1 makes `make` exit 2), so 2 cannot be told apart from a crash.
+          make check-template-updates ARGS="$ARGS" || true
+
+          # What can tell them apart is the outputs file: the checker writes it
+          # before signalling, and not at all when it throws. Without this gate a
+          # broken checker looks exactly like "already up to date" and the workflow
+          # stays green forever while silently never opening another notification.
+          if ! grep -q '^needs_update=' "$GITHUB_OUTPUT"; then
+            echo "::error::Template update checker wrote no result — it failed before reporting. Check the step log above; do NOT read this as 'up to date'."
+            exit 1
           fi
 
           echo "Check completed. Outputs:"

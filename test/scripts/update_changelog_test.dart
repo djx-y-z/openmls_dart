@@ -106,5 +106,60 @@ void main() {
       expect(result, contains('**openmls v0.8.2** — protocol update'));
       expect(result, contains('**openmls_frb v1.5.2**'));
     });
+
+    test('creates For Users at the top of an [Unreleased] that only has For '
+        'Contributors', () {
+      // The shape [Unreleased] has whenever the accumulated changes are CI or
+      // tooling only. Appending at the end of the section would file the
+      // user-facing entry below For Contributors, which no released section does.
+      const contributorsOnly = '''
+# Changelog
+
+## [Unreleased]
+
+### For Contributors
+
+#### Fixed
+
+- Something in CI
+
+## [1.4.2] - 2026-07-20
+
+- Prior release
+
+[Unreleased]: https://github.com/djx-y-z/openmls_dart/compare/v1.4.2...HEAD
+[1.4.2]: https://github.com/djx-y-z/openmls_dart/compare/v1.4.1...v1.4.2
+''';
+      final result = insertChangelogEntry(
+        currentChangelog: contributorsOnly,
+        nativeHighlight: '**openmls v0.8.2** — protocol update',
+        changed: '- Update openmls native library to v0.8.2',
+      );
+
+      final lines = result.split('\n');
+      final unreleasedIdx = lines.indexWhere(
+        (l) => l.startsWith('## [Unreleased]'),
+      );
+      final forUsersIdx = lines.indexWhere(
+        (l) => l.startsWith('### For Users'),
+      );
+      final contributorsIdx = lines.indexWhere(
+        (l) => l.startsWith('### For Contributors'),
+      );
+      final highlightIdx = lines.indexWhere(
+        (l) => l.contains('openmls v0.8.2'),
+      );
+
+      expect(
+        lines.where((l) => l.startsWith('### For Users')).length,
+        equals(1),
+        reason: 'no duplicate For Users heading',
+      );
+      expect(forUsersIdx, greaterThan(unreleasedIdx));
+      expect(forUsersIdx, lessThan(contributorsIdx));
+      expect(highlightIdx, lessThan(contributorsIdx));
+      // The pre-existing subsection survives intact.
+      expect(result, contains('- Something in CI'));
+    });
   });
 }
