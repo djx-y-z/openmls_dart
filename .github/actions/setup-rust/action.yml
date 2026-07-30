@@ -2,6 +2,10 @@ name: Setup Rust
 description: Setup Rust toolchain with optional cross-compilation targets
 
 inputs:
+  toolchain:
+    description: 'Rust toolchain to install (e.g. stable, 1.89). Defaults to stable.'
+    required: false
+    default: 'stable'
   targets:
     description: 'Comma-separated list of Rust targets to install (e.g., aarch64-apple-darwin,x86_64-apple-darwin)'
     required: false
@@ -15,7 +19,7 @@ runs:
       # explicitly via the `toolchain` input instead.
       uses: dtolnay/rust-toolchain@2c7215f132e9ebf062739d9130488b56d53c060c # master 2026-07
       with:
-        toolchain: stable
+        toolchain: ${{ inputs.toolchain }}
         targets: ${{ inputs.targets }}
         # clippy is needed by `make rust-clippy` (the test job's lint step).
         # dtolnay/rust-toolchain installs the minimal profile, which omits it.

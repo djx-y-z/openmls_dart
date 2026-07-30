@@ -121,18 +121,25 @@ class CrateNotice {
 /// produce different inventories on different machines. This turns that into a
 /// loud failure.
 ///
-/// The per-target sweep alone is *not* reproducible across machines, which is
-/// why a second, host-independent pass follows it. `--target <triple>` filters
-/// normal dependencies by that triple, but build-dependencies are resolved for
-/// the **host**: `rustix`, reached through `prost-build` → `tempfile`, selects
-/// `errno` on a macOS host and `linux-raw-sys` on a Linux one, whatever triple
-/// is asked for. One crate swaps for another, so the inventory changes while
-/// the crate count does not — and the committed file, correct on the machine
-/// that wrote it, is then rejected by CI on another. Unioning the build edges
-/// over `--target all` covers every platform's build graph at once, which makes
-/// the result independent of who ran it. Normal edges stay per-target so that
-/// platforms this package does not ship (Redox, UEFI, WASI) never reach the
-/// notice.
+/// No per-target query is reproducible across machines. `--target <triple>`
+/// filters the *target* dependencies by that triple, but everything compiled
+/// for the build machine — build-dependencies **and proc-macro subtrees** — is
+/// resolved for the **host**. Both axes bite in practice: `rustix`, reached
+/// through `prost-build` → `tempfile`, selects `errno` on a macOS host and
+/// `linux-raw-sys` on a Linux one; and `winapi` hangs off `ansi_term` inside a
+/// proc-macro crate, so it is visible only from a Windows host. The inventory
+/// then changes with the machine — sometimes swapping one crate for another,
+/// which leaves the crate count identical and the contents different — and CI
+/// rejects a file that was correct where it was generated.
+///
+/// `--target all` is the only query cargo offers that applies no platform
+/// filtering at all, so the crate set is taken from it. It is a superset of
+/// every per-target result, so it over-attributes: the extra entries are build
+/// tooling and platform-gated crates a given build never links. That is the
+/// deliberate trade — a byte-exact check is only viable against output that
+/// does not change with the machine. The per-target sweep is
+/// kept because it is the only thing that fails when a declared release target
+/// stops resolving, which is what keeps [releaseTargets] honest.
 Set<String> collectLinkedCrates({
   required String manifestPath,
   List<String> targets = releaseTargets,
@@ -154,17 +161,12 @@ Set<String> collectLinkedCrates({
     );
   }
 
-  // Everything reachable only through a build edge, on any platform. Added to
-  // — never substituted for — the sweep above, so this pass can only widen the
-  // inventory: a crate the host-bound sweep already found stays found.
-  onProgress?.call('build dependencies (host-independent)');
-  final everyEdge = _cargoTree(
-    manifestPath,
-    edges: 'normal,build',
-    target: 'all',
-  );
-  final normalOnly = _cargoTree(manifestPath, edges: 'normal', target: 'all');
-  crates.addAll(everyEdge.difference(normalOnly));
+  // The set that actually decides the inventory. Unioned rather than
+  // substituted so the pass can only widen it, though it subsumes the sweep
+  // above by construction: anything visible for one triple under host
+  // filtering is visible with no filtering at all.
+  onProgress?.call('all platforms (host-independent)');
+  crates.addAll(_cargoTree(manifestPath, edges: 'normal,build', target: 'all'));
 
   return crates;
 }
@@ -552,12 +554,20 @@ String renderNotices({
     ..writeln('that embeds the library.')
     ..writeln()
     ..writeln(
-      'Generated from the resolved dependency graph across every released '
-      'target',
+      'Generated from the resolved dependency graph, with no platform '
+      'filtering',
     )
     ..writeln(
-      '(cargo tree --edges normal,build). Build edges are kept because that is '
-      'how',
+      '(cargo tree --edges normal,build --target all), so the same commit '
+      'yields the',
+    )
+    ..writeln(
+      'same inventory on any machine: build-dependencies and proc-macro '
+      'subtrees are',
+    )
+    ..writeln(
+      'otherwise resolved for the build host. Build edges are kept because '
+      'that is how',
     )
     ..writeln(
       'vendored native code reaches the binary — a *-src crate carrying C '

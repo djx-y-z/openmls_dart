@@ -12,6 +12,7 @@ Thank you for your interest in contributing to openmls_dart! This document provi
 - [Submitting Changes](#submitting-changes)
 - [Coding Standards](#coding-standards)
 - [Advanced Development](#advanced-development)
+- [Third-party notices](#third-party-notices)
 - [Security Considerations](#security-considerations)
 
 ## Code of Conduct
@@ -428,6 +429,48 @@ See [dart.dev/tools/pub/automated-publishing](https://dart.dev/tools/pub/automat
 4. Click **Save protection rules**
 
 > The `pub.dev` environment is required by the publish workflow. Protection rules ensure that every publish requires manual approval, preventing accidental releases.
+
+## Third-party notices
+
+`THIRD_PARTY_NOTICES.txt` is generated from the resolved Rust dependency graph
+and verified byte-for-byte in CI, in `build-<package>.yml` and in both release
+preflights. Regenerate it with `make third-party-notices` after any dependency
+change — `make rust-update` already does. `make verify-third-party-notices`
+prints the first differing line and the entries unique to each side, so a CI
+failure is readable without reproducing it locally.
+
+The crate set comes from `cargo tree --edges normal,build --target all`. The
+`--target all` is load-bearing: with a specific triple, cargo still resolves
+build-dependencies *and proc-macro subtrees* for the build host, so the file
+would differ between a macOS, Linux and Windows contributor — with the crate
+count sometimes unchanged, which makes the drift invisible in the summary. The
+result over-attributes (build tooling, platform-gated crates a given build never
+links); that is the deliberate trade for output that does not change with the
+machine.
+
+To re-validate completeness against an independent implementation:
+
+```bash
+cargo install cargo-about --locked --features cli   # the CLI needs that feature
+cat > /tmp/about.toml <<'EOF'
+accepted = ["MIT", "Apache-2.0", "Apache-2.0 WITH LLVM-exception", "BSD-2-Clause",
+  "BSD-3-Clause", "ISC", "Zlib", "Unicode-3.0", "Unicode-DFS-2016", "CC0-1.0",
+  "MPL-2.0", "OpenSSL", "BSL-1.0", "Unlicense", "AGPL-3.0", "CDLA-Permissive-2.0", "0BSD"]
+targets = ["x86_64-unknown-linux-gnu", "aarch64-apple-darwin", "x86_64-pc-windows-msvc",
+  "aarch64-linux-android", "wasm32-unknown-unknown"]
+ignore-build-dependencies = false
+ignore-dev-dependencies = true
+EOF
+cargo about generate --config /tmp/about.toml --manifest-path rust/Cargo.toml \
+  --format json --output-file /tmp/about.json
+```
+
+Compare the crate names in `/tmp/about.json` with those in
+`THIRD_PARTY_NOTICES.txt`: the only crate cargo-about should report that the
+inventory omits is this repository's own crate, which is excluded on purpose.
+Note that cargo-about resolves build-dependencies for the host exactly as a
+per-target `cargo tree` does, so it validates the *contents*, not the
+reproducibility.
 
 ## Releasing (two stages)
 

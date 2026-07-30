@@ -50,7 +50,7 @@
   graph across all released targets — build edges included, because that is how
   vendored native code reaches the binary: the bundled OpenSSL arrives as a
   build-dependency of `openssl-sys` and would otherwise go unattributed
-  (240 crates, 142 shipped licence texts). Licences a crate keeps beside
+  (264 crates, 152 shipped licence texts). Licences a crate keeps beside
   vendored code are collected too — SQLCipher's, the Dart SDK headers', the
   Unicode tables' — as are those a git dependency keeps at its repository root
   rather than in the member directory, which is where every upstream MLS crate
@@ -205,14 +205,20 @@
   `linux-raw-sys` on a Linux one: one crate swapped for the other, the crate
   count unchanged, and CI rejected a file that was correct on the machine that
   wrote it. This package was not affected between macOS and Linux, but it is the
-  same latent bug — under a host-independent sweep three crates appear that no
-  macOS or Linux run ever recorded (`walkdir`, `same-file`, `winapi-util`),
-  which a contributor on Windows would have produced instead. Build edges are
-  now unioned over `--target all`, which covers every platform's build graph at
-  once, and are *added to* rather than substituted for the per-target sweep, so
-  the pass can only widen the inventory. Normal edges stay per-target, so
-  platforms this package does not ship (Redox, UEFI, WASI) never reach the
-  notice. The inventory grows from 237 to 240 crates. `--check` also prints the
+  same latent bug — a host-independent sweep records crates no macOS or Linux
+  run ever saw, among them `winapi`, which reaches the graph through `ansi_term`
+  inside a **proc-macro** crate. Proc-macro subtrees are host-compiled just like
+  build scripts, so the host dependence is not confined to build edges and no
+  per-target query escapes it. The crate set is therefore taken from
+  `cargo tree --target all`, the only query cargo offers that applies no
+  platform filtering at all; the per-target sweep is kept because it is the one
+  thing that fails when a declared release target stops resolving. The result
+  over-attributes deliberately: the extra entries are build tooling and
+  platform-gated crates a given build never links — `winapi` here arrives only
+  through a host-compiled proc-macro — but a file that lists them on every
+  machine is worth more than a narrower one that changes with the machine, since
+  the byte-exact CI check is only viable if the output is reproducible. The
+  inventory grows from 237 to 264 crates. `--check` also prints the
   first differing line and the lines unique to each side now: the failure it
   reports is normally read from a CI log, and "the contents differ" left the
   reader to bisect a 400 KB file by hand
@@ -232,6 +238,16 @@
 
 #### Added
 
+- **CI verifies the declared MSRV** — `rust-version = "1.89"` in
+  `rust/Cargo.toml` is a promise to anyone building the native library from
+  source, and nothing checked it: the first dependency or language feature to
+  raise the real floor would have broken that build silently, with the failure
+  landing on a contributor instead of here. A new `msrv` job reads the version
+  out of the manifest — rather than repeating it, so the job cannot drift from
+  the claim it checks — installs exactly that toolchain and runs `make
+  rust-check`. Verified locally against 1.89.0 before the job was added; the
+  reusable `setup-rust` action gained a `toolchain` input (default `stable`) to
+  make it possible.
 - **`make rust-test` and a CI step that runs it** — the crate's unit tests were
   never executed in CI, including `classical_ops_do_not_init_libcrux`, which
   several advisory ignores in `.cargo/audit.toml` and `rust/deny.toml` cite as

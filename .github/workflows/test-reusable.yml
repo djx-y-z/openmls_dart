@@ -68,6 +68,40 @@ jobs:
       - name: Run cargo deny
         run: make rust-deny
 
+  # ============================================
+  # Minimum supported Rust version
+  # ============================================
+  # `rust-version` in rust/Cargo.toml is a promise to anyone building the native
+  # library from source. Untested, it silently becomes false the first time a
+  # dependency or a language feature raises the real floor, and the failure then
+  # lands on a contributor rather than here. The version is read from the
+  # manifest rather than written twice, so the job cannot drift from the claim it
+  # is checking.
+  msrv:
+    name: MSRV (rust-version from Cargo.toml)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Read rust-version
+        id: msrv
+        run: |
+          version=$(grep -m1 '^rust-version' rust/Cargo.toml | sed -E 's/.*"([^"]+)".*/\1/')
+          if [ -z "$version" ]; then
+            echo "::error::rust/Cargo.toml declares no rust-version."
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "Declared MSRV: $version"
+
+      - name: Setup Rust
+        uses: ./.github/actions/setup-rust
+        with:
+          toolchain: ${{ steps.msrv.outputs.version }}
+
+      - name: Type-check on the declared MSRV
+        run: make rust-check
+
   test:
     strategy:
       fail-fast: false
