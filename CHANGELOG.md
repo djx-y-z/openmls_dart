@@ -2,6 +2,26 @@
 
 ### For Users
 
+#### ✨ Highlights
+
+- **Concurrent work on one group no longer loses writes** — every engine
+  operation runs under an engine-wide lock, and a database file admits a single
+  engine at a time **(breaking)**. Overlapping calls used to load the same
+  snapshot and the later write-back dropped the other's changes: a merged
+  commit, an epoch advance or a ratchet step could disappear, desynchronizing
+  the group and leaving messages undecryptable.
+- **The storage layer stops leaving MLS plaintext behind** — undefined behavior
+  removed from the snapshot provider, SQLCipher wipes its own working buffers,
+  and the copies the wrapper itself kept (the write-back diff, the hex
+  encryption key, overwritten and deleted entries) are zeroized. Database files
+  are created owner-only and `deleteGroup` is atomic.
+- **The package ships `THIRD_PARTY_NOTICES.txt`** — the licence texts the
+  statically linked native library must carry with it, generated from the
+  resolved dependency graph across all released targets and verified
+  byte-for-byte in CI.
+- **openmls** — unchanged this release (openmls-v0.8.1)
+- **openmls_frb v2.0.0** — Rust FFI bindings
+
 #### Changed (Breaking)
 
 - **Only one engine may hold a database file** — the SQLCipher connection now
