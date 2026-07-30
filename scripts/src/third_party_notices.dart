@@ -120,6 +120,19 @@ class CrateNotice {
 /// cargo silently re-resolve and rewrite the graph, so the same commit could
 /// produce different inventories on different machines. This turns that into a
 /// loud failure.
+///
+/// The per-target sweep alone is *not* reproducible across machines, which is
+/// why a second, host-independent pass follows it. `--target <triple>` filters
+/// normal dependencies by that triple, but build-dependencies are resolved for
+/// the **host**: `rustix`, reached through `prost-build` → `tempfile`, selects
+/// `errno` on a macOS host and `linux-raw-sys` on a Linux one, whatever triple
+/// is asked for. One crate swaps for another, so the inventory changes while
+/// the crate count does not — and the committed file, correct on the machine
+/// that wrote it, is then rejected by CI on another. Unioning the build edges
+/// over `--target all` covers every platform's build graph at once, which makes
+/// the result independent of who ran it. Normal edges stay per-target so that
+/// platforms this package does not ship (Redox, UEFI, WASI) never reach the
+/// notice.
 Set<String> collectLinkedCrates({
   required String manifestPath,
   List<String> targets = releaseTargets,
@@ -136,28 +149,51 @@ Set<String> collectLinkedCrates({
 
   for (final target in targets) {
     onProgress?.call(target);
-    final result = Process.runSync('cargo', [
-      'tree',
-      '--manifest-path',
-      manifestPath,
-      '--locked',
-      '--edges',
-      'normal,build',
-      '--target',
-      target,
-      '--prefix',
-      'none',
-    ]);
-    if (result.exitCode != 0) {
-      throw Exception(
-        'cargo tree failed for $target (exit ${result.exitCode}):\n'
-        '${result.stderr}',
-      );
-    }
-    crates.addAll(parseCargoTree(result.stdout as String));
+    crates.addAll(
+      _cargoTree(manifestPath, edges: 'normal,build', target: target),
+    );
   }
 
+  // Everything reachable only through a build edge, on any platform. Added to
+  // — never substituted for — the sweep above, so this pass can only widen the
+  // inventory: a crate the host-bound sweep already found stays found.
+  onProgress?.call('build dependencies (host-independent)');
+  final everyEdge = _cargoTree(
+    manifestPath,
+    edges: 'normal,build',
+    target: 'all',
+  );
+  final normalOnly = _cargoTree(manifestPath, edges: 'normal', target: 'all');
+  crates.addAll(everyEdge.difference(normalOnly));
+
   return crates;
+}
+
+/// One `cargo tree` invocation, parsed into `name@version` identifiers.
+Set<String> _cargoTree(
+  String manifestPath, {
+  required String edges,
+  required String target,
+}) {
+  final result = Process.runSync('cargo', [
+    'tree',
+    '--manifest-path',
+    manifestPath,
+    '--locked',
+    '--edges',
+    edges,
+    '--target',
+    target,
+    '--prefix',
+    'none',
+  ]);
+  if (result.exitCode != 0) {
+    throw Exception(
+      'cargo tree failed for $target (exit ${result.exitCode}):\n'
+      '${result.stderr}',
+    );
+  }
+  return parseCargoTree(result.stdout as String);
 }
 
 /// Extracts `name@version` identifiers from `cargo tree --prefix none` output.
@@ -707,6 +743,13 @@ String generateNotices({
 /// Compares generated output against a committed file.
 ///
 /// Returns null when they match, or a human-readable description of the drift.
+///
+/// The description names the lines that actually moved. This check normally
+/// fails on a machine that cannot run the generator interactively — a CI log is
+/// the whole diagnosis — and "the contents differ" sends the reader to bisect a
+/// 400 KB file by hand. A swapped crate (see [collectLinkedCrates] on
+/// host-dependent build edges) is invisible in the counts and obvious in one
+/// line of diff.
 String? describeDrift({required String generated, required File committed}) {
   if (!committed.existsSync()) {
     return 'Missing ${committed.path}. Run `make third-party-notices`.';
@@ -721,8 +764,55 @@ String? describeDrift({required String generated, required File committed}) {
             'crate version, licence text or the file itself changed'
       : 'lists $onDiskCount crates, dependency graph resolves to '
             '$generatedCount';
-  return 'Committed ${committed.path} is out of date ($detail). '
+  return 'Committed ${committed.path} is out of date ($detail).\n'
+      '${_describeLineDrift(onDisk, generated)}'
       'Run `make third-party-notices` and commit the result.';
+}
+
+/// How many differing lines to quote from each side.
+const _driftSamples = 5;
+
+/// Renders the first divergence plus a sample of the lines unique to each side.
+///
+/// Set-based rather than a real diff: the file is sorted by construction, so
+/// "only on one side" is the meaningful signal, and an LCS over ~10k lines buys
+/// nothing here.
+String _describeLineDrift(String onDisk, String generated) {
+  final onDiskLines = const LineSplitter().convert(onDisk);
+  final generatedLines = const LineSplitter().convert(generated);
+
+  final buffer = StringBuffer();
+  var i = 0;
+  while (i < onDiskLines.length &&
+      i < generatedLines.length &&
+      onDiskLines[i] == generatedLines[i]) {
+    i++;
+  }
+  buffer.writeln('  First difference at line ${i + 1}:');
+  buffer.writeln(
+    '    committed: ${i < onDiskLines.length ? onDiskLines[i] : '<end of file>'}',
+  );
+  buffer.writeln(
+    '    generated: ${i < generatedLines.length ? generatedLines[i] : '<end of file>'}',
+  );
+
+  final onlyCommitted = onDiskLines.toSet().difference(generatedLines.toSet())
+    ..removeWhere((l) => l.trim().isEmpty);
+  final onlyGenerated = generatedLines.toSet().difference(onDiskLines.toSet())
+    ..removeWhere((l) => l.trim().isEmpty);
+  _writeSample(buffer, 'Only in the committed file', onlyCommitted);
+  _writeSample(buffer, 'Only in the freshly generated file', onlyGenerated);
+  return buffer.toString();
+}
+
+void _writeSample(StringBuffer buffer, String label, Set<String> lines) {
+  if (lines.isEmpty) return;
+  final sorted = lines.toList()..sort();
+  final shown = sorted.take(_driftSamples).map((l) => l.trim()).join(' | ');
+  final suffix = sorted.length > _driftSamples
+      ? ' (showing $_driftSamples of ${sorted.length})'
+      : '';
+  buffer.writeln('  $label$suffix: $shown');
 }
 
 int _crateCount(String notices) {

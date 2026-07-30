@@ -50,7 +50,7 @@
   graph across all released targets — build edges included, because that is how
   vendored native code reaches the binary: the bundled OpenSSL arrives as a
   build-dependency of `openssl-sys` and would otherwise go unattributed
-  (237 crates, 141 shipped licence texts). Licences a crate keeps beside
+  (240 crates, 142 shipped licence texts). Licences a crate keeps beside
   vendored code are collected too — SQLCipher's, the Dart SDK headers', the
   Unicode tables' — as are those a git dependency keeps at its repository root
   rather than in the member directory, which is where every upstream MLS crate
@@ -197,6 +197,25 @@
   of `[Unreleased]` with no `#### ✨ Highlights` / `#### Changed` under it. The
   insertion point is now the top of the section, and an existing
   `### For Users` is extended rather than duplicated.
+- **The notice inventory no longer depends on the machine that generated it** —
+  `cargo tree --target <triple>` filters *normal* dependencies by that triple
+  but resolves *build*-dependencies for the **host**, so the inventory recorded
+  the build graph of whoever ran the generator. It surfaced in libsignal_dart,
+  where `prost-build` → `tempfile` → `rustix` picks `errno` on a macOS host and
+  `linux-raw-sys` on a Linux one: one crate swapped for the other, the crate
+  count unchanged, and CI rejected a file that was correct on the machine that
+  wrote it. This package was not affected between macOS and Linux, but it is the
+  same latent bug — under a host-independent sweep three crates appear that no
+  macOS or Linux run ever recorded (`walkdir`, `same-file`, `winapi-util`),
+  which a contributor on Windows would have produced instead. Build edges are
+  now unioned over `--target all`, which covers every platform's build graph at
+  once, and are *added to* rather than substituted for the per-target sweep, so
+  the pass can only widen the inventory. Normal edges stay per-target, so
+  platforms this package does not ship (Redox, UEFI, WASI) never reach the
+  notice. The inventory grows from 237 to 240 crates. `--check` also prints the
+  first differing line and the lines unique to each side now: the failure it
+  reports is normally read from a CI log, and "the contents differ" left the
+  reader to bisect a 400 KB file by hand
 - **`make check-new-openmls-version ARGS="--update"` now moves the
   `openmls_libcrux_crypto` pin** — the tag-rewrite list in the generated checker
   is built from the `upstream_crates` template answer, and that answer named

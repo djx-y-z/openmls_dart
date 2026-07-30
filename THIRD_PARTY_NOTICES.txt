@@ -18,8 +18,8 @@ into LICENCE TEXTS. Where a crate ships no licence file, the canonical text of
 the licence it declares is supplied instead, referenced into CANONICAL LICENCE
 TEXTS. Identical texts are pooled rather than repeated.
 
-Crates listed: 237
-Distinct licence texts: 141
+Crates listed: 240
+Distinct licence texts: 142
 Canonical licence texts supplied: 3
 
 ==============================================================================
@@ -48,7 +48,7 @@ aes 0.8.4
 
 aho-corasick 1.1.4
   License: Unlicense OR MIT
-  Texts:   COPYING [T137], LICENSE-MIT [T128], UNLICENSE [T136]
+  Texts:   COPYING [T138], LICENSE-MIT [T128], UNLICENSE [T137]
 
 allo-isolate 0.1.27
   License: (not declared in crate manifest)
@@ -116,7 +116,7 @@ bytemuck 1.25.0
 
 byteorder 1.5.0
   License: Unlicense OR MIT
-  Texts:   COPYING [T137], LICENSE-MIT [T128], UNLICENSE [T136]
+  Texts:   COPYING [T138], LICENSE-MIT [T128], UNLICENSE [T137]
 
 cast 0.3.0
   License: MIT OR Apache-2.0
@@ -156,15 +156,15 @@ cpufeatures 0.2.17
 
 crossbeam-deque 0.8.6
   License: MIT OR Apache-2.0
-  Texts:   LICENSE-APACHE [T14], LICENSE-MIT [T132]
+  Texts:   LICENSE-APACHE [T14], LICENSE-MIT [T133]
 
 crossbeam-epoch 0.9.20
   License: MIT OR Apache-2.0
-  Texts:   LICENSE-APACHE [T14], LICENSE-MIT [T132]
+  Texts:   LICENSE-APACHE [T14], LICENSE-MIT [T133]
 
 crossbeam-utils 0.8.21
   License: MIT OR Apache-2.0
-  Texts:   LICENSE-APACHE [T14], LICENSE-MIT [T132]
+  Texts:   LICENSE-APACHE [T14], LICENSE-MIT [T133]
 
 crypto-bigint 0.5.5
   License: Apache-2.0 OR MIT
@@ -246,7 +246,7 @@ fallible-streaming-iterator 0.1.9
 
 ff 0.13.1
   License: MIT/Apache-2.0
-  Texts:   LICENSE-APACHE [T14], LICENSE-MIT [T130]
+  Texts:   LICENSE-APACHE [T14], LICENSE-MIT [T131]
 
 find-msvc-tools 0.1.9
   License: MIT OR Apache-2.0
@@ -312,7 +312,7 @@ futures 0.3.32
 
 generic-array 0.14.7
   License: MIT
-  Texts:   LICENSE [T135]
+  Texts:   LICENSE [T136]
 
 getrandom 0.2.17
   License: MIT OR Apache-2.0
@@ -356,7 +356,7 @@ hashbrown 0.16.1
 
 hashlink 0.10.0
   License: MIT OR Apache-2.0
-  Texts:   LICENSE-APACHE [T15], LICENSE-MIT [T138]
+  Texts:   LICENSE-APACHE [T15], LICENSE-MIT [T139]
 
 hax-lib-macros 0.3.6
   License: Apache-2.0
@@ -557,7 +557,7 @@ libcrux-traits 0.0.6
 
 libm 0.2.16
   License: MIT
-  Texts:   LICENSE.txt [T141]
+  Texts:   LICENSE.txt [T142]
 
 libsqlite3-sys 0.32.0
   License: MIT
@@ -577,7 +577,7 @@ md-5 0.10.6
 
 memchr 2.8.0
   License: Unlicense OR MIT
-  Texts:   COPYING [T137], LICENSE-MIT [T128], UNLICENSE [T136]
+  Texts:   COPYING [T138], LICENSE-MIT [T128], UNLICENSE [T137]
 
 miniz_oxide 0.8.9
   License: MIT OR Zlib OR Apache-2.0
@@ -585,7 +585,7 @@ miniz_oxide 0.8.9
 
 nu-ansi-term 0.50.3
   License: MIT
-  Texts:   LICENSE [T134]
+  Texts:   LICENSE [T135]
 
 num-traits 0.2.19
   License: MIT OR Apache-2.0
@@ -605,7 +605,7 @@ once_cell 1.21.4
 
 oorandom 11.1.5
   License: MIT
-  Texts:   LICENSE-MIT [T131]
+  Texts:   LICENSE-MIT [T132]
 
 opaque-debug 0.3.1
   License: MIT OR Apache-2.0
@@ -777,7 +777,7 @@ regex-automata 0.4.14
 
 regex-syntax 0.8.10
   License: MIT OR Apache-2.0
-  Texts:   LICENSE-APACHE [T14], LICENSE-MIT [T34], src/unicode_tables/LICENSE-UNICODE [T140]
+  Texts:   LICENSE-APACHE [T14], LICENSE-MIT [T34], src/unicode_tables/LICENSE-UNICODE [T141]
 
 regex 1.12.3
   License: MIT OR Apache-2.0
@@ -819,6 +819,10 @@ rustc_version 0.4.1
 rustversion 1.0.22
   License: MIT OR Apache-2.0
   Texts:   LICENSE-APACHE [T8], LICENSE-MIT [T124]
+
+same-file 1.0.6
+  License: Unlicense/MIT
+  Texts:   COPYING [T138], LICENSE-MIT [T130], UNLICENSE [T137]
 
 scopeguard 1.2.0
   License: MIT OR Apache-2.0
@@ -926,7 +930,7 @@ typenum 1.19.0
 
 unicode-ident 1.0.24
   License: (MIT OR Apache-2.0) AND Unicode-3.0
-  Texts:   LICENSE-APACHE [T8], LICENSE-MIT [T124], LICENSE-UNICODE [T139]
+  Texts:   LICENSE-APACHE [T8], LICENSE-MIT [T124], LICENSE-UNICODE [T140]
 
 universal-hash 0.5.1
   License: MIT OR Apache-2.0
@@ -938,7 +942,11 @@ vcpkg 0.2.15
 
 version_check 0.9.5
   License: MIT/Apache-2.0
-  Texts:   LICENSE-APACHE [T14], LICENSE-MIT [T133]
+  Texts:   LICENSE-APACHE [T14], LICENSE-MIT [T134]
+
+walkdir 2.5.0
+  License: Unlicense/MIT
+  Texts:   COPYING [T138], LICENSE-MIT [T128], UNLICENSE [T137]
 
 wasm-bindgen-futures 0.4.67
   License: MIT OR Apache-2.0
@@ -975,6 +983,10 @@ wasm-bindgen 0.2.117
 web-sys 0.3.94
   License: MIT OR Apache-2.0
   Texts:   LICENSE-APACHE [T14], LICENSE-MIT [T31]
+
+winapi-util 0.1.11
+  License: Unlicense OR MIT
+  Texts:   COPYING [T138], LICENSE-MIT [T130], UNLICENSE [T137]
 
 windows-link 0.2.1
   License: MIT OR Apache-2.0
@@ -9436,13 +9448,14 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 ------------------------------------------------------------------------------
-[T128] referenced by 3 crate(s)
+[T128] referenced by 4 crate(s)
 ------------------------------------------------------------------------------
 
 Crates:
   aho-corasick@1.1.4
   byteorder@1.5.0
   memchr@2.8.0
+  walkdir@2.5.0
 
 The MIT License (MIT)
 
@@ -9496,7 +9509,37 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 
 ------------------------------------------------------------------------------
-[T130] referenced by 1 crate(s)
+[T130] referenced by 2 crate(s)
+------------------------------------------------------------------------------
+
+Crates:
+  same-file@1.0.6
+  winapi-util@0.1.11
+
+The MIT License (MIT)
+
+Copyright (c) 2017 Andrew Gallant
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+
+------------------------------------------------------------------------------
+[T131] referenced by 1 crate(s)
 ------------------------------------------------------------------------------
 
 Crates:
@@ -9525,7 +9568,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 
 ------------------------------------------------------------------------------
-[T131] referenced by 1 crate(s)
+[T132] referenced by 1 crate(s)
 ------------------------------------------------------------------------------
 
 Crates:
@@ -9554,7 +9597,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 ------------------------------------------------------------------------------
-[T132] referenced by 3 crate(s)
+[T133] referenced by 3 crate(s)
 ------------------------------------------------------------------------------
 
 Crates:
@@ -9591,7 +9634,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 
 ------------------------------------------------------------------------------
-[T133] referenced by 1 crate(s)
+[T134] referenced by 1 crate(s)
 ------------------------------------------------------------------------------
 
 Crates:
@@ -9618,7 +9661,7 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ------------------------------------------------------------------------------
-[T134] referenced by 1 crate(s)
+[T135] referenced by 1 crate(s)
 ------------------------------------------------------------------------------
 
 Crates:
@@ -9648,7 +9691,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 ------------------------------------------------------------------------------
-[T135] referenced by 1 crate(s)
+[T136] referenced by 1 crate(s)
 ------------------------------------------------------------------------------
 
 Crates:
@@ -9677,13 +9720,16 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 ------------------------------------------------------------------------------
-[T136] referenced by 3 crate(s)
+[T137] referenced by 6 crate(s)
 ------------------------------------------------------------------------------
 
 Crates:
   aho-corasick@1.1.4
   byteorder@1.5.0
   memchr@2.8.0
+  same-file@1.0.6
+  walkdir@2.5.0
+  winapi-util@0.1.11
 
 This is free and unencumbered software released into the public domain.
 
@@ -9711,20 +9757,23 @@ OTHER DEALINGS IN THE SOFTWARE.
 For more information, please refer to <http://unlicense.org/>
 
 ------------------------------------------------------------------------------
-[T137] referenced by 3 crate(s)
+[T138] referenced by 6 crate(s)
 ------------------------------------------------------------------------------
 
 Crates:
   aho-corasick@1.1.4
   byteorder@1.5.0
   memchr@2.8.0
+  same-file@1.0.6
+  walkdir@2.5.0
+  winapi-util@0.1.11
 
 This project is dual-licensed under the Unlicense and MIT licenses.
 
 You may use this code under the terms of either license.
 
 ------------------------------------------------------------------------------
-[T138] referenced by 1 crate(s)
+[T139] referenced by 1 crate(s)
 ------------------------------------------------------------------------------
 
 Crates:
@@ -9758,7 +9807,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 
 ------------------------------------------------------------------------------
-[T139] referenced by 1 crate(s)
+[T140] referenced by 1 crate(s)
 ------------------------------------------------------------------------------
 
 Crates:
@@ -9805,7 +9854,7 @@ dealings in these Data Files or Software without prior written
 authorization of the copyright holder.
 
 ------------------------------------------------------------------------------
-[T140] referenced by 1 crate(s)
+[T141] referenced by 1 crate(s)
 ------------------------------------------------------------------------------
 
 Crates:
@@ -9870,7 +9919,7 @@ use or other dealings in these Data Files or Software without prior
 written authorization of the copyright holder.
 
 ------------------------------------------------------------------------------
-[T141] referenced by 1 crate(s)
+[T142] referenced by 1 crate(s)
 ------------------------------------------------------------------------------
 
 Crates:
