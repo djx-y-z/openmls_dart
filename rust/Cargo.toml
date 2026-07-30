@@ -1,6 +1,6 @@
 [package]
 name = "openmls_frb"
-version = "1.5.2"
+version = "2.0.0"
 edition = "2024"
 # 1.89 for `std::fs::File::try_lock` (the single-writer sidecar lock in
 # `encrypted_db.rs`). The alternative, `libc::flock`, is an `unsafe fn` and this
