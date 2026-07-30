@@ -87,11 +87,12 @@ gh api repos/djx-y-z/openmls_dart/rules/branches/main \
   --jq '[.[] | .type] | join(", ")'    # expect the full set, unchanged
 ```
 
-Branches from `peter-evans/create-pull-request` (`update-openmls-*`,
-`update-template-*`) are deliberately *not* excluded: those PRs are recreated
-per version rather than refreshed in place, so the force-push path has never been
-exercised. If an update PR is ever seen failing to refresh, extend the same
-`exclude` list rather than adding a bypass actor.
+Branches from `peter-evans/create-pull-request`
+(`update-openmls-*`, `update-template-*`) are deliberately *not*
+excluded: those PRs are recreated per version rather than refreshed in place, so
+the force-push path has never been exercised. If an update PR is ever seen
+failing to refresh, extend the same `exclude` list rather than adding a bypass
+actor.
 
 ## Apply
 

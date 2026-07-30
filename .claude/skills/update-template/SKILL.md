@@ -128,7 +128,7 @@ make check-template-updates ARGS="--version v1.7.0"
 Check `.copier-answers.yml`:
 ```yaml
 _commit: v1.6.0
-_src_path: https://github.com/...
+_src_path: https://github.com/djx-y-z/copier-dart-frb-wrapper.git
 ```
 
 ### Step 2: Check for Updates
@@ -202,4 +202,6 @@ This is expected. Copier does a 3-way merge. If your customizations conflict wit
 
 ## Resources
 
+- [Template repository](https://github.com/djx-y-z/copier-dart-frb-wrapper)
+- [Template CHANGELOG](https://github.com/djx-y-z/copier-dart-frb-wrapper/blob/main/CHANGELOG.md) — read this before running `copier update`
 - [Copier Documentation](https://copier.readthedocs.io/)

@@ -34,7 +34,7 @@ gh api "repos/openmls/openmls/compare/vOLD...vNEW" --paginate \
 
 ```bash
 gh api "repos/openmls/openmls/compare/vOLD...vNEW" --paginate --jq '.files[].filename' \
-  | grep -E 'openmls|openmls_rust_crypto|openmls_basic_credential|openmls_traits|openmls_memory_storage'
+  | grep -E 'openmls|openmls_rust_crypto|openmls_basic_credential|openmls_traits|openmls_libcrux_crypto'
 ```
 
 For large ranges the compare API truncates `files` — fall back to a shallow clone:

@@ -1,5 +1,5 @@
 name: openmls
-description: Dart wrapper for OpenMLS — a Rust implementation of the Messaging Layer Security (MLS) protocol (RFC 9420)
+description: "Dart wrapper for OpenMLS — a Rust implementation of the Messaging Layer Security (MLS) protocol (RFC 9420)"
 
 version: 1.4.2
 license: MIT

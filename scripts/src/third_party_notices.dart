@@ -21,9 +21,9 @@ import 'spdx_license_texts.dart';
 /// Rust targets whose dependency graphs are unioned into the inventory.
 ///
 /// Must stay in sync with the `rust_target` values in
-/// `.github/workflows/build-openmls.yml` — a target missing here silently
-/// drops the crates unique to it, which is exactly where platform-specific
-/// dependencies live (`idb`/`web-sys` on wasm32, `rusqlite` on native).
+/// `.github/workflows/build-openmls.yml` — a target missing here
+/// silently drops the crates unique to it, which is exactly where
+/// platform-specific dependencies live.
 const releaseTargets = <String>[
   'x86_64-unknown-linux-gnu',
   'aarch64-unknown-linux-gnu',

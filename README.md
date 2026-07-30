@@ -383,12 +383,15 @@ pub packages.
 
 [`THIRD_PARTY_NOTICES.txt`](THIRD_PARTY_NOTICES.txt) ships at the root of this
 package and inside every native release archive. It is generated from the
-resolved dependency graph across all released targets — including build edges,
-because that is how vendored native code such as the bundled OpenSSL reaches
-the binary — and CI verifies it stays in sync with `Cargo.lock`. Where a crate
-ships no licence file of its own, the canonical text of the licence it declares
-is supplied in its place, so the file delivers the licences and not just their
-names.
+resolved dependency graph across all released targets — build edges included,
+because that is how vendored native code reaches the binary: a `*-src` crate
+carrying C sources is a build-dependency of its `*-sys` wrapper — and CI
+verifies it stays in sync with `Cargo.lock`. Where a crate ships no licence
+file of its own, the canonical text of the licence it declares is supplied in
+its place, so the file delivers the licences and not just their names.
+
+Regenerate it with `make third-party-notices` after a dependency change;
+`make rust-update` already does that for you.
 
 The file is deliberately **not** declared under `flutter: assets:` — a
 package-declared asset is bundled into every consuming application whether or

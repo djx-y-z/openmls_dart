@@ -197,6 +197,19 @@
   of `[Unreleased]` with no `#### ✨ Highlights` / `#### Changed` under it. The
   insertion point is now the top of the section, and an existing
   `### For Users` is extended rather than duplicated.
+- **`make check-new-openmls-version ARGS="--update"` now moves the
+  `openmls_libcrux_crypto` pin** — the tag-rewrite list in the generated checker
+  is built from the `upstream_crates` template answer, and that answer named
+  `openmls_memory_storage`, a crate this package has never depended on (upstream
+  dropped it along with the blob-based storage API), while omitting
+  `openmls_libcrux_crypto`, which the experimental X-Wing suite does depend on.
+  Its rewrite pattern therefore matched nothing and libcrux kept its old tag: the
+  next upstream bump would have pinned four MLS crates to the new tag and one to
+  the previous one. That resolves rather than fails — cargo will build two
+  revisions of the same git repository side by side — so it would have surfaced
+  as an X-Wing-only breakage or a silently doubled dependency tree rather than as
+  a build error. Corrected in `.copier-answers.yml` rather than in the generated
+  file, so the next `copier update` keeps it.
 
 #### Added
 
@@ -288,6 +301,36 @@
   is load-bearing — these are `fnmatch` patterns in pathname mode, so a bare
   `**` stops at the first `/` and would miss the two- and three-segment names
   Dependabot actually generates.
+- **copier template adopted: v3.0.3 → v4.0.0** — the major carries a single
+  contract change, that every project generate and commit
+  `THIRD_PARTY_NOTICES.txt` before its next CI run, and this package already
+  satisfies it: the notice tooling was written here and upstreamed into the
+  template, so it arrives byte-identical and most of the release lands as a
+  no-op. What does change: `validateUpstreamTag` names the input it rejected,
+  because an API `tag_name`, a `--version` argument and the pin recorded in
+  `rust/Cargo.toml` fail for different reasons and want different fixes;
+  `insertChangelogEntry` matches `#### Changed` exactly, where a prefix match
+  previously filed the native-library bump under `#### Changed (Breaking)` as
+  well, and it creates a missing subsection in the documented order rather than
+  at the end of the block; the fuzz workflow reads its targets from the
+  `[[bin]]` entries of `rust/fuzz/Cargo.toml` and fans them out one job per
+  target, so a crash in one target no longer skips the rest; the build hook
+  declares a local native build as a dependency, so `make clean` no longer
+  leaves `dart test` pointed at a cached asset that is gone; and the LICENSE
+  copyright year is a stored answer (`copyright_year: 2026`) instead of the year
+  the file happens to be rendered in, so the notice keeps naming the year of
+  first publication.
+  Two parts of v4.0.0 are deliberately not adopted. The `freezed_annotation` /
+  `freezed` / `build_runner` dependencies exist so that a *freshly generated*
+  project's first codegen succeeds against an unknown API surface; this
+  package's FRB surface has no data-carrying enums — no generated `sealed class`,
+  no `@freezed` — and `freezed_annotation` sits in `dependencies`, so every
+  consumer would download a package that nothing here imports. And the
+  `frb-patterns` skill's new sections on write durability and non-failable
+  `DartFn` callbacks describe the callback-storage architecture this package left
+  behind: it has no Dart callbacks at all, storage is Rust-owned in
+  `SnapshotStorageProvider` over `EncryptedDb`, so adopting them would document a
+  pattern that does not exist here.
 
 ## [1.4.2] - 2026-07-21
 

@@ -367,7 +367,8 @@ make check-new-openmls-version
 # 2. Apply update
 make check-new-openmls-version ARGS="--update"
 
-# 3. Update Cargo.lock
+# 3. Update Cargo.lock (also regenerates THIRD_PARTY_NOTICES.txt, which is
+#    derived from the dependency graph and verified against it in CI)
 make rust-update
 
 # 4. Regenerate bindings (if API changed)

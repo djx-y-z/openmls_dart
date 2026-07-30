@@ -1,13 +1,18 @@
 # Fuzzing workflow (cargo-fuzz + libFuzzer)
 #
-# - Pull requests touching rust/**: build all fuzz targets and run each briefly
-#   to catch parsers that panic on malformed input.
+# - Pull requests touching rust/**: a short smoke run per target catches
+#   regressions that make a parser panic on malformed input.
 # - Weekly schedule: a longer run per target for deeper exploration.
 # - Manual dispatch: choose the per-target duration.
 #
-# Targets are discovered dynamically with `cargo fuzz list`, so adding a new
-# fuzz target requires no change to this workflow. Any crash is uploaded as an
-# artifact (the reproducing input) for local replay.
+# Targets are discovered from the `[[bin]]` entries in rust/fuzz/Cargo.toml and
+# fanned out into a matrix, one job per target. Adding a fuzz target therefore
+# needs no change to this workflow, and `fail-fast: false` means a crash in one
+# target still lets every other target finish — running them sequentially in a
+# single job would stop at the first crash and silently skip the rest.
+#
+# Any crash is uploaded as a per-target artifact (the reproducing input) so it
+# can be replayed locally with `cargo +nightly fuzz run <target> <artifact>`.
 
 name: Fuzz
 
@@ -17,6 +22,7 @@ on:
       - 'rust/**'
       - '.github/workflows/fuzz.yml'
   schedule:
+    # Mondays 04:00 UTC
     - cron: '0 4 * * 1'
   workflow_dispatch:
     inputs:
@@ -33,9 +39,45 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  fuzz:
-    name: Fuzz
+  discover:
+    name: Discover fuzz targets
     runs-on: ubuntu-latest
+    outputs:
+      targets: ${{ steps.list.outputs.targets }}
+    steps:
+      - uses: actions/checkout@v7
+
+      # cargo-fuzz derives its target list from the `[[bin]]` entries of
+      # rust/fuzz/Cargo.toml, so reading them here is equivalent to
+      # `cargo fuzz list` while needing neither a Rust toolchain nor a build —
+      # which keeps this job to a few seconds.
+      - name: List fuzz targets
+        id: list
+        run: |
+          targets=$(awk '
+            /^\[\[bin\]\]/ { inbin = 1; next }
+            /^\[/          { inbin = 0 }
+            inbin && match($0, /^name[[:space:]]*=[[:space:]]*"[^"]+"/) {
+              s = substr($0, RSTART, RLENGTH)
+              sub(/^[^"]*"/, "", s)
+              sub(/"$/, "", s)
+              print s
+            }
+          ' rust/fuzz/Cargo.toml | jq -R -s -c 'split("\n") | map(select(length > 0))')
+          echo "targets=$targets" >> "$GITHUB_OUTPUT"
+          echo "Discovered fuzz targets: $targets"
+
+  fuzz:
+    name: Fuzz ${{ matrix.target }}
+    needs: discover
+    # An empty list is a valid state (every target deleted); GitHub errors on an
+    # empty matrix, so skip the fan-out instead of failing the workflow.
+    if: needs.discover.outputs.targets != '[]'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target: ${{ fromJson(needs.discover.outputs.targets) }}
     steps:
       - uses: actions/checkout@v7
 
@@ -57,6 +99,7 @@ jobs:
       - name: Install cargo-fuzz
         run: cargo install cargo-fuzz --locked
 
+      # Duration per target: short smoke on PRs, longer on schedule/dispatch.
       - name: Determine run duration
         id: duration
         env:
@@ -89,28 +132,26 @@ jobs:
             echo "No rust/fuzz/examples/gen_corpus.rs — running with an empty corpus"
           fi
 
-      - name: Build and run all fuzz targets
+      - name: Run fuzz target
         env:
+          TARGET: ${{ matrix.target }}
           SECONDS_TOTAL: ${{ steps.duration.outputs.seconds }}
         run: |
           cd rust
-          cargo +nightly fuzz build
-          for target in $(cargo +nightly fuzz list); do
-            echo "::group::fuzz $target"
-            # -timeout gives libFuzzer a per-input watchdog so a single hanging
-            # input is aborted and reported rather than running until the job's
-            # hard timeout (-max_total_time only bounds the loop between inputs).
-            cargo +nightly fuzz run "$target" -- \
-              -max_total_time="$SECONDS_TOTAL" \
-              -timeout=30 \
-              -rss_limit_mb=4096
-            echo "::endgroup::"
-          done
+          # -timeout gives libFuzzer a per-input watchdog so a single hanging
+          # input is aborted and reported rather than running until the job's
+          # hard timeout (-max_total_time only bounds the loop between inputs).
+          cargo +nightly fuzz run "$TARGET" -- \
+            -max_total_time="$SECONDS_TOTAL" \
+            -timeout=30 \
+            -rss_limit_mb=4096
 
+      # If libFuzzer found a crash it writes the reproducer here and the run
+      # fails; capture it so the exact input can be replayed.
       - name: Upload crash artifacts
         if: failure()
         uses: actions/upload-artifact@v7
         with:
-          name: fuzz-artifacts
-          path: rust/fuzz/artifacts/
+          name: fuzz-artifacts-${{ matrix.target }}
+          path: rust/fuzz/artifacts/${{ matrix.target }}/
           if-no-files-found: ignore

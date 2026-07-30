@@ -86,9 +86,9 @@ void main(List<String> args) async {
     if (skipFile.existsSync()) {
       // Declare the marker only while it exists. Declaring a missing file makes
       // hooks_runner treat it as "modified during build" on every invocation,
-      // forcing a redundant hook pass. Once the Makefile removes an existing
-      // marker, this dependency becomes missing and invalidates the skipped
-      // result as intended.
+      // forcing a redundant hook pass on every build for every consumer. Once
+      // the Makefile removes an existing marker, this dependency becomes
+      // missing and invalidates the skipped result as intended.
       output.dependencies.add(skipMarkerUri);
       return;
     }
@@ -125,7 +125,17 @@ void main(List<String> args) async {
           file: localLib,
         ),
       );
-      output.dependencies.add(packageRoot.resolve('rust/Cargo.toml'));
+      // Declare the library itself, not only the manifest. `_findLocalBuild`
+      // returned it because it exists right now, so this follows the same
+      // declare-only-while-it-exists rule as the skip marker above. Without it
+      // the build system keeps a cached result pointing at this path:
+      // rebuilding the crate without touching Cargo.toml keeps serving the
+      // previous binary, and removing the build (`make clean`) makes the next
+      // `dart test` / `dart run` fail outright — hooks_runner reuses the cached
+      // asset and the SDK aborts copying a file that is no longer there.
+      output.dependencies
+        ..add(packageRoot.resolve('rust/Cargo.toml'))
+        ..add(localLib);
       return;
     }
 
