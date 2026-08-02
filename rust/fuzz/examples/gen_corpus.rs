@@ -67,5 +67,13 @@ fn main() {
     // corpus/mls_message/.
     write_seed(&base.join("mls_message"), "empty", b"");
 
+    // --- wire_decode target (fuzz_targets/wire_decode.rs) ---
+    // Same constraint as mls_message: a valid ratchet tree or key package needs
+    // a provider, a signer and real group state to produce. Seed empty and let
+    // libFuzzer explore. High-value seeds here are the `ratchetTreeBytes` and
+    // key-package bytes an integration test passes to joinGroupFromWelcome /
+    // addMembers — drop them into corpus/wire_decode/.
+    write_seed(&base.join("wire_decode"), "empty", b"");
+
     println!("Seed corpus generation complete.");
 }

@@ -40,3 +40,12 @@ path = "fuzz_targets/credential.rs"
 test = false
 doc = false
 bench = false
+
+# Ratchet-tree / key-package wire decoding (peer data carried by Welcome,
+# GroupInfo and add-member calls).
+[[bin]]
+name = "wire_decode"
+path = "fuzz_targets/wire_decode.rs"
+test = false
+doc = false
+bench = false

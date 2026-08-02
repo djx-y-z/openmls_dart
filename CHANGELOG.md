@@ -1,3 +1,45 @@
+## [Unreleased]
+
+### For Users
+
+#### Security
+
+- **Ratchet trees and key packages now decode on the panic-free path** —
+  joining from a Welcome or an external commit decodes the sender's
+  `ratchetTreeBytes`, and every add-member entry point decodes peer key
+  packages. Both went through openmls' `tls_deserialize_exact_bytes`, whose
+  hand-written `DeserializeBytes` impls slice the input at the *re-serialized*
+  length and index out of bounds when that exceeds the bytes actually consumed.
+  `RatchetTreeIn` and `KeyPackageIn` reach those impls through the `Extension`
+  and `UnmergedLeaves` fields nested in their leaf and parent nodes — the same
+  shape behind the `MlsMessageIn` parsing fix in 2.0.0, which covered MLS
+  messages but not these two types. They now use the same `Read`-based decoder.
+  Defense in depth: no input is known that reaches the panic through these
+  types. Both decoders run the same validation and differ only in the cursor
+  arithmetic that follows, so on anything a conforming implementation emits they
+  agree exactly. They can diverge only where that arithmetic was already wrong:
+  openmls does not require an extension's payload to be fully consumed, so a
+  payload carrying trailing bytes left the old path resuming from the wrong
+  offset. Such input now parses correctly instead of being misread, and still
+  has to pass the usual key-package and leaf-node validation afterwards.
+
+### For Contributors
+
+#### Added
+
+- **`wire_decode` fuzz target** — fuzzes the decoder the group-join and
+  add-member APIs use, over `MlsMessageIn`, `RatchetTreeIn` and `KeyPackageIn`.
+  The ratchet-tree and key-package paths were not covered by any target before.
+
+#### Changed
+
+- **The panic-free decoder moved out of `api/engine.rs`** — `from_exact_bytes`
+  now lives in `rust/src/wire_decode.rs` and is generic over the decoded type,
+  so one helper covers all four call-site types and the fuzz crate can drive the
+  real decoder. The alternative, giving `rust/fuzz` its own `openmls`
+  dependency, would have left a second upstream tag that
+  `make check-new-openmls-version` does not bump.
+
 ## [2.0.0] - 2026-07-30
 
 ### For Users

@@ -15,7 +15,10 @@ mod snapshot_storage;
 #[allow(unsafe_code)]
 mod frb_generated;
 mod utils;
+mod wire_decode;
 
 pub mod api;
 
 pub use utils::current_time;
+// Exposed so `rust/fuzz` can fuzz the real decoder rather than a copy of it.
+pub use wire_decode::{from_exact_bytes, fuzz_decode_wire_types};

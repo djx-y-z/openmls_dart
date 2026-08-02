@@ -8,7 +8,7 @@ import 'config.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 import 'types.dart';
 
-// These functions are ignored because they are not marked as `pub`: `build_credential_with_key`, `commit`, `db`, `load_for_group`, `load_global`, `load_group`, `mls_message_from_exact_bytes`
+// These functions are ignored because they are not marked as `pub`: `build_credential_with_key`, `commit`, `db`, `load_for_group`, `load_global`, `load_group`
 // These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `OpSession`
 // These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `crypto`, `rand`, `storage`
 
