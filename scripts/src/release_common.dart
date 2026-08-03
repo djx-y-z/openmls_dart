@@ -22,6 +22,10 @@ Future<void> ensureGitRepo() async {
 }
 
 /// Runs a read-only git command and returns trimmed stdout, throwing on error.
+///
+/// For scalar answers — a sha, a branch name, a count. **Not** for
+/// `status --porcelain`; use [gitStatus], which keeps the leading whitespace
+/// that command's format depends on.
 Future<String> git(List<String> args) async {
   final result = await Process.run('git', args);
   if (result.exitCode != 0) {
@@ -30,6 +34,30 @@ Future<String> git(List<String> args) async {
     );
   }
   return (result.stdout as String).trim();
+}
+
+/// `git status --porcelain`, with leading whitespace preserved.
+///
+/// The two status columns are positional, so an unstaged modification is
+/// `' M path'`. Reading this through [git] trims the whole output and eats the
+/// leading space of the *first* line, shifting that path by one character so it
+/// matches nothing — which made [onlyTheseFilesDirty] return false for the
+/// entire status and silently downgraded the `git restore` hint to the generic
+/// "working tree is not clean".
+///
+/// That hit exactly the case the hint exists for: a release edits its files
+/// without staging them, so after an interrupted run the first line is always
+/// an unstaged modification. Verified by calling [onlyTheseFilesDirty] with a
+/// real two-file status both raw (true) and as [git] returned it (false).
+Future<String> gitStatus() async {
+  final result = await Process.run('git', ['status', '--porcelain']);
+  if (result.exitCode != 0) {
+    throw Exception(
+      'git status --porcelain failed: ${(result.stderr as String).trim()}',
+    );
+  }
+  // Only trailing newlines: everything else is payload.
+  return (result.stdout as String).replaceAll(RegExp(r'\n+$'), '');
 }
 
 /// Runs a command with inherited stdio (so interactive prompts — e.g. the

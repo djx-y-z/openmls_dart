@@ -50,7 +50,7 @@ Future<void> releaseFrb({
     );
   }
 
-  final status = await git(['status', '--porcelain']);
+  final status = await gitStatus();
   final treeClean = status.isEmpty;
   if (!treeClean) {
     // Interrupting a run (Ctrl-C) between the bump and the commit leaves
