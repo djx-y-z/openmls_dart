@@ -7,20 +7,60 @@ description: Update copier template version. Use when checking for template upda
 
 Guide for updating the copier template used to generate this project's structure.
 
-## Review Automated PR (Most Common)
+## Review the Automated PR (Most Common)
 
-When the CI creates a notification PR for a template update, follow these steps:
+`check-template-updates.yml` runs daily and **applies** the update itself — it
+does not merely announce one. The PR already contains the result of
+`copier update`, an AI-written CHANGELOG entry, and a table of check results.
+So the usual job is reviewing, not running anything.
 
-### Step 1: Read the PR
+### Step 1: Read the PR body
 
-The automated PR contains:
-- **Version comparison** (current vs latest)
-- **Changelog** between versions
-- **Links** to full comparison and release notes
+It states, up front:
 
-Review the changelog to understand what changed in the template.
+- **Version comparison** and the template's changelog for the range
+- **Conflicts** — if any, the PR is a **draft** and lists the files. Nothing
+  else catches these: conflicts land in Markdown, which the format, Rust and
+  analysis gates never read, so a conflicted branch otherwise looks mergeable.
+- **`_commit` bumped** — if this says NO, fix `.copier-answers.yml` before
+  merging. Merging without it leaves the project looking un-updated and the
+  workflow re-opens the same PR on every run.
+- **Gate results** — `format-check`, `rust-check`, `analyze --fatal-infos`.
+  Reported, never enforced: a template update that breaks a gate is exactly the
+  one worth looking at.
 
-### Step 2: Run copier update
+### Step 2: Review the diff and the CHANGELOG entry
+
+The entry is filed under `### For Contributors` → `#### Changed`, where every
+prior adoption lives. **Move it to `### For Users`** if the release changes what
+the published package does at build or run time — that call is yours, and the
+entry is written only from the diff that actually landed.
+
+Read the diff itself, not just the summary: a template release describes changes
+for every project generated from it, and parts of it arrive here as a no-op.
+
+### Step 3 (draft PRs only): resolve conflicts
+
+Resolve the listed files, push to the same branch, then mark the PR ready. The
+workflow will **not** regenerate the branch while its PR is open, so your commits
+are safe; only a manual re-run with `force_update` would force-push over them.
+
+---
+
+## Applying an Update Manually
+
+For a local update, or when the automation could not finish:
+
+```bash
+make update-template ARGS="--version vX.Y.Z"
+```
+
+This runs copier, reports what it could not merge, checks that `_commit` landed,
+and writes the CHANGELOG entry (the entry needs `AI_MODELS_TOKEN`; without it the
+update still applies). It refuses to start on a dirty tree and names the files —
+copier rejects a dirty destination, **untracked files included**.
+
+Or drive copier directly:
 
 ```bash
 # Install/update copier (if not installed)

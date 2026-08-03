@@ -31,6 +31,25 @@
 
 #### Fixed
 
+- **Template update notifications had stopped working, silently and
+  invisibly** (`.github/workflows/check-template-updates.yml`) — the workflow
+  opened a pull request whose payload was its *description*: the version table,
+  the template's changelog for the range, and manual update instructions. Its
+  diff was meant to be empty. But `create-pull-request` opens nothing when
+  there is no diff and exits silently — stated in its README and guarded by
+  `if (result.hasDiffWithBase)` in the SHA this project pins — so those pull
+  requests only ever existed because something made the tree dirty. That
+  was `.fvmrc`, rewritten by `fvm install` on every run: every notification
+  ever opened here (#1, #7, #8, #10) carried exactly one file, `.fvmrc`, at
+  +3/-3, and nothing else. Fixing that drift in template v4.2.0 removed the
+  accidental payload, so the very next template release would have produced a
+  green job, a step summary reading "a notification PR has been created", and
+  no pull request — detectable only as the absence of something nobody was
+  watching for, which is the same shape that hid the FVM cache bug for months.
+  The workflow now has a real payload, and the absence is checked rather than
+  assumed: a run that found an update and did not open a pull request fails and
+  says not to read it as "nothing to do".
+
 - **A mistyped signing passphrase no longer aborts a release**
   (`scripts/src/release_common.dart`, `scripts/src/release.dart`,
   `scripts/src/release_frb.dart`) — git signs a commit or a tag by shelling out
@@ -77,6 +96,51 @@
   the single `git restore` that discards them.
 
 #### Added
+
+- **Template updates are applied automatically, not just announced**
+  (`scripts/update_template.dart`, `scripts/src/update_template.dart`,
+  `make update-template`, `.github/workflows/check-template-updates.yml`) — the
+  scheduled check now runs `copier update` itself and opens a pull request
+  carrying the result, the way the dependency update workflow already does.
+  Everything it needs comes from `.copier-answers.yml`, so the new scripts name
+  neither this project nor its upstream library and can move into the template
+  unchanged. Copier is pinned (9.11.1) for the reason the actions are pinned by
+  SHA: this runs unattended, and a release that changed how copier merges would
+  arrive as a conflict-shaped diff rather than a clean failure.
+  Two outcomes are reported separately, because they are independent and both
+  are quiet. A **conflict** leaves both sides in the file; the pull request
+  becomes a draft, lists the files and says why nothing else caught it — the
+  format, Rust and analysis gates read only Dart and Rust, and every conflict
+  copier has produced in this project so far has been in Markdown, which passes
+  all three intact. **`_commit` failing to land** is the other: copier can
+  apply every file and still leave `.copier-answers.yml` on the old version,
+  which merges as an un-updated project and re-opens the same pull request
+  forever. That one fails the job — after the pull request exists, so the work
+  is kept. They do not imply each other: this release's own update landed
+  `_commit` while `CONTRIBUTING.md` was still conflicted.
+  The three checks the pre-commit hook runs are executed and reported in the
+  body, never enforced — a template update that breaks a gate is precisely the
+  one a human most needs to see. The CHANGELOG entry is written by AI from the
+  template's changelog *and* the diff that actually landed, since a template
+  release describes changes for every project generated from it and most of it
+  can arrive here as a no-op. It is filed under `### For Contributors` →
+  `#### Changed`, where every prior adoption lives, and the pull request asks a
+  reviewer to move it if the release changes shipped behaviour.
+  One dependency is worth naming: copier refuses to update a dirty destination,
+  untracked files included, so the `.fvmrc` drift fix is not merely related to
+  this automation — without it, `fvm install` would leave the tree dirty and
+  every automated update would refuse to run.
+
+- **`test/scripts/update_template_test.dart`** — covers the two pure decisions
+  the automation makes. `parseUnmergedPaths` collapses the three conflict
+  stages `git ls-files -u` prints into one path and keeps paths containing
+  spaces intact; `hasConflictMarkers` is anchored at line start so this
+  repository's own documentation of how to grep for conflicts does not register
+  as one. `insertContributorChangelogEntry` is covered over every shape the
+  file can be in: an existing subsection, a missing one, `#### Changed
+  (Breaking)` which must never receive the entry, a missing `### For
+  Contributors`, a missing `## [Unreleased]` — and, in every case, that nothing
+  is written into the released section above.
 
 - **`test/scripts/release_common_test.dart`** — covers `isResumableRelease`,
   the one predicate in the release scripts whose false positive is

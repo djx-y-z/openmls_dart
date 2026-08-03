@@ -354,6 +354,7 @@ All development tasks should be done via Makefile:
 | `make clean` | Clean build artifacts |
 | `make check-new-openmls-version` | Check for upstream OpenMLS updates |
 | `make check-template-updates` | Check for copier template updates |
+| `make update-template` | Apply a copier template update (needs `copier` on PATH) |
 | `make check-targets` | Check deployment target consistency (iOS/macOS/Android) |
 | `make rust-update` | Update rust/Cargo.lock |
 | `make update-changelog` | Update CHANGELOG.md with AI (requires AI_MODELS_TOKEN) |

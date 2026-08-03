@@ -8,7 +8,7 @@
 # On Windows CI (Git Bash), use cmd to run fvm.bat from PATH:
 # Example: make build ARGS="--target x86_64-pc-windows-msvc" FVM="cmd //c fvm"
 
-.PHONY: help setup setup-fvm setup-rust-tools setup-frb-codegen setup-android setup-web setup-fuzz codegen regen build build-android build-web test coverage analyze format format-check get clean version check-new-openmls-version check-exists-openmls-frb-release check-template-updates check-targets third-party-notices verify-third-party-notices rust-audit rust-deny rust-check rust-test rust-clippy fuzz fuzz-list fuzz-seed doc publish publish-dry-run rust-update update-changelog release-frb release setup-repo-protections
+.PHONY: help setup setup-fvm setup-rust-tools setup-frb-codegen setup-android setup-web setup-fuzz codegen regen build build-android build-web test coverage analyze format format-check get clean version check-new-openmls-version check-exists-openmls-frb-release check-template-updates update-template check-targets third-party-notices verify-third-party-notices rust-audit rust-deny rust-check rust-test rust-clippy fuzz fuzz-list fuzz-seed doc publish publish-dry-run rust-update update-changelog release-frb release setup-repo-protections
 
 # FVM command - can be overridden to provide full path on Windows CI
 FVM ?= fvm
@@ -57,6 +57,8 @@ help:
 	@echo "                                        Example: make check-new-openmls-version ARGS=\"--update\""
 	@echo "    make check-exists-openmls-frb-release - Check if FRB release exists on GitHub"
 	@echo "    make check-template-updates       - Check for new copier template version"
+	@echo "    make update-template              - Apply a copier template update"
+	@echo "                                        Example: make update-template ARGS=\"--version v4.3.0\""
 	@echo "    make third-party-notices          - Regenerate THIRD_PARTY_NOTICES.txt from the dep graph"
 	@echo "    make verify-third-party-notices   - Verify THIRD_PARTY_NOTICES.txt is up to date"
 	@echo "    make check-targets                - Check deployment target consistency (iOS/macOS/Android)"
@@ -304,6 +306,12 @@ check-exists-openmls-frb-release:
 
 check-template-updates:
 	@$(FVM) dart scripts/check_template_updates.dart $(ARGS)
+
+# Applies a template update: runs copier, reports what it could not merge, and
+# records the adoption in the CHANGELOG. Needs `copier` on PATH (see
+# CONTRIBUTING) and AI_MODELS_TOKEN for the CHANGELOG entry.
+update-template:
+	@$(FVM) dart scripts/update_template.dart $(ARGS)
 
 check-targets:
 	@$(FVM) dart scripts/check_deployment_targets.dart $(ARGS)
