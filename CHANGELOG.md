@@ -155,6 +155,24 @@
 
 #### Changed
 
+- **copier template adopted: v4.2.0 → v4.3.0** — a single change, and it repairs
+  something 4.2.0 shipped broken. Interrupting a release before its commit
+  leaves only the release's own files modified, and 4.2.0 added a message that
+  recognises that state and names the one `git restore` which discards them. It
+  never fired. The status was read through `git()`, which trims its output;
+  `git status --porcelain` has two positional status columns, so an unstaged
+  modification is `' M path'`, and trimming ate the leading space of the *first*
+  line and shifted that path by one character. `onlyTheseFilesDirty` then
+  matched nothing and rejected the whole status, so every interrupted release
+  got the generic "working tree is not clean" instead — in exactly the case the
+  hint was written for, since a release edits its files without staging them.
+  Both stages now read the status through a `gitStatus()` that strips only
+  trailing newlines, and a test pins the raw and trimmed shapes against each
+  other so a future trim cannot pass unnoticed. Found while writing a release
+  script for the template repository itself, which had inherited the same shape.
+  This is also the first update applied by the automation added above rather
+  than by hand.
+
 - **The panic-free decoder moved out of `api/engine.rs`** — `from_exact_bytes`
   now lives in `rust/src/wire_decode.rs` and is generic over the decoded type,
   so one helper covers all four call-site types and the fuzz crate can drive the

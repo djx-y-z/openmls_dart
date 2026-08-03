@@ -44,6 +44,22 @@ void main() {
       );
     });
 
+    test('a trimmed status does not match — read it with gitStatus()', () {
+      // Locks in why the status must not be read through `git()`. The two
+      // columns are positional, so an unstaged modification is `' M path'`;
+      // trimming the command's output eats the leading space of the *first*
+      // line and shifts that path by one character, so it matches nothing and
+      // the whole status is rejected.
+      //
+      // That hit exactly the case this hint exists for: a release edits its
+      // files without staging them, so after an interrupted run the first line
+      // is always an unstaged modification, and the `git restore` suggestion
+      // never appeared. Verified against a real repository in both shapes.
+      const raw = ' M pubspec.yaml\n M CHANGELOG.md';
+      expect(onlyTheseFilesDirty(raw, files), isTrue);
+      expect(onlyTheseFilesDirty(raw.trim(), files), isFalse);
+    });
+
     test('rejects an untracked path', () {
       // `git restore` does not remove untracked files, so the hint would be
       // wrong even though the path is one of ours.
