@@ -37,6 +37,7 @@ Future<void> releaseFrb({
 
   final packageDir = getPackageDir();
   final tag = 'openmls_frb-$version';
+  const releaseFiles = ['rust/Cargo.toml', 'rust/Cargo.lock', 'CHANGELOG.md'];
 
   // ---- Preconditions -------------------------------------------------------
   await ensureGitRepo();
@@ -49,10 +50,18 @@ Future<void> releaseFrb({
     );
   }
 
-  if ((await git(['status', '--porcelain'])).isNotEmpty) {
-    throw Exception(
-      'Working tree is not clean. Commit or stash changes first.',
-    );
+  final status = await git(['status', '--porcelain']);
+  final treeClean = status.isEmpty;
+  if (!treeClean) {
+    // Interrupting a run (Ctrl-C) between the bump and the commit leaves
+    // exactly this release's own files modified — and kills the script before
+    // it can say what to do about it, so say it here instead.
+    final hint = onlyTheseFilesDirty(status, releaseFiles)
+        ? "Only this release's own files are modified, so an earlier run was "
+              'probably interrupted before its commit. Discard it with: '
+              "git restore --staged --worktree ${releaseFiles.join(' ')}"
+        : 'Commit or stash changes first.';
+    throw Exception('Working tree is not clean. $hint');
   }
 
   // Every archive built from this tag embeds THIRD_PARTY_NOTICES.txt, and a
@@ -61,16 +70,49 @@ Future<void> releaseFrb({
   logStep('Verifying third-party notices match the dependency graph...');
   assertNoticesCurrent();
 
+  // ---- Resume an interrupted previous run ----------------------------------
+  // A run that died between its commit and its tag — a Ctrl-C, a closed
+  // terminal — already bumped, committed, and left nothing to tag with.
+  // Recognise that exact state and continue from where it stopped, instead of
+  // tripping the "must be greater" check below and leaving a manual
+  // tag-and-push (or a commit to revert) as the only ways forward.
   final current = getCrateVersion();
-  if (!isNewerVersion(version, current)) {
+  final commitSubject = 'chore(openmls_frb): release v$version';
+  final resuming = isResumableRelease(
+    requestedVersion: version,
+    currentVersion: current,
+    headSubject: await git(['log', '-1', '--pretty=%s']),
+    expectedSubject: commitSubject,
+    treeClean: treeClean,
+  );
+
+  if (resuming) {
+    logWarn(
+      'Resuming an interrupted release: "$commitSubject" is already the HEAD '
+      'commit, so the version bump and the CHANGELOG edit are skipped.',
+    );
+  } else if (!isNewerVersion(version, current)) {
     throw Exception(
       'New version $version must be greater than the current '
       'crate version $current.',
     );
   }
 
+  // A leftover tag is resumable only when it is this release's tag AND points
+  // at the release commit; the same name on any other commit is a conflict this
+  // must not push over.
+  var tagCreated = false;
   if ((await git(['tag', '--list', tag])).isNotEmpty) {
-    throw Exception('Tag $tag already exists locally.');
+    final tagged = await git(['rev-list', '-n', '1', tag]);
+    if (resuming && tagged == await git(['rev-parse', 'HEAD'])) {
+      tagCreated = true;
+      logWarn('Tag $tag already exists on HEAD; skipping tag creation.');
+    } else {
+      throw Exception(
+        'Tag $tag already exists locally, on ${tagged.substring(0, 7)}. '
+        'Delete it (git tag -d $tag) or release a different version.',
+      );
+    }
   }
 
   logStep('Fetching origin...');
@@ -79,7 +121,10 @@ Future<void> releaseFrb({
   // adds nothing — but one diverged tag in the namespace would abort the release.
   await git(['fetch', 'origin', 'main', '--no-tags', '--quiet']);
   if ((await git(['ls-remote', '--tags', 'origin', tag])).isNotEmpty) {
-    throw Exception('Tag $tag already exists on origin.');
+    throw Exception(
+      'Tag $tag already exists on origin — openmls_frb v$version is already '
+      'released. Release a higher version.',
+    );
   }
 
   final behind = await git(['rev-list', '--count', 'HEAD..origin/main']);
@@ -98,75 +143,98 @@ Future<void> releaseFrb({
   }
 
   // ---- Prepare files -------------------------------------------------------
-  logStep('Bumping rust/Cargo.toml crate version: $current -> $version');
-  _bumpCargoVersion(packageDir, version);
+  if (resuming) {
+    logStep('Commit to be tagged:');
+    await runInherit('git', ['--no-pager', 'log', '-1', '--oneline', '--stat']);
+  } else {
+    logStep('Bumping rust/Cargo.toml crate version: $current -> $version');
+    _bumpCargoVersion(packageDir, version);
 
-  // Keep rust/Cargo.lock's own crate stanza in sync. The pre-commit hook runs
-  // `cargo check`, which rewrites this line whether we do or not — doing it here
-  // first means the lock change is previewed, staged, and committed instead of
-  // being silently left as a dirty, unstaged edit that blocks the stage-2
-  // clean-tree preflight.
-  logStep('Syncing rust/Cargo.lock crate version...');
-  _bumpCargoLockVersion(packageDir, getCrateName(), version);
+    // Keep rust/Cargo.lock's own crate stanza in sync. The pre-commit hook runs
+    // `cargo check`, which rewrites this line whether we do or not — doing it
+    // here first means the lock change is previewed, staged, and committed
+    // instead of being silently left as a dirty, unstaged edit that blocks the
+    // stage-2 clean-tree preflight.
+    logStep('Syncing rust/Cargo.lock crate version...');
+    _bumpCargoLockVersion(packageDir, getCrateName(), version);
 
-  logStep('Stamping openmls_frb highlight into CHANGELOG [Unreleased]...');
-  _stampFrbHighlight(packageDir, version);
+    logStep('Stamping openmls_frb highlight into CHANGELOG [Unreleased]...');
+    _stampFrbHighlight(packageDir, version);
 
-  logStep('Changes to be committed:');
-  await runInherit('git', [
-    '--no-pager',
-    'diff',
-    '--stat',
-    'rust/Cargo.toml',
-    'rust/Cargo.lock',
-    'CHANGELOG.md',
-  ]);
+    logStep('Changes to be committed:');
+    await runInherit('git', ['--no-pager', 'diff', '--stat', ...releaseFiles]);
+  }
 
   // ---- Confirm -------------------------------------------------------------
+  if (resuming && tagCreated && !push) {
+    logSuccess('Nothing left to do: the commit and tag $tag already exist.');
+    logInfo('When ready: git push origin main && git push origin $tag');
+    return;
+  }
+
+  final steps = [
+    if (!resuming) 'commit',
+    if (!tagCreated) 'tag $tag',
+    if (push) 'PUSH',
+  ].join(' + ');
   final action = push
-      ? 'commit + tag $tag + PUSH (this triggers the native build)'
-      : 'commit + tag $tag (no push)';
+      ? '$steps (this triggers the native build)'
+      : '$steps (no push)';
   if (!assumeYes && !confirm('Proceed to $action?')) {
-    await git([
-      'checkout',
-      '--',
-      'rust/Cargo.toml',
-      'rust/Cargo.lock',
-      'CHANGELOG.md',
-    ]);
-    logWarn(
-      'Aborted. Reverted rust/Cargo.toml, rust/Cargo.lock and '
-      'CHANGELOG.md.',
-    );
+    if (resuming) {
+      logWarn(
+        'Aborted. The release commit${tagCreated ? " and tag $tag are" : " is"} '
+        'left in place — re-run the same command to continue from here.',
+      );
+    } else {
+      await git(['checkout', '--', ...releaseFiles]);
+      logWarn(
+        'Aborted. Reverted rust/Cargo.toml, rust/Cargo.lock and '
+        'CHANGELOG.md.',
+      );
+    }
     return;
   }
 
   // ---- Commit + tag (signed; may prompt for your passphrase) ---------------
-  logStep('Committing (you may be prompted for your signing passphrase)...');
-  await runInherit('git', [
-    'add',
-    'rust/Cargo.toml',
-    'rust/Cargo.lock',
-    'CHANGELOG.md',
-  ]);
-  await runInherit(
-    'git',
-    ['commit', '-m', 'chore(openmls_frb): release v$version'],
-    failMessage:
-        'git commit failed (pre-commit checks or signing). The version bump is '
-        'still staged — fix the issue and re-run `git commit`/`git tag` '
-        'manually, or discard it with `git restore --staged --worktree '
-        'rust/Cargo.toml rust/Cargo.lock CHANGELOG.md` and re-run the release.',
-  );
+  // Every step past this point goes through `runInheritRetry`: a mistyped
+  // passphrase is not re-prompted by the signing tool, and aborting here would
+  // strand the release mid-sequence.
+  if (!resuming) {
+    logStep('Committing (you may be prompted for your signing passphrase)...');
+    await runInherit('git', ['add', ...releaseFiles]);
+    await runInheritRetry(
+      'git',
+      ['commit', '-m', commitSubject],
+      what: 'git commit',
+      alreadyDone: () async =>
+          await git(['log', '-1', '--pretty=%s']) == commitSubject,
+      // The pre-commit hook's `cargo check` rewrites rust/Cargo.lock; re-stage
+      // so the retry commits what the hook produced rather than failing the
+      // same way again.
+      beforeRetry: () => runInherit('git', ['add', ...releaseFiles]),
+      failMessage:
+          'git commit failed (pre-commit checks or signing). The version bump '
+          'is still staged — fix the issue and re-run `git commit`/`git tag` '
+          'manually, or discard it with `git restore --staged --worktree '
+          'rust/Cargo.toml rust/Cargo.lock CHANGELOG.md` and re-run the '
+          'release.',
+    );
+  }
 
-  logStep('Creating signed tag $tag...');
-  await runInherit(
-    'git',
-    ['tag', '-s', tag, '-m', 'openmls_frb v$version'],
-    failMessage:
-        'git tag failed. The release commit was created; tag manually '
-        'with: git tag -s $tag -m "openmls_frb v$version"',
-  );
+  if (!tagCreated) {
+    logStep('Creating signed tag $tag...');
+    await runInheritRetry(
+      'git',
+      ['tag', '-s', tag, '-m', 'openmls_frb v$version'],
+      what: 'git tag',
+      alreadyDone: () async => (await git(['tag', '--list', tag])).isNotEmpty,
+      failMessage:
+          'git tag failed. The release commit exists but is not tagged. '
+          'Re-run the same command to resume from here, or tag manually: '
+          'git tag -s $tag -m "openmls_frb v$version"',
+    );
+  }
 
   // ---- Push ----------------------------------------------------------------
   if (!push) {
@@ -176,14 +244,18 @@ Future<void> releaseFrb({
   }
 
   logStep('Pushing main and tag $tag...');
-  await runInherit('git', [
-    'push',
-    'origin',
-    'main',
-  ], failMessage: 'git push origin main failed.');
-  await runInherit(
+  await runInheritRetry(
+    'git',
+    ['push', 'origin', 'main'],
+    what: 'git push origin main',
+    failMessage:
+        'git push origin main failed. The commit and tag $tag exist locally; '
+        're-run the same command to resume from here.',
+  );
+  await runInheritRetry(
     'git',
     ['push', 'origin', tag],
+    what: 'git push origin $tag',
     failMessage: 'git push tag failed. Push it manually: git push origin $tag',
   );
 

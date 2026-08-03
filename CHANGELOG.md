@@ -25,7 +25,61 @@
 
 ### For Contributors
 
+#### Fixed
+
+- **A mistyped signing passphrase no longer aborts a release**
+  (`scripts/src/release_common.dart`, `scripts/src/release.dart`,
+  `scripts/src/release_frb.dart`) — git signs a commit or a tag by shelling out
+  to `ssh-keygen -Y sign` (or `gpg`), and both give up after a *single* wrong
+  passphrase rather than re-prompting. One typo therefore aborted the release
+  wherever it happened, and the position that hurts is between the commit and
+  the tag: the version bump is committed, no tag exists, and re-running the
+  command fails its own "must be greater than the current version" precondition
+  — leaving reverting the commit or tagging and pushing by hand as the only ways
+  out. Both stages now route every signing and push step through
+  `runInheritRetry`, which prints the failure and runs the step again, so the
+  passphrase prompt simply comes back the way `ssh` and `sudo` behave — no
+  question to answer. **Ctrl-C is the way out**, and it works: with
+  `inheritStdio` the interrupt reaches the whole foreground group, verified at
+  the passphrase prompt itself. The loop is uncapped, because a cap would
+  reinstate the very failure it exists to prevent, so the two things bounding it
+  carry the weight. **A non-interactive stdin throws on the first failure**, CI
+  behaviour unchanged: nobody is there to retype anything or to interrupt, so a
+  structurally broken step would otherwise spin forever. That test is
+  `stdin.echoMode` and not `stdin.hasTerminal`, which reports `terminal` for any
+  character device and so calls a run redirected from `/dev/null` interactive.
+  **From the third consecutive failure the loop paces itself** at 2s and says
+  so; the first retries stay immediate, so a typo is never slowed, while a step
+  failing in milliseconds cannot scroll past faster than it can be read.
+
+- **An interrupted release is resumed by re-running the same command**
+  (`scripts/src/release_common.dart`, `scripts/src/release.dart`,
+  `scripts/src/release_frb.dart`) — the retry above covers a typo, but not a
+  Ctrl-C or a closed terminal, both of which strand the release in the same
+  half-finished state. Both stages now recognise it and continue
+  from the tag (or push) step, skipping the bump and the CHANGELOG edit so
+  nothing is applied twice. Because a false positive would tag and push a commit
+  that is not the release commit, detection requires *all* of: a clean working
+  tree, the version file already reading exactly the requested version, and
+  `HEAD`'s subject equal to the exact subject the release writes — built from
+  the same expression that builds the commit message, so the two cannot drift.
+  A leftover tag is accepted only when it is this release's tag *and* points at
+  `HEAD`; the same name on any other commit is refused, as is a tag already on
+  origin. Declining the confirmation prompt on a fresh run still reverts the
+  edits; on a resumed run it leaves the commit in place and says so. Interrupting
+  *before* the commit is the one case nothing can report at the time — Ctrl-C
+  kills the script mid-step — so the next run's "working tree is not clean"
+  recognises when the only modified paths are the release's own files and names
+  the single `git restore` that discards them.
+
 #### Added
+
+- **`test/scripts/release_common_test.dart`** — covers `isResumableRelease`,
+  the one predicate in the release scripts whose false positive is
+  unrecoverable, over each condition that must individually block a resume; and
+  `onlyTheseFilesDirty`, which decides whether the not-clean message may name a
+  `git restore` — it declines on an untracked path and on a rename rather than
+  suggest a command that would not work, or would discard something else.
 
 - **`wire_decode` fuzz target** — fuzzes the decoder the group-join and
   add-member APIs use, over `MlsMessageIn`, `RatchetTreeIn` and `KeyPackageIn`.

@@ -44,6 +44,7 @@ Future<void> releasePackage({
   final releaseDate = date ?? _today();
   final packageDir = getPackageDir();
   final tag = 'v$version';
+  const releaseFiles = ['pubspec.yaml', 'CHANGELOG.md'];
 
   // ---- Preconditions -------------------------------------------------------
   await ensureGitRepo();
@@ -56,10 +57,18 @@ Future<void> releasePackage({
     );
   }
 
-  if ((await git(['status', '--porcelain'])).isNotEmpty) {
-    throw Exception(
-      'Working tree is not clean. Commit or stash changes first.',
-    );
+  final status = await git(['status', '--porcelain']);
+  final treeClean = status.isEmpty;
+  if (!treeClean) {
+    // Interrupting a run (Ctrl-C) between the bump and the commit leaves
+    // exactly this release's own files modified — and kills the script before
+    // it can say what to do about it, so say it here instead.
+    final hint = onlyTheseFilesDirty(status, releaseFiles)
+        ? "Only this release's own files are modified, so an earlier run was "
+              'probably interrupted before its commit. Discard it with: '
+              "git restore --staged --worktree ${releaseFiles.join(' ')}"
+        : 'Commit or stash changes first.';
+    throw Exception('Working tree is not clean. $hint');
   }
 
   // THIRD_PARTY_NOTICES.txt ships inside the published package, and a pub.dev
@@ -67,16 +76,49 @@ Future<void> releasePackage({
   logStep('Verifying third-party notices match the dependency graph...');
   assertNoticesCurrent();
 
+  // ---- Resume an interrupted previous run ----------------------------------
+  // A run that died between its commit and its tag — a Ctrl-C, a closed
+  // terminal — already bumped, committed, and left nothing to tag with.
+  // Recognise that exact state and continue from where it stopped, instead of
+  // tripping the "must be greater" check below and leaving a manual
+  // tag-and-push (or a commit to revert) as the only ways forward.
   final current = getPackageVersion();
-  if (!isNewerVersion(version, current)) {
+  final commitSubject = 'chore: prepare release v$version';
+  final resuming = isResumableRelease(
+    requestedVersion: version,
+    currentVersion: current,
+    headSubject: await git(['log', '-1', '--pretty=%s']),
+    expectedSubject: commitSubject,
+    treeClean: treeClean,
+  );
+
+  if (resuming) {
+    logWarn(
+      'Resuming an interrupted release: "$commitSubject" is already the HEAD '
+      'commit, so the version bump and the CHANGELOG edit are skipped.',
+    );
+  } else if (!isNewerVersion(version, current)) {
     throw Exception(
       'New version $version must be greater than the current '
       'pubspec version $current.',
     );
   }
 
+  // A leftover tag is resumable only when it is this release's tag AND points
+  // at the release commit; the same name on any other commit is a conflict this
+  // must not push over.
+  var tagCreated = false;
   if ((await git(['tag', '--list', tag])).isNotEmpty) {
-    throw Exception('Tag $tag already exists locally.');
+    final tagged = await git(['rev-list', '-n', '1', tag]);
+    if (resuming && tagged == await git(['rev-parse', 'HEAD'])) {
+      tagCreated = true;
+      logWarn('Tag $tag already exists on HEAD; skipping tag creation.');
+    } else {
+      throw Exception(
+        'Tag $tag already exists locally, on ${tagged.substring(0, 7)}. '
+        'Delete it (git tag -d $tag) or release a different version.',
+      );
+    }
   }
 
   logStep('Fetching origin...');
@@ -85,7 +127,10 @@ Future<void> releasePackage({
   // adds nothing — but one diverged tag in the namespace would abort the release.
   await git(['fetch', 'origin', 'main', '--no-tags', '--quiet']);
   if ((await git(['ls-remote', '--tags', 'origin', tag])).isNotEmpty) {
-    throw Exception('Tag $tag already exists on origin.');
+    throw Exception(
+      'Tag $tag already exists on origin — v$version is already released. '
+      'Release a higher version.',
+    );
   }
 
   final behind = await git(['rev-list', '--count', 'HEAD..origin/main']);
@@ -153,52 +198,87 @@ Future<void> releasePackage({
   ], failMessage: 'publish-dry-run reported errors');
 
   // ---- Prepare files -------------------------------------------------------
-  logStep('Bumping pubspec.yaml version: $current -> $version');
-  _bumpPubspecVersion(packageDir, version);
+  if (resuming) {
+    logStep('Commit to be tagged:');
+    await runInherit('git', ['--no-pager', 'log', '-1', '--oneline', '--stat']);
+  } else {
+    logStep('Bumping pubspec.yaml version: $current -> $version');
+    _bumpPubspecVersion(packageDir, version);
 
-  logStep('Finalizing CHANGELOG: [Unreleased] -> [$version] - $releaseDate...');
-  _finalizeChangelogFile(packageDir, version, releaseDate);
+    logStep(
+      'Finalizing CHANGELOG: [Unreleased] -> [$version] - $releaseDate...',
+    );
+    _finalizeChangelogFile(packageDir, version, releaseDate);
 
-  logStep('Changes to be committed:');
-  await runInherit('git', [
-    '--no-pager',
-    'diff',
-    '--stat',
-    'pubspec.yaml',
-    'CHANGELOG.md',
-  ]);
+    logStep('Changes to be committed:');
+    await runInherit('git', ['--no-pager', 'diff', '--stat', ...releaseFiles]);
+  }
 
   // ---- Confirm -------------------------------------------------------------
+  if (resuming && tagCreated && !push) {
+    logSuccess('Nothing left to do: the commit and tag $tag already exist.');
+    logInfo('When ready: git push origin main && git push origin $tag');
+    return;
+  }
+
+  final steps = [
+    if (!resuming) 'commit',
+    if (!tagCreated) 'tag $tag',
+    if (push) 'PUSH',
+  ].join(' + ');
   final action = push
-      ? 'commit + tag $tag + PUSH (this triggers the pub.dev publish)'
-      : 'commit + tag $tag (no push)';
+      ? '$steps (this triggers the pub.dev publish)'
+      : '$steps (no push)';
   if (!assumeYes && !confirm('Proceed to $action?')) {
-    await git(['checkout', '--', 'pubspec.yaml', 'CHANGELOG.md']);
-    logWarn('Aborted. Reverted pubspec.yaml and CHANGELOG.md.');
+    if (resuming) {
+      logWarn(
+        'Aborted. The release commit${tagCreated ? " and tag $tag are" : " is"} '
+        'left in place — re-run the same command to continue from here.',
+      );
+    } else {
+      await git(['checkout', '--', ...releaseFiles]);
+      logWarn('Aborted. Reverted pubspec.yaml and CHANGELOG.md.');
+    }
     return;
   }
 
   // ---- Commit + tag (signed; may prompt for your passphrase) ---------------
-  logStep('Committing (you may be prompted for your signing passphrase)...');
-  await runInherit('git', ['add', 'pubspec.yaml', 'CHANGELOG.md']);
-  await runInherit(
-    'git',
-    ['commit', '-m', 'chore: prepare release v$version'],
-    failMessage:
-        'git commit failed (pre-commit checks or signing). The version bump is '
-        'still staged — fix the issue and re-run `git commit`/`git tag` '
-        'manually, or discard it with `git restore --staged --worktree '
-        'pubspec.yaml CHANGELOG.md` and re-run the release.',
-  );
+  // Every step past this point goes through `runInheritRetry`: a mistyped
+  // passphrase is not re-prompted by the signing tool, and aborting here would
+  // strand the release mid-sequence.
+  if (!resuming) {
+    logStep('Committing (you may be prompted for your signing passphrase)...');
+    await runInherit('git', ['add', ...releaseFiles]);
+    await runInheritRetry(
+      'git',
+      ['commit', '-m', commitSubject],
+      what: 'git commit',
+      alreadyDone: () async =>
+          await git(['log', '-1', '--pretty=%s']) == commitSubject,
+      // A pre-commit hook may rewrite a staged file; re-stage so the retry
+      // commits what the hook produced rather than failing the same way again.
+      beforeRetry: () => runInherit('git', ['add', ...releaseFiles]),
+      failMessage:
+          'git commit failed (pre-commit checks or signing). The version bump '
+          'is still staged — fix the issue and re-run `git commit`/`git tag` '
+          'manually, or discard it with `git restore --staged --worktree '
+          'pubspec.yaml CHANGELOG.md` and re-run the release.',
+    );
+  }
 
-  logStep('Creating signed tag $tag...');
-  await runInherit(
-    'git',
-    ['tag', '-s', tag, '-m', 'Release v$version'],
-    failMessage:
-        'git tag failed. The release commit was created; tag manually '
-        'with: git tag -s $tag -m "Release v$version"',
-  );
+  if (!tagCreated) {
+    logStep('Creating signed tag $tag...');
+    await runInheritRetry(
+      'git',
+      ['tag', '-s', tag, '-m', 'Release v$version'],
+      what: 'git tag',
+      alreadyDone: () async => (await git(['tag', '--list', tag])).isNotEmpty,
+      failMessage:
+          'git tag failed. The release commit exists but is not tagged. '
+          'Re-run the same command to resume from here, or tag manually: '
+          'git tag -s $tag -m "Release v$version"',
+    );
+  }
 
   // ---- Push ----------------------------------------------------------------
   if (!push) {
@@ -208,14 +288,18 @@ Future<void> releasePackage({
   }
 
   logStep('Pushing main and tag $tag...');
-  await runInherit('git', [
-    'push',
-    'origin',
-    'main',
-  ], failMessage: 'git push origin main failed.');
-  await runInherit(
+  await runInheritRetry(
+    'git',
+    ['push', 'origin', 'main'],
+    what: 'git push origin main',
+    failMessage:
+        'git push origin main failed. The commit and tag $tag exist locally; '
+        're-run the same command to resume from here.',
+  );
+  await runInheritRetry(
     'git',
     ['push', 'origin', tag],
+    what: 'git push origin $tag',
     failMessage: 'git push tag failed. Push it manually: git push origin $tag',
   );
 

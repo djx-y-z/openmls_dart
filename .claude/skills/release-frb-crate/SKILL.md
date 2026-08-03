@@ -60,6 +60,22 @@ manual commit/tag step. Run it from a terminal (not an IDE task runner) so both
 the passphrase prompt and the pre-commit hook (`make format-check` + `rust-check`
 + `analyze`) work.
 
+**Get it wrong and it just asks again.** `ssh-keygen`/`gpg` do not re-prompt on
+their own, so a mistyped passphrase used to abort the release outright. Every
+signing and push step now prints the error and runs itself again, so the
+passphrase prompt comes straight back — no question to answer, no attempt limit.
+**Ctrl-C is how you give up.** From the third failure in a row it pauses 2s
+between attempts and says so, so a step failing for a reason no passphrase will
+fix cannot scroll past you. With a non-interactive stdin (CI) there is no retry
+at all: the step throws on its first failure, as before.
+
+**A run that died anyway is resumed by re-running the exact same command.** If
+you Ctrl-C out or lose the terminal after the release commit was created, the
+command detects that commit and continues from the tag/push step — it does not
+bump the version or edit the CHANGELOG a second time. Interrupt it *before* the
+commit and the next run tells you the one command that discards the half-applied
+edits. Nothing has to be reverted or tagged by hand.
+
 ### Options
 
 - `--version <X.Y.Z>` — new crate version (required)
