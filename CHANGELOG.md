@@ -2,6 +2,10 @@
 
 ### For Users
 
+#### ✨ Highlights
+
+- **openmls_frb v2.0.1** — Rust FFI bindings
+
 #### Security
 
 - **Ratchet trees and key packages now decode on the panic-free path** —
