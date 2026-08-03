@@ -1,12 +1,13 @@
 #!/usr/bin/env dart
 
-/// Apply the repository rulesets and the `native-build` environment to the
-/// GitHub repo.
+/// Apply the repository rulesets, repo settings and the `native-build`
+/// environment to the GitHub repo.
 ///
 /// The `.github/rulesets/*.json` files are the committed source of truth. This
 /// script applies each to GitHub via `gh api`, idempotent by ruleset name
-/// (existing rulesets are skipped unless `--update`), and configures the
-/// `native-build` environment with you as a required reviewer.
+/// (existing rulesets are skipped unless `--update`), turns on automatic
+/// head-branch deletion, and configures the `native-build` environment with you
+/// as a required reviewer.
 ///
 /// Run it AFTER the GitHub repo exists (i.e. after `gh repo create` / first
 /// push) — rulesets and environments live on GitHub, not in a local repo.
@@ -55,6 +56,7 @@ void main(List<String> args) async {
     print('');
     logInfo('Repository:  $slug');
     logInfo('Rulesets:    ${files.map((f) => _basename(f.path)).join(', ')}');
+    logInfo('Settings:    delete_branch_on_merge = true');
     logInfo(
       'Environment: ${skipEnv ? 'native-build (skipped)' : 'native-build (reviewer: you)'}',
     );
@@ -94,6 +96,8 @@ void main(List<String> args) async {
         logSuccess('Created "$name".');
       }
     }
+
+    await _setupRepoSettings(slug);
 
     if (!skipEnv) {
       await _setupNativeBuildEnvironment(slug);
@@ -172,6 +176,40 @@ Future<void> _ghInput(List<String> args, File input) async {
   }
 }
 
+/// Turns on "Automatically delete head branches" so a merged pull request does
+/// not leave its branch behind. Warns (does not fail the run) if it can't.
+///
+/// The automation branches are what make this worth setting: the dependency and
+/// template update workflows open one branch per upstream version, and without
+/// this every merged one stays forever.
+///
+/// Caveat: GitHub performs the deletion as whoever merged the pull request, and
+/// a `deletion` ruleset covering the branch restricts that to the ruleset's
+/// bypass actors — so for a merger without that bypass this may quietly do
+/// nothing. It cannot make things worse; the branch simply stays, as it does
+/// with the setting off.
+Future<void> _setupRepoSettings(String slug) async {
+  logStep('Enabling automatic head-branch deletion on merge...');
+  final result = await Process.run('gh', [
+    'api',
+    '--method',
+    'PATCH',
+    'repos/$slug',
+    '-F',
+    'delete_branch_on_merge=true',
+    '--silent',
+  ]);
+  if (result.exitCode != 0) {
+    logWarn(
+      'Could not set delete_branch_on_merge '
+      '(${(result.stderr as String).trim()}). Enable it manually at '
+      'Settings → General → "Automatically delete head branches".',
+    );
+  } else {
+    logSuccess('Merged pull requests now delete their head branch.');
+  }
+}
+
 /// Creates/updates the `native-build` environment with the current user as a
 /// required reviewer. Warns (does not fail the run) if it can't.
 Future<void> _setupNativeBuildEnvironment(String slug) async {
@@ -225,7 +263,8 @@ String _basename(String path) => path.split(Platform.pathSeparator).last;
 
 void _printUsage() {
   print('''
-Apply repository rulesets + the native-build environment to the GitHub repo.
+Apply repository rulesets, repo settings + the native-build environment to the
+GitHub repo.
 
 The .github/rulesets/*.json files are the committed source of truth. Run this
 AFTER the GitHub repo exists (rulesets/environments live on GitHub).
@@ -242,6 +281,8 @@ Options:
 Notes:
   - Requires the `gh` CLI authenticated as a repo admin.
   - Idempotent by ruleset name: existing rulesets are skipped unless --update.
+  - Always sets delete_branch_on_merge=true (merged PRs delete their branch);
+    --no-environment does not skip it, and re-running is harmless.
   - Optional/project-specific fields (e.g. a bypass actor for an automation
     GitHub App in signing-commit.json) are edited directly in the JSON files.
     Find an App's Integration id via:

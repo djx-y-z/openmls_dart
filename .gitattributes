@@ -10,3 +10,16 @@
 # generator wrote. `-text` disables eol conversion in both directions, which
 # also covers the Windows `core.autocrlf` case the previous rule was aiming at.
 THIRD_PARTY_NOTICES.txt -text
+
+# `.fvmrc` is the same class of file: fvm rewrites it in place unless it is
+# already byte-identical to what fvm itself would emit, so it is committed in
+# fvm's own serialization (its key order, LF, and no trailing newline). fvm
+# writes it with Dart's `JsonEncoder.withIndent('  ')` + `writeAsStringSync`,
+# which emits LF on every platform and performs no eol translation.
+#
+# Without `-text`, a Windows checkout under the default `core.autocrlf=true`
+# lands CRLF in the working tree, so the file can never match fvm's output and
+# every `fvm install` — which `make codegen` triggers, twice — rewrites it.
+# git would still report the tree clean (it normalizes CRLF away on diff), so
+# the churn is silent, and the invariant would hold only on Unix.
+.fvmrc -text

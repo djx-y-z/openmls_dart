@@ -129,6 +129,18 @@ runs:
         du -sh "$FVM_CACHE_PATH/versions"/* 2>/dev/null || true
       shell: bash
 
+    # Belt-and-braces only — it cannot be the fix, and moving it would not make
+    # it one. A step in a composite action can only clean up after the action
+    # itself; `fvm install` also runs *later in the job*, from inside
+    # `make codegen` (flutter_rust_bridge_codegen shells out to fvm), which is
+    # far out of this action's reach.
+    #
+    # The actual fix is in `.fvmrc`: it is committed in fvm's own serialization
+    # (its key order, no trailing newline) with `updateVscodeSettings: false`,
+    # which makes every `fvm install` a byte-level no-op on both files. Keep
+    # this step as a cheap guard for the calls above; do not add a second one
+    # after codegen — that would hide a `.fvmrc` regression instead of letting
+    # it show up as a diff.
     - name: Discard FVM config changes
       run: git checkout -- .fvmrc .vscode/settings.json 2>/dev/null || true
       shell: bash

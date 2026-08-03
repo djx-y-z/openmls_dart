@@ -94,6 +94,43 @@
   dependency, would have left a second upstream tag that
   `make check-new-openmls-version` does not bump.
 
+- **copier template adopted: v4.1.0 → v4.2.0** — the release-script half of this
+  version was written here and upstreamed, so it arrives byte-identical and
+  lands as a no-op; it is the retry and resume work documented above. What the
+  adoption actually changes is the development environment.
+  **The pre-commit hook is executable at last** — it was committed mode 644, and
+  git skips a non-executable hook without saying anything, so nothing it checks
+  ever ran. It is 755 now, and copier carries the bit through on an update, not
+  only on a fresh render. Its content carried a second failure that could only
+  surface once it started running: it announced every step-1 failure as a
+  formatting problem, so a hook invoked from an IDE or GUI git client — which
+  inherits a minimal PATH where `make`, `fvm` and `cargo` are all missing — told
+  you to run `make format` when the real problem was PATH. It now appends the
+  usual install locations and names the missing tool instead of blaming
+  whichever check ran first.
+  **`.fvmrc` and `.vscode/settings.json` no longer drift on every
+  `make codegen`** — `flutter_rust_bridge_codegen` shells out to `fvm install`
+  twice per run, and `fvm install` rewrites both files unless they already match
+  its own output byte for byte, so every codegen left two modified files
+  unrelated to the generated bindings, and in CI they rode along into the
+  automated update PRs. `.fvmrc` is now committed in fvm's own serialization —
+  its key order and no trailing newline — with `"updateVscodeSettings": false`,
+  which is what stops the second file being touched; `.gitattributes` marks it
+  `-text`, because a Windows checkout under the default `core.autocrlf=true`
+  would otherwise land CRLF and break the byte-match invariant while git still
+  reported the tree clean; and `.vscode/settings.json` is now committed rather
+  than generated, since with fvm no longer writing it a machine that lacks the
+  privileges for fvm's own symlink would leave `dart.flutterSdkPath` unset. It
+  points at `.fvm/flutter_sdk`, the version-agnostic symlink, so a Flutter bump
+  does not need to edit it. Verified here: `fvm install` now leaves both files
+  byte-identical.
+  **`setup_repo_protections.dart` also sets `delete_branch_on_merge`** — the
+  script applied rulesets and the `native-build` environment but never touched
+  repo settings, so every merged branch stayed forever, and the dependency and
+  template update workflows open one per upstream version several times a week.
+  Adopting the script does not change the setting; it takes effect the next time
+  `make setup-repo-protections` runs against GitHub.
+
 ## [2.0.0] - 2026-07-30
 
 ### For Users

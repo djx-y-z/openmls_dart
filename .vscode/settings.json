@@ -1,0 +1,32 @@
+// This file is committed on purpose, and `.fvmrc` deliberately carries
+// "updateVscodeSettings": false so fvm never rewrites it.
+//
+// `fvm install` prints a warning asking you to remove that setting. Do not:
+// with fvm managing this file, every `fvm install` — which `make codegen`
+// triggers twice per run — rewrites this file and `.fvmrc`, leaving two
+// modified files that have nothing to do with the generated bindings. Where
+// fvm lacks the privileges for its own symlink it also writes an absolute,
+// machine-local SDK path into a file the project commits. The warning is the
+// price of the setting; it is cosmetic and cannot be turned off separately.
+//
+// `.fvm/flutter_sdk` is the version-agnostic symlink fvm creates, so it
+// survives a Flutter bump; the path stays POSIX-style on Windows, which is
+// what fvm itself writes there. Windows needs Developer Mode for that symlink
+// to be created at all — fvm needs it regardless of this file.
+{
+  "dart.flutterSdkPath": ".fvm/flutter_sdk",
+  "search.exclude": {
+    "**/.fvm": true
+  },
+  "files.watcherExclude": {
+    "**/.fvm": true
+  },
+  "[dart]": {
+    "editor.formatOnSave": true,
+    "editor.defaultFormatter": "Dart-Code.dart-code",
+    "editor.codeActionsOnSave": {
+      "source.fixAll": "explicit",
+      "source.organizeImports": "explicit"
+    }
+  }
+}

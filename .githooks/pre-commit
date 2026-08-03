@@ -2,7 +2,7 @@
 #
 # Pre-commit hook for openmls
 #
-# Runs format check and static analysis before each commit.
+# Runs format check, Rust check and static analysis before each commit.
 # To skip this hook, use: git commit --no-verify
 #
 
@@ -14,36 +14,88 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
+# git does not necessarily run this hook from a login shell: IDEs and GUI git
+# clients inherit a minimal PATH, so `make`, `fvm` and `cargo` can all be
+# missing even though they work fine in a terminal. Restore the usual install
+# locations *before* the first check runs — otherwise the checks below fail with
+# "command not found" and the failure gets reported as whatever the first check
+# happened to be.
+#
+# Appended, not prepended: a tool deliberately placed earlier in PATH must keep
+# winning. Both the Unix (~/.pub-cache) and the Windows/Git-Bash
+# (%LOCALAPPDATA%\Pub\Cache) pub-cache layouts are listed, and PUB_CACHE /
+# CARGO_HOME are honoured when set. Only directories that exist and are not
+# already present get added.
+for _dir in \
+    "${PUB_CACHE:-$HOME/.pub-cache}/bin" \
+    "${LOCALAPPDATA:-}/Pub/Cache/bin" \
+    "$HOME/fvm/default/bin" \
+    "${CARGO_HOME:-$HOME/.cargo}/bin" \
+    /opt/homebrew/bin \
+    /usr/local/bin
+do
+    if [ -d "$_dir" ]; then
+        case ":$PATH:" in
+            *":$_dir:"*) ;;
+            *) PATH="$PATH:$_dir" ;;
+        esac
+    fi
+done
+unset _dir
+export PATH
+
+# Report a missing toolchain as a missing toolchain. Without this the hook says
+# "Formatting check failed. Run 'make format'" when the real problem is that fvm
+# is not on PATH — which sends you looking at your code instead of your PATH.
+missing=""
+for tool in make fvm cargo; do
+    command -v "$tool" >/dev/null 2>&1 || missing="$missing $tool"
+done
+if [ -n "$missing" ]; then
+    echo -e "${RED}Pre-commit checks cannot run: not found on PATH —${missing}${NC}"
+    echo -e "${YELLOW}This usually means git was started from an IDE or GUI client${NC}"
+    echo -e "${YELLOW}with a minimal PATH. Commit from a terminal, or install the${NC}"
+    echo -e "${YELLOW}missing tool(s) with 'make setup'.${NC}"
+    echo -e "${YELLOW}To bypass (checks NOT run): git commit --no-verify${NC}"
+    exit 1
+fi
+
+# run_step <n> <label> <fix-hint> <command...>
+#
+# Exit code 127 is reported separately: it means a command inside the make
+# recipe was not found, which is a broken environment rather than a failing
+# check, and the fix hint would be actively misleading.
+run_step() {
+    local num="$1" label="$2" hint="$3"
+    shift 3
+    echo -e "\n${YELLOW}[$num/3] $label...${NC}"
+    if "$@"; then
+        echo -e "${GREEN}$label passed.${NC}"
+    else
+        local status=$?
+        if [ "$status" -eq 127 ]; then
+            echo -e "${RED}$label could not run: a tool used by this step is missing (exit 127).${NC}"
+            echo -e "${YELLOW}Fix the environment, not the code. Run 'make setup' or check PATH.${NC}"
+        else
+            echo -e "${RED}$label failed (exit $status).${NC}"
+            echo -e "${YELLOW}$hint${NC}"
+        fi
+        exit 1
+    fi
+}
+
 echo -e "${YELLOW}Running pre-commit checks...${NC}"
 
-# Check formatting
-echo -e "\n${YELLOW}[1/3] Checking code formatting...${NC}"
-if make format-check; then
-    echo -e "${GREEN}Formatting check passed.${NC}"
-else
-    echo -e "${RED}Formatting check failed.${NC}"
-    echo -e "${YELLOW}Run 'make format' to fix formatting issues.${NC}"
-    exit 1
-fi
+run_step 1 "Checking code formatting" \
+    "Run 'make format' to fix formatting issues." \
+    make format-check
 
-# Check Rust code
-echo -e "\n${YELLOW}[2/3] Checking Rust code...${NC}"
-if make rust-check; then
-    echo -e "${GREEN}Rust check passed.${NC}"
-else
-    echo -e "${RED}Rust check failed.${NC}"
-    echo -e "${YELLOW}Fix the Rust errors above before committing.${NC}"
-    exit 1
-fi
+run_step 2 "Checking Rust code" \
+    "Fix the Rust errors above before committing." \
+    make rust-check
 
-# Run static analysis
-echo -e "\n${YELLOW}[3/3] Running static analysis...${NC}"
-if make analyze ARGS="--fatal-infos"; then
-    echo -e "${GREEN}Static analysis passed.${NC}"
-else
-    echo -e "${RED}Static analysis failed.${NC}"
-    echo -e "${YELLOW}Fix the issues above before committing.${NC}"
-    exit 1
-fi
+run_step 3 "Running static analysis" \
+    "Fix the issues above before committing." \
+    make analyze ARGS="--fatal-infos"
 
 echo -e "\n${GREEN}All pre-commit checks passed!${NC}"

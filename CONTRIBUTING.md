@@ -72,6 +72,25 @@ make help
 make test
 ```
 
+### Editor Setup (FVM)
+
+`.fvmrc` and `.vscode/settings.json` are both committed, and `.fvmrc` sets
+`"updateVscodeSettings": false` so that fvm manages neither of them.
+
+`fvm install` warns on every run that it is not managing VS Code settings and
+asks you to remove that setting. **Leave it as it is.** With fvm managing those
+files, every `fvm install` — which `make codegen` triggers twice per run —
+rewrites both, so each codegen leaves two modified files unrelated to the
+generated bindings; and on a machine where fvm cannot create its own symlink it
+writes an absolute, machine-local SDK path into a committed file. The warning is
+cosmetic and fvm offers no way to silence it on its own.
+
+On Windows, enable [Developer Mode][windows-dev-mode] before the first
+`fvm install`: fvm needs it to create the `.fvm/flutter_sdk` symlink that
+`dart.flutterSdkPath` points at.
+
+[windows-dev-mode]: https://learn.microsoft.com/en-us/windows/apps/get-started/enable-your-device-for-development
+
 ### Windows Users
 
 On Windows, you need to install `make` first:
