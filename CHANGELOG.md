@@ -1,3 +1,55 @@
+## [Unreleased]
+
+### For Users
+
+#### Fixed
+
+- **The native library was not found under `flutter test`**
+  (`lib/src/platform/platform_io.dart`, `lib/src/openmls.dart`,
+  `test/platform/native_asset_search_paths_test.dart`) — the build
+  hook registers the library as a `CodeAsset`, but a `package:` asset id is not
+  a path: `DynamicLibrary.open()` hands it to `dlopen` verbatim, only
+  `@Native(assetId:)` externals go through the asset mapping, and
+  flutter_rust_bridge needs a library handle — so the file has to be located on
+  disk. The search covered `.dart_tool/lib/` (`dart run` / `dart test`) and
+  `../lib/` next to the executable (AOT bundles). `flutter test` uses neither:
+  flutter_tools installs the hooked library under `build/native_assets/<os>/`
+  and never creates `.dart_tool/lib/`, and on macOS and Linux nothing on
+  `flutter_tester`'s dlopen search path covers that directory — so a Flutter
+  package depending on this one failed in `init()` in its own unit tests on a
+  clean tree, while the app itself built and ran fine. A leftover
+  `.dart_tool/lib/` from an earlier `dart test` is what made it look
+  intermittent; Windows resolved it by accident, because flutter_tools prepends
+  that same directory to the tester's `PATH`. The directory is now probed
+  **last**: it is relative to the working directory, so ahead of the
+  executable-relative entry it would let a shipped `dart build cli` binary load
+  whatever happens to sit under `build/native_assets/<os>/` in the directory it
+  was launched from, in preference to the library it shipped with.
+
+### For Contributors
+
+#### Changed
+
+- **Adopted copier template v4.3.0 → v4.4.0** (`.copier-answers.yml`,
+  `Makefile`, `hook/build.dart`, `scripts/src/check_template_updates.dart`,
+  `scripts/src/update_template.dart`,
+  `.github/workflows/check-template-updates.yml`,
+  `.claude/skills/update-template/SKILL.md`) — `make update-template` now runs
+  copier with `--skip-tasks`. A single `copier update` renders the template
+  three times and ran the generation tasks (`flutter create`, `dart pub get`,
+  `dart format .`, `rm -rf _templates`) in every one of them, including the
+  render into this project, where a task dying between the render and copier's
+  replay of the project's own diff could leave a half-updated tree that still
+  reported `_commit` as bumped. The update skill's conflict check moves from
+  `find -name '*.rej'` — copier converts those to inline merges and unlinks
+  them, so it always came back empty and read as "no conflicts" — to
+  `git status --porcelain | grep '^UU'`, and the claim that copier's conflicts
+  only ever land in Markdown is corrected in the skill, in this workflow's
+  comments and in the warning it writes into every conflicted pull request — a
+  single real update has since left conflicts in `Makefile`, `pubspec.yaml`,
+  `rust/Cargo.toml`, `rust/src/frb_generated.rs` and two Dart scripts.
+  `get-version` is now declared in `.PHONY`.
+
 ## [2.0.1] - 2026-08-03
 
 ### For Users
