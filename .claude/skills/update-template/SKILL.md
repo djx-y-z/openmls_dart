@@ -19,9 +19,12 @@ So the usual job is reviewing, not running anything.
 It states, up front:
 
 - **Version comparison** and the template's changelog for the range
-- **Conflicts** — if any, the PR is a **draft** and lists the files. Nothing
-  else catches these: conflicts land in Markdown, which the format, Rust and
-  analysis gates never read, so a conflicted branch otherwise looks mergeable.
+- **Conflicts** — if any, the PR is a **draft** and lists the files. Do not
+  count on another gate to catch them. Conflicts are not confined to one file
+  type — a single real update left them in `Makefile`, `pubspec.yaml`,
+  `rust/Cargo.toml`, `rust/src/frb_generated.rs` and two Dart scripts — and the
+  ones in `Makefile` and Markdown pass `format-check`, `rust-check` and
+  `analyze` untouched, so a conflicted branch can look perfectly mergeable.
 - **`_commit` bumped** — if this says NO, fix `.copier-answers.yml` before
   merging. Merging without it leaves the project looking un-updated and the
   workflow re-opens the same PR on every run.
@@ -67,19 +70,37 @@ Or drive copier directly:
 pip install copier jinja2-strcase
 
 # Run copier update to the new version
-copier update --trust --defaults --vcs-ref=vX.Y.Z
+copier update --trust --defaults --skip-tasks --vcs-ref=vX.Y.Z
 ```
 
 **Flags:**
-- `--trust` — required because the template has `_tasks` (post-generation commands). Without it, copier refuses to run or prompts for confirmation.
+- `--trust` — required because the template declares `_jinja_extensions`, and because on an update copier also inspects the *old* template's `_tasks`. `--skip-tasks` does not waive it.
 - `--defaults` — uses default values from `.copier-answers.yml` without prompting. Required in non-interactive environments (e.g., Claude Code), and recommended in general to avoid re-answering questions.
+- `--skip-tasks` — the template's `_tasks` exist to *create* a project (`flutter create`, `dart create`, `dart pub get`, `dart format .`). On a project that already exists they only redo work, and copier runs them **three times** per update — once into a temp copy of the old version, once into your working tree, once into a temp copy of the new one. Measured on a freshly generated project this took the update from 22s to 7s. It also closes the one way an update can damage your tree. A task that fails the same way everywhere — `dart pub get` with no network — aborts in the first of the three renders, before your tree is reached, and leaves it clean. But a task whose trigger lives in **your project** passes that render and fails the next one, which is your tree: `dart format .` over a Dart file that is locally broken does exactly this. Measured, it leaves the template's version of your customized files in place of yours, your changes gone from the worktree, and `_commit` bumped as though the update had succeeded. The one thing skipping gives up is `dart format .` itself: if `format-check` fails on an update branch, run `make format` — that is formatting drift, not a conflict.
 - `--vcs-ref=vX.Y.Z` — pins the exact version to update to.
 
 Copier will:
 1. Use existing answers from `.copier-answers.yml` (no interactive prompts)
 2. Apply changes via 3-way merge (template old vs template new vs your project)
-3. Run template `_tasks` (post-generation commands like `dart format`)
-4. Update `.copier-answers.yml` with the new `_commit` value
+3. Update `.copier-answers.yml` with the new `_commit` value
+
+> **If you just switched `enable_web` to `true`:** `example/web/` is produced by
+> the `flutter create` task, not by any template file — so with `--skip-tasks`
+> no update will create it. Make it once, explicitly:
+>
+> ```bash
+> # --org has to repeat what generation used, which is `com.` followed by the
+> # `package_name` recorded in .copier-answers.yml. Without it flutter aborts
+> # with "Ambiguous organization in existing files", because it strips the
+> # underscore out of the package name for the iOS and macOS bundle IDs and
+> # then finds two candidate orgs in the tree. Every package name this
+> # template mandates has an underscore, so this is not an edge case.
+> cd example && flutter create . --platforms web --org com.<package_name>
+> ```
+>
+> Use the command rather than making the directory by hand: it also records
+> `platform: web` in `example/.metadata`, which a hand-made directory leaves
+> wrong.
 
 ### Step 3: Review Changes
 
@@ -87,8 +108,12 @@ Copier will:
 # Check what copier changed
 git diff
 
-# Check for conflict markers
-grep -r "<<<<<<" . --include="*.dart" --include="*.yml" --include="*.yaml" --include="*.md" --include="Makefile"
+# Conflicts, signal 1 — unmerged paths in the index
+git status --porcelain | grep '^UU'
+
+# Conflicts, signal 2 — markers left in tracked files. Needed because anything
+# that stages the tree clears the index while leaving the markers in the file.
+git grep -lI -e '^<<<<<<< '
 ```
 
 Common things to review:
@@ -99,14 +124,42 @@ Common things to review:
 
 ### Step 4: Resolve Conflicts
 
-Copier creates `.rej` files for conflicts it couldn't resolve automatically:
+**Do not go looking for `.rej` files.** In copier's default `--conflict=inline`
+mode they are an internal step: copier writes them with `git apply --reject`,
+converts each into an inline three-way merge, and deletes it again. By the time
+the command returns there are none, so `find . -name "*.rej"` always comes back
+empty and reads as "no conflicts" even when there are plenty. (They survive only
+if you explicitly pass `--conflict=rej`.)
+
+What copier actually leaves is the ordinary git conflict shape: the path
+unmerged in the index, and markers in the file naming the two sides — your
+version under `<<<<<<< before updating`, the template's under
+`>>>>>>> after updating`, the two split by `=======`.
+
+Check **both** signals; neither alone is enough:
 
 ```bash
-# Find rejection files
-find . -name "*.rej"
+# Signal 1 — the unmerged index. Authoritative immediately after an update...
+git status --porcelain | grep '^UU'
 
-# Review and manually apply each one, then delete the .rej file
+# Signal 2 — ...but staging erases it while leaving the markers in the file, so
+# on a branch the pull-request action has already staged, only this one fires.
+git grep -lI -e '^<<<<<<< '
 ```
+
+That is exactly the pair `findConflicts()` in `scripts/src/update_template.dart`
+reports from, for the same reason.
+
+Edit each file, delete the markers, then stage it to clear the unmerged state:
+
+```bash
+git add <resolved-file>
+```
+
+> Never leave a conflict marker at the start of a line in a **tracked** file —
+> including in prose like this. `findConflicts()` greps tracked content for
+> `^<<<<<<< `, so a literal example in column 1 makes every future update report
+> a conflict that is not there. Keep them inline, as above.
 
 ### Step 5: Run Quality Checks
 
@@ -131,16 +184,21 @@ _commit: vX.Y.Z  # Must match the version you updated to
 ### Step 7: Commit Changes
 
 ```bash
-git add -A
+# Stage the files the update touched, by name. `git add -A` is the wrong tool
+# here: it also sweeps in whatever untracked local debris happens to be lying
+# around — .DS_Store, editor scratch files, un-ignored build output — and files
+# it under a commit message claiming they came from the template.
+git status --porcelain
+git add .copier-answers.yml <files-the-update-changed>
 git commit -m "feat: adopt copier template for version vX.Y.Z"
 ```
 
 ### Checklist Summary
 
 - [ ] Read PR changelog — understand what changed
-- [ ] `copier update --trust --defaults --vcs-ref=vX.Y.Z` — apply template changes
+- [ ] `copier update --trust --defaults --skip-tasks --vcs-ref=vX.Y.Z` — apply template changes
 - [ ] Review diff — no unintended changes
-- [ ] Resolve `.rej` files (if any)
+- [ ] Resolve conflicts — `git status --porcelain | grep '^UU'` (not `.rej`)
 - [ ] `make analyze` — no issues
 - [ ] `make test` — all tests pass
 - [ ] `.copier-answers.yml` — verify `_commit` updated automatically
@@ -180,7 +238,7 @@ make check-template-updates
 ### Step 3: Apply Update
 
 ```bash
-copier update --trust --defaults --vcs-ref=vX.Y.Z
+copier update --trust --defaults --skip-tasks --vcs-ref=vX.Y.Z
 ```
 
 ### Step 4: Review and Test
@@ -193,7 +251,12 @@ make test
 ### Step 5: Commit
 
 ```bash
-git add -A
+# Stage the files the update touched, by name. `git add -A` is the wrong tool
+# here: it also sweeps in whatever untracked local debris happens to be lying
+# around — .DS_Store, editor scratch files, un-ignored build output — and files
+# it under a commit message claiming they came from the template.
+git status --porcelain
+git add .copier-answers.yml <files-the-update-changed>
 git commit -m "feat: adopt copier template for version vX.Y.Z"
 ```
 
@@ -203,10 +266,10 @@ Copier compares the template at `_commit` (old version) with the target version 
 
 - **Updates** files that changed in the template
 - **Preserves** your custom modifications (3-way merge)
-- **Creates `.rej` files** for conflicts it can't auto-resolve
+- **Marks conflicts inline** it can't auto-resolve — markers in the file, path `UU` in the index. No `.rej` files survive in the default `--conflict=inline` mode
 - **Adds new files** introduced in the template
 - **Does NOT delete** files you added outside the template
-- **Runs `_tasks`** (with `--trust`) — post-generation commands defined in the template
+- **Runs `_tasks`** unless you pass `--skip-tasks` — and runs them three times, once per render (old temp copy, your tree, new temp copy). Skip them; see the flag notes above
 - **Updates `.copier-answers.yml`** — sets `_commit` to the new version
 
 ## Common Template Changes
@@ -227,18 +290,22 @@ pip install copier jinja2-strcase
 ```
 
 ### Conflicts during update
-Copier creates `.rej` files — review each one and apply manually:
+Copier leaves inline conflict markers and an unmerged index entry — not `.rej`
+files. List them, resolve, then stage:
 ```bash
-find . -name "*.rej"
-# After resolving, delete the .rej files
-find . -name "*.rej" -delete
+git status --porcelain | grep '^UU'
+# edit each file, removing the <<<<<<< / ======= / >>>>>>> markers
+git add <resolved-file>
 ```
 
 ### Template asks questions again
 Use `--defaults` to skip prompts. Without it, press Enter to keep current values from `.copier-answers.yml`. Only change values if you need to.
 
 ### Update changed files I customized
-This is expected. Copier does a 3-way merge. If your customizations conflict with template changes, you'll get `.rej` files to resolve manually.
+This is expected. Copier does a 3-way merge. Where your customizations collide
+with template changes you get an inline conflict to resolve by hand, with your
+side under `<<<<<<< before updating` and the template's under
+`>>>>>>> after updating`.
 
 ## Resources
 

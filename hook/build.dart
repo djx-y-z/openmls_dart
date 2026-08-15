@@ -94,8 +94,9 @@ void main(List<String> args) async {
     }
 
     // Handle web builds (buildCodeAssets is false for web platform)
-    // Web builds don't produce CodeAssets - they copy WASM files to web/pkg/
     if (!input.config.buildCodeAssets) {
+      // Web builds don't produce CodeAssets - they copy WASM files to web/pkg/.
+
       // Declare rust/Cargo.toml as a dependency so a crate-version bump forces
       // the hook to re-run (the version-marker check inside then refreshes
       // web/pkg/). Without this the build system can reuse a cached hook result

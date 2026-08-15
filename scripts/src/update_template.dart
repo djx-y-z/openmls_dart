@@ -10,9 +10,13 @@
 // one of them is loud:
 //
 //   * A **conflict** — copier could not merge a hunk and left the file with
-//     both sides in it. Nothing downstream catches this: the format, analysis
-//     and Rust gates only read Dart and Rust, and every conflict so far has
-//     landed in Markdown. Detection here is the only signal there is.
+//     both sides in it, and the path unmerged (`UU`) in the index. Conflicts
+//     are not confined to any one file type: a single real update left them in
+//     `Makefile`, `pubspec.yaml`, `rust/Cargo.toml`, `rust/src/frb_generated.rs`
+//     and two Dart scripts. Some of those would eventually fall over in a
+//     later gate, but the ones in `Makefile` and Markdown pass every gate this
+//     project has, and none of them names the update as the cause. Detection
+//     here is the only signal that points at the right thing.
 //   * **`_commit` not landing** — copier applied files but left
 //     `.copier-answers.yml` pointing at the old version. That one is quiet and
 //     self-perpetuating: the next scheduled run sees the same update pending
@@ -170,10 +174,48 @@ Future<List<String>> dirtyPaths({String? workingDirectory}) async {
 /// Runs `copier update` for [version], streaming its output to this process.
 ///
 /// `--defaults` is what makes the run non-interactive: without it copier
-/// re-asks every question and blocks forever on a runner. `--trust` is
-/// required because the template declares `_tasks`; copier refuses to run them
-/// otherwise. Both are the flags the update procedure documents for humans, so
-/// an automated run and a manual one apply the same thing.
+/// re-asks every question and blocks forever on a runner. `--trust` is still
+/// required even though tasks are skipped, because the template also declares
+/// `_jinja_extensions`, and because on an update copier inspects the *old*
+/// template's `_tasks` too — neither is waived by `--skip-tasks`.
+///
+/// `--skip-tasks` is about cost and robustness, not correctness. A single
+/// `copier update` renders the template three times — into a temporary copy of
+/// the old version, into this working tree, and into a temporary copy of the
+/// new one — and runs `_tasks` in every one of them. Those tasks exist to
+/// *create* a project (`flutter create`, `dart create`, `dart pub get`,
+/// `dart format .`); on a project that already exists they only redo work.
+/// Measured on a freshly generated project, skipping them took the update from
+/// 22s to 7s, and the gap widens with the size of the example apps.
+///
+/// It also closes the one way an update can damage this tree. Where a failing
+/// task lands depends on where its trigger lives. One that fails identically
+/// everywhere — `dart pub get` with no network — stops the run in the *first*
+/// of the three renders, so this tree is never reached and stays clean with
+/// `_commit` unmoved. One whose trigger lives in the **project** passes that
+/// render and fails the next, which is this tree. `dart format .` over a
+/// locally broken Dart file is that shape, and it was measured: it left the
+/// template's version of a customized file in place of the project's, the
+/// local change gone from the worktree, and `_commit` bumped as though the
+/// update had succeeded. Copier renders here and runs the tasks before it
+/// replays the project's diff, so a task dying in between leaves that gap.
+///
+/// What this is *not*: running the tasks does not eat local edits. Copier's
+/// update replays the project's own diff over the freshly rendered tree, and a
+/// task that overwrites `example/lib/main.dart` is undone by that replay — a
+/// generate/edit/update cycle on this template preserved the edits, and where
+/// the template had changed the same file the collision surfaced as an ordinary
+/// merge conflict. Worth stating because the obvious "fix" is worse than the
+/// problem: gating `_tasks` on
+/// `when: "{{ _copier_operation == 'copy' }}"` in `copier.yml` makes the *first*
+/// update after that release delete the task-generated example apps —
+/// `example/lib`, `example/test`, `example/ios`, `example/android`,
+/// `example/pubspec.yaml`, `example_cli/bin/main.dart` — from the tree. The
+/// old template version still runs its tasks while the new one does not, so
+/// the example apps exist in copier's render of the old version and not in its
+/// render of the new one, and copier removes exactly that difference as files
+/// the template dropped. Skip the tasks at the call site, where it applies to
+/// all three renders at once; do not guard them in `copier.yml`.
 Future<int> runCopierUpdate({
   required String version,
   String? workingDirectory,
@@ -184,7 +226,7 @@ Future<int> runCopierUpdate({
   logStep('Running copier update --vcs-ref=$version ...');
   final process = await Process.start(
     'copier',
-    ['update', '--trust', '--defaults', '--vcs-ref=$version'],
+    ['update', '--trust', '--defaults', '--skip-tasks', '--vcs-ref=$version'],
     workingDirectory: dir,
     mode: ProcessStartMode.inheritStdio,
   );
