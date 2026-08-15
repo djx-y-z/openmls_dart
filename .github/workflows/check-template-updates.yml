@@ -167,8 +167,10 @@ jobs:
       # is exactly the update a human most needs to see.
       #
       # They cannot stand in for the conflict report, either. All three read
-      # only Dart and Rust, and every conflict copier has produced in this
-      # project so far has been in Markdown — which passes all three intact.
+      # only Dart and Rust, and conflicts are not confined to those: a single
+      # real update left them in Makefile, pubspec.yaml, rust/Cargo.toml,
+      # rust/src/frb_generated.rs and two Dart scripts. The ones in Makefile
+      # and Markdown pass all three gates intact.
       #
       # A failing gate cannot fail this step, and must not: the pull request is
       # the whole point of the run, and losing it would trip the "no PR was
@@ -195,9 +197,9 @@ jobs:
         with:
           token: ${{ steps.app-token.outputs.token }}
           sign-commits: true
-          # A draft when a human has to finish it. Conflict markers sit in
-          # Markdown, which every gate above passes, so nothing else would stop
-          # this branch being merged as-is.
+          # A draft when a human has to finish it. Conflicts can land in files
+          # every gate above passes — Makefile and Markdown among them — so
+          # nothing else would stop this branch being merged as-is.
           draft: ${{ steps.update.outputs.has_conflicts == 'true' || steps.update.outputs.commit_landed != 'true' }}
           commit-message: |
             chore: adopt copier template ${{ steps.check.outputs.current_version }} → ${{ steps.check.outputs.latest_version }}
@@ -212,7 +214,7 @@ jobs:
             | Template  | ${{ steps.check.outputs.current_version }} | ${{ steps.check.outputs.latest_version }} |
 
             ${{ steps.update.outputs.has_conflicts == 'true' && '> [!WARNING]' || '' }}
-            ${{ steps.update.outputs.has_conflicts == 'true' && '> **Conflicts — this PR is a draft.** Copier could not merge the files below and left both sides in them. Nothing else catches this: the conflicts are in files the format, Rust and analysis gates never read, so the branch would otherwise look mergeable.' || '' }}
+            ${{ steps.update.outputs.has_conflicts == 'true' && '> **Conflicts — this PR is a draft.** Copier could not merge the files below and left both sides in them. Do not rely on the gates above to catch this: conflicts can land in files none of them read, so the branch would otherwise look mergeable.' || '' }}
 
             ${{ steps.update.outputs.conflict_files }}
 

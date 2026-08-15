@@ -34,7 +34,9 @@ const _nativeAssetId = 'package:openmls/openmls';
 /// ### For Native Platforms (iOS, Android, macOS, Linux, Windows)
 ///
 /// 1. **Custom path** (if provided via [libraryPath] parameter)
-/// 2. **Build hook locations** (JIT: .dart_tool/lib/, AOT: ../lib/)
+/// 2. **Build hook locations**, in order: `.dart_tool/lib/`
+///    (`dart run`/`dart test`), `../lib/` next to the executable (AOT
+///    bundle), `build/native_assets/<os>/` (`flutter test`)
 /// 3. **FRB default**: flutter_rust_bridge's default loader
 ///
 /// ### For Web
@@ -98,7 +100,7 @@ class Openmls {
   ///
   /// Loading order:
   /// 1. Custom path (if provided via [libraryPath] parameter)
-  /// 2. Build hook locations (JIT: .dart_tool/lib/, AOT: ../lib/)
+  /// 2. Build hook locations (see `nativeAssetSearchPaths`)
   /// 3. FRB default (flutter_rust_bridge's default loader)
   static Future<ExternalLibrary> _loadLibrary(String? customPath) async {
     // coverage:ignore-start
@@ -115,9 +117,9 @@ class Openmls {
       return platform.openLibraryFromPath(customPath); // coverage:ignore-line
     }
 
-    // 2. Try build hook locations (Dart 3.10+ with build hook)
-    // JIT mode: .dart_tool/lib/
-    // AOT mode: ../lib/ relative to executable
+    // 2. Try build hook locations (Dart 3.10+ with build hook):
+    // `dart run`/`dart test`, `flutter test`, and AOT bundles each install the
+    // registered CodeAsset somewhere different.
     final nativeAssetLib = platform.tryLoadNativeAsset(_nativeAssetId);
     if (nativeAssetLib != null) {
       return nativeAssetLib;

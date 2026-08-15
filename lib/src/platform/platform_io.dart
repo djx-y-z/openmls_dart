@@ -14,42 +14,73 @@ int getIsolateId() => Isolate.current.hashCode;
 
 /// Try to load library via native assets build hook.
 ///
-/// The build hook (hook/build.dart) places the library in predictable locations:
-/// - JIT mode (dart run): .dart_tool/lib/
-/// - AOT mode (dart build cli): bundle/lib/ (relative to executable)
-///
 /// Note: DynamicLibrary.open(assetId) with 'package:' URIs doesn't work
-/// in Dart - it tries to open the URI as a literal file path. We must
-/// resolve the actual file path ourselves.
+/// in Dart - it tries to open the URI as a literal file path. Only
+/// `@Native(assetId:)` externals resolve through the asset mapping, and
+/// flutter_rust_bridge needs an [ExternalLibrary] handle, so we resolve the
+/// actual file path ourselves - see [nativeAssetSearchPaths].
 // ignore: avoid_unused_constructor_parameters
 ExternalLibrary? tryLoadNativeAsset(String assetId) {
   // The assetId parameter is kept for API compatibility but not used.
   // We know where the build hook puts the library.
 
-  final libraryName = getLibraryName();
-
-  // 1. Try JIT mode location: .dart_tool/lib/
-  // In JIT mode, the build hook copies the library to .dart_tool/lib/
-  final jitLibPath = '.dart_tool/lib/$libraryName';
-  if (File(jitLibPath).existsSync()) {
+  for (final path in nativeAssetSearchPaths(getLibraryName())) {
+    final file = File(path);
+    if (!file.existsSync()) continue;
     try {
-      return ExternalLibrary.open(File(jitLibPath).absolute.path);
-    } catch (_) {}
+      return ExternalLibrary.open(file.absolute.path);
+    } catch (_) {
+      // Keep probing: a candidate that cannot be opened at all - corrupt, or
+      // built for another architecture - must not stop the search. This does
+      // not cover a merely *stale* library: dlopen binds lazily, so an
+      // out-of-date build opens fine and only fails later, on a missing
+      // symbol.
+    }
   }
 
-  // 2. Try AOT mode location: ../lib/ relative to executable
-  // In AOT mode (dart build cli), library is in bundle/lib/
-  // coverage:ignore-start
+  return null;
+}
+
+/// Where each toolchain installs the `CodeAsset` the build hook registered,
+/// in probe order.
+///
+/// [libraryName] is the platform-specific file name from [getLibraryName].
+/// The relative entries are resolved against the current directory, which is
+/// the package root for every toolchain listed below.
+List<String> nativeAssetSearchPaths(String libraryName) {
+  final paths = <String>[
+    // 1. `dart run` / `dart test` (JIT): the SDK copies bundled code assets
+    //    here and maps them in .dart_tool/native_assets.yaml.
+    '.dart_tool/lib/$libraryName',
+  ];
+
+  // 2. `dart build cli` (AOT): the library is bundled in lib/ next to the
+  //    executable. This is the only candidate that is not relative to the
+  //    working directory, so it is probed before the one below: a compiled
+  //    application must not be made to load whatever happens to sit in the
+  //    directory it was launched from.
   try {
     final executableDir = File(Platform.resolvedExecutable).parent.path;
-    final aotLibPath = '$executableDir/../lib/$libraryName';
-    if (File(aotLibPath).existsSync()) {
-      return ExternalLibrary.open(File(aotLibPath).absolute.path);
-    }
-  } catch (_) {}
-  // coverage:ignore-end
+    paths.add('$executableDir/../lib/$libraryName');
+  } catch (_) {
+    // An embedder without a resolvable executable path must not take the
+    // other candidates down with it.
+  }
 
-  return null;
+  // 3. `flutter test`: flutter_tools installs the hooked library under
+  //    build/native_assets/<os>/ and hands flutter_tester a
+  //    build/unit_test_assets/NativeAssetsManifest.json pointing at it. It
+  //    never creates .dart_tool/lib/, and on macOS and Linux nothing on
+  //    flutter_tester's dlopen search path covers that directory - so without
+  //    this entry a Flutter package's own unit tests cannot load the library
+  //    the hook just provisioned for them. Windows already resolved it:
+  //    flutter_tools prepends the same directory to the tester's PATH, which
+  //    is where Windows looks for a DLL. `build` is flutter_tools'
+  //    default build directory; a project that moved it with
+  //    `flutter config --build-dir` falls through to the FRB loader.
+  paths.add('build/native_assets/${Platform.operatingSystem}/$libraryName');
+
+  return paths;
 }
 
 /// Load library from a file path.

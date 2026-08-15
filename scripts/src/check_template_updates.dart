@@ -370,7 +370,10 @@ void printTemplateUpdateSummary({required TemplateCheckResult result}) {
 
     print('');
     print('  ${Colors.colorize('To update, run:', Colors.cyan)}');
-    print('    copier update --trust --vcs-ref=${result.latestVersion}');
+    print(
+      '    copier update --trust --defaults --skip-tasks '
+      '--vcs-ref=${result.latestVersion}',
+    );
   } else {
     print('  ${Colors.colorize('Already up to date', Colors.green)}');
   }
