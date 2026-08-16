@@ -50,6 +50,56 @@
   `rust/Cargo.toml`, `rust/src/frb_generated.rs` and two Dart scripts.
   `get-version` is now declared in `.PHONY`.
 
+- **Adopted copier template v4.4.0 → v4.5.0** (`.copier-answers.yml`,
+  `.githooks/pre-commit`, `scripts/src/common.dart`,
+  `scripts/src/check_template_updates.dart`, `scripts/src/check_updates.dart`,
+  `test/scripts/common_test.dart`,
+  `.github/workflows/check-template-updates.yml`,
+  `.github/workflows/check-openmls-updates.yml`, `CONTRIBUTING.md`,
+  `CLAUDE.md`, `README.md`, `.claude/skills/update-template/SKILL.md`) — four
+  changes, all of them to how this repository is worked on rather than to what
+  it publishes.
+
+  **The pre-commit hook runs `make rust-check` only when the commit touches
+  `rust/`.** Measured here: the three gates together take about five seconds
+  with warm caches, and `cargo check` is the one that stops being five seconds
+  — 1s warm against 76s from an empty `rust/target`, which `make clean`
+  produces outright and which a toolchain update or a dependency bump produce
+  in effect. Most commits touch no Rust at all, including both commits that
+  carried the previous template adoption. The predicate compares the index
+  against HEAD under `rust/`, falls back to the empty tree on a first commit,
+  fails open when git cannot answer, and announces the skip rather than
+  performing it silently. A staged Rust file still blocks the commit when the
+  crate does not compile, and CI runs `make rust-check` and `make rust-clippy`
+  on every push regardless.
+
+  **The update checkers authenticate to the GitHub API, and say what happened
+  when it refuses.** Both asked for public releases without a token, which is
+  quota rather than access: anonymous requests are counted at 60/hour per
+  source IP, and hosted runners share theirs — one scheduled run died on a bare
+  `403` for that reason. Both now send `GITHUB_TOKEN` (or `GH_TOKEN` locally),
+  the workflows pass the job's own read-only token, and a failure keeps
+  GitHub's own message and the `x-ratelimit-*` headers instead of reporting the
+  status code alone, which could not tell a spent quota from a missing
+  repository. `githubApiGet` and `describeGithubFailure` are shared in
+  `common.dart` and covered by ten new tests.
+
+  **The template update workflow explains a pull request it could not open.**
+  When the App behind `APP_ID` lacks `Workflows: Read & write`, GitHub refuses
+  the commit with `Resource not accessible by integration` on `POST /git/trees`
+  — naming neither the file nor the permission, and only after every blob has
+  been created. A failure-only step now says so, including that `Actions` is a
+  different permission and that a granted permission does nothing until the
+  installation accepts it.
+
+  **Documentation stopped promising a changelog generator that no longer
+  runs.** GitHub Models is in its retirement brownout, so the AI step fails on
+  every run and labels the pull request `changelog-needed`; the setup
+  instructions said otherwise in three places, and the update skill told
+  whoever ran it to expect an entry. `README.md` also still described template
+  updates as notification pull requests, which is what they were before the
+  workflow started applying them.
+
 ## [2.0.1] - 2026-08-03
 
 ### For Users
