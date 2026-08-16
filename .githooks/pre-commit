@@ -84,15 +84,62 @@ run_step() {
     fi
 }
 
+# Whether what is being committed touches the crate at all.
+#
+# The Rust step is the expensive one: `cargo check` costs a second with a warm
+# cache and over a minute without one — `make clean` empties it outright, and so
+# do a toolchain update or a dependency bump — while the other two steps are
+# seconds either way. Most commits here touch no Rust, and for those the wait
+# buys nothing: the check reads the crate, and the crate lives entirely under
+# `rust/` (nothing outside it, and no root-level `rust-toolchain.toml` or
+# `.cargo/config.toml`, feeds into it).
+#
+# What is compared is the index against HEAD — what is about to be committed,
+# not the working tree. Each flag below is load-bearing:
+#
+#   * the base is the empty tree when HEAD does not resolve, which is the very
+#     first commit of a freshly generated project — `git diff --cached HEAD`
+#     fails there rather than reporting everything;
+#   * `-- rust` is a pathspec rather than a grep over the output, so a path
+#     holding spaces or non-ASCII — which git would otherwise print quoted —
+#     still matches;
+#   * `--no-renames` reports a rename as a delete plus an add, so moving a file
+#     *out* of `rust/` still counts as touching it.
+#
+# It fails open: when git cannot answer, the check runs. Skipping is the
+# optimisation, and an optimisation that fires on an error is how a gate quietly
+# stops gating. The skip is also announced rather than silent, for the same
+# reason. CI runs `make rust-check` on every push either way.
+staged_touches_rust() {
+    local base changed
+
+    if git rev-parse --verify --quiet HEAD >/dev/null 2>&1; then
+        base=HEAD
+    elif ! base=$(git hash-object -t tree /dev/null 2>/dev/null); then
+        return 0
+    fi
+
+    if ! changed=$(git diff --cached --name-only --no-renames "$base" -- rust 2>/dev/null); then
+        return 0
+    fi
+
+    [ -n "$changed" ]
+}
+
 echo -e "${YELLOW}Running pre-commit checks...${NC}"
 
 run_step 1 "Checking code formatting" \
     "Run 'make format' to fix formatting issues." \
     make format-check
 
-run_step 2 "Checking Rust code" \
-    "Fix the Rust errors above before committing." \
-    make rust-check
+if staged_touches_rust; then
+    run_step 2 "Checking Rust code" \
+        "Fix the Rust errors above before committing." \
+        make rust-check
+else
+    echo -e "\n${YELLOW}[2/3] Checking Rust code...${NC}"
+    echo -e "${GREEN}Skipped: nothing under rust/ is staged.${NC}"
+fi
 
 run_step 3 "Running static analysis" \
     "Fix the issues above before committing." \

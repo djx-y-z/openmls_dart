@@ -67,6 +67,12 @@ jobs:
         id: check
         env:
           TARGET_VERSION: ${{ inputs.target_version }}
+          # Quota, not access — the template repository is public. An
+          # unauthenticated call is capped at 60/hour counted per *source IP*,
+          # and hosted runners share theirs, so this step can be refused with a
+          # 403 that reads like a permission problem, on a schedule nobody
+          # controls. The job's own read-only token gives it a quota of its own.
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           # Build arguments
           ARGS="--ci-output $GITHUB_OUTPUT"
@@ -264,6 +270,20 @@ jobs:
             ${{ steps.update.outputs.has_conflicts == 'true' && 'conflicts' || '' }}
             ${{ steps.update.outputs.commit_landed != 'true' && 'commit-not-landed' || '' }}
             ${{ steps.update.outputs.changelog_updated != 'true' && 'changelog-needed' || '' }}
+
+      # GitHub refuses to let an App write a file under `.github/workflows/`
+      # unless the App holds the `Workflows` permission, and `create-pull-request`
+      # relays that refusal exactly as GitHub words it: `Resource not accessible
+      # by integration` on `POST /git/trees`, naming neither the file nor the
+      # permission — and only *after* every blob has been created, which is
+      # itself a `Contents: write` call and so reads like anything but a
+      # permission problem. Template updates touch workflows regularly, and the
+      # first one that does is the first time the gap can possibly show, so this
+      # note costs a step and saves the investigation.
+      - name: Explain a failed pull request
+        if: failure() && steps.cpr.outcome == 'failure'
+        run: |
+          echo "::error::Could not open the pull request. If the error above is 'Resource not accessible by integration', the App behind APP_ID is missing 'Workflows: Read and write' — needed whenever an update touches .github/workflows/**. Two traps: 'Actions' is a different permission and does not cover this, and adding the permission does not reach the App's tokens until the installation accepts it (Settings -> Applications -> Installed GitHub Apps -> your app -> Review request)."
 
       # The check this workflow did not have, and the reason it went unnoticed
       # that it had stopped working. `create-pull-request` opens nothing when

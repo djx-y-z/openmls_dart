@@ -58,10 +58,15 @@ For a local update, or when the automation could not finish:
 make update-template ARGS="--version vX.Y.Z"
 ```
 
-This runs copier, reports what it could not merge, checks that `_commit` landed,
-and writes the CHANGELOG entry (the entry needs `AI_MODELS_TOKEN`; without it the
-update still applies). It refuses to start on a dirty tree and names the files —
-copier rejects a dirty destination, **untracked files included**.
+This runs copier, reports what it could not merge, and checks that `_commit`
+landed. It refuses to start on a dirty tree and names the files — copier rejects
+a dirty destination, **untracked files included**.
+
+It also tries to write the CHANGELOG entry, and that part currently always
+fails: it goes through GitHub Models, which is being retired and answers
+`GitHub Models is temporarily unavailable as part of a scheduled retirement
+brownout` no matter what `AI_MODELS_TOKEN` holds. The update applies either way
+— **write the entry by hand** and expect the run to report it as not written.
 
 Or drive copier directly:
 

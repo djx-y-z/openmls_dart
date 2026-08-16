@@ -203,26 +203,12 @@ bool _isPrerelease(String version) {
 
 /// Fetch the latest release from GitHub API.
 Future<Map<String, dynamic>> _fetchLatestRelease() async {
-  final client = HttpClient();
-  try {
-    final url = Uri.parse(
-      'https://api.github.com/repos/$_upstreamRepo/releases/latest',
-    );
-    final request = await client.getUrl(url);
-    request.headers.set('Accept', 'application/vnd.github.v3+json');
-    request.headers.set('User-Agent', 'openmls-update-checker');
-
-    final response = await request.close();
-    final body = await response.transform(utf8.decoder).join();
-
-    if (response.statusCode == 200) {
-      return jsonDecode(body) as Map<String, dynamic>;
-    } else {
-      throw Exception('Failed to fetch latest release: ${response.statusCode}');
-    }
-  } finally {
-    client.close();
-  }
+  final body = await githubApiGet(
+    Uri.parse('https://api.github.com/repos/$_upstreamRepo/releases/latest'),
+    accept: 'application/vnd.github.v3+json',
+    userAgent: 'openmls-update-checker',
+  );
+  return jsonDecode(body) as Map<String, dynamic>;
 }
 
 /// Update upstream version in all relevant files.

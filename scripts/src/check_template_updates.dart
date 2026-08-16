@@ -195,26 +195,12 @@ Future<TemplateCheckResult> checkForTemplateUpdates({
 
 /// Fetch the latest release from GitHub API.
 Future<Map<String, dynamic>> _fetchLatestRelease(String repo) async {
-  final client = HttpClient();
-  try {
-    final url = Uri.parse('https://api.github.com/repos/$repo/releases/latest');
-    final request = await client.getUrl(url);
-    request.headers.set('Accept', 'application/vnd.github.v3+json');
-    request.headers.set('User-Agent', 'copier-template-update-checker');
-
-    final response = await request.close();
-    final body = await response.transform(utf8.decoder).join();
-
-    if (response.statusCode == 200) {
-      return jsonDecode(body) as Map<String, dynamic>;
-    } else {
-      throw Exception(
-        'Failed to fetch latest release from $repo: ${response.statusCode}',
-      );
-    }
-  } finally {
-    client.close();
-  }
+  final body = await githubApiGet(
+    Uri.parse('https://api.github.com/repos/$repo/releases/latest'),
+    accept: 'application/vnd.github.v3+json',
+    userAgent: 'copier-template-update-checker',
+  );
+  return jsonDecode(body) as Map<String, dynamic>;
 }
 
 /// Fetches and parses CHANGELOG.md from the template repo to extract
@@ -229,26 +215,13 @@ Future<String> _fetchChangelogBetweenVersions(
     logStep('Fetching changelog from template repository...');
   }
 
-  final client = HttpClient();
-  try {
-    final url = Uri.parse(
-      'https://api.github.com/repos/$repo/contents/CHANGELOG.md',
-    );
-    final request = await client.getUrl(url);
-    request.headers.set('Accept', 'application/vnd.github.raw+json');
-    request.headers.set('User-Agent', 'copier-template-update-checker');
+  final body = await githubApiGet(
+    Uri.parse('https://api.github.com/repos/$repo/contents/CHANGELOG.md'),
+    accept: 'application/vnd.github.raw+json',
+    userAgent: 'copier-template-update-checker',
+  );
 
-    final response = await request.close();
-    final body = await response.transform(utf8.decoder).join();
-
-    if (response.statusCode != 200) {
-      throw Exception('HTTP ${response.statusCode}');
-    }
-
-    return _extractChangelogEntries(body, fromVersion, toVersion);
-  } finally {
-    client.close();
-  }
+  return _extractChangelogEntries(body, fromVersion, toVersion);
 }
 
 /// Extracts changelog entries between two versions from CHANGELOG.md content.

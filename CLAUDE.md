@@ -234,6 +234,13 @@ make update-changelog ARGS="--version v1.0.0"  # Generate AI changelog entry
 
 ### AI-Powered Changelog
 
+> **Currently non-functional.** GitHub Models is being retired and answers
+> `GitHub Models is temporarily unavailable as part of a scheduled retirement
+> brownout`, so this command fails no matter what token it is given. The
+> workflows that call it degrade as designed — they still open the pull request
+> and label it `changelog-needed` — and the entry is written by hand until a
+> replacement provider is wired into `scripts/src/update_changelog.dart`.
+
 The `update-changelog` command uses GitHub Models API to analyze release notes and generate changelog entries. Requires `AI_MODELS_TOKEN` environment variable:
 
 ```bash

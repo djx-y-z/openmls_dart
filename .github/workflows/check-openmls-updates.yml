@@ -57,6 +57,12 @@ jobs:
         env:
           TARGET_VERSION: ${{ inputs.target_version }}
           FORCE_UPDATE: ${{ inputs.force_update }}
+          # Quota, not access — openmls/openmls is public. An unauthenticated
+          # call is capped at 60/hour counted per *source IP*, and hosted
+          # runners share theirs, so this step can be refused with a 403 that
+          # reads like a permission problem, on a schedule nobody controls. The
+          # job's own read-only token gives it a quota of its own.
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           # Build arguments
           ARGS="--ci"
@@ -124,6 +130,8 @@ jobs:
         env:
           TARGET_VERSION: ${{ inputs.target_version }}
           FORCE_UPDATE: ${{ inputs.force_update }}
+          # Same call as the check step, same reason — see the note there.
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           # Build arguments for update
           ARGS="--update --ci"
