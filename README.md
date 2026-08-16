@@ -313,9 +313,13 @@ The CI automatically checks for new openmls releases daily and creates PRs with:
 - Updated `pubspec.yaml` and version badges
 - Updated `Cargo.lock` (if successful)
 - Regenerated FRB bindings (if successful)
-- AI-generated CHANGELOG entry (if `AI_MODELS_TOKEN` secret is configured)
+- AI-generated CHANGELOG entry (currently always skipped — GitHub Models is
+  being retired; see CONTRIBUTING)
 
-It also checks for copier template updates daily and creates notification PRs with changelog and update instructions.
+It also checks for copier template updates daily. When one is found it applies
+it with `copier update` and opens a pull request carrying the result — a draft
+when copier could not merge something, or when the update failed to record the
+new version in `.copier-answers.yml`.
 
 
 ## Architecture

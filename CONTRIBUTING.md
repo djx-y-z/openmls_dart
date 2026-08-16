@@ -404,6 +404,14 @@ make test
 
 ### Setting up AI Changelog
 
+> **Currently non-functional.** GitHub Models is being retired and answers
+> `GitHub Models is temporarily unavailable as part of a scheduled retirement
+> brownout`, so the changelog step fails whatever token it is given. The update
+> workflows degrade as designed — the pull request is still opened and labelled
+> `changelog-needed` — and the entry is written by hand until a replacement
+> provider is wired into `scripts/src/update_changelog.dart`. There is nothing
+> to set up below until then.
+
 To enable AI-powered changelog generation in CI:
 
 1. Create a Personal Access Token at https://github.com/settings/tokens

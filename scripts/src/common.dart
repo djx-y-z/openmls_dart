@@ -2,6 +2,7 @@
 // ignore_for_file: avoid_classes_with_only_static_members
 library;
 
+import 'dart:convert';
 import 'dart:io';
 
 // =============================================================================
@@ -424,4 +425,174 @@ Future<void> gitClone({
   args.addAll([url, targetDir]);
 
   await runCommandOrFail('git', args);
+}
+
+// =============================================================================
+// GitHub API
+// =============================================================================
+
+/// The token to authenticate GitHub API calls with, or `null` when none is set.
+///
+/// `GITHUB_TOKEN` is what a workflow exports; `GH_TOKEN` is what the
+/// [`gh`](https://cli.github.com) CLI uses, so running the same script locally
+/// picks up an existing login instead of needing its own setup.
+String? githubToken() {
+  for (final name in const ['GITHUB_TOKEN', 'GH_TOKEN']) {
+    final value = Platform.environment[name];
+    if (value != null && value.isNotEmpty) return value;
+  }
+  return null;
+}
+
+/// Thrown by [githubApiGet] for any response other than 200.
+///
+/// [toString] is the message alone, so what reaches the terminal is the
+/// diagnosis rather than `Exception: ` in front of it.
+class GithubApiException implements Exception {
+  GithubApiException(this.message);
+
+  /// The full, already formatted explanation — see [describeGithubFailure].
+  final String message;
+
+  @override
+  String toString() => message;
+}
+
+/// `GET`s [url] from the GitHub API, authenticating whenever a token is
+/// available, and returns the response body.
+///
+/// The token is about quota, not access: every repository these scripts read is
+/// public. Unauthenticated requests are counted per **source IP** at 60/hour,
+/// and GitHub-hosted runners share their egress addresses with every other job
+/// on them — so a daily check that asks for nothing but a public release can be
+/// refused with a 403 that reads exactly like a permission problem, on a
+/// schedule nobody can predict. Reading public data needs no permission beyond
+/// the default, so a job's own `GITHUB_TOKEN` is enough even when the
+/// repository being read is not the one the job runs in.
+///
+/// Throws [GithubApiException] on any non-200 response.
+Future<String> githubApiGet(
+  Uri url, {
+  required String accept,
+  required String userAgent,
+}) async {
+  final client = HttpClient();
+  try {
+    final request = await client.getUrl(url);
+    request.headers.set('Accept', accept);
+    request.headers.set('User-Agent', userAgent);
+
+    final token = githubToken();
+    if (token != null) {
+      request.headers.set('Authorization', 'Bearer $token');
+    }
+
+    final response = await request.close();
+    final body = await response.transform(utf8.decoder).join();
+
+    if (response.statusCode == 200) return body;
+
+    throw GithubApiException(
+      describeGithubFailure(
+        url: url,
+        statusCode: response.statusCode,
+        body: body,
+        authenticated: token != null,
+        rateLimitRemaining: _firstHeader(
+          response.headers,
+          'x-ratelimit-remaining',
+        ),
+        rateLimitReset: _firstHeader(response.headers, 'x-ratelimit-reset'),
+      ),
+    );
+  } finally {
+    client.close();
+  }
+}
+
+/// The first value of header [name], or `null` when it is absent.
+///
+/// Not `HttpHeaders.value`, which *throws* when a header arrives more than
+/// once. This runs while already reporting a failure, and a second exception
+/// raised there would replace the diagnosis with noise about the diagnosis.
+String? _firstHeader(HttpHeaders headers, String name) {
+  final values = headers[name];
+  return values == null || values.isEmpty ? null : values.first;
+}
+
+/// Builds the message for a failed GitHub API call.
+///
+/// Pure, and public because it carries the whole diagnosis. A bare status code
+/// cannot tell "the quota for this runner's IP is spent" apart from "that
+/// repository does not exist", and those call for opposite responses — one is
+/// waited out, the other is a typo in a variable. GitHub states the reason in
+/// the response body and the quota in `x-ratelimit-*`; both are kept here
+/// instead of being discarded with the response.
+String describeGithubFailure({
+  required Uri url,
+  required int statusCode,
+  required String body,
+  required bool authenticated,
+  String? rateLimitRemaining,
+  String? rateLimitReset,
+}) {
+  final lines = <String>[
+    'GitHub API request failed with HTTP $statusCode',
+    '  GET $url',
+  ];
+
+  final message = _githubErrorMessage(body);
+  if (message != null) {
+    lines.add('  $message');
+  }
+
+  if (rateLimitRemaining == '0') {
+    final reset = _formatEpochSeconds(rateLimitReset);
+    final until = reset == null ? '' : ' until $reset';
+    lines.add('  Rate limit exhausted$until.');
+  }
+
+  if (!authenticated) {
+    lines.add(
+      '  The request was unauthenticated: 60/hour, counted per source IP and '
+      'shared with every other job on the same runner. Set GITHUB_TOKEN to use '
+      'your own quota.',
+    );
+  }
+
+  return lines.join('\n');
+}
+
+/// The `message` field GitHub puts in an error body, or a snippet of the body
+/// when it is not the JSON object the API documents.
+String? _githubErrorMessage(String body) {
+  final trimmed = body.trim();
+  if (trimmed.isEmpty) return null;
+
+  try {
+    final decoded = jsonDecode(trimmed);
+    if (decoded is Map<String, dynamic>) {
+      final message = decoded['message'];
+      if (message is String && message.isNotEmpty) return message;
+    }
+  } on FormatException {
+    // Not JSON at all — an HTML error page from something in front of the API,
+    // most likely. A snippet of it still beats reporting nothing.
+  }
+
+  // Cut on code points rather than UTF-16 units, so a body that is not the
+  // documented JSON — an HTML page, most likely — cannot end the message on
+  // half a character.
+  if (trimmed.runes.length <= 200) return trimmed;
+  return '${String.fromCharCodes(trimmed.runes.take(200))}…';
+}
+
+/// Renders an `x-ratelimit-reset` header (Unix seconds) as a UTC timestamp.
+String? _formatEpochSeconds(String? value) {
+  final seconds = int.tryParse(value ?? '');
+  if (seconds == null) return null;
+  return DateTime.fromMillisecondsSinceEpoch(
+    seconds * 1000,
+    isUtc: true,
+  ).toIso8601String();
 }
