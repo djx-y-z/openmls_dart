@@ -4,6 +4,49 @@
 
 #### Fixed
 
+- **`RustLib.init()` threw for anyone who resolved this package after
+  2026-08-23** (`pubspec.yaml`) — `flutter_rust_bridge` was declared as
+  `^2.12.0`, while the committed `lib/src/rust/frb_generated.dart` records
+  `codegenVersion => '2.12.0'` and the runtime compares that string to its own
+  with `==`. flutter_rust_bridge 2.13.0 was published on 2026-08-23 and landed
+  inside the caret, so every fresh resolution from that day on — this
+  repository's CI and every consumer of the published package alike — failed
+  initialisation with `codegen version (2.12.0) should be the same as runtime
+  version (2.13.0)`. `pubspec.lock` is deliberately not committed for a
+  library, so nothing held the version still, and the shipped archive carries
+  both halves of the contradiction: the caret in its pubspec and the generated
+  file that fixes the other side. The two pins that were already exact,
+  `="2.12.0"` in `rust/Cargo.toml` and `FRB_CODEGEN_VERSION` in the `Makefile`,
+  were never the ones at risk.
+
+  The constraint now admits exactly one version, written `>=2.12.0 <2.12.1`.
+  Nothing wider is safe: the check is string equality, so every version a range
+  admits except the one that generated the bindings fails, and `>=2.12.0
+  <2.13.0` would only narrow the window — flutter_rust_bridge ships patch
+  releases, and a 2.12.1 would break it identically. One version is also what
+  upstream documents — *"all flutter_rust_bridge-related packages will need to
+  have exactly the same version"* — and what its own `integrate` step writes
+  with `dart pub add`.
+
+  The range form, rather than the bare `2.12.0`, is forced by the release path
+  and not by taste. `dart pub publish` warns that a single-version constraint
+  "should allow more than one version", and it exits 65 on any warning, so
+  `make publish-dry-run` — which both `make release` and `publish.yml` gate on
+  — fails, and the package cannot be published at all. `>=2.12.0 <2.12.1`
+  resolves to the same single version and does not trip that check. Measured
+  rather than assumed: four constraint shapes were run through
+  `dart pub publish --dry-run`, and only the bare version produced the warning.
+
+  One consequence for consumers, and it is the intended one. Anyone who also
+  depends on another flutter_rust_bridge wrapper built against a different
+  version now gets a version-solving failure out of `pub get`, instead of a
+  successful resolve followed by a throw at `init()`. The incompatibility was
+  always there — two sets of generated bindings cannot both equal one runtime
+  version — so what changes is only that it surfaces where it can be acted on.
+
+  Nothing else moves. `rustContentHash` is unchanged, so the published native
+  binary still matches and no rebuild or regeneration is needed.
+
 - **The native library was not found under `flutter test`**
   (`lib/src/platform/platform_io.dart`, `lib/src/openmls.dart`,
   `test/platform/native_asset_search_paths_test.dart`) — the build
@@ -29,6 +72,16 @@
 ### For Contributors
 
 #### Changed
+
+- **`make codegen` now uses the pinned generator** (`Makefile`) —
+  `FRB_CODEGEN_VERSION` pins the binary that `make setup-frb-codegen` installs,
+  but `codegen` did not depend on that target and ran whatever
+  `flutter_rust_bridge_codegen` happened to be on `PATH`. Regenerating with a
+  different version rewrites the bindings and the `codegenVersion` they carry
+  — the same drift the three pins exist to prevent, arriving through the one
+  door they did not cover. Where CI already ran the two in sequence nothing
+  changes: the prerequisite only reads `--version` when the pinned binary is
+  already installed.
 
 - **Adopted copier template v4.3.0 → v4.4.0** (`.copier-answers.yml`,
   `Makefile`, `hook/build.dart`, `scripts/src/check_template_updates.dart`,

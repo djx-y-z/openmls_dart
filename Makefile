@@ -212,7 +212,7 @@ setup-repo-protections:
 # Code Generation
 # =============================================================================
 
-codegen:
+codegen: setup-frb-codegen
 	@touch .skip_openmls_hook
 	@flutter_rust_bridge_codegen generate $(ARGS); ret=$$?; rm -f .skip_openmls_hook; exit $$ret
 

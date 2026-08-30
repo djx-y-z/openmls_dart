@@ -11,7 +11,7 @@ environment:
   sdk: ^3.10.0
 
 dependencies:
-  flutter_rust_bridge: ^2.12.0
+  flutter_rust_bridge: ">=2.12.0 <2.12.1"
   # SHA256 verification for native library downloads
   crypto: ^3.0.7
   # Build hooks for automatic native library download
