@@ -223,6 +223,10 @@
   compiler; and the repair and review agents, both inert until `AGENT_ENGINE`
   names one.
 
+- **Dependabot's `pub` and `cargo` groups no longer bundle majors with everything else** (`.github/dependabot.yml`) — the first `cargo` run after the ecosystem was added produced one pull request with six updates, four of them majors. `rand` 0.9 → 0.10 alone failed to compile against seven files in `rust/src/` (`unresolved imports rand::TryRngCore, rand::rngs::OsRng`), and `hkdf`, `sha2` and `aes-gcm-siv` are a coordinated RustCrypto major that has to be judged against what upstream itself resolves to. Grouping them with `log` 0.4.33 → 0.4.34 and `uuid` 1.24 → 1.26 meant one breaking crate held two harmless patches hostage, and the whole pull request could only be closed.
+
+  Both groups now take `minor` and `patch` only. Majors still arrive — one pull request each, where a migration can be reviewed as a migration. The `ignore` entries are unchanged and did their job on that first run: `flutter_rust_bridge` and the pinned upstream crates were untouched.
+
 ## [2.0.1] - 2026-08-03
 
 ### For Users

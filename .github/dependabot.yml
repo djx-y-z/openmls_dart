@@ -50,9 +50,18 @@ updates:
     commit-message:
       prefix: "chore(deps)"
     groups:
+      # Minor and patch only. A major is a migration, not a bump, and grouping
+      # one with everything else means it blocks the rest: the first `cargo`
+      # run produced six updates of which four were majors, and `rand` 0.9 -> 0.10
+      # alone failed to compile against seven files — taking two harmless
+      # patches down with it. Majors still arrive, one pull request each, where
+      # they can be judged on their own.
       pub:
         patterns:
           - "*"
+        update-types:
+          - "minor"
+          - "patch"
     ignore:
       # Not a one-file bump, so a pull request that edits one file is wrong by
       # construction. The version has to move in four places at once — this
@@ -85,9 +94,18 @@ updates:
     commit-message:
       prefix: "chore(deps)"
     groups:
+      # Minor and patch only. A major is a migration, not a bump, and grouping
+      # one with everything else means it blocks the rest: the first `cargo`
+      # run produced six updates of which four were majors, and `rand` 0.9 -> 0.10
+      # alone failed to compile against seven files — taking two harmless
+      # patches down with it. Majors still arrive, one pull request each, where
+      # they can be judged on their own.
       cargo:
         patterns:
           - "*"
+        update-types:
+          - "minor"
+          - "patch"
     ignore:
       # Same coordinated bump as the pub entry above — see the note there.
       - dependency-name: "flutter_rust_bridge"
