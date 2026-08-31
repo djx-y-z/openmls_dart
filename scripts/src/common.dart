@@ -488,7 +488,15 @@ Future<String> githubApiGet(
     }
 
     final response = await request.close();
-    final body = await response.transform(utf8.decoder).join();
+    // `allowMalformed`, because this runs *before* the status code is looked
+    // at. The strict decoder turns a non-UTF-8 error page — which is what
+    // something in front of the API returns, not the API itself — into a
+    // `FormatException: Invalid UTF-8 byte` carrying neither the status nor the
+    // URL: strictly less than the bare status code this function replaced, and
+    // not the type its own contract below promises.
+    final body = await response
+        .transform(const Utf8Decoder(allowMalformed: true))
+        .join();
 
     if (response.statusCode == 200) return body;
 
@@ -587,10 +595,25 @@ String? _githubErrorMessage(String body) {
   return '${String.fromCharCodes(trimmed.runes.take(200))}…';
 }
 
-/// Renders an `x-ratelimit-reset` header (Unix seconds) as a UTC timestamp.
+/// Renders an `x-ratelimit-reset` header (Unix seconds) as a UTC timestamp, or
+/// `null` when the header does not hold one.
+///
+/// Both guards are load-bearing, and both only matter for a response GitHub did
+/// not write — a proxy error page, an intermediary, GHES — which is exactly
+/// when the message is worth having. `radix: 10` because `int.tryParse`
+/// otherwise reads `0x10` as 16. The range check because it accepts anything up
+/// to 2^63 while `seconds * 1000` wraps silently, after which
+/// `DateTime.fromMillisecondsSinceEpoch` throws — and a throw here replaces the
+/// diagnosis with noise about the diagnosis, the same failure [_firstHeader]
+/// avoids by not using `HttpHeaders.value`.
 String? _formatEpochSeconds(String? value) {
-  final seconds = int.tryParse(value ?? '');
+  final seconds = int.tryParse(value ?? '', radix: 10);
   if (seconds == null) return null;
+
+  // The widest instant `DateTime` accepts, in seconds.
+  const maxSeconds = 8640000000000000 ~/ 1000;
+  if (seconds < -maxSeconds || seconds > maxSeconds) return null;
+
   return DateTime.fromMillisecondsSinceEpoch(
     seconds * 1000,
     isUtc: true,

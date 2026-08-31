@@ -305,7 +305,7 @@ make check-targets
 # Update Cargo.lock dependencies
 make rust-update
 
-# Generate AI-powered changelog entry (requires AI_MODELS_TOKEN)
+# Generate AI-powered changelog entry (needs AI_MODELS + a provider key)
 make update-changelog ARGS="--version v1.0.0"
 ```
 
@@ -313,8 +313,8 @@ The CI automatically checks for new openmls releases daily and creates PRs with:
 - Updated `pubspec.yaml` and version badges
 - Updated `Cargo.lock` (if successful)
 - Regenerated FRB bindings (if successful)
-- AI-generated CHANGELOG entry (currently always skipped — GitHub Models is
-  being retired; see CONTRIBUTING)
+- AI-generated CHANGELOG entry, when `AI_MODELS` names a model with a key
+  (see CONTRIBUTING); otherwise the pull request is labelled `changelog-needed`
 
 It also checks for copier template updates daily. When one is found it applies
 it with `copier update` and opens a pull request carrying the result — a draft

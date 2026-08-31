@@ -146,12 +146,82 @@
   installation accepts it.
 
   **Documentation stopped promising a changelog generator that no longer
-  runs.** GitHub Models is in its retirement brownout, so the AI step fails on
-  every run and labels the pull request `changelog-needed`; the setup
+  ran.** GitHub Models was in its retirement brownout, so the AI step failed on
+  every run and labelled the pull request `changelog-needed`; the setup
   instructions said otherwise in three places, and the update skill told
   whoever ran it to expect an entry. `README.md` also still described template
   updates as notification pull requests, which is what they were before the
-  workflow started applying them.
+  workflow started applying them. The v4.6.0 adoption below replaces the
+  provider outright, so these notices are gone again in the same release.
+
+- **Adopted copier template v4.5.0 → v4.6.0** (`.copier-answers.yml`, and the
+  files listed below) — five changes arrive with it.
+
+  **The AI changelog works again, against a provider this repository names.**
+  GitHub Models was retired on 2026-07-30 and the step had failed on every run
+  since. `AI_MODELS` now holds an ordered `provider/model` list and the first
+  entry that has a key and answers wins, so the next provider change is a
+  repository-variable edit rather than a template release. Anthropic, Google and
+  OpenRouter are each called through their own API over `dart:io` rather than a
+  `curl` subprocess, because the HTTP status decides whether the next entry is
+  tried and a subprocess would put the key in process arguments. The next entry
+  is tried only when a model produced **no** answer — network failure, an
+  auth/rate-limit/server status, a refusal, or a response cut off at the token
+  limit — never on the content of an answer, and nothing is salvaged from a
+  partial one: a missing field leaves the entry unwritten and the pull request
+  labelled `changelog-needed`, which is the path that already existed.
+
+  **This repository is not configured by the adoption itself.** There is no
+  default list, deliberately: with `AI_MODELS` unset nothing is called, which is
+  also how a project says "no AI here". Until the variable and a provider key
+  are set, update pull requests keep arriving with `changelog-needed` exactly as
+  they do today. `AI_MODELS_TOKEN` is now read nowhere and can be deleted.
+
+  **What the entry is judged against is now written down**
+  (`.github/agent-prompts/changelog-scope.md`) — which crates this package
+  binds, what `MlsEngine` actually exposes, and which upstream areas it never
+  touches, including that this package implements its own storage rather than
+  using `openmls_memory_storage`. The prompt classifies every upstream change
+  against that list, and an upstream change that cannot be tied to something
+  named there is invisible to this package's users. The file is written once and
+  never overwritten by a template update, so it is this repository's to keep
+  current.
+
+  **The test suite no longer skips `update-openmls-*` pull requests**
+  (`.github/workflows/test.yml`) — the bump whose entire payload is new native
+  code was the only pull request merged without the suite, clippy, `rust-test`,
+  `cargo-deny`, the MSRV check or `verify-third-party-notices` running against
+  it on any platform. `make build` runs before `make test` in the reusable
+  workflow and the build hook then finds `rust/target/release` without
+  downloading, which is what justified the skip and now removes the need for it.
+  **This has an immediate consequence:** PR #15 (openmls 0.9.0) will start
+  running the suite and will fail — `HpkeKemType::XWingKemDraft6` and the
+  `MLS_256_XWING_CHACHA20POLY1305_SHA256_Ed25519` ciphersuite no longer exist
+  upstream. That failure is real and was previously invisible.
+
+  **`make verify-frb-pins`, and Dependabot on `pub` and `cargo`**
+  (`Makefile`, `scripts/verify_frb_pins.dart`, `.github/dependabot.yml`) — five
+  files record the flutter_rust_bridge version and two of them are compared with
+  `==` at runtime, so the new gate reads all five and rejects both a caret and
+  the unpublishable bare form, with the reason. It reads every occurrence rather
+  than the first, because the first is not always the one that counts: a
+  `dependency_overrides` entry replaces the dependency outright, a second pin in
+  a `[target.'cfg(…)']` section resolves per target, and make takes a later `=`
+  over an earlier `?=`. It runs beside `verify-third-party-notices` on the Linux
+  leg; five file reads, no build.
+  Dependabot now watches the published constraints and the native crate's
+  dependencies, ignoring `flutter_rust_bridge` in both because its version has
+  to move in four places at once and a one-file pull request is wrong by
+  construction. The upstream crates are ignored under `cargo` for a different reason: Dependabot's cargo updater does follow git refs, so without that it would open its own pull request for the same bump the update workflow exists to make — without codegen, the bindings tripwire, the CHANGELOG entry or the version badge.
+
+  Also in this adoption: `lints` capped to one minor line because
+  `make analyze ARGS="--fatal-infos"` turns any new info-level lint into a build
+  failure and `pubspec.lock` is not committed (precautionary — 6.1.0 was
+  measured against this repository with nothing to report); `ffigen`'s floor
+  raised to `^20.1.1`; protoc added to the template-update workflow's gates
+  upstream, which this repository does not render since it needs no protobuf
+  compiler; and the repair and review agents, both inert until `AGENT_ENGINE`
+  names one.
 
 ## [2.0.1] - 2026-08-03
 

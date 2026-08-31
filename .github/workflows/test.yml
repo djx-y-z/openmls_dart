@@ -9,7 +9,10 @@
 # The path filters carry THIRD_PARTY_NOTICES.txt and .gitattributes because
 # `make verify-third-party-notices` runs here: the notices file is the artefact
 # being checked, and .gitattributes decides which bytes a checkout materialises
-# for it. Without them the one commit that can break — or fix — that check is
+# for it. .copier-answers.yml is there for the same reason one gate later —
+# `make verify-frb-pins` reads `frb_version` from it, and a commit that edits
+# only that file is exactly the commit that can put the pins out of step.
+# Without them the one commit that can break — or fix — that check is
 # also the one commit that does not run it, so a stale inventory reaches main
 # unverified and only surfaces in the release preflight of both stages.
 #
@@ -43,6 +46,7 @@ on:
       - 'pubspec.yaml'
       - 'THIRD_PARTY_NOTICES.txt'
       - '.gitattributes'
+      - '.copier-answers.yml'
       - '.github/**'
   pull_request:
     paths:
@@ -55,6 +59,7 @@ on:
       - 'pubspec.yaml'
       - 'THIRD_PARTY_NOTICES.txt'
       - '.gitattributes'
+      - '.copier-answers.yml'
       - '.github/**'
   workflow_run:
     workflows: ["Build openmls FRB Libraries"]
@@ -69,20 +74,23 @@ permissions:
 
 jobs:
   test:
-    # Skip tests for:
-    # - Failed workflow_run triggers
-    # - openmls update PRs, which move native_version ahead of the binaries
+    # Only a failed workflow_run trigger is skipped.
     #
-    # The second condition used to skip every PR opened by a bot, which also
-    # silenced Dependabot's action bumps and the template update PRs — precisely
-    # the PRs that change CI and so most need to be exercised before merge.
-    # Matching the branch prefix instead narrows the skip to the PRs
-    # check-openmls-updates.yml opens for itself (`update-openmls-<version>`).
-    # head_ref is empty outside pull_request, so push, workflow_dispatch and
-    # workflow_run runs are unaffected.
-    if: |
-      (github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success') &&
-      !startsWith(github.head_ref, 'update-openmls-')
+    # `update-openmls-*` branches used to be skipped as well, on the grounds
+    # that they move the openmls version ahead of the published
+    # `openmls_frb` binary. That was the more dangerous half of the trade: the
+    # dependency bump — the one pull request whose entire payload is new native
+    # code — became the only one merged without the suite ever running against
+    # it on any platform.
+    #
+    # What closes it is already in the reusable workflow: `make build` runs
+    # before `make test`, and the build hook checks `rust/target/release` first,
+    # returning without downloading anything when a local build is there
+    # (`hook/build.dart`). `.dart_tool` is cached nowhere, so on a fresh runner
+    # the first hook run happens during `make test`, after that build — which is
+    # exactly the procedure that used to be carried out by hand before merging
+    # one of these pull requests.
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     uses: ./.github/workflows/test-reusable.yml
     with:
       run-coverage: true

@@ -357,7 +357,8 @@ All development tasks should be done via Makefile:
 | `make update-template` | Apply a copier template update (needs `copier` on PATH) |
 | `make check-targets` | Check deployment target consistency (iOS/macOS/Android) |
 | `make rust-update` | Update rust/Cargo.lock |
-| `make update-changelog` | Update CHANGELOG.md with AI (requires AI_MODELS_TOKEN) |
+| `make update-changelog` | Update CHANGELOG.md with AI (requires `AI_MODELS` + a key) |
+| `make verify-frb-pins` | Verify every file names the same flutter_rust_bridge version |
 
 ### Regenerating FRB Bindings
 
@@ -395,8 +396,9 @@ make rust-update
 # 4. Regenerate bindings (if API changed)
 make codegen
 
-# 5. Update CHANGELOG (requires AI_MODELS_TOKEN)
-AI_MODELS_TOKEN=xxx make update-changelog ARGS="--version vX.Y.Z"
+# 5. Update CHANGELOG with AI (see "Setting up AI Changelog" below)
+AI_MODELS=anthropic/claude-opus-5 ANTHROPIC_API_KEY=xxx \
+  make update-changelog ARGS="--version vX.Y.Z"
 
 # 6. Test
 make test
@@ -404,19 +406,38 @@ make test
 
 ### Setting up AI Changelog
 
-> **Currently non-functional.** GitHub Models is being retired and answers
-> `GitHub Models is temporarily unavailable as part of a scheduled retirement
-> brownout`, so the changelog step fails whatever token it is given. The update
-> workflows degrade as designed — the pull request is still opened and labelled
-> `changelog-needed` — and the entry is written by hand until a replacement
-> provider is wired into `scripts/src/update_changelog.dart`. There is nothing
-> to set up below until then.
+Which model writes the entry is configuration, not code: `AI_MODELS` holds an
+ordered, comma-separated list of `provider/model` entries and the first one that
+has a key and answers wins. **There is no default** — unset means no model is
+called and the entry is simply not written, which is also how a project says
+"no AI here".
 
-To enable AI-powered changelog generation in CI:
+To enable it in CI:
 
-1. Create a Personal Access Token at https://github.com/settings/tokens
-2. Required permission: **Models -> Read only**
-3. Add as repository secret: Settings -> Secrets and variables -> Actions -> `AI_MODELS_TOKEN`
+1. Get a key from the provider you want:
+   [Anthropic](https://console.anthropic.com/settings/keys),
+   [Google AI Studio](https://aistudio.google.com/apikey) or
+   [OpenRouter](https://openrouter.ai/keys).
+2. Add it as a repository **secret** (Settings → Secrets and variables →
+   Actions): `ANTHROPIC_API_KEY`, `GEMINI_API_KEY` or `OPENROUTER_API_KEY`.
+3. Add a repository **variable** `AI_MODELS` naming the models to try, in
+   order — e.g. `anthropic/claude-opus-5,google/gemini-3.5-flash-lite`.
+   An entry whose key is unset is skipped; a malformed one is warned about.
+4. Optionally add the variable `AI_EFFORT` (`low` | `medium` | `high` | `xhigh`
+   | `max`, default `medium`) to say how hard the model should think.
+
+The next entry is tried only when a model produced **no** answer — a network
+failure, an auth/rate-limit/server status, a refusal, or a response cut off at
+the token limit — never because an answer read poorly, which would make the
+CHANGELOG silently inconsistent. If nothing answers, the entry is left unwritten
+and the pull request is labelled `changelog-needed`.
+
+What the entry is classified against lives in
+`.github/agent-prompts/changelog-scope.md` — this project's own statement of
+what it binds and exposes. It is generated once and never overwritten by a
+template update, so keep it current: an upstream change that cannot be tied to
+something named there is invisible to your users, and an out-of-date list is how
+somebody else's release notes end up described as your features.
 
 ### Setting up Coverage Badge
 
@@ -431,6 +452,63 @@ The CI automatically measures test coverage and can update a badge in your READM
 4. Add as repository secret: Settings → Secrets and variables → Actions → New repository secret → `GIST_TOKEN`
 5. Add as repository variable: Settings → Secrets and variables → Actions → Variables → New repository variable → `COVERAGE_GIST_ID` (value: the Gist ID from step 2)
 6. Update `README.md`: uncomment the coverage badge line and replace `COVERAGE_GIST_ID` with your actual Gist ID
+
+### Setting up the GitHub App
+
+Several workflows open pull requests, file issues or push signed commits. None
+of them uses the default `GITHUB_TOKEN` for that: a pull request opened with it
+does not trigger workflows, which would leave the four-platform matrix — the
+only oracle those pull requests have — silently absent.
+
+1. Create a GitHub App (Settings → Developer settings → GitHub Apps) and install
+   it on this repository
+2. Repository permissions it needs: **Contents → Read and write**,
+   **Pull requests → Read and write**, **Issues → Read and write**,
+   **Workflows → Read and write** (the last one only if the automation may ever
+   touch `.github/workflows/`, which template updates do)
+3. Generate a private key and add it as a repository secret:
+   Settings → Secrets and variables → Actions → New repository secret →
+   `APP_PRIVATE_KEY`
+4. Add the App's **Client ID** as a repository variable → `APP_CLIENT_ID`.
+   This is the `Iv23li…` string on the App's page, **not** the numeric App ID
+   shown beside it; `create-github-app-token` fails the mint if given the wrong
+   one, and that failure takes out the only credential these workflows can write
+   with.
+
+### Setting up the repair and review agents
+
+Two workflows run an agent: `repair-build.yml` attempts a fix when `main` goes
+red and reports when it cannot, and `ai-review.yml` reviews pull requests and
+leaves one comment. Both are **off entirely** until an engine is named — an
+unset `AGENT_ENGINE` produces a notice and no run, which is what an
+unconfigured repository is supposed to look like.
+
+1. Choose the engine: variable `AGENT_ENGINE` = `claude-code` or `opencode`
+2. Name the model — there is deliberately no default:
+   - `claude-code` → variable `AGENT_CLAUDECODE_MODEL`, secret
+     `ANTHROPIC_API_KEY`
+   - `opencode` → variable `AGENT_OPENCODE_MODEL` in `provider/model` form
+     (an aggregator's model half carries its own slash, e.g.
+     `openrouter/openai/gpt-5.6-luna`), and the provider's own key as a secret.
+     Which variable that key is read from is `AGENT_OPENCODE_PROVIDER_ENV`,
+     default `OPENROUTER_API_KEY`; `AGENT_OPENCODE_API_KEY` overrides it.
+3. Optional: `REVIEW_AGENT_ENGINE`, `REVIEW_AGENT_CLAUDECODE_MODEL` and
+   `REVIEW_AGENT_OPENCODE_MODEL` run the reviewer on a different model from the
+   repair agent — worth having, since a reviewer drawn from the same family as
+   the writer shares its blind spots. Each falls back to the `AGENT_*` setting.
+4. Optional: `REVIEW_ALLOWED_BOTS`, a comma-separated list including your App's
+   slug. Only the `claude-code` engine reads it, and without it that engine
+   refuses to review pull requests opened by a bot — which is most of them here.
+
+Both agents hold no write credential: the job that runs the agent cannot reach
+the repository, and the job that publishes runs no agent. Read the header of
+either workflow before changing that split.
+
+The reviewer **gates nothing** and has no verdict meaning "approved". Before
+wiring it to anything that blocks a merge, measure its false-positive rate by
+replaying merged pull requests through it — published measurements put roughly
+four in five findings of this kind in the false-positive bin, and three runs
+over one unchanged diff here produced three different lists.
 
 ### Setting up pub.dev Publishing
 
@@ -499,6 +577,25 @@ inventory omits is this repository's own crate, which is excluded on purpose.
 Note that cargo-about resolves build-dependencies for the host exactly as a
 per-target `cargo tree` does, so it validates the *contents*, not the
 reproducibility.
+
+## The flutter_rust_bridge pin
+
+Five files record it, and two of them are compared with `==` at runtime:
+`frb_generated.dart` carries the version of the generator that produced it, and
+`RustLib.init()` throws unless the runtime package's version is the same string.
+So the constraint in `pubspec.yaml` is one version written as a range,
+`>=X.Y.Z <X.Y.Z+1` — a caret admits versions that assert rejects, and a bare
+`X.Y.Z` admits only the right one but makes the package unpublishable, because
+`dart pub publish` warns that a single-version constraint "should allow more
+than one version" and exits 65 on any warning.
+
+`make verify-frb-pins` checks all five agree and that the constraint is written
+in that form. It runs in CI on the Linux leg and costs five file reads — no
+build, no network. Moving the version means moving `frb_version` in
+`.copier-answers.yml`, then `make setup-frb-codegen` and `make codegen` so the
+installed generator and the committed bindings match; a pull request that edits
+one of the five is wrong by construction, which is why Dependabot is told to
+leave `flutter_rust_bridge` alone.
 
 ## Releasing (two stages)
 

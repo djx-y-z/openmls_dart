@@ -8,7 +8,7 @@
 # On Windows CI (Git Bash), use cmd to run fvm.bat from PATH:
 # Example: make build ARGS="--target x86_64-pc-windows-msvc" FVM="cmd //c fvm"
 
-.PHONY: help setup setup-fvm setup-rust-tools setup-frb-codegen setup-android setup-web setup-fuzz codegen regen build build-android build-web test coverage analyze format format-check get clean version get-version check-new-openmls-version check-exists-openmls-frb-release check-template-updates update-template check-targets third-party-notices verify-third-party-notices rust-audit rust-deny rust-check rust-test rust-clippy fuzz fuzz-list fuzz-seed doc publish publish-dry-run rust-update update-changelog release-frb release setup-repo-protections
+.PHONY: help setup setup-fvm setup-rust-tools setup-frb-codegen setup-android setup-web setup-fuzz codegen regen build build-android build-web test coverage analyze format format-check get clean version get-version check-new-openmls-version check-exists-openmls-frb-release check-template-updates update-template check-targets third-party-notices verify-third-party-notices verify-frb-pins rust-audit rust-deny rust-check rust-test rust-clippy fuzz fuzz-list fuzz-seed doc publish publish-dry-run rust-update update-changelog release-frb release setup-repo-protections
 
 # FVM command - can be overridden to provide full path on Windows CI
 FVM ?= fvm
@@ -61,6 +61,7 @@ help:
 	@echo "                                        Example: make update-template ARGS=\"--version v4.3.0\""
 	@echo "    make third-party-notices          - Regenerate THIRD_PARTY_NOTICES.txt from the dep graph"
 	@echo "    make verify-third-party-notices   - Verify THIRD_PARTY_NOTICES.txt is up to date"
+	@echo "    make verify-frb-pins              - Verify every file names the same flutter_rust_bridge version"
 	@echo "    make check-targets                - Check deployment target consistency (iOS/macOS/Android)"
 	@echo "                                        Example: make check-targets ARGS=\"--ios --set 14.0\""
 	@echo "    make rust-update                  - Update Cargo.lock (cargo update)"
@@ -309,7 +310,8 @@ check-template-updates:
 
 # Applies a template update: runs copier, reports what it could not merge, and
 # records the adoption in the CHANGELOG. Needs `copier` on PATH (see
-# CONTRIBUTING) and AI_MODELS_TOKEN for the CHANGELOG entry.
+# CONTRIBUTING) and, for the CHANGELOG entry, AI_MODELS plus a key for each
+# provider it names; without them the update still applies.
 update-template:
 	@$(FVM) dart scripts/update_template.dart $(ARGS)
 
@@ -323,6 +325,12 @@ third-party-notices:
 
 verify-third-party-notices:
 	@$(FVM) dart scripts/generate_third_party_notices.dart --check
+
+# Five files record the flutter_rust_bridge version and the runtime asserts two
+# of them are equal, so a disagreement ships as a package that throws on init.
+# File reads only — no build, no network.
+verify-frb-pins:
+	@$(FVM) dart scripts/verify_frb_pins.dart $(ARGS)
 
 # Updating the lockfile changes the dependency graph, which invalidates the
 # third-party notice inventory. Regenerating here keeps the two in lockstep
@@ -379,8 +387,14 @@ analyze:
 format:
 	$(FVM) dart format . $(ARGS)
 
+# `--output=none` because this one is the *check*. Without it `dart format`
+# writes the reformatted files and *then* exits non-zero, so the gate edits the
+# tree it was asked to inspect: the pre-commit hook aborts the commit and leaves
+# behind a modification the committer never made, and the template-update
+# workflow silently repairs its own pull request while reporting a failure the
+# merged branch cannot reproduce. `make format` is the one that writes.
 format-check:
-	$(FVM) dart format --set-exit-if-changed . $(ARGS)
+	$(FVM) dart format --output=none --set-exit-if-changed . $(ARGS)
 
 doc:
 	@touch .skip_openmls_hook

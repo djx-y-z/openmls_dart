@@ -1,0 +1,1571 @@
+# Review a pull request with an agent.
+#
+# The shape mirrors `repair-build.yml`, and for the same reason rather than for
+# symmetry:
+#
+#   config  — decides whether to review, deterministically
+#   review  — runs the agent, holds NO write credential of any kind
+#   post    — mints the App token and publishes the findings
+#
+# The agent job never has a token that can write to this repository, not even to
+# a comment. It produces one file, `findings.json`, and the job that publishes
+# it does not run an agent. That split is what lets the agent read a diff full of
+# text nobody on this side wrote.
+#
+# What this workflow is NOT, and must not quietly become: a merge gate. It posts
+# comments. Whether a pull request merges is decided by the test matrix, the
+# lint gates and a set of deterministic rules — and the reviewer's silence is at
+# most one term in that decision, never the whole of it. Published measurements
+# of adversarially-filtered LLM review put roughly four in five candidate
+# findings in the false-positive bin, and one reported case had ten independent
+# reviewers unanimously confirm a vulnerability that did not exist, killed only
+# by running a test. A reviewer is worth having and is not worth trusting.
+#
+# Before wiring this to anything that blocks a merge, measure its false-positive
+# rate by replaying merged pull requests through it: a finding on a change that
+# shipped cleanly is a candidate false positive. That number, not the catch
+# rate, is what decides whether this can gate.
+
+name: AI Review
+
+on:
+  # Same-repository branches only; the guard is in the `config` job. A fork's
+  # pull request gets no secrets from GitHub on this event, so the agent step
+  # would fail for want of a key rather than run unprotected — but the guard is
+  # explicit anyway, so the reason a fork is not reviewed is written down rather
+  # than inherited from a platform behaviour that could change.
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+  # The manual path, and the one to use on somebody else's pull request. There
+  # is deliberately no `/review` comment trigger: `issue_comment` runs in the
+  # base repository's context WITH secrets, which is the classic pwn request,
+  # and `actions/checkout`'s 2026 hardening does not cover that event. The same
+  # reasoning is written out at the top of `repair-build.yml` —
+  # `workflow_dispatch` requires write access, so its inputs come from someone
+  # who could push the same content directly, and it widens no boundary.
+  workflow_dispatch:
+    inputs:
+      pr:
+        description: 'Pull request number to review.'
+        required: true
+        type: string
+      dry_run:
+        description: >-
+          Produce the findings and post no comment. Use this to rehearse: the
+          manual path names a real pull request, and a rehearsal that comments
+          on it is a public write somebody has to go and delete.
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+  pull-requests: read
+
+# Newer push wins. Unlike a repair, a review of a superseded diff has no value
+# at all, and cancelling costs nothing but the tokens already spent.
+#
+# `inputs.pr` reaches this before anything has validated it — the check that it
+# is a number lives in `config`, which has not run yet. That is safe here and
+# only here: a concurrency group is a name the runner compares for equality, it
+# is never a path, a shell word or an argument, and the worst a junk value does
+# is put the run in a group of its own. Nothing downstream reads this string.
+# The same value IS validated before any other use of it.
+concurrency:
+  group: ai-review-${{ github.event.pull_request.number || inputs.pr }}
+  cancel-in-progress: true
+
+jobs:
+  # ==========================================================================
+  # Should this pull request be reviewed, and by what?
+  # ==========================================================================
+  config:
+    name: Decide whether to review
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      run: ${{ steps.pr.outputs.run }}
+      pr: ${{ steps.pr.outputs.pr }}
+      head_sha: ${{ steps.pr.outputs.head_sha }}
+      base_sha: ${{ steps.pr.outputs.base_sha }}
+      author_is_bot: ${{ steps.pr.outputs.author_is_bot }}
+      author_login: ${{ steps.pr.outputs.author_login }}
+      skip_reason: ${{ steps.pr.outputs.skip_reason }}
+      engine: ${{ steps.engine.outputs.engine }}
+      model: ${{ steps.engine.outputs.model }}
+      configured: ${{ steps.engine.outputs.configured }}
+      # A string, deliberately, and read as a string everywhere downstream.
+      # `inputs.dry_run` is a real boolean today because the input is declared
+      # `type: boolean`, and `!= true` against a boolean is correct — but if
+      # that declaration is ever dropped, the same expression compares a string
+      # to a boolean, which is NaN-versus-NaN in the expression language, which
+      # is unequal, which means a rehearsal would publish. Coercing it here once
+      # makes the comparison `!= 'true'` and takes the type out of the question.
+      dry_run: ${{ steps.pr.outputs.dry_run }}
+
+    steps:
+      # Engine and model resolve the same way they do for repairs, with one
+      # deliberate difference: each falls back to the repair setting when no
+      # review-specific one is present.
+      #
+      # That is not the "no defaults" rule being relaxed. The rule exists so
+      # that what runs against this repository is named by a person rather than
+      # inherited from whatever a template shipped — and `AGENT_ENGINE` was
+      # named by a person, in this repository. Falling back to it satisfies the
+      # rule; falling back to a hardcoded model name would not.
+      #
+      # The separate variables exist so that running the reviewer on a different
+      # model family from the writer is a settings change rather than a code
+      # change. That configuration is worth having available: a reviewer drawn
+      # from the same family as the writer shares its blind spots, and the one
+      # failure mode measured here — raising a failing test's timeout and
+      # calling it a fix — is exactly the kind a same-family reviewer would
+      # wave through, because it does not believe it is a weakening either.
+      - name: Check that an engine and a model were chosen
+        id: engine
+        env:
+          ENGINE: ${{ vars.REVIEW_AGENT_ENGINE || vars.AGENT_ENGINE }}
+          CLAUDECODE_MODEL: ${{ vars.REVIEW_AGENT_CLAUDECODE_MODEL || vars.AGENT_CLAUDECODE_MODEL }}
+          OPENCODE_MODEL: ${{ vars.REVIEW_AGENT_OPENCODE_MODEL || vars.AGENT_OPENCODE_MODEL }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${ENGINE:-}" ]; then
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Neither REVIEW_AGENT_ENGINE nor AGENT_ENGINE is set, so no review will run. Set one to 'claude-code' or 'opencode', together with the matching model variable."
+            exit 0
+          fi
+
+          case "$ENGINE" in
+            claude-code) MODEL="${CLAUDECODE_MODEL:-}"; MODEL_VAR='REVIEW_AGENT_CLAUDECODE_MODEL or AGENT_CLAUDECODE_MODEL' ;;
+            opencode)    MODEL="${OPENCODE_MODEL:-}"; MODEL_VAR='REVIEW_AGENT_OPENCODE_MODEL or AGENT_OPENCODE_MODEL' ;;
+            *)
+              echo "::error::The review engine is '${ENGINE}', which is not an engine this workflow knows. Use 'claude-code' or 'opencode'."
+              exit 1
+              ;;
+          esac
+
+          if [ -z "$MODEL" ]; then
+            echo "::error::The review engine is '${ENGINE}' but neither ${MODEL_VAR} is set. Name the model this repository should run; there is deliberately no default."
+            exit 1
+          fi
+
+          {
+            echo "configured=true"
+            echo "engine=$ENGINE"
+            echo "model=$MODEL"
+          } >> "$GITHUB_OUTPUT"
+          echo "::notice::Reviews will run on ${ENGINE} / ${MODEL}."
+
+      # Everything about the pull request is read back from the API rather than
+      # taken from the event payload, so that the manual path and the automatic
+      # one go down identical code. The payload is only used to find the number.
+      - name: Resolve the pull request
+        id: pr
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number || inputs.pr }}
+          # Through `env:` rather than inline in the script, so the whole block
+          # can be lifted out and run locally without a runner to expand it.
+          EVENT_NAME: ${{ github.event_name }}
+          ACTOR: ${{ github.actor }}
+          REQUESTED_DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          set -euo pipefail
+
+          # Written first and unconditionally, so every early exit below still
+          # carries a decision the `post` job and the summary can read.
+          echo "dry_run=${REQUESTED_DRY_RUN:-false}" >> "$GITHUB_OUTPUT"
+
+          if ! printf '%s' "$PR" | grep -qE '^[0-9]+$'; then
+            echo "::error::'${PR}' is not a pull request number."
+            exit 1
+          fi
+
+          DATA=$(gh pr view "$PR" --json number,state,isDraft,isCrossRepository,headRefOid,baseRefOid,author)
+
+          STATE=$(jq -r '.state' <<<"$DATA")
+          DRAFT=$(jq -r '.isDraft' <<<"$DATA")
+          CROSS=$(jq -r '.isCrossRepository' <<<"$DATA")
+          HEAD=$(jq -r '.headRefOid' <<<"$DATA")
+          BASE=$(jq -r '.baseRefOid' <<<"$DATA")
+          IS_BOT=$(jq -r '.author.is_bot // false' <<<"$DATA")
+          LOGIN=$(jq -r '.author.login // ""' <<<"$DATA")
+
+          {
+            echo "pr=$PR"
+            echo "head_sha=$HEAD"
+            echo "base_sha=$BASE"
+            echo "author_is_bot=$IS_BOT"
+            echo "author_login=$LOGIN"
+          } >> "$GITHUB_OUTPUT"
+
+          # Every refusal below writes `skip_reason` as well as `run=false`, so
+          # the summary step can say which one happened without re-deriving it.
+          skip() {
+            {
+              echo "run=false"
+              echo "skip_reason=$1"
+            } >> "$GITHUB_OUTPUT"
+            echo "::notice::$2"
+            exit 0
+          }
+
+          # A fork's pull request is not reviewed, and the reason is worth
+          # stating: this workflow checks out the head commit and lets an agent
+          # read it. On a fork that content is written by whoever opened the
+          # pull request. GitHub already withholds secrets from fork-triggered
+          # runs, so the agent step would fail for want of a key — but relying
+          # on that means relying on the failure mode of a platform behaviour
+          # instead of on a decision. Review a fork by asking its author to open
+          # it from a branch here, or by reading it yourself.
+          if [ "$CROSS" = "true" ]; then
+            skip fork "Pull request #${PR} comes from a fork — not reviewed. Reviewing it would mean checking out somebody else's code in a job that holds this repository's secrets."
+          fi
+
+          # Dependabot gets no secrets, so a Dependabot-triggered run reaches
+          # the agent step with an empty key and fails — on every dependency
+          # bump, which on this repository is most of them. The branch is a
+          # local one, so the fork guard above does not catch it: what withholds
+          # the secrets is the *actor*, not the branch.
+          #
+          # Gated on the automatic path only. `workflow_dispatch` is dispatched
+          # by a person, so `github.actor` is that person and the secrets are
+          # there — reviewing a Dependabot pull request by hand works and should
+          # keep working. Whether `vars` are even readable on a Dependabot run
+          # is undocumented, which means without this the failure is either a
+          # red run on every bump or silence; neither says why.
+          ACTOR_NAME=${ACTOR%'[bot]'}
+          if [ "$EVENT_NAME" != "workflow_dispatch" ] \
+             && { [ "$ACTOR_NAME" = "dependabot" ] || [ "$ACTOR_NAME" = "dependabot-preview" ]; }; then
+            skip dependabot "Pull request #${PR} was triggered by ${ACTOR}, and GitHub runs those without access to this repository's secrets — the reviewer would have no key. Run this workflow manually to review it."
+          fi
+
+          if [ "$STATE" != "OPEN" ]; then
+            skip "state-${STATE}" "Pull request #${PR} is ${STATE} — nothing to review."
+          fi
+
+          # Drafts are skipped on the automatic path only. Someone who names a
+          # draft on `workflow_dispatch` has asked for it deliberately, and
+          # refusing them would remove the only way to try this workflow out
+          # without opening a real pull request.
+          if [ "$DRAFT" = "true" ] && [ "$EVENT_NAME" != "workflow_dispatch" ]; then
+            skip draft "Pull request #${PR} is a draft — not reviewed automatically. Run this workflow manually to review it anyway."
+          fi
+
+          echo "run=true" >> "$GITHUB_OUTPUT"
+
+      # Most runs of this workflow end here, and until this existed all of them
+      # looked the same from the runs list: a green tick and an annotation
+      # somebody had to open the job to read. "No agent is configured", "that
+      # one came from a fork", "that one is a draft" and "reviewing now" are
+      # four different facts, and the first three are the common ones.
+      #
+      # `always()` so the summary survives the steps above exiting non-zero —
+      # an unconfigured engine and a crashed resolve step are exactly the two
+      # cases where somebody is looking for this.
+      - name: Summarise the decision
+        if: always()
+        env:
+          CONFIGURED: ${{ steps.engine.outputs.configured }}
+          ENGINE: ${{ steps.engine.outputs.engine }}
+          MODEL: ${{ steps.engine.outputs.model }}
+          RUN: ${{ steps.pr.outputs.run }}
+          REASON: ${{ steps.pr.outputs.skip_reason }}
+          PR: ${{ steps.pr.outputs.pr }}
+          SHA: ${{ steps.pr.outputs.head_sha }}
+          IS_BOT: ${{ steps.pr.outputs.author_is_bot }}
+          LOGIN: ${{ steps.pr.outputs.author_login }}
+          DRY: ${{ steps.pr.outputs.dry_run }}
+        run: |
+          set -euo pipefail
+          {
+            echo "## AI review — what this run decided"
+            echo
+            if [ -z "${CONFIGURED:-}" ]; then
+              # The step exited non-zero rather than reporting either way, which
+              # today means a named engine this workflow does not know.
+              echo "**The reviewer settings did not resolve.** Read the job log"
+              echo "above: the engine or model check stopped before it could say"
+              echo "whether a reviewer is configured."
+            elif [ "$CONFIGURED" != "true" ]; then
+              echo "**Nothing was attempted: no reviewer is configured.** Set"
+              echo "\`REVIEW_AGENT_ENGINE\` (or \`AGENT_ENGINE\`) to \`claude-code\` or"
+              echo "\`opencode\`, with the matching model variable, to switch this on."
+              echo "This is not a failure — it is what an unconfigured repository is"
+              echo "supposed to look like."
+            elif [ "${RUN:-}" != "true" ]; then
+              case "${REASON:-unknown}" in
+                fork)       echo "**Not reviewed: #${PR} comes from a fork.** Reviewing it would mean checking out somebody else's code in a job that holds this repository's secrets." ;;
+                dependabot) echo "**Not reviewed: #${PR} was triggered by Dependabot,** which GitHub runs without access to this repository's secrets. Dispatch this workflow manually to review it." ;;
+                draft)      echo "**Not reviewed: #${PR} is a draft.** Dispatch this workflow manually to review it anyway." ;;
+                state-*)    echo "**Not reviewed: #${PR} is ${REASON#state-}.**" ;;
+                *)          echo "**Not reviewed.** The resolve step stopped before deciding — read the job log above." ;;
+              esac
+              echo
+              echo "Reviewer that would have run: \`${ENGINE}\` / \`${MODEL}\`."
+            else
+              echo "Reviewing \`${SHA:0:12}\` on #${PR} with \`${ENGINE}\` / \`${MODEL}\`."
+              echo
+              echo "| | |"
+              echo "|---|---|"
+              echo "| Opened by | \`${LOGIN}\`$( [ "${IS_BOT:-}" = "true" ] && echo " (a bot — its title and description are withheld from the reviewer)" ) |"
+              echo "| Publishes a comment | $( [ "${DRY:-false}" = "true" ] && echo "no — this is a rehearsal" || echo "yes" ) |"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # ==========================================================================
+  # The agent. No write credential exists anywhere in this job.
+  # ==========================================================================
+  review:
+    name: Review the diff
+    needs: config
+    if: needs.config.outputs.run == 'true' && needs.config.outputs.configured == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.config.outputs.head_sha }}
+          # Kept, but not for the reason an older comment here gave. Since
+          # checkout v6 the credential is written to `$RUNNER_TEMP` rather than
+          # into `.git/config`, so "the agent's shell could read it out of the
+          # repository" stopped being the argument some time ago.
+          #
+          # What actually holds is upstream of this line: the workflow's
+          # `permissions:` block grants this job `contents: read` and
+          # `pull-requests: read` and nothing else, and no App token is minted
+          # anywhere in it. The token that would be persisted cannot write, so
+          # persisting it would not be the leak. This stays because a read-only
+          # credential the agent has no use for is still one thing fewer on
+          # disk, and because it keeps holding if somebody widens the block.
+          persist-credentials: false
+
+      # No toolchain is installed here — no Rust, no Flutter, no protoc. The
+      # reviewer builds nothing and runs no tests, because the four-platform
+      # matrix on this same pull request already does, better. That omission is
+      # most of why a review costs a fraction of a repair.
+      - name: Prepare the evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PR: ${{ needs.config.outputs.pr }}
+          AUTHOR_IS_BOT: ${{ needs.config.outputs.author_is_bot }}
+          HEAD_SHA: ${{ needs.config.outputs.head_sha }}
+          BASE_SHA: ${{ needs.config.outputs.base_sha }}
+        run: |
+          set -euo pipefail
+          mkdir -p .agent-scratch
+          echo '.agent-scratch/' >> .git/info/exclude
+
+          # The API's own diff — not a locally computed one, which would need
+          # the base branch fetched and the merge base resolved, and would
+          # silently differ from the review everyone else is reading.
+          #
+          # Pinned to the two commits `config` resolved, rather than `gh pr
+          # diff`. The distinction is not academic: the tree is checked out at
+          # `head_sha` and the published comment prints `head_sha`, but `gh pr
+          # diff` asks for whatever the pull request points at *now* — so a push
+          # landing between the two jobs produced a review of one diff, against
+          # a tree at another commit, reported under a third. `compare` with
+          # three dots is the same merge-base comparison `gh pr diff` performs,
+          # and was checked byte-for-byte against it on three real pull requests
+          # here (#56, #61, #64) before the swap.
+          gh api "repos/${GH_REPO}/compare/${BASE_SHA}...${HEAD_SHA}" \
+            -H "Accept: application/vnd.github.diff" > .agent-scratch/pr.diff.raw
+
+          # Bounded, for the same reason the repair log is: every byte is paid
+          # for on every turn of the agent's loop. A diff this large is not
+          # reviewable by anyone anyway, and the truncation is announced rather
+          # than silent — an agent that cannot see the end of a diff must not
+          # conclude the end of the diff is fine.
+          #
+          # Cut in Python rather than with `head -c`, which counts bytes and so
+          # lands mid-character on any multi-byte sequence — this repository's
+          # diffs are full of them, since half the prose in it uses em-dashes.
+          # A truncated UTF-8 sequence is not merely ugly: it is what the model
+          # reads last before being told to draw no conclusions about the end.
+          if [ "$(wc -c < .agent-scratch/pr.diff.raw)" -gt 400000 ]; then
+            python3 -c 'import sys; sys.stdout.write(open(sys.argv[1],"rb").read(400000).decode("utf-8","ignore"))' \
+              .agent-scratch/pr.diff.raw > .agent-scratch/pr.diff
+            printf '\n\n*** TRUNCATED at 400000 bytes. This diff is larger than the reviewer can see. Say so in your findings and do not draw conclusions about what is missing. ***\n' \
+              >> .agent-scratch/pr.diff
+            echo "::warning::The diff exceeds 400 KB and was truncated for the reviewer."
+          else
+            mv .agent-scratch/pr.diff.raw .agent-scratch/pr.diff
+          fi
+          rm -f .agent-scratch/pr.diff.raw
+
+          if [ ! -s .agent-scratch/pr.diff ]; then
+            echo "::error::The diff between ${BASE_SHA:0:12} and ${HEAD_SHA:0:12} is empty. There is nothing to review, and that is more likely a broken API read than a pull request with no changes."
+            exit 1
+          fi
+
+          # One API read, several small jq expressions over it. Kept separate
+          # rather than folded into one multi-line jq string because a single
+          # mistake in a long expression takes the whole context file with it,
+          # and the fallback for that is an agent reviewing with no context at
+          # all rather than a loud failure.
+          META=$(gh pr view "$PR" \
+            --json author,labels,baseRefName,headRefName,changedFiles,additions,deletions,files,commits,headRefOid)
+
+          # The diff above is pinned to a commit; this read is not, and cannot
+          # be — `files` and `commits` describe the pull request as it stands.
+          # Concurrency cancels a superseded run, so the two disagreeing means a
+          # push landed inside this job's own window. Said out loud rather than
+          # papered over: the review that follows is of the pinned commit, and
+          # the file list beside it may name one more.
+          NOW=$(jq -r '.headRefOid' <<<"$META")
+          if [ "$NOW" != "$HEAD_SHA" ]; then
+            echo "::notice::#${PR} moved from ${HEAD_SHA:0:12} to ${NOW:0:12} while this job was preparing. The diff under review is the pinned one; the file and commit lists in the context file describe the newer head."
+          fi
+
+          {
+            echo "# Pull request #$PR (facts gathered by the workflow, not the agent)"
+            echo
+            jq -r '"- Opened by: \(.author.login)" + (if .author.is_bot then " (a bot)" else "" end)' <<<"$META"
+            jq -r '"- Into: `\(.baseRefName)` from `\(.headRefName)`"' <<<"$META"
+            jq -r '"- Size: \(.changedFiles) files, +\(.additions)/-\(.deletions)"' <<<"$META"
+            jq -r '"- Labels: " + (if (.labels | length) == 0 then "none" else (.labels | map(.name) | join(", ")) end)' <<<"$META"
+            echo
+            echo "## Files changed"
+            echo
+            jq -r '.files[] | "- `\(.path)` (+\(.additions)/-\(.deletions))"' <<<"$META"
+            echo
+            echo "## Commits"
+            echo
+            jq -r '.commits[] | "- \(.oid[0:12]) \(.messageHeadline)"' <<<"$META"
+          } > .agent-scratch/pr-context.md
+
+          # The cold start, enforced here rather than asked for in the prompt.
+          #
+          # When a bot opened this pull request, its title and body are prose
+          # another model wrote about this same diff — an explanation of the
+          # change, written to be convincing, by something with a stake in the
+          # change being accepted. Handing that to the reviewer first produces a
+          # review of the explanation. So it is simply not written to disk, and
+          # the reviewer forms its own reading with nothing to anchor on.
+          #
+          # A person's description is the opposite: an account of intent that
+          # the diff can be checked against, and withholding it would make the
+          # reviewer worse at the job. So it is included.
+          if [ "$AUTHOR_IS_BOT" = "true" ]; then
+            echo "::notice::Bot-authored pull request — its title and description are withheld from the reviewer."
+          else
+            {
+              echo
+              echo "## What the author says this does"
+              echo
+              echo "Written by the person who opened this. It is context, not a"
+              echo "claim you must accept."
+              echo
+              gh pr view "$PR" --json title,body --jq '"### \(.title)\n\n\(.body // "(no description)")"'
+            } >> .agent-scratch/pr-context.md
+          fi
+
+          echo "Diff bytes: $(wc -c < .agent-scratch/pr.diff)"
+
+      # Two engines, one prompt — the same arrangement as the repair workflow,
+      # and for the same reason: the engine only ever sees a working tree and
+      # leaves behind one JSON file, so which engine ran is a detail everything
+      # downstream is indifferent to.
+      # UNVERIFIED PATH. The OpenCode branch below has been run end to end
+      # against a real diff; this one has not. `--json-schema` and
+      # `structured_output` are documented but untested here, so treat the first
+      # live run on this engine as a test of the wiring, not of the reviewer.
+      #
+      # The counterpart to the OpenCode key guard below. Without it a missing
+      # secret still stops the run, but as an authentication error from inside a
+      # third-party action, which reads like the model refused rather than like
+      # a repository setting nobody made.
+      - name: Check the Claude key is present
+        if: needs.config.outputs.engine == 'claude-code'
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${ANTHROPIC_API_KEY:-}" ]; then
+            echo "::error::The review engine is 'claude-code' but the ANTHROPIC_API_KEY secret is not set. Add it, or point REVIEW_AGENT_ENGINE at an engine this repository has a key for."
+            exit 1
+          fi
+          echo "The Claude key is present."
+
+      - name: Run the reviewer (Claude Code)
+        id: claude
+        if: needs.config.outputs.engine == 'claude-code'
+        uses: anthropics/claude-code-action@c038e4dcdedfbbca18dfb17df35a17e40ded4ddc # v1.0.186
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ github.token }}
+          # Without this, this engine cannot review the pull requests this
+          # repository actually gets. Seven of the last eight here were opened
+          # by a bot, and the whole cold-start design exists for them — but the
+          # action refuses a run whose actor is not a `User` unless the bot is
+          # named. Read at the pinned SHA: `checkHumanActor` throws for any
+          # non-User actor not in this list, and `isAllowedBot` lowercases each
+          # entry and strips a `[bot]` suffix, so `my-bot` and `my-bot[bot]`
+          # are the same entry.
+          #
+          # The audit that added this expected a second gate,
+          # `checkWritePermissions`, to fire as well — a `pull_request` is an
+          # entity context, and `prepare.ts` runs that check before mode
+          # preparation. It does not bite here, and the reason is worth writing
+          # down rather than rediscovering: `permissions.ts` returns early for
+          # any actor whose login ends with `[bot]`, before it ever asks the
+          # collaborator endpoint. A GitHub App's actor always has that suffix.
+          # An App whose actor does NOT (Copilot is the documented example)
+          # reaches the collaborator call, fails it, and is then admitted by
+          # this same list from the catch branch — so naming the bot is the
+          # whole fix either way.
+          #
+          # A list, never `'*'`: the input's own description warns against it,
+          # and `'*'` would let any bot that can open a pull request here spend
+          # this repository's tokens. The default names only what every
+          # repository has — a project's own GitHub App has a slug this file
+          # cannot know, so set `REVIEW_ALLOWED_BOTS` to it (comma-separated,
+          # `[bot]` optional) or the pull requests that App opens go unreviewed
+          # on this engine. Dependabot is deliberately absent, since `config`
+          # refuses those runs a job earlier.
+          allowed_bots: ${{ vars.REVIEW_ALLOWED_BOTS || 'github-actions' }}
+          prompt: |
+            Read `.github/agent-prompts/pr-review.md` and carry out exactly the
+            task it describes. It is the complete specification, including what
+            to look for, what not to report, and how to report it.
+
+            One override. That file tells you to wrap your reply in
+            `<<<FINDINGS>>>` sentinels, which is how the other engine cuts the
+            object out of a plain-text transcript. Here the reply is validated
+            against a JSON schema instead, so emit the object alone, with no
+            sentinels and no code fence around it.
+          # Three read tools and nothing else. No shell at all, no `Write`, no
+          # `Edit`: the reviewer reports through its reply, so it needs no way
+          # to change a file, and having none is a stronger guarantee than any
+          # list of things it is asked not to do.
+          #
+          # The engine-specific half of that contract is `--json-schema`, which
+          # is what makes the reply arrive as validated JSON in
+          # `steps.claude.outputs.structured_output` rather than as prose to be
+          # scraped. OpenCode has no equivalent, so that side cuts the object
+          # out of the transcript between sentinels and then applies the same
+          # required-field rules in a step of its own — which is why the two
+          # engines agree on the shape without sharing a mechanism.
+          #
+          # The action's own comment-posting tools are absent on purpose. This
+          # job holds no credential that could publish, and the `post` job below
+          # is what reaches the pull request.
+          claude_args: |
+            --model ${{ needs.config.outputs.model }}
+            --max-turns 30
+            --allowedTools "Read,Glob,Grep"
+            --disallowedTools "WebFetch,WebSearch,Write,Edit,NotebookEdit,Bash"
+            # `evidence` and `refutation_considered` are required, not optional.
+            # The prompt calls a finding without them untested, and the whole
+            # case for this reviewer's precision rests on the refutation step
+            # actually happening — so on the engine where the shape can be
+            # enforced, it is.
+            --json-schema '{"type":"object","required":["status","findings"],"properties":{"status":{"type":"string","enum":["findings","clean"]},"reviewed":{"type":"array","items":{"type":"string"}},"findings":{"type":"array","items":{"type":"object","required":["file","severity","category","summary","evidence","refutation_considered"],"properties":{"file":{"type":"string"},"line":{"type":"integer"},"severity":{"type":"string","enum":["blocking","note"]},"category":{"type":"string"},"summary":{"type":"string"},"evidence":{"type":"string"},"refutation_considered":{"type":"string"}}}},"notes":{"type":"string"}}}'
+
+      - name: Collect the findings (Claude Code)
+        if: needs.config.outputs.engine == 'claude-code'
+        env:
+          # Through the environment, never through a `${{ }}` interpolation in
+          # the script. This is text a model wrote; an expression is evaluated
+          # by the runner before the shell ever sees it, which is how model
+          # output becomes a shell injection.
+          STRUCTURED: ${{ steps.claude.outputs.structured_output }}
+        run: |
+          set -euo pipefail
+          if [ -z "${STRUCTURED:-}" ]; then
+            echo "::error::The reviewer produced no structured output. It ran out of turns, crashed, or answered in prose — this is NOT 'nothing to report'."
+            exit 1
+          fi
+          printf '%s' "$STRUCTURED" > "$RUNNER_TEMP/findings.json"
+
+      - name: Install OpenCode
+        if: needs.config.outputs.engine == 'opencode'
+        env:
+          AGENT_OPENCODE_VERSION: ${{ vars.AGENT_OPENCODE_VERSION || '1.18.15' }}
+        run: |
+          set -euo pipefail
+          npm install -g "opencode-ai@${AGENT_OPENCODE_VERSION}"
+          opencode --version
+
+      - name: Run the reviewer (OpenCode)
+        if: needs.config.outputs.engine == 'opencode'
+        env:
+          # Resolved exactly as the repair workflow resolves it, including the
+          # fallback to a secret named after the provider, so a repository that
+          # already holds `OPENROUTER_API_KEY` needs no second copy of it.
+          AGENT_OPENCODE_PROVIDER_ENV: ${{ vars.AGENT_OPENCODE_PROVIDER_ENV || 'OPENROUTER_API_KEY' }}
+          AGENT_OPENCODE_API_KEY: ${{ secrets.AGENT_OPENCODE_API_KEY || secrets[vars.AGENT_OPENCODE_PROVIDER_ENV || 'OPENROUTER_API_KEY'] }}
+          OPENCODE_CONFIG: ${{ github.workspace }}/.github/agent-config/opencode.json
+          OPENCODE_DISABLE_AUTOUPDATE: '1'
+          AGENT_OPENCODE_MODEL: ${{ needs.config.outputs.model }}
+        run: |
+          set -euo pipefail
+
+          # Two documented ways to hand OpenCode a different configuration than
+          # the file this workflow points at: `OPENCODE_PERMISSION` overrides the
+          # permission block wholesale, and `OPENCODE_CONFIG_CONTENT` supplies a
+          # whole config as a string. Nothing in this repository sets either, and
+          # only somebody who could already edit this file could — but the gate
+          # below asserts the *resolved* agent, and an assertion is worth more
+          # when the inputs it reasons about are closed rather than merely
+          # unused. `unset` on an unset name is not an error, including here
+          # under `set -u`.
+          unset OPENCODE_PERMISSION OPENCODE_CONFIG_CONTENT
+
+          if [ -z "${AGENT_OPENCODE_API_KEY:-}" ]; then
+            echo "::error::The review engine is 'opencode' but no provider key resolved. Set the AGENT_OPENCODE_API_KEY secret, or a secret named '${AGENT_OPENCODE_PROVIDER_ENV}' to match AGENT_OPENCODE_PROVIDER_ENV."
+            exit 1
+          fi
+
+          if ! printf '%s' "$AGENT_OPENCODE_PROVIDER_ENV" | grep -qE '^[A-Za-z_][A-Za-z0-9_]*$'; then
+            echo "::error::AGENT_OPENCODE_PROVIDER_ENV ('${AGENT_OPENCODE_PROVIDER_ENV}') is not a valid environment variable name."
+            exit 1
+          fi
+
+          export "${AGENT_OPENCODE_PROVIDER_ENV}=${AGENT_OPENCODE_API_KEY}"
+          echo "Provider key exported as \$${AGENT_OPENCODE_PROVIDER_ENV}."
+
+          # Two assertions on the resolved agent, not one, and the second is
+          # specific to this workflow.
+          #
+          # The first is the same as the repair workflow's: a missing agent
+          # makes OpenCode fall back to its unrestricted default and exit 0, so
+          # the check is on the output rather than the status.
+          #
+          # The second exists because a per-agent `permission` block does not
+          # replace the global one — measured on 1.18.15, an agent's rules are
+          # appended to the global rules and the last match wins. The reviewer's
+          # block therefore has to re-deny `bash` wholesale to shed the repair
+          # agent's `make` allowlist, and an earlier draft of that config did
+          # not: it resolved with `make build` and `make test` still allowed
+          # while reading as though they were not. That is a rule that looks
+          # enforced and is not, which is worse than an absent one, so it is
+          # asserted here against the resolved list rather than trusted to the
+          # config file's comments.
+          #
+          # The assertion deliberately does not re-implement OpenCode's matcher.
+          # It finds the last wildcard `bash` rule, requires it to deny, and
+          # requires nothing to be allowed after it — which is decidable from
+          # the list alone.
+          #
+          # The expected set is empty, and that is the config rather than an
+          # oversight. An earlier draft of this check expected `git diff`,
+          # `git log` and `git show`, which the reviewer has never had: exact
+          # patterns match only the bare command, so `git show HEAD^:path` was
+          # refused anyway and each refusal cost a turn. A gate that permits
+          # three commands the config does not grant is a gate that would not
+          # notice them being granted.
+          #
+          # The tool denials are asserted too. `bash` is the one that was
+          # measured to leak through inheritance, but `webfetch`, `task` and
+          # `external_directory` are load-bearing for the same reason — a
+          # reviewer that can spawn a subagent is a reviewer whose permissions
+          # this file no longer describes.
+          opencode debug agent pr-review 2>/dev/null > "$RUNNER_TEMP/agent.json" || true
+          if ! python3 - "$RUNNER_TEMP/agent.json" <<'PY'
+          import json, sys
+
+          try:
+              data = json.load(open(sys.argv[1]))
+          except Exception as exc:
+              print(f"could not read the resolved agent: {exc}")
+              sys.exit(1)
+
+          if data.get('name') != 'pr-review':
+              print("the resolved agent is not 'pr-review'")
+              sys.exit(1)
+
+          rules = data.get('permission', [])
+          bash = [(i, r) for i, r in enumerate(rules) if r.get('permission') == 'bash']
+          wildcards = [i for i, r in bash if r.get('pattern') == '*']
+          if not wildcards or rules[wildcards[-1]].get('action') != 'deny':
+              print("the last wildcard bash rule does not deny; the agent inherits commands it must not have")
+              sys.exit(1)
+
+          # The reviewer runs no commands at all. Anything allowed after the
+          # deny-all is something this workflow did not sanction.
+          leaked = {
+              r['pattern'] for i, r in bash
+              if i > wildcards[-1] and r.get('action') == 'allow'
+          }
+          if leaked:
+              print(f"unexpected commands allowed for the reviewer: {sorted(leaked)}")
+              sys.exit(1)
+
+          # Last match wins, so the verdict for a tool is its final rule.
+          def verdict(tool):
+              last = None
+              for r in rules:
+                  if r.get('permission') == tool and r.get('pattern') == '*':
+                      last = r.get('action')
+              return last
+
+          undenied = [t for t in ('write', 'edit', 'patch', 'apply_patch',
+                                  'task', 'webfetch', 'websearch',
+                                  'external_directory')
+                      if verdict(t) != 'deny']
+          if undenied:
+              print(f"these tools do not resolve to deny for the reviewer: {undenied}")
+              sys.exit(1)
+
+          print("reviewer permissions resolve as intended: no commands, and no tool that writes or reaches out.")
+          PY
+          then
+            echo "::error::The 'pr-review' agent did not resolve from ${OPENCODE_CONFIG} with the permissions this workflow expects. See the message above; this run is stopped rather than left to an agent whose limits are not the ones written down."
+            exit 1
+          fi
+
+          # Stdout is the deliverable. The reviewer has no tool that can write a
+          # file — across seven runs this model never calls `write` at all and
+          # reaches for a shell it does not have — so the findings arrive as its
+          # final message and are cut out of the transcript here.
+          #
+          # The sentinels are named again here, in the invocation, and not only
+          # in the prompt file. They are the one part of the contract that the
+          # next step depends on literally, and the immediate instruction is the
+          # one a model is least likely to drift from.
+          opencode run \
+            --agent pr-review \
+            --model "$AGENT_OPENCODE_MODEL" \
+            "Read \`.github/agent-prompts/pr-review.md\` and carry out exactly
+             the task it describes. It is the complete specification, including
+             what to look for, what not to report, and how to report it. Your
+             final message must be the JSON object it specifies, on its own
+             between a line reading <<<FINDINGS>>> and a line reading
+             <<<END_FINDINGS>>>, with nothing else after it." \
+            > "$RUNNER_TEMP/review.log" 2>&1 || true
+
+          # `|| true` above, and the failure is diagnosed here instead: the
+          # transcript is the only evidence of what went wrong, and losing it to
+          # a non-zero exit would leave nothing to read.
+          tail -c 4000 "$RUNNER_TEMP/review.log"
+
+      # Cutting the object out of the transcript, and cross-checking the one
+      # claim in it that the transcript can settle.
+      #
+      # This step used to be a regexp for a fenced block, and it lost whole
+      # reviews. The pattern ended at the first ``` after the opening fence, so
+      # a ``` anywhere inside a JSON *string* truncated the object, `json.loads`
+      # failed, and the run ended with an error naming the wrong cause. That is
+      # not a corner case: the prompt asks the reviewer to quote the diff lines
+      # a finding rests on, and a diff that touches any Markdown file in this
+      # repository contains fences. Measured — a real diff reproduced it.
+      #
+      # What replaces it does not delimit at all. `raw_decode` parses one JSON
+      # value starting at a given offset and reports where that value ended, so
+      # a fence, a sentinel or a whole second JSON document inside a string is
+      # consumed as string content, by the same parser that will later read the
+      # file. There is nothing left for a delimiter to get wrong.
+      #
+      # The sentinel is still asked for, and is used as an *anchor* rather than
+      # as a delimiter: it says which `{` to start at. That is what settles the
+      # residual case where the model emitted a draft object earlier in the run
+      # and then died before the real one — without it, "the last object in the
+      # transcript" is the best available guess and it would silently publish
+      # the draft. A reply with no sentinel still parses, because the three
+      # runs this was tested against predate the sentinel and must keep working.
+      - name: Collect the findings (OpenCode)
+        if: needs.config.outputs.engine == 'opencode'
+        run: |
+          set -euo pipefail
+          if ! python3 - "$RUNNER_TEMP/review.log" "$RUNNER_TEMP/findings.json" <<'PY'
+          import json, re, sys
+
+          raw = open(sys.argv[1], encoding='utf-8', errors='replace').read()
+
+          # The transcript is a terminal rendering and carries escape sequences
+          # through the middle of the object as well as around it. Stripping
+          # only the colour codes (`\x1b[...m`) left `\x1b[2K`, `\x1b[1A` and
+          # `\x1b[?25l` in place, any of which lands inside the JSON and breaks
+          # it. This takes every CSI sequence — the final byte of one is in
+          # `@` to `~`, so `m` is just one case of it — plus OSC strings and
+          # bare carriage returns.
+          raw = re.sub(r'\x1b\[[0-?]*[ -/]*[@-~]', '', raw)
+          raw = re.sub(r'\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)', '', raw)
+          raw = raw.replace('\r', '')
+
+          def decode_at(text, start):
+              """Parse one JSON value beginning at the first `{` from `start`."""
+              i = text.find('{', start)
+              if i < 0:
+                  return None
+              try:
+                  value, _ = json.JSONDecoder().raw_decode(text, i)
+              except ValueError:
+                  return None
+              return value if isinstance(value, dict) and 'status' in value else None
+
+          parsed = route = None
+
+          # Anchored: each sentinel the reviewer wrote, latest first, until one
+          # is followed by an object that parses. More than one occurrence is
+          # possible — the prompt says not to quote the sentinel inside a
+          # finding, and a reviewer quoting a diff does not always listen — so
+          # this walks them rather than trusting the last.
+          SENTINEL = '<<<FINDINGS>>>'
+          for m in reversed(list(re.finditer(re.escape(SENTINEL), raw))):
+              parsed = decode_at(raw, m.end())
+              if parsed is not None:
+                  route = 'sentinel'
+                  break
+
+          # Unanchored: every `{` in the transcript, last usable object wins.
+          # Deliberately not restricted to fenced regions — a model that
+          # forgets the sentinel and the fence still gets its review published.
+          if parsed is None:
+              for i in reversed([m.start() for m in re.finditer(r'\{', raw)]):
+                  candidate = decode_at(raw, i)
+                  if candidate is not None:
+                      parsed, route = candidate, 'unanchored scan'
+                      break
+
+          if parsed is None:
+              print("no JSON object with a 'status' field was found in the reply")
+              sys.exit(1)
+
+          # The one claim in the object the transcript can check. `reviewed` is
+          # the reviewer's own list of files it opened, and in the clean control
+          # run four of the six it named were never read — they were the files
+          # the diff touched, not the files it looked at. Published under
+          # "Files the reviewer says it read", that is the workflow repeating a
+          # false claim in this repository's voice.
+          #
+          # OpenCode prints one line per tool call: `→ Read <path> [offset=…]`.
+          # A path it never printed was never opened. Claims are moved rather
+          # than deleted, because "it said it read this and did not" is more
+          # useful to a reader than a shorter list.
+          def norm(p):
+              return re.sub(r'^\./', '', p.strip()).rstrip('/')
+
+          opened = {norm(p) for p in
+                    re.findall(r'^\s*(?:\S\s+)?Read\s+(\S+)', raw, re.M)}
+          claimed = parsed.get('reviewed')
+          if isinstance(claimed, list):
+              kept = [f for f in claimed
+                      if isinstance(f, str) and norm(f) in opened]
+              dropped = [f for f in claimed if f not in kept]
+              parsed['reviewed'] = kept
+              # Recorded, so the comment can say "read" rather than "says it
+              # read" — and can keep saying the weaker thing on the engine
+              # where no transcript exists to check against.
+              parsed['reviewed_verified'] = True
+              if dropped:
+                  parsed['reviewed_unverified'] = dropped
+                  print(f"{len(dropped)} of {len(claimed)} file(s) in 'reviewed' "
+                        f"were never opened: {sorted(dropped)}")
+
+          json.dump(parsed, open(sys.argv[2], 'w'))
+          print(f"Extracted findings ({route}): status={parsed.get('status')}, "
+                f"{len(parsed.get('findings') or [])} finding(s).")
+          PY
+          then
+            echo "::error::The reviewer's reply carried no findings object. It ran out of turns, crashed, or answered in prose — this is NOT 'nothing to report'. The transcript is in the step above."
+            exit 1
+          fi
+
+      # Redundant today and kept anyway. The reviewer holds no tool that can
+      # write, edit or patch a file and no shell to do it with, so this should
+      # be unfalsifiable — which is exactly what makes it worth asserting. If a
+      # later edit to the permissions, or an engine release that adds a tool,
+      # ever hands the reviewer a way to change the tree, this is the step that
+      # says so instead of the change going unnoticed.
+      - name: Assert the reviewer changed nothing
+        run: |
+          set -euo pipefail
+          # `.agent-scratch/` is in `.git/info/exclude`, so it is invisible to
+          # `git status` and anything reported here is a tracked file.
+          DIRTY=$(git status --porcelain)
+          if [ -n "$DIRTY" ]; then
+            echo "::error::The reviewer modified the working tree. It reviews; it does not edit."
+            printf '%s\n' "$DIRTY"
+            exit 1
+          fi
+          echo "The working tree is untouched."
+
+      # The shape rules, applied where they can be applied: to a file, after
+      # the fact, on both engines.
+      #
+      # `--json-schema` enforces the required fields on Claude Code and there is
+      # no equivalent on OpenCode — which is the engine that actually runs here,
+      # so until this step existed not one required field was checked on the
+      # live path. A finding with no `file`, no `evidence` and no
+      # `refutation_considered` passed every gate and published as
+      # "### 🔵 `other` — ?", and a `severity` of `"critical"` became a blue
+      # note and was counted as non-blocking. The reviewer's whole claim to
+      # precision rests on the refutation step having happened; a field nobody
+      # checks is a field nobody has.
+      #
+      # It annotates rather than discards, and the distinction is the point. A
+      # deficient finding is still published, with what it is missing printed
+      # beside it: dropping it would be another way to lose a review, which is
+      # the failure this workflow spends most of its length avoiding, and a
+      # reader can judge an unevidenced claim once they are told it is one.
+      # Only an element that is not an object at all is dropped, because there
+      # is nothing there to render — that case used to reach `jq` and abort the
+      # composing step with a bare type error after the tokens were paid for.
+      - name: Validate the shape of the findings
+        run: |
+          set -euo pipefail
+          python3 - "$RUNNER_TEMP/findings.json" <<'PY'
+          import json, sys
+
+          REQUIRED = ('file', 'severity', 'category', 'summary', 'evidence',
+                      'refutation_considered')
+
+          path = sys.argv[1]
+          data = json.load(open(path))
+          findings = data.get('findings')
+
+          # A `findings` that is not a list at all is left exactly as it is:
+          # the next step owns that message and states it in one place.
+          if not isinstance(findings, list):
+              print("'findings' is not an array; leaving it for the next step to report")
+              sys.exit(0)
+
+          kept, rejected = [], []
+          for i, f in enumerate(findings):
+              if not isinstance(f, dict):
+                  rejected.append({'index': i, 'value': repr(f)[:200]})
+                  continue
+
+              missing = []
+              for key in REQUIRED:
+                  v = f.get(key)
+                  if v is None or (isinstance(v, str) and not v.strip()):
+                      missing.append(key)
+                  elif not isinstance(v, str):
+                      f[key] = str(v)          # a number where prose belongs
+              if missing:
+                  f['_missing'] = missing
+
+              # Unknown severity is read as blocking. The alternative — the old
+              # behaviour — was to render it as a note and leave it out of the
+              # blocking count, which turns a model saying "critical" into the
+              # quietest possible outcome.
+              sev = str(f.get('severity', '')).strip().lower()
+              if sev not in ('blocking', 'note'):
+                  f['_severity_reported'] = f.get('severity', '(missing)')
+                  sev = 'blocking'
+              f['severity'] = sev
+
+              # `line` is optional, and only useful if it is a number.
+              if 'line' in f:
+                  try:
+                      f['line'] = int(str(f['line']).strip())
+                  except (TypeError, ValueError):
+                      del f['line']
+
+              kept.append(f)
+
+          data['findings'] = kept
+          if rejected:
+              data['rejected'] = rejected
+          json.dump(data, open(path, 'w'))
+
+          deficient = sum(1 for f in kept if f.get('_missing'))
+          escalated = sum(1 for f in kept if '_severity_reported' in f)
+          print(f"{len(kept)} finding(s) kept, {len(rejected)} rejected as "
+                f"non-objects, {deficient} missing a required field, "
+                f"{escalated} escalated from an unrecognised severity.")
+          for f in kept:
+              if f.get('_missing'):
+                  print(f"  {f.get('file', '(no file)')}: missing {f['_missing']}")
+              if '_severity_reported' in f:
+                  print(f"  {f.get('file', '(no file)')}: severity "
+                        f"{f['_severity_reported']!r} read as blocking")
+          PY
+
+      # Turn exhaustion, a crash and "nothing to report" are indistinguishable
+      # from outside — the job ends and no comment appears. Requiring findings
+      # to exist and to parse is what tells them apart, exactly as the repair
+      # workflow requires a verdict. The engine-specific collect step above has
+      # already produced this file; everything from here is engine-agnostic.
+      - name: Read the findings
+        id: findings
+        run: |
+          set -euo pipefail
+          F="$RUNNER_TEMP/findings.json"
+
+          if [ ! -s "$F" ]; then
+            echo "::error::No findings were collected. Check the collect step above."
+            exit 1
+          fi
+          if ! jq -e . "$F" > /dev/null 2>&1; then
+            echo "::error::$F is not valid JSON."
+            cat "$F"
+            exit 1
+          fi
+
+          STATUS=$(jq -r '.status // "missing"' "$F")
+          case "$STATUS" in
+            findings|clean) ;;
+            *)
+              echo "::error::Unrecognised review status '$STATUS' (expected 'findings' or 'clean')."
+              exit 1
+              ;;
+          esac
+
+          # Shape-checked before anything reads it as an array. `findings` is
+          # written by a model, and a bare string where a list belongs would
+          # otherwise abort the composing step in the next job, after the work
+          # is paid for.
+          if ! jq -e '(.findings // []) | type == "array"' "$F" > /dev/null; then
+            echo "::error::'findings' is present but is not an array."
+            exit 1
+          fi
+
+          TOTAL=$(jq -r '(.findings // []) | length' "$F")
+          BLOCKING=$(jq -r '[(.findings // [])[] | select(.severity == "blocking")] | length' "$F")
+          DEFICIENT=$(jq -r '[(.findings // [])[] | select(._missing)] | length' "$F")
+          REJECTED=$(jq -r '(.rejected // []) | length' "$F")
+          UNVERIFIED=$(jq -r '(.reviewed_unverified // []) | length' "$F")
+
+          {
+            echo "total=$TOTAL"
+            echo "blocking=$BLOCKING"
+            echo "deficient=$DEFICIENT"
+            echo "rejected=$REJECTED"
+            echo "unverified=$UNVERIFIED"
+          } >> "$GITHUB_OUTPUT"
+
+          # The job passes either way, on purpose. Failing here would make the
+          # reviewer a merge gate by accident, and its false-positive rate has
+          # not been measured on this repository yet. Findings are published for
+          # a person to read; nothing downstream treats them as authoritative.
+          if [ "$TOTAL" != "0" ]; then
+            echo "::warning::The reviewer reported ${TOTAL} finding(s), ${BLOCKING} of them blocking."
+          else
+            echo "::notice::The reviewer reported nothing."
+          fi
+
+          # The reviewer failing to keep its own contract is a fact about the
+          # reviewer, and the point of measuring it is to notice it drifting.
+          # A warning rather than a failure: the findings are still worth
+          # publishing, annotated, and this workflow gates nothing.
+          if [ "$REJECTED" != "0" ]; then
+            echo "::warning::${REJECTED} entr(ies) in 'findings' were not objects and were discarded."
+          fi
+          if [ "$DEFICIENT" != "0" ]; then
+            echo "::warning::${DEFICIENT} finding(s) are missing a required field; they are published with the omission named."
+          fi
+          if [ "$UNVERIFIED" != "0" ]; then
+            echo "::warning::${UNVERIFIED} file(s) the reviewer claimed to have read were never opened."
+          fi
+
+      # This repository is public, so a pull-request comment is a public write.
+      # The findings are free text a model wrote after reading a diff, and they
+      # are copied into that comment through the API, which never passes through
+      # the log masking that would otherwise catch a secret.
+      #
+      # Fails rather than redacts: a secret reaching this point means something
+      # went wrong upstream, and publishing a censored version would hide it.
+      - name: Refuse to publish anything carrying a secret
+        env:
+          SCAN_ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          SCAN_AGENT_OPENCODE_API_KEY: ${{ secrets.AGENT_OPENCODE_API_KEY || secrets[vars.AGENT_OPENCODE_PROVIDER_ENV || 'OPENROUTER_API_KEY'] }}
+          SCAN_GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          F="$RUNNER_TEMP/findings.json"
+
+          # Asserted, not assumed. `grep` on a path that does not exist exits 2
+          # and prints to stderr, and 2 is not 0 — so inside an `if` it reads
+          # exactly like "no secret found" and this step would pass green
+          # having scanned nothing at all. The file is guaranteed by the step
+          # above today; a scan that silently covers nothing when that stops
+          # being true is the wrong thing to leave lying around before a public
+          # write. The repair workflow has the same guard for the same reason,
+          # spelled as a `-f` test with `continue`, because the file it skips
+          # there is genuinely optional and this one is not.
+          if [ ! -f "$F" ]; then
+            echo "::error::$F does not exist, so nothing was scanned. Refusing to continue towards a public comment."
+            exit 1
+          fi
+
+          FOUND=0
+          for name in SCAN_ANTHROPIC_API_KEY SCAN_AGENT_OPENCODE_API_KEY SCAN_GITHUB_TOKEN; do
+            value="${!name}"
+            [ -n "$value" ] || continue
+            # -q and -F: the needle is a secret, so it is matched literally and
+            # never echoed. Only the variable's name is ever printed.
+            if grep -qF -- "$value" "$F"; then
+              echo "::error::findings.json contains the value of ${name#SCAN_}. Nothing will be uploaded or published."
+              FOUND=1
+            fi
+          done
+          [ "$FOUND" = 0 ] || exit 1
+          echo "The findings carry no known secret."
+
+      - name: Upload the findings
+        uses: actions/upload-artifact@v7
+        with:
+          name: review-findings
+          path: ${{ runner.temp }}/findings.json
+          retention-days: 7
+          if-no-files-found: error
+
+      # What the review cost and what it concluded, without opening the job.
+      # `always()` because the interesting cases are the ones that ended badly:
+      # a reviewer that answered in prose, or ran out of turns, leaves a red job
+      # whose reason is thirty lines up in a step's log.
+      - name: Summarise the review
+        if: always()
+        env:
+          ENGINE: ${{ needs.config.outputs.engine }}
+          MODEL: ${{ needs.config.outputs.model }}
+          PR: ${{ needs.config.outputs.pr }}
+          SHA: ${{ needs.config.outputs.head_sha }}
+          DRY: ${{ needs.config.outputs.dry_run }}
+          TOTAL: ${{ steps.findings.outputs.total }}
+          BLOCKING: ${{ steps.findings.outputs.blocking }}
+          DEFICIENT: ${{ steps.findings.outputs.deficient }}
+          REJECTED: ${{ steps.findings.outputs.rejected }}
+          UNVERIFIED: ${{ steps.findings.outputs.unverified }}
+        run: |
+          set -euo pipefail
+          {
+            echo "## AI review of #${PR}"
+            echo
+            echo "| | |"
+            echo "|---|---|"
+            echo "| Reviewed | \`${SHA:0:12}\` |"
+            echo "| Reviewer | \`${ENGINE}\` / \`${MODEL}\` |"
+            echo "| Findings | ${TOTAL:-**none — the run did not get that far**} |"
+            echo
+            if [ -z "${TOTAL:-}" ]; then
+              echo "The reviewer produced nothing this job could read. That is a"
+              echo "failure rather than a clean review — it ran out of turns, crashed,"
+              echo "or answered in prose. Read the job log above for where it stopped."
+            else
+              [ "${BLOCKING:-0}" != "0" ] && echo "${BLOCKING} of them marked blocking."
+              [ "${REJECTED:-0}" != "0" ] && echo "${REJECTED} entr(ies) were discarded as malformed."
+              [ "${DEFICIENT:-0}" != "0" ] && echo "${DEFICIENT} finding(s) are missing a required field and say so in the comment."
+              [ "${UNVERIFIED:-0}" != "0" ] && echo "${UNVERIFIED} file(s) the reviewer claimed to have read were never opened; the claim was removed."
+              [ "${DRY:-false}" = "true" ] && echo "This was a rehearsal — no comment was posted."
+            fi
+            echo
+            echo "Advisory. This workflow gates nothing."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # ==========================================================================
+  # The only job that can write. The agent does not run here.
+  # ==========================================================================
+  post:
+    name: Publish the review
+    needs: [config, review]
+    # A string comparison against a string. `inputs.dry_run` is a real boolean
+    # here today and `!= true` would be right — but only for as long as the
+    # input keeps its `type: boolean`. Without it the same expression compares
+    # a string to a boolean, which the expression language resolves through NaN,
+    # which is never equal, which means a rehearsal would publish a comment on a
+    # real pull request. `config` coerces the value to a string once and this
+    # reads that; the failure mode of a mistake here is now silence rather than
+    # a public write, which is the direction it should fail in.
+    if: needs.config.outputs.dry_run != 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+
+    steps:
+      # Scoped down to the one thing this job does. Without the `permission-*`
+      # inputs the action mints a token carrying every permission the App's
+      # installation holds — which for this App includes `contents: write`, the
+      # scope that lets it push branches and open pull requests from the other
+      # workflow. This job posts a comment. A token that could also rewrite a
+      # branch is a wider credential than the work needs, sitting in a job whose
+      # input is text a model wrote.
+      #
+      # One scope, and the reasoning for which one is worth keeping, because the
+      # obvious answer is wrong in a way that breaks this job rather than this
+      # step. `actions/create-github-app-token` documents that "setting a
+      # permission that the installation does not have will result in an error",
+      # so a scope named here that the App was never granted does not narrow the
+      # token — it fails the mint, and with it the only path by which a review
+      # ever reaches a pull request.
+      #
+      # So each scope has to be *demonstrated*, not reasoned towards.
+      # `pull-requests: write` is: the same App opens pull requests here through
+      # `create-pull-request`, which cannot work without it. `issues: write` is
+      # not — the endpoint below is the issues one (`/issues/{n}/comments`,
+      # which is how every PR comment is posted), and `repair-build.yml` does
+      # file issues with this token, but that job has never run, and the App has
+      # never authored an issue or an issue comment in this repository. Naming
+      # an unproven scope here would trade a token that is one permission too
+      # wide for a publish path that might not mint at all, which is the wrong
+      # direction to be wrong in.
+      #
+      # If a live run ever gets a 403 from the comment endpoint, that is the
+      # missing half: grant the App Issues and add `permission-issues: write`.
+      # The failure is loud, isolated to this step, and says so.
+      - name: Generate GitHub App Token
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ vars.APP_CLIENT_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          permission-pull-requests: write
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: review-findings
+          path: ${{ runner.temp }}/review
+
+      # Re-checked after the round trip, the same way `repair-build.yml`
+      # re-checks its patch. The artifact is written and read by this workflow
+      # alone, so this is not a trust boundary — it is a cheap assertion that
+      # what arrived is what was vetted, and it fails here with a sentence
+      # rather than in the composing step with a bare parser error.
+      - name: Re-check the findings
+        run: |
+          set -euo pipefail
+          F="$RUNNER_TEMP/review/findings.json"
+          if [ ! -s "$F" ]; then
+            echo "::error::The findings artifact is missing or empty after download."
+            exit 1
+          fi
+          if ! jq -e '(.status | type == "string")
+                      and ((.findings // []) | type == "array")
+                      and ((.findings // []) | all(type == "object"))' "$F" > /dev/null; then
+            echo "::error::The findings artifact does not have the shape the review job left it in."
+            head -c 2000 "$F"
+            exit 1
+          fi
+          echo "The findings arrived in the shape they were uploaded in."
+
+      # One comment, updated in place, rather than inline comments on each hunk.
+      #
+      # Inline comments need a valid position in the diff for every one of them,
+      # and the API rejects the whole review if a single position is wrong — a
+      # model naming a line that moved would lose the entire review. A single
+      # comment also stays readable across re-reviews and is one object to parse
+      # for anything that later acts on these findings, rather than a set of
+      # threads to reconcile.
+      #
+      # Written in Python rather than as a `jq` program, and that is the second
+      # thing about it worth explaining. Every string below is text a model
+      # wrote, going into a public comment, and each one has to be neutralised
+      # before it lands inside a container it could otherwise close. Expressing
+      # a variable-length code fence and two escaping rules as nested `gsub`
+      # calls inside a jq program inside a YAML block scalar was legible to
+      # nobody and testable by nobody; this is both, and it is exercised
+      # directly against findings built to break it.
+      - name: Compose the comment
+        env:
+          MODEL: ${{ needs.config.outputs.model }}
+          ENGINE: ${{ needs.config.outputs.engine }}
+          SHA: ${{ needs.config.outputs.head_sha }}
+        run: |
+          set -euo pipefail
+          python3 - "$RUNNER_TEMP/review/findings.json" "$RUNNER_TEMP/comment.md" <<'PY'
+          import json, os, re, sys
+
+          data = json.load(open(sys.argv[1]))
+          head = []
+          w = head.append
+
+          # ---------------------------------------------------------------
+          # Getting a model's prose safely into somebody else's markup.
+          #
+          # Three separate escapes, because there are three containers and they
+          # fail differently. All of this was reproduced on the previous jq
+          # version before it was written: the fences, the `</details>` and the
+          # mentions all came straight through into a rendered comment.
+          # ---------------------------------------------------------------
+
+          def fence_for(text):
+              """A fence longer than the longest backtick run inside `text`.
+
+              A code fence is closed by a run of at least as many backticks, so
+              three is only safe while the content has none. `evidence` quotes
+              diff lines and this repository's diffs are full of Markdown, so
+              three is exactly what it will not have. Four is not enough either
+              — a diff of a file that itself shows a fenced example carries
+              four."""
+              longest = max((len(m.group()) for m in re.finditer(r'`+', text)),
+                            default=0)
+              return '`' * max(3, longest + 1)
+
+          # An inline code span: an opening run of backticks and the next run of
+          # exactly the same length. Anything outside one is prose that the
+          # escaping below applies to.
+          CODE_SPAN = re.compile(r'(`+)[\s\S]*?\1')
+
+          def neutralise(text):
+              """Escape a run of prose so that it cannot leave its container.
+
+              Every `<` becomes `&lt;`. An earlier version escaped only `</`, on
+              the reasoning that an opening tag nests rather than escapes —
+              which is true and is not enough: an *unclosed* `<details>` inside
+              a finding swallows every finding after it into a collapsed block,
+              which loses the review as thoroughly as breaking out of one would.
+              This also takes `<!--` with it, and that one matters most: an HTML
+              comment opened in a model's prose and never closed hides
+              everything after it. As a side effect a reader finally sees
+              `Vec<u8>` written out, where today it vanishes into the page as an
+              unrecognised tag.
+
+              `&` goes first so the escaping is well-formed rather than
+              order-dependent. It buys nothing structural — `&lt;` in a model's
+              prose is already inert — only that the reader sees the characters
+              the reviewer actually wrote.
+
+              `@name` becomes `&#64;name`, which renders as an @ and is believed
+              not to be linkified into a mention. GitHub's renderer is not
+              observable from here, so treat that as the intent rather than as a
+              measured fact; it is monotone either way, since today's comment
+              mentions people for real on every re-review and this can only
+              reduce that."""
+              text = text.replace('&', '&amp;').replace('<', '&lt;')
+              return re.sub(r'(?<!\w)@(?=[A-Za-z0-9])', '&#64;', text)
+
+          def outside_code(text):
+              """`neutralise`, applied to everything except inline code spans.
+
+              A code span is left verbatim: the renderer escapes its content
+              anyway and never linkifies it, so escaping inside one would show
+              the reader `&lt;` and buy nothing."""
+              out, pos = [], 0
+              for m in CODE_SPAN.finditer(text):
+                  out.append(neutralise(text[pos:m.start()]))
+                  out.append(m.group())
+                  pos = m.end()
+              out.append(neutralise(text[pos:]))
+              return ''.join(out)
+
+          def path(p):
+              """A path from the reviewer, rendered as a code span.
+
+              Backticks are removed rather than escaped — they would close the
+              span — and `neutralise` still applies, because `reviewed` is
+              cross-checked against the transcript but `reviewed_unverified` is
+              whatever the reviewer claimed, which is free text."""
+              return neutralise(clip(p, 200).replace('`', ''))
+
+          def clip(value, limit):
+              """Bounded per field. These go into a public comment and an
+              unbounded public write should never be one field away. Sliced by
+              characters, not bytes, so a cut never lands mid-codepoint."""
+              s = '' if value is None else str(value)
+              return s if len(s) <= limit else s[:limit] + ' …'
+
+          # --------------------------------------------------------- header --
+          w('<!-- ai-review-marker -->')
+          w('## Automated review')
+          w('')
+          w('| | |')
+          w('|---|---|')
+          w(f'| Reviewed | `{os.environ["SHA"][:12]}` |')
+          w(f'| Reviewer | `{os.environ["ENGINE"]}` / `{os.environ["MODEL"]}` |')
+          w('')
+          w("This is an agent's reading of the diff. It is **advisory**: it gates")
+          w("nothing, it has not been calibrated against this repository's history, and")
+          w('published measurements put roughly four in five findings of this kind in')
+          w('the false-positive bin. The test matrix and the lint gates are what decide')
+          w('whether this change is sound.')
+          w('')
+
+          # ------------------------------------------------------- findings --
+          # Rendered one whole block per finding rather than appended line by
+          # line, because the size cap at the bottom has to be able to drop a
+          # finding entire. A cap that cuts at a character offset can land
+          # inside a fence or a `<details>`, and a comment that ends mid-block
+          # is exactly the broken markup the escaping above exists to prevent —
+          # reintroduced by the truncation instead of by the model.
+          SHOWN = 25
+          findings = [f for f in (data.get('findings') or []) if isinstance(f, dict)]
+          findings.sort(key=lambda f: 0 if f.get('severity') == 'blocking' else 1)
+
+          def render(f):
+              b = []
+              mark = '🔴' if f.get('severity') == 'blocking' else '🔵'
+              head = (f'### {mark} `{clip(f.get("category") or "other", 40)}` — '
+                      f'{clip(f.get("file") or "?", 200)}')
+              if isinstance(f.get('line'), int):
+                  head += f':{f["line"]}'
+              b.append(outside_code(head))
+              b.append('')
+              b.append(outside_code(clip(f.get('summary') or '(no summary)', 1000)))
+
+              # Named, not hidden. A finding that skipped the required fields is
+              # still shown — losing it would be another way to lose a review —
+              # but a reader is owed the fact that the thing they are being
+              # asked to act on came without the evidence the reviewer was told
+              # to supply.
+              if f.get('_missing'):
+                  b.append('')
+                  b.append('> ⚠️ The reviewer omitted required field(s): '
+                           + ', '.join(f'`{m}`' for m in f['_missing'])
+                           + '. Weigh this one accordingly.')
+              if '_severity_reported' in f:
+                  b.append('')
+                  b.append(f'> ⚠️ Reported severity `{clip(f["_severity_reported"], 40)}` is not '
+                           '`blocking` or `note`; it is shown as blocking rather than downgraded.')
+
+              evidence = clip(f.get('evidence'), 1500)
+              if evidence.strip():
+                  fence = fence_for(evidence)
+                  b += ['', fence + 'diff', evidence, fence]
+
+              refutation = clip(f.get('refutation_considered'), 1000)
+              if refutation.strip():
+                  b += ['', '<details><summary>Why this might be fine</summary>', '',
+                        outside_code(refutation), '', '</details>']
+              b.append('')
+              return b
+
+          blocks = [render(f) for f in findings[:SHOWN]]
+
+          # ------------------------------------------------------------ tail --
+          tail = []
+          rejected = data.get('rejected') or []
+          if rejected:
+              tail.append(f'_{len(rejected)} further entr(ies) were discarded before '
+                          'publication: they were not objects and carried nothing that '
+                          'could be rendered._')
+              tail.append('')
+
+          notes = clip(data.get('notes'), 2000)
+          if notes.strip():
+              tail += ['### Notes', '', outside_code(notes), '']
+
+          reviewed = data.get('reviewed')
+          unverified = data.get('reviewed_unverified') or []
+          # "read" only where the transcript was there to check it against.
+          # On the engine that has no transcript this stays a claim, and the
+          # heading says so rather than borrowing the other engine's assurance.
+          heading = ('Files the reviewer read' if data.get('reviewed_verified')
+                     else 'Files the reviewer says it read')
+
+          # Bounded by count as well as by the length of each entry. Every other
+          # field here has a ceiling; these were two lists straight from the
+          # model, so a reviewer that named a thousand files could have written
+          # a comment the API refuses on its own.
+          PATHS = 50
+
+          def listing(paths):
+              out = [f'- `{path(p)}`' for p in paths[:PATHS]]
+              if len(paths) > PATHS:
+                  out.append(f'- _… and {len(paths) - PATHS} more, not shown._')
+              return out
+
+          tail += ['', f'<details><summary>{heading}</summary>', '']
+          if isinstance(reviewed, list) and reviewed:
+              tail += listing(reviewed)
+          else:
+              tail.append('(none reported)')
+          if unverified:
+              tail += ['', 'The reviewer also claimed to have read the following, but the '
+                       'transcript shows it never opened them, so the claim was removed:', '']
+              tail += listing(unverified)
+          tail += ['', '</details>']
+
+          # ------------------------------------------------------ assembly --
+          # GitHub rejects a comment over 65536 characters, and losing the
+          # review to a 422 at the last step after paying for it would be the
+          # worst place to find that out. Bounded by dropping whole findings
+          # from the end rather than by cutting the finished text: the previous
+          # version sliced at a character offset, which lands inside a fence or
+          # a `<details>` as soon as the body is long enough to need cutting,
+          # and hands the reader a comment whose last block never closes.
+          #
+          # Everything outside the findings is separately bounded above, so the
+          # loop always terminates with a valid body — at worst the header, the
+          # tail, and a line saying how many findings did not fit.
+          def assemble(n):
+              parts = list(head)
+              if not findings:
+                  parts.append('**No findings.** This is not an approval — it is the '
+                               'absence of findings.')
+              else:
+                  for b in blocks[:n]:
+                      parts += b
+                  hidden = len(findings) - n
+                  if hidden > 0:
+                      parts.append(f'_… and {hidden} more, not shown._')
+                      parts.append('')
+              parts += tail
+              # Sections append a trailing blank line and the next adds a
+              # leading one, so runs pile up; collapsed here rather than by
+              # threading state through every branch above.
+              return re.sub(r'\n{3,}', '\n\n', '\n'.join(parts)) + '\n'
+
+          LIMIT = 60000
+          shown = len(blocks)
+          body = assemble(shown)
+          while len(body) > LIMIT and shown > 0:
+              shown -= 1
+              body = assemble(shown)
+          if shown < len(blocks):
+              print(f'Body exceeded {LIMIT} characters; showing {shown} of '
+                    f'{len(findings)} finding(s).')
+
+          open(sys.argv[2], 'w', encoding='utf-8').write(body)
+          print(f'Composed {len(body)} characters, {shown} finding(s) shown.')
+          PY
+
+      # Sticky: the marker in the body identifies this workflow's own comment,
+      # so a re-review after a push replaces it instead of adding another. A
+      # reviewer that comments once per push is a reviewer people mute.
+      #
+      # Two things the obvious version of this gets wrong.
+      #
+      # The marker is not enough on its own. Anyone pressing "Quote reply" on a
+      # review copies the whole body, marker included, into their own comment —
+      # and this token can edit other people's comments, so the next run would
+      # PATCH a person's words into a review. Matching on the App's own login as
+      # well is what makes the target this workflow's comment rather than any
+      # comment that quotes one. `repair-build.yml` reaches the same place from
+      # the other side, filtering on the `automated` label it alone applies.
+      #
+      # And `--paginate` with `--jq` applies the filter to each page separately
+      # rather than to the whole result: gh evaluates the expression inside its
+      # per-page handler, so `| first` yields one id *per page* and `EXISTING`
+      # becomes multi-line the moment the marker is on more than one page. The
+      # PATCH URL then contains a newline. `--slurp` and `--jq` do not combine,
+      # so the filtering moves to an external `jq -s`, which reads gh's stream
+      # of one array per page and `add`s them into a single list first. The
+      # threshold is 100 comments, which this repository's busier pull requests
+      # are not far from.
+      - name: Post or update the comment
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GH_REPO: ${{ github.repository }}
+          PR: ${{ needs.config.outputs.pr }}
+          APP_SLUG: ${{ steps.app-token.outputs.app-slug }}
+        run: |
+          set -euo pipefail
+
+          # Without a slug there is no way to tell this workflow's own comment
+          # from somebody quoting one, so the search is skipped and a new
+          # comment is posted instead. Not an error: refusing outright would
+          # lose the whole review to protect against an edit, when posting
+          # cannot touch anyone else's comment at all. The cost is a duplicate
+          # comment, which is visible and harmless, and it is announced.
+          EXISTING=
+          if [ -z "${APP_SLUG:-}" ]; then
+            echo "::warning::The App token step reported no app-slug, so this run cannot identify its own previous comment. Posting a new one rather than editing a comment it cannot attribute."
+          else
+            AUTHOR="${APP_SLUG}[bot]"
+            EXISTING=$(gh api "repos/$GH_REPO/issues/$PR/comments" --paginate \
+              | jq -r -s --arg author "$AUTHOR" --arg marker '<!-- ai-review-marker -->' \
+                  'add
+                   | map(select(.user.login == $author and (.body | contains($marker))))
+                   | first | .id // empty')
+          fi
+
+          if [ -n "$EXISTING" ]; then
+            gh api --method PATCH "repos/$GH_REPO/issues/comments/$EXISTING" \
+              -F body=@"$RUNNER_TEMP/comment.md" > /dev/null
+            echo "::notice::Updated the existing review comment ($EXISTING) by ${AUTHOR:-this App}."
+          else
+            gh api --method POST "repos/$GH_REPO/issues/$PR/comments" \
+              -F body=@"$RUNNER_TEMP/comment.md" > /dev/null
+            echo "::notice::Posted a review comment on #${PR}."
+          fi

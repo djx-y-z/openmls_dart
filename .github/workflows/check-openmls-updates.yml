@@ -7,7 +7,7 @@
 #    - Updates rust/Cargo.toml with new openmls tag
 #    - Runs cargo update to update Cargo.lock
 #    - Regenerates FRB bindings (make codegen)
-#    - Updates CHANGELOG.md with AI-generated entry (GitHub Models)
+#    - Updates CHANGELOG.md with AI-generated entry (provider per AI_MODELS)
 #    - Creates a PR with all changes
 
 name: Check openmls Updates
@@ -42,7 +42,7 @@ jobs:
         id: app-token
         uses: actions/create-github-app-token@v3
         with:
-          app-id: ${{ vars.APP_ID }}
+          client-id: ${{ vars.APP_CLIENT_ID }}
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
 
       - uses: actions/checkout@v7
@@ -159,24 +159,6 @@ jobs:
             echo "::error::Failed to update rust/Cargo.toml"
           fi
 
-      # Records the openmls dependency change (openmls Highlight + Changed).
-      # Does NOT touch the openmls_frb crate version — that is bumped later at
-      # release time (`make release-frb`), which also stamps the frb Highlight.
-      - name: Update CHANGELOG.md
-        id: changelog
-        if: steps.check.outputs.needs_update == 'true' && steps.existing.outputs.skip != 'true'
-        env:
-          AI_MODELS_TOKEN: ${{ secrets.AI_MODELS_TOKEN }}
-          LATEST_VERSION: ${{ steps.check.outputs.latest_version }}
-          CURRENT_VERSION: ${{ steps.check.outputs.current_version }}
-        run: |
-          if make update-changelog ARGS="--version $LATEST_VERSION --from $CURRENT_VERSION --ci"; then
-            echo "success=true" >> $GITHUB_OUTPUT
-          else
-            echo "success=false" >> $GITHUB_OUTPUT
-            echo "::warning::AI changelog update failed. Please update CHANGELOG.md manually."
-          fi
-
       - name: Setup Rust
         id: setup-rust
         if: steps.check.outputs.needs_update == 'true' && steps.existing.outputs.skip != 'true'
@@ -213,9 +195,65 @@ jobs:
         run: |
           if make codegen; then
             echo "success=true" >> $GITHUB_OUTPUT
+            # Whether the FFI surface actually moved, captured as a fact the
+            # CHANGELOG step and the reviewer can both rely on.
+            #
+            # On a plain dependency bump this should always be `unchanged`:
+            # codegen reads rust/src/api, which the bump does not touch. A
+            # `changed` here is therefore a tripwire — something in the
+            # upstream types this crate re-exports moved — and it is also the
+            # input to the stage-1 SemVer decision in `make release-frb`.
+            # `git status --porcelain`, not `git diff`: codegen can add a
+            # file, and `git diff` is blind to an untracked path. Reporting
+            # "unchanged" there would hand the CHANGELOG prompt a false fact —
+            # it is told the result is real and that it may state it.
+            if [ -z "$(git status --porcelain -- lib/src/rust/)" ]; then
+              echo "bindings=unchanged" >> $GITHUB_OUTPUT
+            else
+              echo "bindings=changed" >> $GITHUB_OUTPUT
+              echo "::warning::codegen changed lib/src/rust/ — the FFI surface moved. Review before merging; the openmls_frb bump is not a patch."
+            fi
           else
             echo "success=false" >> $GITHUB_OUTPUT
+            echo "bindings=not-run" >> $GITHUB_OUTPUT
             echo "::warning::FRB codegen failed. openmls API may have changed."
+          fi
+
+      # Runs AFTER codegen on purpose. The entry states whether the FFI
+      # surface moved, and that has to be a result rather than a guess:
+      # while this step ran first, the model had no codegen output and
+      # inferred one from the phrasing of earlier entries.
+      #
+      # Records the openmls dependency change (openmls Highlight + Changed).
+      # Does NOT touch the openmls_frb crate version — that is bumped later at
+      # release time (`make release-frb`), which also stamps the frb Highlight.
+      - name: Update CHANGELOG.md
+        id: changelog
+        if: steps.check.outputs.needs_update == 'true' && steps.existing.outputs.skip != 'true'
+        # Every key is step-scoped, as the single token before them was. These
+        # may be org-level secrets shared by unrelated repositories, and a
+        # job-level `env:` would hand each of them to every other step in this
+        # job — including the ones that run third-party actions.
+        #
+        # AI_MODELS is a variable, not a secret: which model writes the entry
+        # is operational configuration, and keeping it out of the code is what
+        # makes a provider switch a settings change rather than a template
+        # release rolled out across every generated project.
+        env:
+          AI_MODELS: ${{ vars.AI_MODELS }}
+          AI_EFFORT: ${{ vars.AI_EFFORT }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          LATEST_VERSION: ${{ steps.check.outputs.latest_version }}
+          CURRENT_VERSION: ${{ steps.check.outputs.current_version }}
+          BINDINGS: ${{ steps.codegen.outputs.bindings || 'not-run' }}
+        run: |
+          if make update-changelog ARGS="--version $LATEST_VERSION --from $CURRENT_VERSION --ci --codegen $BINDINGS --ci-output $GITHUB_OUTPUT"; then
+            echo "success=true" >> $GITHUB_OUTPUT
+          else
+            echo "success=false" >> $GITHUB_OUTPUT
+            echo "::warning::AI changelog update failed. Please update CHANGELOG.md manually."
           fi
 
       - name: Create Pull Request
@@ -254,8 +292,8 @@ jobs:
 
             - `rust/Cargo.toml` — ${{ steps.cargo-toml.outputs.success == 'true' && 'openmls dependency tags only (the `openmls_frb` crate version is intentionally NOT bumped here)' || '**NOT UPDATED** (update failed)' }}
             - `rust/Cargo.lock` — ${{ steps.cargo-lock.outputs.success == 'true' && 'updated dependencies' || '**NOT UPDATED** (cargo update failed)' }}
-            - `lib/src/rust/` — ${{ steps.codegen.outputs.success == 'true' && 'regenerated FRB bindings' || '**NOT UPDATED** (codegen failed, manual update required)' }}
-            - `CHANGELOG.md` — ${{ steps.changelog.outputs.success == 'true' && 'AI-generated entry (GitHub Models)' || '**NOT UPDATED** (AI failed, manual update required)' }}
+            - `lib/src/rust/` — ${{ steps.codegen.outputs.success == 'true' && format('regenerated FRB bindings — FFI surface **{0}**', steps.codegen.outputs.bindings == 'changed' && 'MOVED (review: the `openmls_frb` bump is not a patch)' || 'unchanged') || '**NOT UPDATED** (codegen failed, manual update required)' }}
+            - `CHANGELOG.md` — ${{ steps.changelog.outputs.success == 'true' && format('AI-generated entry (written by `{0}`)', steps.changelog.outputs.ai_provider) || '**NOT UPDATED** (AI failed, manual update required)' }}
             - `README.md` — ${{ steps.cargo-toml.outputs.success == 'true' && 'version badge' || '**NOT UPDATED**' }}
             - `.copier-answers.yml` — ${{ steps.cargo-toml.outputs.success == 'true' && 'upstream_version updated' || '**NOT UPDATED**' }}
             - `CLAUDE.md` — ${{ steps.cargo-toml.outputs.success == 'true' && 'example in documentation' || '**NOT UPDATED**' }}

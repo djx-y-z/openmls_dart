@@ -1,0 +1,1356 @@
+# Propose a fix when CI on `main` is red.
+#
+# The shape of this workflow is several jobs rather than one, and that is the
+# security design rather than tidiness:
+#
+#   detect   — decides whether there is anything to do, deterministically
+#   repair   — runs the agent, holds NO write credential of any kind
+#   propose  — mints the App token and opens the pull request      (fixed)
+#   report   — mints the App token and files an issue              (cannot-fix)
+#   resolve  — closes those issues once `main` is green again      (housekeeping)
+#
+# The last three are the only ones that can write, and none of them runs an
+# agent. Which of `propose` and `report` runs is decided by the agent's verdict,
+# and they are mutually exclusive.
+#
+# The agent job never has a token that can write to this repository. Not in a
+# later step, not in `.git/config` from the checkout, not in the environment.
+# The App token is minted in a job the agent does not run in and cannot reach,
+# after its work has already been reduced to a patch file.
+#
+# Everything the agent needs to know is fetched by a deterministic step before
+# it starts — the failing run, its log — so the agent spends its turns on the
+# problem rather than on discovery.
+#
+# The oracle is real: the pull request this opens is checked by the same
+# four-platform matrix as any other, so a wrong fix fails loudly and cheaply.
+
+name: Repair Build
+
+on:
+  schedule:
+    # Daily, after the nightly window and before the working day.
+    - cron: '0 5 * * *'
+  # Manual runs only. There is deliberately no issue, comment or pull_request
+  # trigger: those carry text written by whoever opened them straight into an
+  # agent's context. `workflow_dispatch` is the one manual trigger that requires
+  # write access to the repository, so its inputs come from someone who could
+  # push the same content directly — they widen no boundary. Do not add a
+  # trigger that anyone else can reach.
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: >-
+          Failing Tests run to repair. Empty means the latest completed run on
+          main. Naming an older run is how this workflow gets exercised without
+          waiting for main to break for real.
+        required: false
+        default: ''
+      dry_run:
+        description: >-
+          Change nothing outside this run: produce the patch as an artifact,
+          open no pull request, file no issue and close none.
+        required: false
+        default: false
+        type: boolean
+
+# Least privilege for the whole file. `actions: read` is for reading the failing
+# run's log; every write is made by the `propose` job with a GitHub App token.
+permissions:
+  contents: read
+  actions: read
+
+# One repair at a time. A second run starting while the first is mid-flight
+# would race it to the same branch, and neither is urgent enough to cancel the
+# other.
+concurrency:
+  group: repair-build
+  cancel-in-progress: false
+
+jobs:
+  # ==========================================================================
+  # Is main broken, and is this failure new?
+  # ==========================================================================
+  detect:
+    name: Detect a broken main
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    # Named at the job rather than raised for the whole file, so the job the
+    # agent runs in keeps the narrowest token of the five. `pull-requests: read`
+    # is for the duplicate check below, which asks `gh pr list` whether this
+    # exact failure already has a pull request — under `github.token`, since
+    # only the writing jobs mint the App token. The file-level block grants
+    # `contents` and `actions` and nothing else, so without this line that call
+    # has no permission for the resource it reads. `resolve` already carries the
+    # same thing for `issues: read` and the same reason; `detect` was the one
+    # that asks the API a question its token was never given.
+    #
+    # It would only ever have failed on the path this workflow exists for: the
+    # step is gated on `main` actually being broken, so no rehearsal and no
+    # green day reaches it.
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: read
+    outputs:
+      broken: ${{ steps.failure.outputs.broken }}
+      conclusion: ${{ steps.failure.outputs.conclusion }}
+      skip: ${{ steps.existing.outputs.skip }}
+      run_id: ${{ steps.failure.outputs.run_id }}
+      run_url: ${{ steps.failure.outputs.run_url }}
+      sha: ${{ steps.failure.outputs.sha }}
+      branch: ${{ steps.failure.outputs.branch }}
+      dry_run: ${{ steps.failure.outputs.dry_run }}
+      configured: ${{ steps.config.outputs.configured }}
+      engine: ${{ steps.config.outputs.engine }}
+      model: ${{ steps.config.outputs.model }}
+
+    steps:
+      # No engine and no model are chosen for you. This mirrors `AI_MODELS`,
+      # which deliberately has no default for the same reason: something that
+      # writes into this repository should be named by a person, not inherited
+      # from whatever a template happened to ship. A generated project that has
+      # not opted in gets a workflow that quietly does nothing, rather than one
+      # that silently starts spending on a model nobody chose.
+      #
+      # The three outcomes are deliberately different:
+      #
+      #   nothing set        -> notice, and the repair job never runs. Not an
+      #                         error: not opting in is a legitimate choice, and
+      #                         failing daily would train people to ignore this.
+      #   engine set, no model -> error. Half-configured is a mistake, not a
+      #                         choice, and the difference is worth a red run.
+      #   engine unrecognised -> error. This used to fall through to Claude Code,
+      #                         which meant a typo silently ran an engine and a
+      #                         model nobody asked for.
+      - name: Check that an engine and a model were chosen
+        id: config
+        env:
+          ENGINE: ${{ vars.AGENT_ENGINE }}
+          CLAUDECODE_MODEL: ${{ vars.AGENT_CLAUDECODE_MODEL }}
+          OPENCODE_MODEL: ${{ vars.AGENT_OPENCODE_MODEL }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${ENGINE:-}" ]; then
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::AGENT_ENGINE is not set, so no repair will be attempted. Set it to 'claude-code' or 'opencode', together with the matching model variable, to enable this workflow."
+            exit 0
+          fi
+
+          case "$ENGINE" in
+            claude-code) MODEL="${CLAUDECODE_MODEL:-}"; MODEL_VAR=AGENT_CLAUDECODE_MODEL ;;
+            opencode)    MODEL="${OPENCODE_MODEL:-}"; MODEL_VAR=AGENT_OPENCODE_MODEL ;;
+            *)
+              echo "::error::AGENT_ENGINE is '${ENGINE}', which is not an engine this workflow knows. Use 'claude-code' or 'opencode'."
+              exit 1
+              ;;
+          esac
+
+          if [ -z "$MODEL" ]; then
+            echo "::error::AGENT_ENGINE is '${ENGINE}' but ${MODEL_VAR} is not set. Name the model this repository should run; there is deliberately no default."
+            exit 1
+          fi
+
+          {
+            echo "configured=true"
+            echo "engine=$ENGINE"
+            echo "model=$MODEL"
+          } >> "$GITHUB_OUTPUT"
+          echo "::notice::Repairs will run on ${ENGINE} / ${MODEL}."
+
+      - name: Find the run to repair
+        id: failure
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          REQUESTED_RUN: ${{ inputs.run_id }}
+          REQUESTED_DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          set -euo pipefail
+
+          if [ -n "$REQUESTED_RUN" ]; then
+            RUN=$(gh run view "$REQUESTED_RUN" --json conclusion,databaseId,headSha,url | jq -c '[.]')
+          else
+            # The latest *completed* run, not the latest failure: an older red
+            # run with a green one after it means main was already fixed, and
+            # asking for `--status=failure` would happily return the stale one
+            # and send an agent to repair something nobody broke.
+            RUN=$(gh run list --workflow=test.yml --branch=main --status=completed \
+                    --limit=1 --json conclusion,databaseId,headSha,url)
+          fi
+
+          CONCLUSION=$(jq -r '.[0].conclusion // "none"' <<<"$RUN")
+          echo "conclusion=$CONCLUSION" >> "$GITHUB_OUTPUT"
+
+          if [ "$CONCLUSION" != "failure" ]; then
+            echo "broken=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Run conclusion is '$CONCLUSION' — nothing to repair."
+            exit 0
+          fi
+
+          SHA=$(jq -r '.[0].headSha' <<<"$RUN")
+          TIP=$(gh api "repos/$GH_REPO/commits/main" --jq '.sha')
+          DRY_RUN="${REQUESTED_DRY_RUN:-false}"
+
+          # The failing run has to be judging main's current tip. If main has
+          # moved on, CI has not yet ruled on what is there now, and repairing
+          # against an older commit is how a pull request ends up quietly
+          # reverting whatever landed in between: the branch would be cut from
+          # the old tree and its diff against main would carry the difference.
+          if [ "$SHA" != "$TIP" ]; then
+            if [ -z "$REQUESTED_RUN" ]; then
+              echo "broken=false" >> "$GITHUB_OUTPUT"
+              echo "::notice::The red run judged ${SHA:0:12} but main is now at ${TIP:0:12} — waiting for CI to rule on the current tip."
+              exit 0
+            fi
+            # Somebody named this run deliberately, which is the rehearsal path.
+            # Let it run, but take the write end off: forcing the dry run is
+            # what stops a rehearsal against an old commit from opening a pull
+            # request that reverts everything since.
+            DRY_RUN=true
+            echo "::warning::Run ${REQUESTED_RUN} judged ${SHA:0:12} but main is at ${TIP:0:12} — forcing a dry run; no pull request will be opened."
+          fi
+
+          {
+            echo "broken=true"
+            echo "dry_run=$DRY_RUN"
+            echo "run_id=$(jq -r '.[0].databaseId' <<<"$RUN")"
+            echo "run_url=$(jq -r '.[0].url' <<<"$RUN")"
+            echo "sha=$SHA"
+            # Keyed by the commit that broke, so one failure gets one attempt.
+            echo "branch=repair-build-${SHA:0:12}"
+          } >> "$GITHUB_OUTPUT"
+
+          echo "::warning::Repairing ${SHA:0:12} — $(jq -r '.[0].url' <<<"$RUN")"
+
+      # Not consulted on a dry run: there is no pull request to collide with, and
+      # skipping would defeat the only way to rehearse this workflow twice.
+      - name: Skip if this exact failure already has a pull request
+        id: existing
+        if: steps.failure.outputs.broken == 'true' && steps.failure.outputs.dry_run != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          BRANCH: ${{ steps.failure.outputs.branch }}
+        run: |
+          set -euo pipefail
+          # `--state all`, not just open. An open one must not be force-pushed
+          # over. A closed one means a human has already seen this exact failure
+          # and declined the fix, and re-proposing it every night is how
+          # automation teaches people to stop reading it.
+          COUNT=$(gh pr list --head "$BRANCH" --state all --json number --jq 'length')
+          if [ "$COUNT" != "0" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::A pull request for $BRANCH already exists (open or closed) — skipping."
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      # The other half of the summary in the `repair` job below, and the half
+      # that matters more often: most runs of this workflow stop here, and until
+      # now they left a green tick and an annotation somebody had to go looking
+      # for. "The automation is switched off" and "the automation looked and
+      # main is fine" are very different facts that produced the same-looking
+      # run.
+      - name: Summarise the decision
+        if: always()
+        env:
+          BROKEN: ${{ steps.failure.outputs.broken }}
+          CONFIGURED: ${{ steps.config.outputs.configured }}
+          ENGINE: ${{ steps.config.outputs.engine }}
+          MODEL: ${{ steps.config.outputs.model }}
+          CONCLUSION: ${{ steps.failure.outputs.conclusion }}
+          SKIP: ${{ steps.existing.outputs.skip }}
+          SHA: ${{ steps.failure.outputs.sha }}
+          RUN_URL: ${{ steps.failure.outputs.run_url }}
+        run: |
+          set -euo pipefail
+          {
+            echo "## Build repair — what this run decided"
+            echo
+            if [ "${CONFIGURED:-}" != "true" ]; then
+              echo "**Nothing was attempted: no agent is configured.** Set \`AGENT_ENGINE\`"
+              echo "to \`claude-code\` or \`opencode\`, and the matching model variable, to"
+              echo "switch this on. This is not a failure — it is what an unconfigured"
+              echo "repository is supposed to look like."
+            elif [ "${BROKEN:-}" != "true" ]; then
+              echo "**Nothing to repair.** The latest completed Tests run on \`main\`"
+              echo "concluded \`${CONCLUSION:-unknown}\`."
+              echo
+              echo "Agent that would have run: \`${ENGINE}\` / \`${MODEL}\`."
+            elif [ "${SKIP:-}" = "true" ]; then
+              echo "**Already handled.** A pull request for \`${SHA:0:12}\` exists already"
+              echo "(open or closed), so this failure is not being proposed again."
+            else
+              echo "Repairing \`${SHA:0:12}\` with \`${ENGINE}\` / \`${MODEL}\`."
+              echo
+              echo "Failing run: ${RUN_URL:-unknown}"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # ==========================================================================
+  # The agent. No write credential exists anywhere in this job.
+  # ==========================================================================
+  repair:
+    name: Attempt a repair
+    needs: detect
+    if: >-
+      needs.detect.outputs.broken == 'true' &&
+      needs.detect.outputs.skip != 'true' &&
+      needs.detect.outputs.configured == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    outputs:
+      status: ${{ steps.verdict.outputs.status }}
+      changed: ${{ steps.patch.outputs.changed }}
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.detect.outputs.sha }}
+          # Deliberately the default, read-only GITHUB_TOKEN. Checking out with
+          # the App token would leave a credential in .git/config that the
+          # agent's Bash tool can read and push with, which would defeat the
+          # entire job split.
+          persist-credentials: false
+
+      - name: Fetch the failing log
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN_ID: ${{ needs.detect.outputs.run_id }}
+          RUN_URL: ${{ needs.detect.outputs.run_url }}
+          SHA: ${{ needs.detect.outputs.sha }}
+        run: |
+          set -euo pipefail
+          mkdir -p .agent-scratch
+          # Belt and braces with the `rm -rf` after the agent runs: if the
+          # directory somehow survives, git still never sees it.
+          echo '.agent-scratch/' >> .git/info/exclude
+
+          # Deterministic, and done here rather than by the agent on purpose.
+          # Reads that a script can do cost an agent turns, and turns spent on
+          # discovery are turns not spent on the problem.
+          gh run view "$RUN_ID" --log-failed > .agent-scratch/build-failure.raw
+
+          # Bounded. A pathological log — a dependency looping on a warning —
+          # would otherwise fill the context with one repeated line and push the
+          # actual error out of it.
+          head -c 400000 .agent-scratch/build-failure.raw > .agent-scratch/build-failure.log
+          rm -f .agent-scratch/build-failure.raw
+
+          # A CI log is mostly toolchain noise, and the whole of it is paid for
+          # on every turn of the agent's loop, not once. Measured on a real
+          # failure: 218 KB of log, ~55K tokens, against a context of ~100K read
+          # back 2.2M times over 24 turns — the log, not the model tier, is what
+          # a run costs. The signal is the error lines and what surrounds them,
+          # which came to 13 KB for the same failure: 17x less.
+          #
+          # Both files are written and the summary is only the entry point. A
+          # distillation that silently dropped the cause would be a far more
+          # expensive mistake than a large context, so the full log stays on
+          # disk and the prompt says when to reach for it.
+          #
+          # grep rather than awk: `IGNORECASE` is a GNU extension, and the
+          # runner's awk is mawk.
+          grep -iE -B15 -A15 \
+            '##\[error\]|##\[group\]❌|panicked|Exception|tests passed|[0-9]+ tests? failed' \
+            .agent-scratch/build-failure.log > .agent-scratch/build-failure.summary || true
+
+          # An empty summary means none of the anchors matched — an unfamiliar
+          # failure shape. Fall back to the whole log rather than handing over
+          # nothing, and say so, because a silent empty summary would read to
+          # the agent as "nothing went wrong".
+          if [ ! -s .agent-scratch/build-failure.summary ]; then
+            echo "::warning::No known error markers in the log — the summary is the full log."
+            cp .agent-scratch/build-failure.log .agent-scratch/build-failure.summary
+          fi
+
+          {
+            echo "RUN_URL=$RUN_URL"
+            echo "SHA=$SHA"
+          } > .agent-scratch/failure.env
+
+          # Which legs failed, and what this workflow has been doing lately.
+          #
+          # Both rehearsals reached for exactly this and it was decisive: "every
+          # other platform was green on the same SHA, and the timing-out test is
+          # a different one each time" is what separates a flaky runner from a
+          # regression, and neither fact is anywhere in the failing job's log.
+          #
+          # Fetched here rather than granting the agent `gh`. That would mean
+          # putting a token in its environment and trusting a prefix match to
+          # keep `gh` read-only, to obtain something a script gets for free.
+          {
+            echo "# Context for run $RUN_ID (gathered by the workflow, not the agent)"
+            echo
+            echo "## Every job in the failing run"
+            echo
+            echo "A leg that passed on this same commit is evidence the tree is fine."
+            echo
+            gh run view "$RUN_ID" --json jobs \
+              --jq '.jobs[] | "- \(.conclusion // "?")\t\(.name)"'
+            echo
+            echo "## Recent Tests runs on main, newest first"
+            echo
+            echo "The same symptom striking a different test each time is a flaky"
+            echo "runner. A regression does not move between unrelated tests."
+            echo
+            gh run list --workflow=test.yml --branch=main --limit=20 \
+              --json conclusion,headSha,databaseId,createdAt \
+              --jq '.[] | "- \(.conclusion // "running")\t\(.headSha[0:12])\trun \(.databaseId)\t\(.createdAt)"'
+          } > .agent-scratch/run-context.md 2>&1 || \
+            echo "Context could not be gathered." > .agent-scratch/run-context.md
+
+          echo "Log bytes: $(wc -c < .agent-scratch/build-failure.log)"
+
+      # The same toolchain the Tests job sets up, so that `make build` here
+      # means what it means there. Without it the agent cannot verify anything
+      # and its only options are to guess or to give up.
+      - name: Setup Rust
+        uses: ./.github/actions/setup-rust
+
+      - name: Setup FVM and Flutter
+        uses: ./.github/actions/setup-fvm
+
+      - name: Get dependencies
+        run: make get
+
+      # Two engines, one prompt. Which one runs is `vars.AGENT_ENGINE`
+      # (`claude-code`, the default, or `opencode`); everything on either side
+      # of this pair is identical, because the engine only ever sees a working
+      # tree and leaves behind a patch and a verdict. That is the whole reason
+      # the agent call was kept to a single step with the prompt in a file.
+      #
+      # Neither engine's own GitHub Action is used. OpenCode ships one, but it
+      # is driven by `/opencode` comments on issues and pull requests and opens
+      # the pull request itself — both of which this workflow deliberately does
+      # not do: comment triggers carry someone else's text into an agent's
+      # context, and opening the pull request here would put a write credential
+      # in the job the agent runs in. Installing the CLI keeps the three-job
+      # split intact.
+      # The counterpart to the key check on the OpenCode side. Without it a
+      # missing secret still fails the run, but as an authentication error from
+      # inside a third-party action — which reads like the model rejected the
+      # request rather than like a repository setting nobody made. The two
+      # engines should be equally clear about the same mistake.
+      - name: Check the Claude key is present
+        if: needs.detect.outputs.engine == 'claude-code'
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${ANTHROPIC_API_KEY:-}" ]; then
+            echo "::error::AGENT_ENGINE is 'claude-code' but the ANTHROPIC_API_KEY secret is not set. Add it, or switch AGENT_ENGINE to an engine this repository has a key for."
+            exit 1
+          fi
+          echo "The Claude key is present."
+
+      - name: Run the agent (Claude Code)
+        if: needs.detect.outputs.engine == 'claude-code'
+        uses: anthropics/claude-code-action@c038e4dcdedfbbca18dfb17df35a17e40ded4ddc # v1.0.186
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          # Read-only, and only so the action can resolve repository context.
+          # The job's `permissions:` block is what actually bounds it.
+          github_token: ${{ github.token }}
+          # The instructions live in a plain Markdown file, not in this YAML and
+          # not in `.claude/skills/`: a prompt in a file is reviewable on its
+          # own, diffable, and portable to another engine. This input only
+          # points at it.
+          prompt: |
+            Read `.github/agent-prompts/repair-build.md` and carry out exactly
+            the task it describes. It is the complete specification, including
+            which paths you may change and what counts as done.
+          # Commands are enumerated, never wildcarded on the tool name. This
+          # Makefile's targets include `release`, `release-frb`, `publish`,
+          # `update-changelog` and `setup-repo-protections`, so `Bash(make:*)`
+          # would admit all of them. The push at the end of `make release` would
+          # fail for want of a credential — but only after it had already
+          # bumped `pubspec.yaml` in the working tree, and `pubspec.yaml` is
+          # inside the path allowlist, so a version bump would ride along in the
+          # pull request looking like part of the fix. `cargo` is enumerated for
+          # the same reason: `cargo publish` and `cargo install` live under the
+          # same prefix as `cargo check`.
+          #
+          # `Write` is granted so the agent can leave its verdict. It can also
+          # create source files anywhere, which the path allowlist is what
+          # actually contains — the grant does not.
+          #
+          # `ls` and `rg` are deliberately absent. `Glob` and `Grep` do the same
+          # work and are scoped to the workspace, whereas `rg` reads any path
+          # the process can — `/proc/self/environ` included, which is where this
+          # job's secrets live. This raises the bar rather than sealing it: the
+          # agent may edit the Makefile and then run `make`, so treat the
+          # enumeration as one control among several and not as a sandbox. The
+          # ones that actually hold are the absent write credential, the path
+          # allowlist, and the secret scan below.
+          claude_args: |
+            --model ${{ needs.detect.outputs.model }}
+            --max-turns 40
+            --allowedTools "Read,Edit,Write,Glob,Grep,Bash(make get),Bash(make build),Bash(make codegen),Bash(make test),Bash(make test:*),Bash(make analyze),Bash(make analyze:*),Bash(make format),Bash(make format-check),Bash(make rust-check),Bash(make rust-clippy),Bash(make rust-test),Bash(cargo check:*),Bash(cargo build:*),Bash(cargo test:*),Bash(cargo clippy:*),Bash(cargo tree:*),Bash(cargo metadata:*),Bash(git log:*),Bash(git status:*)"
+            --disallowedTools "WebFetch,WebSearch"
+
+      # Pinned, and `npm` rather than the vendor's curl installer so the version
+      # is a lockable input rather than whatever `latest` resolved to that
+      # morning. `OPENCODE_DISABLE_AUTOUPDATE` matters for the same reason: an
+      # agent that upgrades itself mid-run is not the agent that was reviewed.
+      - name: Install OpenCode
+        if: needs.detect.outputs.engine == 'opencode'
+        env:
+          AGENT_OPENCODE_VERSION: ${{ vars.AGENT_OPENCODE_VERSION || '1.18.15' }}
+        run: |
+          set -euo pipefail
+          npm install -g "opencode-ai@${AGENT_OPENCODE_VERSION}"
+          opencode --version
+
+      # The permissions live in `.github/agent-config/opencode.json`, which is
+      # outside the path allowlist so the agent cannot widen them and have the
+      # change ride along in the pull request. That file is the counterpart to
+      # the `--allowedTools` line above and carries the reasoning for each rule.
+      #
+      # `--auto` is deliberately absent: it auto-approves everything not
+      # explicitly denied, which is the opposite of an allowlist. The config
+      # denies by default instead, and never uses `ask` — a question in a
+      # headless run has nobody to answer it.
+      #
+      # The turn limit is `steps` in that config, not a flag here; OpenCode has
+      # no `--max-turns`. On exhaustion it forces a text-only response, so the
+      # agent cannot call `write`, so `verdict.json` is missing, so the step
+      # below fails loudly — the same outcome as Claude Code running out of
+      # turns, reached by a different route.
+      - name: Run the agent (OpenCode)
+        if: needs.detect.outputs.engine == 'opencode'
+        env:
+          # Which provider the key belongs to is configuration, not code. Every
+          # provider OpenCode knows about reads its key from its own environment
+          # variable — `OPENROUTER_API_KEY`, `AI_GATEWAY_API_KEY`,
+          # `ANTHROPIC_API_KEY`, and so on — so the *name* is the variable and
+          # the value is one secret. Pointing this workflow at a different
+          # provider, a self-hosted gateway or a proxy is then two repository
+          # settings rather than a YAML edit repeated in every generated
+          # project and shipped through a template release.
+          # The key is looked up under the provider's own name first, so a
+          # repository that already has `OPENROUTER_API_KEY` for the CHANGELOG
+          # automation does not need a second copy of the same value under a
+          # second name. `scripts/src/ai_client.dart` reads the provider-named
+          # variable directly and that is right — it is how every provider
+          # documents itself — so the duplication is removed here rather than by
+          # bending that.
+          #
+          # `secrets.AGENT_OPENCODE_API_KEY` still wins when set, which keeps a repo
+          # free to hold a separate key for the agent than for the CHANGELOG
+          # writer — different blast radius, and someone may want that.
+          #
+          # If neither resolves, the guard below stops the run rather than
+          # letting OpenCode start without credentials.
+          AGENT_OPENCODE_PROVIDER_ENV: ${{ vars.AGENT_OPENCODE_PROVIDER_ENV || 'OPENROUTER_API_KEY' }}
+          AGENT_OPENCODE_API_KEY: ${{ secrets.AGENT_OPENCODE_API_KEY || secrets[vars.AGENT_OPENCODE_PROVIDER_ENV || 'OPENROUTER_API_KEY'] }}
+          OPENCODE_CONFIG: ${{ github.workspace }}/.github/agent-config/opencode.json
+          OPENCODE_DISABLE_AUTOUPDATE: '1'
+          # Model is engine-scoped on purpose: `AGENT_CLAUDECODE_MODEL` names a
+          # Claude model and means nothing to OpenCode, so each engine reads its
+          # own variable and a stale setting for the other cannot be picked up
+          # by mistake.
+          #
+          # The assignment below is load-bearing and was missing. The `run:`
+          # block references `$AGENT_OPENCODE_MODEL` under `set -u`, so without
+          # it this step died with "unbound variable" before OpenCode was ever
+          # invoked. The comment describing the variable was here; the variable
+          # was not. Nothing caught it because this workflow has never run in
+          # CI, and the bench runs passed `--model` on the command line by hand.
+          # The default was measured, not picked from a leaderboard. Seven
+          # models ran the same real failure three or more times each, scored on
+          # whether they returned `cannot-fix` and left the tree untouched:
+          #
+          #   gpt-5.6-luna      6/6   ~$0.006/run
+          #   glm-5.2           4/4   ~$0.43
+          #   sonnet-5          3/3   ~$0.48
+          #   gpt-5.6-luna-pro  3/3   ~$0.033
+          #   deepseek-v4-flash 1/3   ~$0.05
+          #   deepseek-v4-pro   1/5   ~$0.08
+          #   claude-haiku-4-5  0/3   ~$0.22
+          #
+          # The four that fell short all failed the same way: they diagnosed the
+          # flaky runner correctly and then raised the failing test's timeout,
+          # each explaining why that was not really weakening it. `test/**` is
+          # inside the path allowlist, so nothing downstream would have caught
+          # that — only the prompt stands there, and they walked through it.
+          # Public coding benchmarks did not predict this: deepseek-v4-pro is
+          # among the strongest open-weight agentic coders by published score.
+          #
+          # Context still matters and still constrains the choice: the prompt
+          # invites the agent to open the full log, capped at 400 KB, roughly
+          # 130K tokens of CI output on top of the working context. A model with
+          # a 128K window would serve every ordinary run and fail on exactly the
+          # unfamiliar failure the full log exists for. This one has 1M.
+          #
+          # Note the price is promotional at the time of measuring; expect it to
+          # roughly double. That changes nothing here — it would still be the
+          # cheapest model that held the bar, by an order of magnitude.
+          AGENT_OPENCODE_MODEL: ${{ needs.detect.outputs.model }}
+        run: |
+          set -euo pipefail
+
+          # Two documented channels for handing OpenCode a configuration other
+          # than the file this workflow points at: `OPENCODE_PERMISSION`
+          # replaces the permission block, `OPENCODE_CONFIG_CONTENT` supplies a
+          # whole config as a string. Nothing here sets either, and only someone
+          # who could edit this file could — but this is the job where the agent
+          # holds `write`, `edit` and a `make` allowlist, so the assertion below
+          # is worth making against inputs that are closed rather than merely
+          # unused. `unset` on an unset name is not an error under `set -u`.
+          unset OPENCODE_PERMISSION OPENCODE_CONFIG_CONTENT
+
+          if [ -z "${AGENT_OPENCODE_API_KEY:-}" ]; then
+            echo "::error::AGENT_ENGINE is 'opencode' but no provider key resolved. Set the AGENT_OPENCODE_API_KEY secret, or a secret named '${AGENT_OPENCODE_PROVIDER_ENV}' to match AGENT_OPENCODE_PROVIDER_ENV."
+            exit 1
+          fi
+
+          # The name comes from a repository variable, so only someone who
+          # could edit this workflow can set it — but a typo would otherwise
+          # produce an export that fails in a way that reads like an OpenCode
+          # bug rather than a settings mistake. Checking it costs one line.
+          if ! printf '%s' "$AGENT_OPENCODE_PROVIDER_ENV" | grep -qE '^[A-Za-z_][A-Za-z0-9_]*$'; then
+            echo "::error::AGENT_OPENCODE_PROVIDER_ENV ('${AGENT_OPENCODE_PROVIDER_ENV}') is not a valid environment variable name."
+            exit 1
+          fi
+
+          # Hand the key to whichever variable this provider reads. `export` is
+          # given a single NAME=VALUE string and never evaluates it, so the
+          # secret cannot be re-parsed as shell here.
+          export "${AGENT_OPENCODE_PROVIDER_ENV}=${AGENT_OPENCODE_API_KEY}"
+          echo "Provider key exported as \$${AGENT_OPENCODE_PROVIDER_ENV}."
+
+          # Assert the agent actually resolves before running it. Measured
+          # against OpenCode 1.18.15: when the config is missing or does not
+          # define the agent, `opencode run --agent repair-build` prints
+          #
+          #   ! agent "repair-build" not found. Falling back to default agent
+          #
+          # on stderr and then runs anyway — as the *default* agent, which has
+          # no command allowlist and no step limit — and exits 0. Every control
+          # this file spells out would be silently gone while the step passed.
+          # A missing config is not a hypothetical: the workflow points at the
+          # config inside the checked-out commit, so repairing a commit from
+          # before this file existed reaches exactly that state.
+          #
+          # `opencode debug agent` also exits 0 when the agent is missing, so
+          # the check is on its output rather than its status: a resolved agent
+          # prints a JSON object whose `name` is the agent.
+          #
+          # And the resolved *permissions* are asserted, not just the name. That
+          # check was written for `ai-review.yml` first, which was the wrong way
+          # round: the reviewer has no shell and changes no file, while this
+          # agent holds `write`, `edit` and the entire `make` allowlist, and the
+          # allowlist in `opencode.json` is this agent's. The stronger assertion
+          # belongs where the stronger grant is.
+          #
+          # It asserts the allowlist is exactly what the config documents.
+          # Anything extra after the deny-all is a command nobody wrote down —
+          # `make release`, which bumps `pubspec.yaml` inside the path
+          # allowlist, is the one that would ride along in a pull request
+          # looking like part of the fix. Anything *missing* is caught too: a
+          # silently-narrowed allowlist is how the agent ends up unable to run
+          # the gates and calling the repair done anyway.
+          opencode debug agent repair-build 2>/dev/null > "$RUNNER_TEMP/agent.json" || true
+          if ! python3 - "$RUNNER_TEMP/agent.json" <<'PY'
+          import json, sys
+
+          EXPECTED = {
+              'make build', 'make test', 'make analyze ARGS="--fatal-infos"',
+              'make format-check', 'make rust-clippy', 'make get',
+              'make codegen', 'make format', 'make analyze', 'make rust-check',
+              'make rust-test', 'git status', 'git diff',
+          }
+
+          try:
+              data = json.load(open(sys.argv[1]))
+          except Exception as exc:
+              print(f"could not read the resolved agent: {exc}")
+              sys.exit(1)
+
+          if data.get('name') != 'repair-build':
+              print("the resolved agent is not 'repair-build'")
+              sys.exit(1)
+
+          rules = data.get('permission', [])
+          bash = [(i, r) for i, r in enumerate(rules) if r.get('permission') == 'bash']
+          wildcards = [i for i, r in bash if r.get('pattern') == '*']
+          if not wildcards or rules[wildcards[-1]].get('action') != 'deny':
+              print("the last wildcard bash rule does not deny; every command is allowed")
+              sys.exit(1)
+
+          allowed = {
+              r['pattern'] for i, r in bash
+              if i > wildcards[-1] and r.get('action') == 'allow'
+          }
+          if allowed != EXPECTED:
+              extra, missing = sorted(allowed - EXPECTED), sorted(EXPECTED - allowed)
+              if extra:
+                  print(f"commands allowed that this workflow does not expect: {extra}")
+              if missing:
+                  print(f"commands this workflow expects that are not allowed: {missing}")
+              sys.exit(1)
+
+          def verdict(tool):
+              last = None
+              for r in rules:
+                  if r.get('permission') == tool and r.get('pattern') == '*':
+                      last = r.get('action')
+              return last
+
+          undenied = [t for t in ('task', 'webfetch', 'websearch',
+                                  'external_directory')
+                      if verdict(t) != 'deny']
+          if undenied:
+              print(f"these tools do not resolve to deny for the repair agent: {undenied}")
+              sys.exit(1)
+
+          print(f"repair permissions resolve as intended: {len(allowed)} commands, exactly the documented set.")
+          PY
+          then
+            echo "::error::The 'repair-build' agent did not resolve from ${OPENCODE_CONFIG} with the permissions this workflow expects. OpenCode falls back to its unrestricted default agent when the config is missing, and a config that resolves differently from what it reads as is worse than none — so this run is stopped instead. See the message above."
+            exit 1
+          fi
+
+          opencode run \
+            --agent repair-build \
+            --model "$AGENT_OPENCODE_MODEL" \
+            "Read \`.github/agent-prompts/repair-build.md\` and carry out exactly
+             the task it describes. It is the complete specification, including
+             which paths you may change and what counts as done."
+
+      # Turn exhaustion, a crash and "there was nothing to do" all look
+      # identical from outside: the job ends, the tree is clean, no pull request
+      # appears. Requiring the agent to leave a verdict behind is what separates
+      # them — its absence is a failure, loudly, rather than a quiet success.
+      - name: Read the verdict
+        id: verdict
+        run: |
+          set -euo pipefail
+          VERDICT=.agent-scratch/verdict.json
+
+          if [ ! -f "$VERDICT" ]; then
+            echo "::error::The agent left no verdict at $VERDICT. It ran out of turns, crashed, or stopped early — this is NOT 'nothing to fix'. Check the run log."
+            exit 1
+          fi
+          if ! jq -e . "$VERDICT" > /dev/null 2>&1; then
+            echo "::error::$VERDICT is not valid JSON."
+            cat "$VERDICT"
+            exit 1
+          fi
+
+          STATUS=$(jq -r '.status // "missing"' "$VERDICT")
+          echo "status=$STATUS" >> "$GITHUB_OUTPUT"
+
+          case "$STATUS" in
+            fixed)
+              echo "::notice::Agent reports a fix."
+              ;;
+            cannot-fix)
+              echo "::warning::Agent could not fix this build and said so. No pull request will be opened."
+              jq -r '.cause // ""' "$VERDICT"
+              jq -r '.notes // ""' "$VERDICT"
+              ;;
+            *)
+              echo "::error::Unrecognised verdict status '$STATUS' (expected 'fixed' or 'cannot-fix')."
+              exit 1
+              ;;
+          esac
+
+          # Kept for both outcomes, not just a fix. `cannot-fix` is the verdict
+          # that gets reported to a person, so its text has to survive the
+          # scratch directory being deleted — and has to reach the secret scan
+          # below, which used to run only on the way to a pull request.
+          cp "$VERDICT" "$RUNNER_TEMP/verdict.json"
+
+      - name: Reduce the work to a patch
+        id: patch
+        if: steps.verdict.outputs.status == 'fixed'
+        run: |
+          set -euo pipefail
+          rm -rf .agent-scratch
+
+          git add -A
+          git diff --cached --binary > "$RUNNER_TEMP/repair.patch"
+
+          if [ ! -s "$RUNNER_TEMP/repair.patch" ]; then
+            echo "::error::The agent reported 'fixed' but changed nothing. One of the two is wrong, and neither is safe to act on."
+            exit 1
+          fi
+
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+          git diff --cached --name-only
+
+      # The allowlist, enforced here rather than trusted to the prompt. Two
+      # exclusions carry their own reason and are not incidental:
+      #
+      #   .github/**   — the cheapest way to turn a red build green is to weaken
+      #                  what reported it. That change has to be a human's.
+      #   .githooks/** — carries an executable bit, which the signed-commit API
+      #                  cannot represent; the push would be rejected anyway.
+      - name: Reject changes outside the allowlist
+        if: steps.verdict.outputs.status == 'fixed'
+        env:
+          ALLOWED: '^(rust|lib|test|hook|scripts|example)/|^(Makefile|pubspec\.yaml|analysis_options\.yaml)$'
+        run: |
+          set -euo pipefail
+          OUTSIDE=$(git diff --cached --name-only | grep -Ev "$ALLOWED" || true)
+          if [ -n "$OUTSIDE" ]; then
+            echo "::error::The agent changed files outside the allowlist:"
+            printf '%s\n' "$OUTSIDE"
+            exit 1
+          fi
+          echo "All changed paths are inside the allowlist."
+
+      # This repository is public, so its Actions logs, pull-request bodies and
+      # issues are public. The verdict is free text an agent wrote after reading
+      # a build log that third parties contribute to, and it is copied verbatim
+      # into whatever gets published — created through the API, which never
+      # passes through the log masking that would otherwise catch a secret. That
+      # is an exfiltration path with a public endpoint, and it is the one
+      # control gh-aw would have supplied and this workflow has to supply for
+      # itself.
+      #
+      # Runs for BOTH verdicts. It used to be `fixed` only, from when a pull
+      # request was the only thing this workflow could publish; `cannot-fix` now
+      # reaches a public issue by the same route, carrying the same text, so it
+      # needs the same check. A scan that covers only one of two publication
+      # paths is the shape of control that reads as present and is not.
+      #
+      # Fails rather than redacts. A secret appearing here at all means
+      # something went wrong upstream of this step, and quietly publishing a
+      # censored version of it would hide that.
+      - name: Refuse to publish anything carrying a secret
+        env:
+          SCAN_ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          # Resolved the same way the agent step resolves it. If this only read
+          # `secrets.AGENT_OPENCODE_API_KEY` it would scan nothing whenever the key
+          # came from the provider-named fallback — which is the common case for
+          # a repository that already had `OPENROUTER_API_KEY` — and a key could
+          # reach a public pull-request body unscanned.
+          SCAN_AGENT_OPENCODE_API_KEY: ${{ secrets.AGENT_OPENCODE_API_KEY || secrets[vars.AGENT_OPENCODE_PROVIDER_ENV || 'OPENROUTER_API_KEY'] }}
+          SCAN_GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          FOUND=0
+          # Every engine's key is scanned regardless of which engine ran: the
+          # loop skips empty values, so listing both costs nothing and means
+          # adding an engine can never quietly leave a key unscanned. Note this
+          # scans the secret's *value*, so it keeps working whatever provider
+          # `AGENT_OPENCODE_PROVIDER_ENV` pointed that value at.
+          for name in SCAN_ANTHROPIC_API_KEY SCAN_AGENT_OPENCODE_API_KEY SCAN_GITHUB_TOKEN; do
+            value="${!name}"
+            [ -n "$value" ] || continue
+            for file in "$RUNNER_TEMP/verdict.json" "$RUNNER_TEMP/repair.patch"; do
+              # The patch exists only on the `fixed` path; the verdict always
+              # does. Skipping what is absent is what lets one scan serve both
+              # outcomes without a second copy of it under a different `if`.
+              [ -f "$file" ] || continue
+              # -q and -F: the needle is a secret, so it is matched literally and
+              # never echoed. Only the variable's name is ever printed.
+              if grep -qF -- "$value" "$file"; then
+                echo "::error::$(basename "$file") contains the value of ${name#SCAN_}. Nothing will be uploaded or published."
+                FOUND=1
+              fi
+            done
+          done
+          if [ "$FOUND" != 0 ]; then
+            exit 1
+          fi
+          echo "Nothing due for publication carries a known secret."
+
+      - name: Upload the patch
+        if: steps.verdict.outputs.status == 'fixed'
+        uses: actions/upload-artifact@v7
+        with:
+          name: repair-patch
+          path: |
+            ${{ runner.temp }}/repair.patch
+            ${{ runner.temp }}/verdict.json
+          retention-days: 7
+          if-no-files-found: error
+
+      # A separate artifact rather than a condition on the one above, so the
+      # `propose` job's download is untouched by any of this: it still asks for
+      # `repair-patch` and still gets exactly the two files it always got.
+      - name: Upload the verdict
+        if: steps.verdict.outputs.status == 'cannot-fix'
+        uses: actions/upload-artifact@v7
+        with:
+          name: repair-verdict
+          path: ${{ runner.temp }}/verdict.json
+          retention-days: 7
+          if-no-files-found: error
+
+      # Written for every outcome, including the failures above, because the
+      # question this answers is "did the automation look, and what did it
+      # decide" — and that question is asked exactly when something did not go
+      # to plan. Until this existed the only way to answer it was to open the
+      # job and read its log.
+      #
+      # `always()` covers the steps that exit non-zero. When the run failed
+      # before a verdict existed, the summary says so rather than rendering an
+      # empty table, since an empty table reads like "nothing happened".
+      - name: Summarise the attempt
+        if: always()
+        env:
+          ENGINE: ${{ needs.detect.outputs.engine }}
+          MODEL: ${{ needs.detect.outputs.model }}
+          RUN_URL: ${{ needs.detect.outputs.run_url }}
+          SHA: ${{ needs.detect.outputs.sha }}
+          STATUS: ${{ steps.verdict.outputs.status }}
+        run: |
+          set -euo pipefail
+          V="$RUNNER_TEMP/verdict.json"
+
+          {
+            echo "## Build repair"
+            echo
+            echo "| | |"
+            echo "|---|---|"
+            echo "| Broken commit | \`${SHA:0:12}\` |"
+            echo "| Failing run | ${RUN_URL:-unknown} |"
+            echo "| Agent | \`${ENGINE:-unknown}\` / \`${MODEL:-unknown}\` |"
+            echo "| Verdict | ${STATUS:-**none — the run did not get that far**} |"
+            echo
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if [ ! -s "$V" ]; then
+            {
+              echo "The agent left no verdict. That is a failure rather than"
+              echo "\"nothing to fix\" — read the job log above for where it stopped."
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          # Through jq from the file, never through a workflow expression:
+          # these fields are text a model wrote, and an expression is evaluated
+          # by the runner before the shell ever sees it. (The literal expression
+          # syntax cannot be written even inside this comment — actionlint parses
+          # run scripts for it.) Bounded for the same reason the
+          # pull-request body is — a rehearsal produced ~3500 characters of
+          # `notes`, and a step summary has a 1 MB cap that a runaway field
+          # could reach on its own.
+          field() {
+            jq -r --arg f "$1" '((.[$f] // "") | tostring) | if length == 0 then "_(not stated)_" elif length > 3000 then .[0:3000] + "\n\n_(truncated)_" else . end' "$V"
+          }
+
+          {
+            echo "### What broke"
+            echo
+            field cause
+            echo
+            if [ "${STATUS:-}" = "fixed" ]; then
+              echo "### What the agent changed"
+              echo
+              field fix
+              echo
+              echo "### Gates it says it ran"
+              echo
+              jq -r '(.verified // []) | if type != "array" or length == 0 then "_(none reported)_" else map("- `" + tostring + "`") | join("\n") end' "$V"
+            else
+              echo "### Why it stopped"
+              echo
+              echo "No pull request was opened, and that is the intended outcome when"
+              echo "the fix is not the agent's to make — a flaky runner, a change"
+              echo "outside the allowlist, or a failure that does not reproduce."
+            fi
+            echo
+            echo "### Notes"
+            echo
+            field notes
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # ==========================================================================
+  # The only job that can write. The agent does not run here.
+  # ==========================================================================
+  propose:
+    name: Open the pull request
+    needs: [detect, repair]
+    if: >-
+      needs.detect.outputs.dry_run != 'true' &&
+      needs.repair.outputs.status == 'fixed' &&
+      needs.repair.outputs.changed == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+
+    steps:
+      - name: Generate GitHub App Token
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ vars.APP_CLIENT_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+
+      # Two deliberate choices here.
+      #
+      # The App token, matching the update workflows: a pull request opened by
+      # the default GITHUB_TOKEN does not trigger workflows, which would leave
+      # this one without the four-platform matrix that is its entire oracle —
+      # and a missing oracle looks exactly like a passing one.
+      #
+      # `main`, not the pinned SHA the agent worked on. `detect` established the
+      # two were equal, but a commit can land while the agent runs, and cutting
+      # the branch from the older tree would make this pull request revert it.
+      # If main really did move and the patch no longer applies, `git apply`
+      # below fails loudly — the correct outcome, since the fix was reasoned
+      # about against a tree that no longer exists.
+      - uses: actions/checkout@v7
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          ref: main
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: repair-patch
+          path: ${{ runner.temp }}/repair
+
+      - name: Apply the patch
+        run: |
+          set -euo pipefail
+          # Staged, and left staged: `git diff --cached --name-only` is then the
+          # same question the repair job answered, asked the same way. Unstaging
+          # would force the check onto `git status` output, which does not
+          # survive renames or a path with a space in it.
+          git apply --index --whitespace=nowarn "$RUNNER_TEMP/repair/repair.patch"
+          git diff --cached --stat
+
+      # Re-checked after the round trip. The artifact is written and read by
+      # this workflow alone, so this is not a trust boundary — it is a cheap
+      # assertion that the patch that arrived is the patch that was vetted.
+      - name: Re-check the allowlist
+        env:
+          ALLOWED: '^(rust|lib|test|hook|scripts|example)/|^(Makefile|pubspec\.yaml|analysis_options\.yaml)$'
+        run: |
+          set -euo pipefail
+          OUTSIDE=$(git diff --cached --name-only | grep -Ev "$ALLOWED" || true)
+          if [ -n "$OUTSIDE" ]; then
+            echo "::error::Patch touches files outside the allowlist after apply:"
+            printf '%s\n' "$OUTSIDE"
+            exit 1
+          fi
+
+      # Written to a file rather than interpolated into the action's `body:`.
+      # The verdict is text an agent wrote, and text an agent wrote must never
+      # reach a `${{ }}` expression — that is evaluated by the runner before the
+      # shell ever sees it.
+      - name: Compose the pull request body
+        env:
+          RUN_URL: ${{ needs.detect.outputs.run_url }}
+          SHA: ${{ needs.detect.outputs.sha }}
+          # Resolved once in `detect` and carried through, so the pull request
+          # names what actually ran. Reading `vars` here instead would name
+          # whatever is configured at review time rather than at repair time.
+          AGENT_ENGINE_USED: ${{ needs.detect.outputs.engine }}
+          AGENT_MODEL_USED: ${{ needs.detect.outputs.model }}
+        run: |
+          set -euo pipefail
+          VERDICT="$RUNNER_TEMP/repair/verdict.json"
+
+          # Bounded. These fields are free text an agent wrote, they are copied
+          # into a body that is public, and a rehearsal produced a `notes` of
+          # ~3500 characters. A cap keeps the pull request readable and keeps an
+          # unbounded public write from being one field away.
+          field() {
+            jq -r --arg f "$1" --arg fallback "$2" '
+              ((.[$f] // "") | tostring) as $v
+              | if ($v | length) == 0 then $fallback
+                elif ($v | length) > 4000 then ($v[0:4000] + "\n\n_(truncated)_")
+                else $v end' "$VERDICT"
+          }
+
+          {
+            echo "## Automated build repair"
+            echo
+            echo "CI on \`main\` was red at \`${SHA:0:12}\`. This pull request is an"
+            echo "agent's proposed fix, and it has not been reviewed by anyone."
+            echo
+            echo "| | |"
+            echo "|---|---|"
+            echo "| Failing run | $RUN_URL |"
+            echo "| Written by | \`${AGENT_ENGINE_USED:-unknown}\` / \`${AGENT_MODEL_USED:-unknown}\` |"
+            echo "| Broken commit | \`$SHA\` |"
+            echo
+            echo "### What the agent says broke"
+            echo
+            field cause "(not stated)"
+            echo
+            echo "### What it changed"
+            echo
+            field fix "(not stated)"
+            echo
+            echo "### Verified locally before opening this"
+            echo
+            # Defensive on shape as well as absence: `verified` is written by a
+            # model, and a bare string where an array belongs would otherwise
+            # abort jq and fail the run at the last step, after the work is done.
+            jq -r '(.verified // []) | if type != "array" or length == 0 then "(nothing reported)" else map("- `" + tostring + "`") | join("\n") end' "$VERDICT"
+            echo
+            echo "### Notes"
+            echo
+            field notes "(none)"
+            echo
+            echo "---"
+            echo
+            echo "**Review this as a proposal, not a result.** The agent ran the gates above on"
+            echo "Linux only; the matrix on this pull request is the real check. Confirm that the"
+            echo "change addresses the cause rather than the symptom, and that no test was"
+            echo "weakened to make it pass."
+          } > "$RUNNER_TEMP/pr-body.md"
+
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          # Required: the Signing commit ruleset applies to ~ALL branches with
+          # no bypass actors, so an unsigned push is rejected.
+          sign-commits: true
+          branch: ${{ needs.detect.outputs.branch }}
+          base: main
+          commit-message: |
+            fix(ci): repair the build broken at ${{ needs.detect.outputs.sha }}
+          title: "Repair the build broken at ${{ needs.detect.outputs.sha }}"
+          body-path: ${{ runner.temp }}/pr-body.md
+          labels: |
+            automated
+          draft: false
+
+  # ==========================================================================
+  # The other job that can write, for the other outcome. No agent here either.
+  # ==========================================================================
+  report:
+    name: Report a build the agent could not fix
+    needs: [detect, repair]
+    if: >-
+      needs.detect.outputs.dry_run != 'true' &&
+      needs.repair.outputs.status == 'cannot-fix'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+
+    # `cannot-fix` is the outcome this workflow reaches most often, and until
+    # now it produced a warning annotation on a green run: no pull request, no
+    # notification, nothing that reaches anyone not already reading Actions.
+    # Measured on this repository, `main` went red four times in five weeks and
+    # every one was a flaky runner — which is to say the agent's usual and
+    # correct answer was the one nobody was told about.
+    #
+    # An issue rather than a failed run. A red daily job for a condition that
+    # resolves itself is how people learn to ignore a workflow, and the agent
+    # declining to act is not an error — it is the behaviour the prompt asks
+    # for. An issue also carries the diagnosis, which is the part worth having.
+    #
+    # The App token cascades events where `GITHUB_TOKEN` would not, so opening
+    # this issue can trigger workflows. Nothing here listens to issues, and that
+    # is deliberate: `repair-build.yml` takes no issue trigger precisely so that
+    # text written into an issue cannot reach an agent's context.
+    steps:
+      - name: Generate GitHub App Token
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ vars.APP_CLIENT_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: repair-verdict
+          path: ${{ runner.temp }}/verdict
+
+      # Written to a file rather than interpolated into an expression. The
+      # verdict is text an agent wrote after reading a build log, and text an
+      # agent wrote must never reach a `${{ }}` — that is evaluated by the
+      # runner before the shell ever sees it. It has already been scanned for
+      # secrets in the job that produced it.
+      - name: Compose the issue
+        env:
+          RUN_URL: ${{ needs.detect.outputs.run_url }}
+          SHA: ${{ needs.detect.outputs.sha }}
+          ENGINE: ${{ needs.detect.outputs.engine }}
+          MODEL: ${{ needs.detect.outputs.model }}
+        run: |
+          set -euo pipefail
+          V="$RUNNER_TEMP/verdict/verdict.json"
+
+          field() {
+            jq -r --arg f "$1" '((.[$f] // "") | tostring) | if length == 0 then "_(not stated)_" elif length > 4000 then .[0:4000] + "\n\n_(truncated)_" else . end' "$V"
+          }
+
+          {
+            echo "<!-- repair-build:${SHA} -->"
+            echo "CI on \`main\` was red at \`${SHA:0:12}\`. An agent looked at the failure"
+            echo "and reported that the fix is not one it should make. **No pull request was"
+            echo "opened**, and nothing in the repository was changed."
+            echo
+            echo "| | |"
+            echo "|---|---|"
+            echo "| Failing run | ${RUN_URL:-unknown} |"
+            echo "| Broken commit | \`${SHA}\` |"
+            echo "| Looked at by | \`${ENGINE:-unknown}\` / \`${MODEL:-unknown}\` |"
+            echo
+            echo "### What it says broke"
+            echo
+            field cause
+            echo
+            echo "### Why it stopped"
+            echo
+            field notes
+            echo
+            echo "---"
+            echo
+            echo "This is a diagnosis, not a conclusion. The agent is told to stop rather"
+            echo "than guess, and the commonest reason it stops here is a flaky runner —"
+            echo "in which case re-running the failed job is the whole of the fix, and this"
+            echo "issue can be closed. It also stops when the real fix lies outside the"
+            echo "paths it may change, which \`.github/**\` deliberately is."
+          } > "$RUNNER_TEMP/issue.md"
+
+      # One issue per broken commit, matching how the pull-request path is keyed
+      # by the same SHA. The marker rather than the title is what identifies it,
+      # because a title is prose and prose gets edited. `--state all` for the
+      # same reason the pull-request check uses it: a closed issue means someone
+      # has already read this exact failure, and re-filing it every night is how
+      # automation teaches people to stop reading it.
+      #
+      # Listed and filtered here rather than handed to `--search`. Two reasons,
+      # and the second is the one that bites: GitHub's search index is eventually
+      # consistent, so an issue filed minutes ago can be missing from it and the
+      # next run would file a duplicate — and `repair-build:<sha>` reads as a
+      # search *qualifier* because of the colon, so the query would not mean what
+      # it looks like either. `gh pr list --head` on the other side is a direct
+      # query for the same reason.
+      - name: File the issue
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GH_REPO: ${{ github.repository }}
+          SHA: ${{ needs.detect.outputs.sha }}
+        run: |
+          set -euo pipefail
+
+          # Piped to jq rather than using `--jq`: the marker has to go in as
+          # `--arg`, which is a jq flag and not one gh forwards.
+          EXISTING=$(gh issue list --repo "$GH_REPO" --state all --limit 100 \
+            --label automated --json number,body \
+            | jq -r --arg marker "repair-build:${SHA}" \
+                'map(select(.body | contains($marker))) | first | .number // empty')
+
+          if [ -n "$EXISTING" ]; then
+            echo "::notice::An issue for ${SHA:0:12} already exists (#${EXISTING}) — leaving it alone."
+            exit 0
+          fi
+
+          NUMBER=$(gh issue create --repo "$GH_REPO" \
+            --title "Build red at ${SHA:0:12} and the agent could not fix it" \
+            --body-file "$RUNNER_TEMP/issue.md" \
+            --label automated)
+          echo "::warning::Filed ${NUMBER}"
+
+  # ==========================================================================
+  # Housekeeping: retire the reports whose subject has gone away.
+  # ==========================================================================
+  resolve:
+    name: Close reports for a build that is green again
+    needs: detect
+    # `inputs.dry_run` directly rather than `needs.detect.outputs.dry_run`: that
+    # output is only written on the branch where `main` is broken, so on the
+    # path this job runs on it is always empty. Without this, dispatching a
+    # rehearsal while `main` is green would quietly close issues — a write
+    # nobody asked the rehearsal to make. On a scheduled run `inputs` is empty,
+    # so the guard costs nothing there.
+    if: needs.detect.outputs.broken != 'true' && inputs.dry_run != true
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      # Read-only here on purpose. The listing below runs on this token; the
+      # App token is minted only if something actually needs closing, so the
+      # ordinary green day mints no write credential at all.
+      issues: read
+
+    # The `report` job files an issue when the agent declines to fix a red
+    # `main`. Most of those resolve without anyone doing anything — the failure
+    # was a flaky runner and the next run is green — and an issue that outlives
+    # its subject is how a useful signal turns into a list nobody reads.
+    #
+    # Two filters decide what this touches, and either would be enough alone:
+    # the `automated` label, which only this workflow applies, and the
+    # `repair-build:` marker in the body, which a person would never write.
+    # Measured against this repository: `gh issue list` does not return pull
+    # requests at all (49 of them carry the `automated` label and none appear),
+    # and no human-filed issue here carries a label of any kind.
+    #
+    # An issue somebody has picked up is left alone. Closing something a person
+    # commented on or assigned to themselves would be a bot overruling them on a
+    # judgement it is not making — this job only knows that the symptom went
+    # away, not that the work is done.
+    steps:
+      - name: Find reports that can be retired
+        id: find
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          ISSUES=$(gh issue list --repo "$GH_REPO" --state open --limit 100 \
+            --label automated --json number,body,comments,assignees)
+
+          # `comments == 0 && assignees == 0` rather than "no comment from a
+          # human": measured, `gh issue list` returns `author.is_bot` as null on
+          # issue comments, so telling a person from a bot there would mean
+          # matching a login, and a login is a thing that changes. This workflow
+          # never comments on the issues it files — the diagnosis is the body —
+          # so any comment at all is somebody else, which is the question being
+          # asked anyway.
+          CLOSE=$(jq -r '[.[] | select(.body | contains("repair-build:"))
+                             | select((.comments | length) == 0 and (.assignees | length) == 0)
+                             | .number] | @csv' <<<"$ISSUES")
+          HELD=$(jq -r '[.[] | select(.body | contains("repair-build:"))
+                            | select((.comments | length) > 0 or (.assignees | length) > 0)
+                            | .number] | @csv' <<<"$ISSUES")
+
+          echo "close=$CLOSE" >> "$GITHUB_OUTPUT"
+
+          if [ -n "$HELD" ]; then
+            echo "::notice::Leaving #${HELD} open — somebody has commented on or been assigned to them, so closing is not this job's call."
+          fi
+          if [ -z "$CLOSE" ]; then
+            echo "Nothing to retire."
+          else
+            echo "Will close: $CLOSE"
+          fi
+
+      # Minted only when there is something to close, so the common case — a
+      # green `main` and no open reports — never creates a write credential.
+      - name: Generate GitHub App Token
+        id: app-token
+        if: steps.find.outputs.close != ''
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ vars.APP_CLIENT_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+
+      - name: Close them
+        if: steps.find.outputs.close != ''
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GH_REPO: ${{ github.repository }}
+          NUMBERS: ${{ steps.find.outputs.close }}
+          CONCLUSION: ${{ needs.detect.outputs.conclusion }}
+        run: |
+          set -euo pipefail
+          # Closed with a comment rather than silently: an issue that shuts
+          # itself with no explanation is worse than one that lingers.
+          for n in ${NUMBERS//,/ }; do
+            gh issue close "$n" --repo "$GH_REPO" \
+              --comment "CI on \`main\` is green again — the latest completed \`Tests\` run concluded \`${CONCLUSION:-success}\`. Closing this automatically; nobody had picked it up. If the underlying problem is still there, reopen it." \
+              --reason completed
+            echo "::notice::Closed #${n}."
+          done

@@ -62,11 +62,11 @@ This runs copier, reports what it could not merge, and checks that `_commit`
 landed. It refuses to start on a dirty tree and names the files — copier rejects
 a dirty destination, **untracked files included**.
 
-It also tries to write the CHANGELOG entry, and that part currently always
-fails: it goes through GitHub Models, which is being retired and answers
-`GitHub Models is temporarily unavailable as part of a scheduled retirement
-brownout` no matter what `AI_MODELS_TOKEN` holds. The update applies either way
-— **write the entry by hand** and expect the run to report it as not written.
+It also writes the CHANGELOG entry, through whichever model `AI_MODELS` names
+first that has a key (`ANTHROPIC_API_KEY`, `GEMINI_API_KEY`,
+`OPENROUTER_API_KEY`). With no list set, or no key for anything on it, the
+update still applies and the run reports the entry as not written — write it by
+hand in that case.
 
 Or drive copier directly:
 

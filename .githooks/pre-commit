@@ -65,11 +65,36 @@ fi
 # Exit code 127 is reported separately: it means a command inside the make
 # recipe was not found, which is a broken environment rather than a failing
 # check, and the fix hint would be actively misleading.
+#
+# The check runs in a subshell with git's own environment stripped, and that is
+# load-bearing rather than hygiene. Git exports GIT_DIR to every hook, and every
+# child process inherits it. In an ordinary checkout it is the relative string
+# `.git`, which is harmless by accident — a tool that changes directory
+# re-resolves it against wherever it now stands. A *worktree* has no such luck:
+# its `.git` is a file rather than a directory, so the exported path is
+# necessarily absolute, and it then follows every child process everywhere.
+#
+# Anything downstream that asks git about *itself* is then told about this
+# repository instead. `flutter` does exactly that to determine its own version:
+# run from a worktree's hook it read the committing repository's HEAD, found no
+# Flutter tag on it, and wrote `"frameworkVersion": "0.0.0-unknown"` into the
+# pinned SDK's `bin/cache/flutter.version.json`. That file is a cache, so the
+# damage outlived the hook — every later `flutter` and `dart` invocation, inside
+# a hook or not, failed version solving with "The current Flutter SDK version is
+# 0.0.0-unknown" until it was deleted by hand.
+#
+# Stripped here rather than at the top of the file, because this hook's own git
+# calls must keep the full environment. `staged_touches_rust` reads the index,
+# and `git commit -a` runs the hook against a *temporary* index named by
+# GIT_INDEX_FILE — unset that globally and the gate reads the real index
+# instead, skipping the Rust check on exactly the commits that staged Rust
+# through `-a`. A subshell keeps the two apart: git's environment for the
+# hook's questions, a clean one for the tools.
 run_step() {
     local num="$1" label="$2" hint="$3"
     shift 3
     echo -e "\n${YELLOW}[$num/3] $label...${NC}"
-    if "$@"; then
+    if ( unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE; "$@" ); then
         echo -e "${GREEN}$label passed.${NC}"
     else
         local status=$?
@@ -90,9 +115,7 @@ run_step() {
 # cache and over a minute without one — `make clean` empties it outright, and so
 # do a toolchain update or a dependency bump — while the other two steps are
 # seconds either way. Most commits here touch no Rust, and for those the wait
-# buys nothing: the check reads the crate, and the crate lives entirely under
-# `rust/` (nothing outside it, and no root-level `rust-toolchain.toml` or
-# `.cargo/config.toml`, feeds into it).
+# buys nothing: the check reads the crate, and the crate lives under `rust/`.
 #
 # What is compared is the index against HEAD — what is about to be committed,
 # not the working tree. Each flag below is load-bearing:
@@ -100,9 +123,25 @@ run_step() {
 #   * the base is the empty tree when HEAD does not resolve, which is the very
 #     first commit of a freshly generated project — `git diff --cached HEAD`
 #     fails there rather than reporting everything;
-#   * `-- rust` is a pathspec rather than a grep over the output, so a path
-#     holding spaces or non-ASCII — which git would otherwise print quoted —
-#     still matches;
+#   * these are pathspecs rather than a grep over the output, so a path holding
+#     spaces or non-ASCII — which git would otherwise print quoted — still
+#     matches;
+#   * `.cargo` and `rust-toolchain.toml` are listed alongside `rust` because
+#     cargo resolves its configuration from the *current directory* upwards,
+#     not from the manifest. `make rust-check` is
+#     `cargo check --manifest-path rust/Cargo.toml` run from the repository
+#     root, so a root `.cargo/config.toml` *is* read while
+#     `rust/.cargo/config.toml` is not — measured, not assumed. Neither root
+#     path exists in a generated project today, but `<root>/.cargo/` does (it
+#     holds `audit.toml`), so dropping a `config.toml` beside it is an ordinary
+#     thing to do and would otherwise be committed with the check skipped.
+#     `git diff` does not object to a pathspec that matches nothing, so listing
+#     them costs nothing until one appears. `.cargo` and not
+#     `.cargo/config.toml`, deliberately: it also matches `audit.toml`, which
+#     `cargo check` does not read, so an advisory-triage commit pays for a
+#     check it does not need. That is the direction to be wrong in — a false
+#     positive costs a warm second, a false negative commits unbuilt Rust —
+#     and it also covers the legacy extensionless `.cargo/config`;
 #   * `--no-renames` reports a rename as a delete plus an add, so moving a file
 #     *out* of `rust/` still counts as touching it.
 #
@@ -119,7 +158,8 @@ staged_touches_rust() {
         return 0
     fi
 
-    if ! changed=$(git diff --cached --name-only --no-renames "$base" -- rust 2>/dev/null); then
+    if ! changed=$(git diff --cached --name-only --no-renames "$base" \
+        -- rust .cargo rust-toolchain.toml 2>/dev/null); then
         return 0
     fi
 
@@ -138,7 +178,7 @@ if staged_touches_rust; then
         make rust-check
 else
     echo -e "\n${YELLOW}[2/3] Checking Rust code...${NC}"
-    echo -e "${GREEN}Skipped: nothing under rust/ is staged.${NC}"
+    echo -e "${GREEN}Skipped: nothing staged under rust/ or a cargo config.${NC}"
 fi
 
 run_step 3 "Running static analysis" \
