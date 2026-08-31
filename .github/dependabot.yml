@@ -42,6 +42,18 @@ updates:
   # four-platform matrix is the scarce resource.
   - package-ecosystem: "pub"
     directory: "/"
+    # Without this, pub's default strategy is `widen` — "extend only the upper
+    # bound to include the new version" — and it applies that across the whole
+    # manifest, not only to what it is updating. Measured on the first run: a
+    # pull request updating four other packages also rewrote
+    # `flutter_rust_bridge: ">=X.Y.Z <X.Y.Z+1"` to a caret, which is the exact
+    # constraint that must not float, and widened `lints`, `ffigen` and `hooks`
+    # past bounds set on purpose. `ignore` does not protect against this: it
+    # stops Dependabot opening a pull request *for* a dependency, not editing
+    # that dependency's constraint while it edits the file for other reasons.
+    # `increase-if-necessary` leaves a constraint alone when it already admits
+    # the new version, so an untouched dependency stays untouched.
+    versioning-strategy: increase-if-necessary
     schedule:
       interval: "weekly"
       day: "monday"
@@ -51,11 +63,10 @@ updates:
       prefix: "chore(deps)"
     groups:
       # Minor and patch only. A major is a migration, not a bump, and grouping
-      # one with everything else means it blocks the rest: the first `cargo`
-      # run produced six updates of which four were majors, and `rand` 0.9 -> 0.10
-      # alone failed to compile against seven files — taking two harmless
-      # patches down with it. Majors still arrive, one pull request each, where
-      # they can be judged on their own.
+      # one with everything else blocks the rest: the first run here offered
+      # `ffigen` 20 -> 21 and `hooks` 1 -> 2 alongside two harmless minors, and
+      # one unmergeable entry takes the whole pull request down. Majors still
+      # arrive, one pull request each, where they can be judged on their own.
       pub:
         patterns:
           - "*"
@@ -94,12 +105,13 @@ updates:
     commit-message:
       prefix: "chore(deps)"
     groups:
-      # Minor and patch only. A major is a migration, not a bump, and grouping
-      # one with everything else means it blocks the rest: the first `cargo`
-      # run produced six updates of which four were majors, and `rand` 0.9 -> 0.10
-      # alone failed to compile against seven files — taking two harmless
-      # patches down with it. Majors still arrive, one pull request each, where
-      # they can be judged on their own.
+      # Minor and patch only, which for this ecosystem is close to a no-op and
+      # is kept for the day it is not. Cargo crates are overwhelmingly 0.x,
+      # where a *minor* is the breaking bump — measured, from Dependabot's own
+      # trailers: `rand` 0.9 -> 0.10, `sha2` 0.10 -> 0.11 and
+      # `rusqlite` 0.34 -> 0.40 are all `version-update:semver-minor`. So this
+      # filter does not separate the breaking ones; CI does, and did. What it
+      # does catch is a genuine 1.x -> 2.x, which is worth its own pull request.
       cargo:
         patterns:
           - "*"

@@ -223,9 +223,15 @@
   compiler; and the repair and review agents, both inert until `AGENT_ENGINE`
   names one.
 
-- **Dependabot's `pub` and `cargo` groups no longer bundle majors with everything else** (`.github/dependabot.yml`) — the first `cargo` run after the ecosystem was added produced one pull request with six updates, four of them majors. `rand` 0.9 → 0.10 alone failed to compile against seven files in `rust/src/` (`unresolved imports rand::TryRngCore, rand::rngs::OsRng`), and `hkdf`, `sha2` and `aes-gcm-siv` are a coordinated RustCrypto major that has to be judged against what upstream itself resolves to. Grouping them with `log` 0.4.33 → 0.4.34 and `uuid` 1.24 → 1.26 meant one breaking crate held two harmless patches hostage, and the whole pull request could only be closed.
+- **Dependabot no longer rewrites constraints it was told to leave alone** (`.github/dependabot.yml`) — `pub`'s default versioning strategy is `widen`, "extend only the upper bound to include the new version", and it applies that across the whole manifest rather than only to what it is updating. The first run here opened a pull request whose four updates were `ffigen`, `lints`, `code_assets` and `hooks` — and which also rewrote `flutter_rust_bridge` from `">=2.12.0 <2.12.1"` to `^2.12.0`. That is the one constraint in this file that must not float: it is the exact regression that broke every consumer of the published package when flutter_rust_bridge 2.13.0 landed inside that caret. `lints`, `ffigen` and `hooks` were widened past bounds set on purpose as well.
 
-  Both groups now take `minor` and `patch` only. Majors still arrive — one pull request each, where a migration can be reviewed as a migration. The `ignore` entries are unchanged and did their job on that first run: `flutter_rust_bridge` and the pinned upstream crates were untouched.
+  `ignore` is no defence, and it is worth being precise about why: it stops Dependabot opening a pull request *for* a dependency, not editing that dependency's constraint while it edits the file for other reasons. `flutter_rust_bridge` was ignored and rewritten anyway. `versioning-strategy: increase-if-necessary` fixes it — a constraint that already admits the new version is left alone, so a dependency nothing is updating stays untouched. `cargo` needs none of this: on the same run it changed exactly the one crate it was bumping and left every pin alone.
+
+  `make verify-frb-pins` caught the rewrite on all four platforms before it could merge — its first real encounter, and what it exists for.
+
+- **The `pub` and `cargo` groups take minor and patch only** (`.github/dependabot.yml`) — grouping a major with everything else blocks the rest: one unmergeable entry takes the whole pull request down. For `pub` this does what it says — `ffigen` 20 → 21 and `hooks` 1 → 2 now arrive on their own.
+
+  For `cargo` it is close to a no-op, and saying otherwise would be wrong. Cargo crates are overwhelmingly 0.x, where the *minor* is the breaking bump, and Dependabot classifies by the version string: `rand` 0.9 → 0.10, `sha2` 0.10 → 0.11 and `rusqlite` 0.34 → 0.40 are all `version-update:semver-minor` in its own commit trailers. The filter does not separate the breaking ones there — CI does, and did. What it still buys is a genuine 1.x → 2.x arriving on its own.
 
 ## [2.0.1] - 2026-08-03
 
