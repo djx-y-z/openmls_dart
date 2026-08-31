@@ -233,6 +233,10 @@
 
   For `cargo` it is close to a no-op, and saying otherwise would be wrong. Cargo crates are overwhelmingly 0.x, where the *minor* is the breaking bump, and Dependabot classifies by the version string: `rand` 0.9 → 0.10, `sha2` 0.10 → 0.11 and `rusqlite` 0.34 → 0.40 are all `version-update:semver-minor` in its own commit trailers. The filter does not separate the breaking ones there — CI does, and did. What it still buys is a genuine 1.x → 2.x arriving on its own.
 
+- **`dart-lang/setup-dart` 1.8.x is ignored, temporarily and narrowly** (`.github/dependabot.yml`) — 1.8.0 added a problem matcher for `dart analyze` and registers it with `::add-matcher::dart-analyzer.json`. The path resolves against the *calling* action's directory, and this repository calls setup-dart from inside its own `setup-fvm` composite action, so the runner looks under `.github/actions/setup-fvm/`, does not find it, and fails the job fourteen seconds in, before anything is built. It failed that way on all four platforms.
+
+  Only the 1.8 line is ignored, so 1.9.0 arrives for evaluation rather than this freezing the action; 1.8.1, the latest at the time of writing, does not fix it. The bump is worth little here in any case: setup-dart exists in that action solely to provide a `dart` binary for `dart pub global activate fvm` on the next line, and everything that builds and tests this package comes from the FVM-pinned SDK.
+
 ## [2.0.1] - 2026-08-03
 
 ### For Users

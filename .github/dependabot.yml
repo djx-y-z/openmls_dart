@@ -29,6 +29,29 @@ updates:
       # Bumped manually during security backports.
       - dependency-name: "dtolnay/rust-toolchain"
 
+      # TEMPORARY, and the condition for removing it is precise: setup-dart
+      # 1.8.0 added a problem matcher for `dart analyze` and registers it with
+      # `::add-matcher::dart-analyzer.json`. That path resolves against the
+      # *calling* action's directory, and this repository calls setup-dart from
+      # inside its own composite action, so the runner looks for the file in
+      # .github/actions/setup-fvm/ and fails the job 14 seconds in, before
+      # anything is built:
+      #
+      #   ##[error]Could not find file '.../setup-fvm/dart-analyzer.json'
+      #
+      # Only the 1.8 line is ignored, so 1.9.0 arrives for evaluation rather
+      # than this freezing the action. Delete this entry once a release fixes
+      # the path; 1.8.1 (the latest at the time of writing) does not.
+      #
+      # Worth knowing what the bump is actually worth here: setup-dart exists
+      # in this action only to provide a `dart` binary for the next line,
+      # `dart pub global activate fvm`. Everything that builds and tests the
+      # project comes from the FVM-pinned SDK, so this bump changes no version
+      # that reaches the code.
+      - dependency-name: "dart-lang/setup-dart"
+        versions:
+          - "1.8.x"
+
   # The published package's own constraints — the ones that reach a consumer's
   # resolver. Watching them is the lesson of a real incident: a caret on
   # `flutter_rust_bridge` let a new minor into the published archive with nobody
