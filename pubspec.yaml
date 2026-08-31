@@ -27,7 +27,7 @@ dependencies:
   # SDK is the other half of it — capping them below what the pinned Flutter
   # expects breaks the hook at a consumer's build, which is worse than the drift.
   # Majors (hooks 2.x, code_assets 2.x) are a deliberate migration, not a bump.
-  hooks: ^1.0.0
+  hooks: ^2.2.0
   code_assets: ^1.0.0
 
 dev_dependencies:
