@@ -1362,7 +1362,7 @@ impl MlsEngine {
         let mut group = load_group(&group_id_bytes, &provider)?;
 
         let psk = PreSharedKeyId::external(psk_id, psk_nonce);
-        let (proposal_out, _) = group.propose_external_psk(&provider, &signer, psk)
+        let (proposal_out, _) = group.propose_pre_shared_key(&provider, &signer, psk)
             .map_err(|e| format!("Failed to propose external PSK: {}", e))?;
         let msg_bytes = proposal_out.tls_serialize_detached().map_err(|e| format!("Failed to serialize proposal: {}", e))?;
 
@@ -1666,6 +1666,36 @@ impl MlsEngine {
                         .map_err(|e| format!("Failed to store pending proposal: {}", e))?;
                     (ProcessedMessageType::Proposal, None, false, true, Some(prop_type))
                 }
+                // openmls 0.9.0 splits two cases out of what used to be errors.
+                // Neither is reachable through this engine, but naming them
+                // beats reporting them as an unknown content type.
+                //
+                // `OwnPendingCommit` is returned only when an incoming commit
+                // matches a *pending* one. Every commit-producing entry point
+                // here merges before it returns, so no pending commit ever
+                // survives to storage and an own commit fanned back by the
+                // delivery service takes the `OwnCommitMismatch` path instead —
+                // the same rejection 0.8.1 gave as `StageCommitError::OwnCommit`.
+                ProcessedMessageContent::OwnPendingCommit => {
+                    return Err(
+                        "Own commit fanned back by the delivery service matched a pending \
+                         commit; this engine merges commits when it creates them, so there \
+                         is nothing left to merge"
+                            .to_string(),
+                    );
+                }
+                // `OwnPrivateMessage` replaces 0.8.1's
+                // `ValidationError::CannotDecryptOwnMessage`, which that version
+                // raised from `process_message` itself. Same input, same
+                // outcome, different path: the own sender ratchet is
+                // encryption-only, so the content cannot be read back.
+                ProcessedMessageContent::OwnPrivateMessage => {
+                    return Err(
+                        "Cannot decrypt own message: the sender ratchet is encryption-only, \
+                         so a PrivateMessage this client authored cannot be read back"
+                            .to_string(),
+                    );
+                }
                 _ => return Err("Unknown processed message content type".to_string()),
             };
 
@@ -1736,6 +1766,36 @@ impl MlsEngine {
                     group.store_pending_proposal(provider.storage(), *queued_proposal)
                         .map_err(|e| format!("Failed to store pending proposal: {}", e))?;
                     (ProcessedMessageType::Proposal, None, None, Some(prop_type))
+                }
+                // openmls 0.9.0 splits two cases out of what used to be errors.
+                // Neither is reachable through this engine, but naming them
+                // beats reporting them as an unknown content type.
+                //
+                // `OwnPendingCommit` is returned only when an incoming commit
+                // matches a *pending* one. Every commit-producing entry point
+                // here merges before it returns, so no pending commit ever
+                // survives to storage and an own commit fanned back by the
+                // delivery service takes the `OwnCommitMismatch` path instead —
+                // the same rejection 0.8.1 gave as `StageCommitError::OwnCommit`.
+                ProcessedMessageContent::OwnPendingCommit => {
+                    return Err(
+                        "Own commit fanned back by the delivery service matched a pending \
+                         commit; this engine merges commits when it creates them, so there \
+                         is nothing left to merge"
+                            .to_string(),
+                    );
+                }
+                // `OwnPrivateMessage` replaces 0.8.1's
+                // `ValidationError::CannotDecryptOwnMessage`, which that version
+                // raised from `process_message` itself. Same input, same
+                // outcome, different path: the own sender ratchet is
+                // encryption-only, so the content cannot be read back.
+                ProcessedMessageContent::OwnPrivateMessage => {
+                    return Err(
+                        "Cannot decrypt own message: the sender ratchet is encryption-only, \
+                         so a PrivateMessage this client authored cannot be read back"
+                            .to_string(),
+                    );
                 }
                 _ => return Err("Unknown processed message content type".to_string()),
             };
