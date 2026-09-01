@@ -27,9 +27,9 @@
 // unmerged. They are reported separately for that reason.
 library;
 
-import 'dart:convert';
 import 'dart:io';
 
+import 'ai_client.dart';
 import 'check_template_updates.dart';
 import 'common.dart';
 
@@ -49,6 +49,7 @@ class TemplateUpdateResult {
     required this.conflicts,
     required this.changelogUpdated,
     this.changelogError = '',
+    this.aiProvider = '',
   });
 
   /// Template version recorded before the update ran.
@@ -69,6 +70,13 @@ class TemplateUpdateResult {
   /// Why the CHANGELOG step did not run, when it did not.
   final String changelogError;
 
+  /// `provider/model` that wrote the entry, empty when none did.
+  ///
+  /// Reported so a reviewer can tell which model's house style they are
+  /// reading. Without it, a first provider that has quietly started failing
+  /// shows up only as entries that drift in style, months later.
+  final String aiProvider;
+
   bool get hasConflicts => conflicts.isNotEmpty;
 
   Map<String, dynamic> toJson() => {
@@ -79,6 +87,7 @@ class TemplateUpdateResult {
     'conflicts': conflicts,
     'changelog_updated': changelogUpdated,
     'changelog_error': changelogError,
+    'ai_provider': aiProvider,
   };
 }
 
@@ -232,6 +241,74 @@ Future<int> runCopierUpdate({
   );
 
   return process.exitCode;
+}
+
+/// Applies the one generation task that has to run on an update as well.
+///
+/// `copier.yml`'s last `_task` is `dart format .`, and it is load-bearing
+/// rather than tidiness. The template hard-wraps the Dart it emits, but whether
+/// a rendered line fits in 80 columns depends on the *answers*:
+/// `check_updates.dart` wraps one `RegExp` per upstream crate, and for a short
+/// crate name the wrapped form is exactly what `dart format` collapses. The
+/// same template source is therefore correctly formatted for one project and
+/// not for another, and no better choice of wrap fixes it — three variants were
+/// measured and each merely moved the range of crate-name lengths that comes
+/// out wrong. Formatting the rendered tree is the only thing that settles it,
+/// which is why the task exists.
+///
+/// `copier copy` runs it. `copier update` runs no tasks at all — deliberately,
+/// and that must not change: see [runCopierUpdate]. So an update that
+/// re-renders such a file lands it unformatted. What kept this invisible is
+/// that `make format-check` used to *write*: the pull request's own gate
+/// repaired the file, recorded `format=false` for it, and
+/// `create-pull-request`'s `git add -A` then committed the repair — a reported
+/// failure that cannot be reproduced from the branch it is reported on. The
+/// gate no longer writes, so this has to.
+///
+/// Run here, after copier has returned, and not by dropping `--skip-tasks`:
+/// copier runs tasks *between* rendering and replaying the project's diff, and
+/// a task that dies in that window takes local changes with it — the
+/// measurement [runCopierUpdate] records. By this point there is no such
+/// window.
+///
+/// Never fatal. A file copier left conflicted cannot be parsed, so the
+/// formatter reports it at length and exits non-zero while leaving it untouched
+/// (measured) — expected here, and already reported by [findConflicts], so it
+/// is summarised rather than repeated. A failure with nothing conflicted is a
+/// different animal and its output is passed through verbatim, because this is
+/// the only place it appears.
+Future<void> formatAfterUpdate({
+  Iterable<String> conflicts = const [],
+  String? workingDirectory,
+}) async {
+  final dir = workingDirectory ?? getPackageDir().path;
+
+  logStep('Formatting (the generation task copier skips on an update)...');
+
+  // The SDK already running this script, so the result matches what the
+  // project's own `make format` produces and no PATH lookup can disagree —
+  // under FVM this is the pinned SDK, which is the whole point of pinning it.
+  final result = await Process.run(Platform.resolvedExecutable, [
+    'format',
+    '.',
+  ], workingDirectory: dir);
+
+  for (final line in (result.stdout as String).split('\n')) {
+    if (line.startsWith('Formatted ')) logInfo(line.trim());
+  }
+
+  if (result.exitCode == 0) return;
+
+  if (conflicts.isNotEmpty) {
+    logWarn(
+      'Some files could not be parsed and were left unformatted — expected '
+      'while ${conflicts.length} file(s) still carry conflict markers.',
+    );
+    return;
+  }
+
+  logWarn('dart format reported errors:');
+  logWarn((result.stderr as String).trim());
 }
 
 /// Reads the template version currently recorded in `.copier-answers.yml`.
@@ -415,21 +492,33 @@ String _createUnreleasedWithEntry(List<String> lines, String entry) {
       .join('\n');
 }
 
-/// Asks GitHub Models to write the CHANGELOG entry for this adoption.
+/// The field the model must return, and what it is.
+///
+/// Doubles as the schema every provider enforces natively, so the JSON contract
+/// is checked by the provider rather than only asked for in the prompt.
+const _templateEntryFields = <String, String>{
+  'entry':
+      'One top-level Markdown list item for "### For Contributors" → '
+      '"#### Changed", with its indented continuation lines.',
+};
+
+/// Asks the configured AI model to write the CHANGELOG entry for this adoption.
 ///
 /// The prompt is given the template's own changelog *and* the diff the update
 /// produced here. The second is what keeps the entry honest: a template
 /// release describes everything it changed for every project generated from
 /// it, while the diff shows the subset that actually landed in this one — the
 /// rest arrives as a no-op and must not be announced as a change.
-Future<String> generateTemplateChangelogEntry({
+///
+/// Returns the entry and the model that wrote it.
+Future<({String entry, AiModel model})> generateTemplateChangelogEntry({
   required String fromVersion,
   required String toVersion,
   required String templateRepo,
   required String templateChangelog,
   required String updateDiff,
   required String currentChangelog,
-  required String token,
+  required List<ResolvedAiModel> models,
 }) async {
   final styleContext = currentChangelog.split('\n').take(200).join('\n');
   final compareUrl =
@@ -472,78 +561,29 @@ list item to file under "### For Contributors" -> "#### Changed".
 Return ONLY valid JSON, no markdown code fences.
 ''';
 
-  final requestBody = jsonEncode({
-    'model': 'gpt-4o-mini',
-    'messages': [
-      {'role': 'user', 'content': prompt},
-    ],
-    'temperature': 0.3,
-    'max_tokens': 1200,
-  });
+  final response = await callAi(
+    models: models,
+    prompt: prompt,
+    jsonFields: _templateEntryFields,
+  );
 
-  final result = await Process.run('curl', [
-    '-s',
-    '-X',
-    'POST',
-    'https://models.github.ai/inference/chat/completions',
-    '-H',
-    'Content-Type: application/json',
-    '-H',
-    'Authorization: Bearer $token',
-    '-d',
-    requestBody,
-  ]);
-
-  if (result.exitCode != 0) {
-    throw Exception('GitHub Models API request failed');
-  }
-
-  final response = jsonDecode(result.stdout as String) as Map<String, dynamic>;
-  if (response.containsKey('error')) {
-    final error = response['error'] as Map<String, dynamic>;
-    throw Exception('API error: ${error['message']}');
-  }
-
-  final choices = response['choices'] as List<Object?>?;
-  if (choices == null || choices.isEmpty) {
-    throw Exception('No response from AI');
-  }
-  final firstChoice = choices[0];
-  if (firstChoice is! Map<String, dynamic>) {
-    throw Exception('Invalid response format from AI');
-  }
-  final message = firstChoice['message'] as Map<String, dynamic>?;
-  if (message == null) {
-    throw Exception('No message in AI response');
-  }
-  final content = (message['content'] as String).trim();
-
-  String? entryFrom(String raw) {
-    try {
-      final parsed = jsonDecode(raw) as Map<String, dynamic>;
-      final entry = parsed['entry'];
-      if (entry is String && entry.trim().isNotEmpty) return entry.trimRight();
-    } catch (_) {
-      // Fall through to the brace-extraction attempt below.
-    }
-    return null;
-  }
-
-  final direct = entryFrom(content);
-  if (direct != null) return direct;
-
-  final braces = RegExp(r'\{[\s\S]*\}').firstMatch(content);
-  if (braces != null) {
-    final extracted = entryFrom(braces.group(0)!);
-    if (extracted != null) return extracted;
+  final entry = decodeAiJsonObject(response.text)?['entry'];
+  if (entry is String && entry.trim().isNotEmpty) {
+    return (entry: entry.trimRight(), model: response.model);
   }
 
   // A fixed, honest entry beats a malformed one: the adoption is real even
   // when the model's output is not usable, and the pull request says the entry
-  // needs writing.
-  return '- **copier template adopted: $fromVersion → $toVersion** — see the '
-      'template changelog for this range ([compare]($compareUrl)). This entry '
-      'was not generated automatically and needs writing.';
+  // needs writing. Nothing is salvaged from the raw answer — a truncated or
+  // field-less response reaching CHANGELOG.md verbatim is the failure this
+  // guards against.
+  return (
+    entry:
+        '- **copier template adopted: $fromVersion → $toVersion** — see the '
+        'template changelog for this range ([compare]($compareUrl)). This '
+        'entry was not generated automatically and needs writing.',
+    model: response.model,
+  );
 }
 
 /// Applies the update end to end and returns what happened.
@@ -554,7 +594,7 @@ Return ONLY valid JSON, no markdown code fences.
 /// the update rather than this function's own edit.
 Future<TemplateUpdateResult> applyTemplateUpdate({
   required String toVersion,
-  String? aiToken,
+  List<ResolvedAiModel> models = const [],
   bool skipChangelog = false,
 }) async {
   final packageDir = getPackageDir().path;
@@ -614,6 +654,11 @@ Future<TemplateUpdateResult> applyTemplateUpdate({
     }
   }
 
+  // After the conflicts are known, so an unparseable file can be told apart
+  // from a real formatter failure, and before the CHANGELOG entry is written
+  // off the diff.
+  await formatAfterUpdate(conflicts: conflicts, workingDirectory: packageDir);
+
   final recorded = readRecordedTemplateVersion();
   final commitLanded = recorded == toVersion;
   if (!commitLanded) {
@@ -625,12 +670,13 @@ Future<TemplateUpdateResult> applyTemplateUpdate({
 
   var changelogUpdated = false;
   var changelogError = '';
+  var aiProvider = '';
 
   if (skipChangelog) {
     changelogError = 'skipped by request';
-  } else if (aiToken == null || aiToken.isEmpty) {
-    changelogError = 'no AI token provided';
-    logWarn('No AI token — skipping the CHANGELOG entry.');
+  } else if (models.isEmpty) {
+    changelogError = 'no AI model has a key';
+    logWarn('No AI model has a key — skipping the CHANGELOG entry.');
   } else if (conflicts.contains('CHANGELOG.md')) {
     // Editing a file that still holds both sides of a conflict would bury the
     // markers inside a new entry and make the resolution harder to see.
@@ -643,20 +689,21 @@ Future<TemplateUpdateResult> applyTemplateUpdate({
       final currentChangelog = changelogFile.readAsStringSync();
 
       logStep('Generating the CHANGELOG entry...');
-      final entry = await generateTemplateChangelogEntry(
+      final generated = await generateTemplateChangelogEntry(
         fromVersion: fromVersion,
         toVersion: toVersion,
         templateRepo: templateRepo,
         templateChangelog: templateChangelog,
         updateDiff: updateDiff,
         currentChangelog: currentChangelog,
-        token: aiToken,
+        models: models,
       );
+      aiProvider = generated.model.id;
 
       changelogFile.writeAsStringSync(
         insertContributorChangelogEntry(
           currentChangelog: currentChangelog,
-          entry: entry,
+          entry: generated.entry,
         ),
       );
       changelogUpdated = true;
@@ -674,6 +721,7 @@ Future<TemplateUpdateResult> applyTemplateUpdate({
     conflicts: conflicts,
     changelogUpdated: changelogUpdated,
     changelogError: changelogError,
+    aiProvider: aiProvider,
   );
 }
 
@@ -689,7 +737,8 @@ void writeUpdateGitHubOutputs({
     ..writeln('has_conflicts=${result.hasConflicts}')
     ..writeln('conflict_count=${result.conflicts.length}')
     ..writeln('changelog_updated=${result.changelogUpdated}')
-    ..writeln('changelog_error=${result.changelogError.replaceAll('\n', ' ')}');
+    ..writeln('changelog_error=${result.changelogError.replaceAll('\n', ' ')}')
+    ..writeln('ai_provider=${result.aiProvider}');
 
   if (result.conflicts.isEmpty) {
     buffer.writeln('conflict_files=');
@@ -724,5 +773,8 @@ void printUpdateSummary({required TemplateUpdateResult result}) {
   print(
     '  CHANGELOG:       ${result.changelogUpdated ? Colors.colorize('updated', Colors.green) : 'not updated (${result.changelogError})'}',
   );
+  if (result.aiProvider.isNotEmpty) {
+    print('  Written by:      ${result.aiProvider}');
+  }
   print('');
 }

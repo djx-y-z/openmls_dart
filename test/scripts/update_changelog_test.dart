@@ -49,6 +49,7 @@ const _withUnreleased = '''
 ''';
 
 void main() {
+  _breakingContradictionTests();
   group('insertChangelogEntry', () {
     test('creates the [Unreleased] section when none exists', () {
       final result = insertChangelogEntry(
@@ -257,6 +258,59 @@ void main() {
       expect(changedIdx, greaterThan(breakingIdx));
       expect(changedIdx, lessThan(fixedIdx));
       expect(result, contains('- Bug fix'));
+    });
+  });
+}
+
+void _breakingContradictionTests() {
+  group('breakingContradictsNoImpact', () {
+    test('flags a breaking bullet alongside the no-impact note', () {
+      const changed =
+          '- Update openmls native library to v0.100.0 (link)\n'
+          '  - **BREAKING:** Remove `require_pq_ratio` from the bound API\n'
+          "  - Note: These changes do not affect this library's public API";
+      expect(breakingContradictsNoImpact(changed), isTrue);
+    });
+
+    test('allows a breaking bullet without the note', () {
+      const changed =
+          '- Update openmls native library to v0.100.0 (link)\n'
+          '  - **BREAKING:** SessionBuilder.process now returns a Result';
+      expect(breakingContradictsNoImpact(changed), isFalse);
+    });
+
+    test('allows the note without a breaking bullet', () {
+      const changed =
+          '- Update openmls native library to v0.100.0 (link)\n'
+          '  - Upstream changes — none of which this library exposes\n'
+          "  - Note: These changes do not affect this library's public API";
+      expect(breakingContradictsNoImpact(changed), isFalse);
+    });
+
+    test('flags the contradiction when the apostrophe is typographic', () {
+      // A model writing prose reaches for ’ whatever the example shows, and
+      // matching only the straight quote let the contradiction publish while
+      // this check read as though it were guarding against it.
+      const changed =
+          '- Update openmls native library to v0.100.0 (link)\n'
+          '  - **BREAKING:** Remove `require_pq_ratio` from the bound API\n'
+          '  - Note: These changes do not affect this library’s public API';
+      expect(breakingContradictsNoImpact(changed), isTrue);
+    });
+
+    test('flags it with a modifier-letter apostrophe too', () {
+      const changed =
+          '- **BREAKING:** something moved\n'
+          '  - Note: These changes do not affect this libraryʼs public API';
+      expect(breakingContradictsNoImpact(changed), isTrue);
+    });
+
+    test('a curly apostrophe elsewhere is not enough on its own', () {
+      const changed =
+          '- Update openmls native library to v0.100.0 (link)\n'
+          '  - Upstream changes — none of which this library exposes\n'
+          '  - The crate’s internals moved, but nothing this package calls';
+      expect(breakingContradictsNoImpact(changed), isFalse);
     });
   });
 }

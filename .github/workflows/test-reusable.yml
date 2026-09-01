@@ -133,7 +133,15 @@ jobs:
         if: runner.os == 'Windows'
         uses: ./.github/actions/setup-make
 
-      # Setup Rust toolchain for building native library
+      # Deliberately `stable` (the action's default) rather than a pinned
+      # version, unlike the MSRV job above. A new stable can redden this job
+      # with nobody having changed a line — `make rust-clippy` below runs with
+      # warnings as errors, so one new clippy lint is enough. That is accepted
+      # here and not elsewhere because a clippy regression cannot reach a
+      # consumer: it changes nothing that gets published, it fails at exactly
+      # one step, and the fix is usually the line clippy names. Pinning would
+      # trade that for lint debt that accrues silently and is far more
+      # expensive to pay off in one go later.
       - name: Setup Rust
         uses: ./.github/actions/setup-rust
 
@@ -175,6 +183,14 @@ jobs:
       - name: Verify third-party notices
         if: matrix.name == 'Linux x86_64'
         run: make verify-third-party-notices
+        shell: bash
+
+      # Cheap enough to run unconditionally, but kept on one leg for the same
+      # reason as the notices above: it reads committed files, so all four legs
+      # would read the same bytes and report the same answer.
+      - name: Verify FRB pins agree
+        if: matrix.name == 'Linux x86_64'
+        run: make verify-frb-pins
         shell: bash
 
       - name: Analyze

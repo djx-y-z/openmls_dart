@@ -11,19 +11,41 @@ environment:
   sdk: ^3.10.0
 
 dependencies:
-  flutter_rust_bridge: 2.12.0
+  # One version, written as a range. `frb_generated.dart` records the codegen
+  # version and the runtime asserts it equals its own with `==`, so anything a
+  # range admits except this exact version throws on init. `>=X.Y.Z <X.Y.Z+1`
+  # admits only X.Y.Z — but unlike the bare `X.Y.Z` form it does not trip pub's
+  # "should allow more than one version" warning, and `dart pub publish` exits
+  # 65 on any warning, which would make the package unreleasable. The caret is
+  # stripped rather than trusted absent, so this, FRB_CODEGEN_VERSION and the
+  # `=` pin in Cargo.toml stay in step whatever `frb_version` is answered with.
+  flutter_rust_bridge: ">=2.12.0 <2.12.1"
   # SHA256 verification for native library downloads
   crypto: ^3.0.7
-  # Build hooks for automatic native library download
+  # Build hooks for automatic native library download. Left on the caret
+  # deliberately: these define the protocol hook/build.dart implements, and the
+  # SDK is the other half of it — capping them below what the pinned Flutter
+  # expects breaks the hook at a consumer's build, which is worse than the drift.
+  # Majors (hooks 2.x, code_assets 2.x) are a deliberate migration, not a bump.
   hooks: ^1.0.0
   code_assets: ^1.0.0
 
 dev_dependencies:
-  lints: ^6.0.0
+  # Capped to one minor line, not because 6.1 is bad but because
+  # `make analyze ARGS="--fatal-infos"` makes every newly-added info-level lint
+  # a build failure, pubspec.lock is not committed, and CI re-resolves on every
+  # run — so a minor published upstream reddens main with nobody having changed
+  # a line. Within the range, patches still arrive. The bump then comes as a
+  # Dependabot pull request the matrix actually evaluates, which is the review
+  # this deserves; widen the upper bound there once it is green.
+  lints: ">=6.0.0 <6.1.0"
   test: ^1.24.0
   coverage: ^1.15.0
-  # Required by flutter_rust_bridge_codegen
-  ffigen: ^20.0.0
+  # Required by flutter_rust_bridge_codegen. Feeds codegen rather than the
+  # runtime, so a change here shows up as a diff in the committed bindings and
+  # not as a failing assert — the update workflow's `bindings=changed` tripwire
+  # is what surfaces it.
+  ffigen: ^20.1.1
 
 platforms:
   android:

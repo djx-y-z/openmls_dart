@@ -16,8 +16,9 @@
 ///   - `--ci-output <path>`     Append key=value outputs to a file
 ///   - `--help, -h`             Show this help
 ///
-/// The CHANGELOG entry needs `AI_MODELS_TOKEN`; without it the update still
-/// applies and the entry is skipped.
+/// The CHANGELOG entry needs `AI_MODELS` plus a key for each provider it names
+/// (`ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, `OPENROUTER_API_KEY`); without them
+/// the update still applies and the entry is skipped.
 ///
 /// Exit codes are deliberately coarse: 0 means copier ran and the working tree
 /// now holds the update, **including** when it left conflicts, because that
@@ -40,6 +41,7 @@ library;
 import 'dart:convert';
 import 'dart:io';
 
+import 'src/ai_client.dart';
 import 'src/update_template.dart';
 
 void main(List<String> args) async {
@@ -88,10 +90,18 @@ void main(List<String> args) async {
     print('');
   }
 
+  // Reported even when empty, and never fatal here: an update with no
+  // CHANGELOG entry is still an update worth a pull request, so the missing
+  // key is a warning, not an exit.
+  final resolution = resolveAiModelsFromEnv();
+  if (!skipChangelog && !jsonOutput) {
+    logAiModelResolution(resolution);
+  }
+
   try {
     final result = await applyTemplateUpdate(
       toVersion: targetVersion,
-      aiToken: Platform.environment['AI_MODELS_TOKEN'],
+      models: resolution.usable,
       skipChangelog: skipChangelog,
     );
 
@@ -127,8 +137,19 @@ Options:
   --help, -h             Show this help
 
 Environment:
-  AI_MODELS_TOKEN        GitHub Models token used for the CHANGELOG entry.
-                         Without it the update still applies.
+  $aiModelsEnvVar              Ordered comma-separated `provider/model` list,
+                         highest priority first. REQUIRED for a CHANGELOG
+                         entry — there is no default. Example:
+                         `$aiModelsExample`.
+                         An entry whose key is unset is skipped.
+  ANTHROPIC_API_KEY      Key for `anthropic/...` entries.
+  GEMINI_API_KEY         Key for `google/...` entries.
+  OPENROUTER_API_KEY     Key for `openrouter/vendor/model` entries.
+  $aiEffortEnvVar             How hard to think: ${aiEffortLevels.join(' | ')}.
+                         Optional; defaults to `$defaultAiEffort`.
+
+  Without any of these the update still applies; only the CHANGELOG entry is
+  skipped.
 
 Examples:
   # Apply an update locally

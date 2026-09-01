@@ -1,0 +1,301 @@
+// OpenCode configuration for this repository's CI agents.
+//
+// Two agents live here:
+//
+//   repair-build — fixes a red `main` (`.github/workflows/repair-build.yml`)
+//   pr-review    — reviews a pull request (`.github/workflows/ai-review.yml`)
+//
+// This file is the OpenCode counterpart to the `claude_args` blocks in those
+// workflows. Both engines run the same prompt files against the same evidence
+// and are bound by the same limits afterwards; only the way permissions are
+// spelled differs.
+//
+// The `permission` block below is the FLOOR for both agents. A per-agent block
+// does not replace it — measured with `opencode debug agent` on 1.18.15, an
+// agent's rules are appended after the global ones and evaluation stays
+// last-match-wins. So a per-agent block can only narrow by re-denying, and an
+// agent that forgets to re-deny silently inherits everything above. See the
+// note on `pr-review` for what that means in practice.
+//
+// It deliberately lives under `.github/` rather than at the repository root:
+// `.github/**` is outside the agent's path allowlist, so the agent cannot
+// widen its own permissions and have the change ride along in the pull
+// request. Keeping it out of the root also means it does not silently become
+// the config for anyone running `opencode` in this repository by hand.
+//
+// Which model runs is not set here — it is `vars.AGENT_OPENCODE_MODEL` in the
+// workflow, in `provider/model` form. Any provider OpenCode knows about works,
+// because the workflow hands the `AGENT_OPENCODE_API_KEY` secret to whichever
+// environment variable `vars.AGENT_OPENCODE_PROVIDER_ENV` names.
+//
+// A self-hosted or otherwise custom endpoint is the one case that needs
+// something here rather than in repository settings — a `provider` block
+// alongside `permission`, which the workflow does not need to know about:
+//
+//   "provider": {
+//     "my-gateway": {
+//       "npm": "@ai-sdk/openai-compatible",
+//       "options": { "baseURL": "https://llm.internal.example/v1",
+//                    "apiKey": "{env:MY_GATEWAY_KEY}" },
+//       "models": { "llama-3.3-70b": {} }
+//     }
+//   }
+//
+// ...then set AGENT_OPENCODE_MODEL=my-gateway/llama-3.3-70b and point
+// AGENT_OPENCODE_PROVIDER_ENV at MY_GATEWAY_KEY.
+//
+// JSONC: comments and trailing commas are supported by OpenCode's config
+// parser. Verify any edit with `opencode debug config` before pushing.
+{
+  "$schema": "https://opencode.ai/config.json",
+
+  // Deny by default, allow by exception. `ask` is never used anywhere in this
+  // file on purpose: OpenCode does not document what an `ask` resolves to in a
+  // headless run, and the two plausible answers are both bad — a silent denial
+  // that looks like the agent choosing not to act, or a block that waits for an
+  // approval that can never arrive and burns the job timeout instead.
+  "permission": {
+    // Every tool is named explicitly below rather than relying on a `"*"`
+    // catch-all, and that is deliberate. A `"*": "deny"` entry here does work,
+    // but where it lands in the resolved rule list is not stable: measured with
+    // `opencode debug agent`, it sorted *before* the bash rules with no global
+    // config present and *after* them when a `~/.config/opencode/opencode.json`
+    // existed. Since evaluation is last-match-wins, the second ordering risks a
+    // wildcard deny silently overriding the entire bash allowlist — a failure
+    // that would depend on the machine rather than on this file.
+    //
+    // What a catch-all would have bought is protection against tools added by a
+    // future OpenCode release. Pinning the version in the workflow buys that
+    // more reliably, so the tool list below is exhaustive as of the pinned
+    // version. Re-check it against `opencode debug agent` when bumping.
+    //
+    // The tools the agent genuinely needs. `write` is load-bearing and is NOT
+    // one of the permission keys named in OpenCode's published schema — it is
+    // accepted via `additionalProperties`. Do not remove it.
+    //
+    // Load-bearing by a longer route than it looks. Traced across several runs,
+    // `gpt-5.6-luna` never calls the `write` tool at all; it creates
+    // `.agent-scratch/verdict.json` with `apply_patch`. But `apply_patch` is
+    // itself gated by `write`/`edit` (see the note on those keys below), so
+    // denying `write` here would not merely take away one way to write the
+    // verdict — it would take away the way this model actually uses, and the
+    // repair agent has no other way to leave one.
+    "read": "allow",
+    "write": "allow",
+    "edit": "allow",
+    "glob": "allow",
+    "grep": "allow",
+    "list": "allow",
+
+    // Everything else is off. `webfetch`/`websearch` mirror the
+    // `--disallowedTools` on the Claude Code side: the agent is told it has no
+    // network and everything known about the run was already gathered for it.
+    //
+    // `question` matters more than it looks — a question in a headless run has
+    // nobody to answer it. `external_directory` keeps file access inside the
+    // workspace, which is the one thing the path allowlist cannot retroactively
+    // undo, since a read of `/proc/self/environ` leaves no trace in the diff.
+    // `task` (subagents) is denied because a subagent's permissions are its
+    // own, and this file is only auditable if it describes the whole run.
+    //
+    // On `external_directory`, one observed detail worth keeping: denying it
+    // also clobbers the built-in allows OpenCode adds for its own scratch
+    // directories, because those come earlier and the last match wins. OpenCode
+    // re-appends the allow for its tool-output directory *after* user config,
+    // so that path survives; the OS temp directory allow does not. If a live
+    // run fails on a temp-directory write, add a narrow allow for that exact
+    // prefix here rather than relaxing this to `ask` — `ask` is what has no
+    // defined meaning in a headless run.
+    // THESE TWO DO NOTHING. Both names are accepted as permission keys —
+    // `opencode debug agent` shows them in the resolved list — and neither
+    // governs the tool. Measured on 1.18.15 with two runs that differ only in
+    // these settings:
+    //
+    //   apply_patch: deny,  write/edit: allow  ->  tool ran, file created
+    //   apply_patch: allow, write/edit: deny   ->  no file created
+    //
+    // So the `apply_patch` tool is gated by `write`/`edit`, and its own key is
+    // inert. They are left here rather than removed only because removing them
+    // is a decision about this repository's config that has not been taken yet;
+    // read them as documentation of a dead end, not as a control.
+    //
+    // What the second row looks like from outside was measured twice and came
+    // out differently, so do not plan around the earlier reading. An initial
+    // probe recorded `apply_patch` reporting "completed" while writing nothing,
+    // and a comment here used to draw the conclusion that denying `write` buys
+    // a SILENT failure. A later probe against the reviewer's own configuration
+    // did not reproduce that: the tool was never offered to the model at all,
+    // and it said so out loud — "this environment provides no file-editing
+    // tool" — which is a loud refusal and the opposite conclusion. The two
+    // probes took the tool away by different routes, so the only claim that
+    // survives both is the one above: these two keys are inert, and `write`
+    // and `edit` are what decide. Nothing in this repository should depend on
+    // a denial being quiet, and after the reviewer moved to reporting through
+    // its final message, nothing does.
+    "patch": "deny",
+    "apply_patch": "deny",
+    "task": "deny",
+    "question": "deny",
+    "webfetch": "deny",
+    "websearch": "deny",
+    "skill": "deny",
+    "lsp": "deny",
+    "todowrite": "deny",
+    "doom_loop": "deny",
+    "external_directory": "deny",
+
+    // Commands are enumerated exactly, with no wildcards anywhere except the
+    // leading deny-all. That is a deliberate difference from the Claude Code
+    // side, which carries prefix forms like `Bash(make test:*)`.
+    //
+    // How OpenCode 1.18.15 actually evaluates these — measured on the engine,
+    // not inferred from the docs. A compound command is decomposed and EVERY
+    // component must match an allow rule:
+    //
+    //   echo SAFE && echo DANGER             denied   (DANGER not allowed)
+    //   make build && make test && make …    allowed  (all parts allowed)
+    //   make build 2>&1 | tail -20           denied   (tail not allowed)
+    //   make test ARGS="…"                   denied   (only bare `make test`)
+    //
+    // So `make build && make release` is refused by its `make release`
+    // component rather than by a pattern failing to stretch across the `&&`.
+    // That distinction matters for anyone editing this list: the protection
+    // comes from every component being enumerated, so adding a broad pattern
+    // weakens it even though the `&&` case keeps working. `make release` is
+    // the one that matters — it bumps `pubspec.yaml`, which IS inside the path
+    // allowlist, so a version bump would otherwise ride along in the pull
+    // request looking like part of the fix.
+    //
+    // Exact patterns remain the right choice for the narrower reason that they
+    // also refuse unexpected *arguments*, which a trailing `*` would admit.
+    //
+    // The five commands the prompt actually requires are all exact strings.
+    // Add a pattern here only when a real run proves one is needed, and prefer
+    // adding another exact line over introducing a `*`.
+    //
+    // `cargo` is absent entirely. The Claude Code allowlist enumerates
+    // `cargo check:*` and friends, but CLAUDE.md tells the agent never to call
+    // cargo directly, so granting it only creates a second way to reach
+    // `cargo publish` / `cargo install`.
+    "bash": {
+      "*": "deny",
+
+      // The five gates named in `.github/agent-prompts/repair-build.md`.
+      "make build": "allow",
+      "make test": "allow",
+      "make analyze ARGS=\"--fatal-infos\"": "allow",
+      "make format-check": "allow",
+      "make rust-clippy": "allow",
+
+      // Supporting targets: dependency fetch, codegen, and the formatter the
+      // agent needs to satisfy `make format-check`.
+      "make get": "allow",
+      "make codegen": "allow",
+      "make format": "allow",
+      "make analyze": "allow",
+      "make rust-check": "allow",
+      "make rust-test": "allow",
+
+      // Read-only inspection of its own work. Exact forms only.
+      "git status": "allow",
+      "git diff": "allow"
+    }
+  },
+
+  "agent": {
+    "repair-build": {
+      "description": "Repairs a broken build on main and leaves a verdict.",
+      "mode": "primary",
+
+      // The `--max-turns 40` equivalent. OpenCode has no CLI flag for this; it
+      // is agent configuration only. On exhaustion OpenCode forces a text-only
+      // response rather than stopping outright, which means the agent cannot
+      // call `write` to leave its verdict — so the missing `verdict.json` still
+      // fails the workflow loudly, which is the behaviour we want.
+      //
+      // Prefer `steps` over `maxSteps`; the latter is deprecated in the schema.
+      "steps": 40
+    },
+
+    // The reviewer. It reads a diff and writes one file; it builds nothing,
+    // runs no tests and changes no source.
+    //
+    // Every line of the `permission` block below exists because the global
+    // block above grants something this agent must not have. Measured with
+    // `opencode debug agent`: an agent's rules are APPENDED to the global ones,
+    // not substituted for them, and the last match wins. An earlier draft that
+    // listed only `"git diff": "allow"` here resolved with `make build` and
+    // `make test` still allowed, inherited from the repair agent — the rules
+    // looked narrower and were not. `.github/workflows/ai-review.yml` asserts
+    // the resolved list rather than trusting this comment.
+    //
+    // Nothing this agent writes reaches the repository: its job produces one
+    // artifact, `findings.json`, and the working tree is thrown away. `edit` is
+    // denied anyway, so a stray modification fails loudly at the tool call
+    // instead of being silently discarded at the end.
+    "pr-review": {
+      "description": "Reviews a pull request diff and leaves findings.",
+      "mode": "primary",
+
+      // Lower than the repair agent's 40. Reviewing is bounded work — read the
+      // diff, read around the hunks, report — and a reviewer that needs forty
+      // tool calls has lost the thread rather than found something deep.
+      //
+      // Exhaustion is the one place this differs from the repair agent, and it
+      // is worth knowing which way. On exhaustion OpenCode forces a text-only
+      // response; the repair agent needs a tool call to leave its verdict, so
+      // exhaustion makes the file missing and the workflow fails loudly. The
+      // reviewer reports IN that text, so an exhausted run can still emit a
+      // well-formed answer — one written without having finished looking. The
+      // step budget is therefore a real bound on review depth here rather than
+      // a backstop, which is the reason to keep it comfortably above what a
+      // real review takes (the three measured runs used 4, 4 and 12 tool
+      // calls; the twelve-call one was the clean review of a real change).
+      "steps": 30,
+
+      // This agent can read and search. It cannot write, edit, patch or run a
+      // command of any kind, and it does not need to: its findings leave as its
+      // final message, not as a file.
+      //
+      // That shape was forced by measurement rather than chosen for elegance.
+      // Across seven runs of `gpt-5.6-luna` through OpenCode the tools it
+      // actually called were `read`, `grep`, `glob` and `bash` — and never
+      // `write`, not once. (One of the seven is proven by the tool trace in the
+      // session database; the other six are read off the `% Patch` glyph in
+      // their logs. Whether naming the tool in the prompt would change that is
+      // NOT known: no saved run has a prompt that names it.) To save a file it
+      // reached for `apply_patch`, which OpenCode gates on the `edit`
+      // permission rather than on `apply_patch` — visible in `opencode.log` as
+      // `evaluated permission=edit pattern=.agent-scratch/verdict.json
+      // action=allow` on the call. Denied a way through, it produced a complete
+      // and correct set of findings and then burned the rest of its turns
+      // failing to save them.
+      //
+      // Reporting through the reply removes the whole problem and leaves the
+      // reviewer strictly read-only, which is a stronger property than any
+      // permission list: there is no tool here that can change a file, so
+      // "the reviewer does not modify the repository" needs no enforcing.
+      "permission": {
+        "write": "deny",
+        "edit": "deny",
+        "patch": "deny",
+        "apply_patch": "deny",
+
+        // The load-bearing line. Without this `"*": "deny"`, every `make`
+        // target the repair agent is allowed stays allowed here, because those
+        // allows sit earlier in the same resolved list and nothing revokes
+        // them. With it, and with nothing allowed after it, the reviewer has no
+        // shell at all.
+        //
+        // No `make` target of any kind, and no `git` either. The reviewer's
+        // opinion of whether the tree builds is worth nothing next to the
+        // four-platform matrix already running on this pull request. `git`
+        // commands were tried and removed: exact patterns match only the bare
+        // command, so `git show HEAD^:path` and `git status --short` were
+        // refused anyway, and each refusal cost a turn the reviewer then spent
+        // arguing with its own permissions instead of reading the diff.
+        "bash": { "*": "deny" }
+      }
+    }
+  }
+}

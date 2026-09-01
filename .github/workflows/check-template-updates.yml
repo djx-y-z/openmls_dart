@@ -7,7 +7,7 @@
 #    - Applies it with `copier update` (make update-template)
 #    - Reports anything copier could not merge, and whether the version bump
 #      actually landed in .copier-answers.yml
-#    - Writes a CHANGELOG entry with AI (GitHub Models)
+#    - Writes a CHANGELOG entry with AI (provider per AI_MODELS)
 #    - Runs the same gates the pre-commit hook runs
 #    - Opens a PR — as a draft when it needs a human to finish it
 #
@@ -53,7 +53,7 @@ jobs:
         id: app-token
         uses: actions/create-github-app-token@v3
         with:
-          app-id: ${{ vars.APP_ID }}
+          client-id: ${{ vars.APP_CLIENT_ID }}
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
 
       - uses: actions/checkout@v7
@@ -151,11 +151,71 @@ jobs:
       - name: Apply template update
         id: update
         if: steps.check.outputs.needs_update == 'true' && steps.existing.outputs.skip != 'true'
+        # Every key is step-scoped, as the single token before them was. These
+        # may be org-level secrets shared by unrelated repositories, and a
+        # job-level `env:` would hand each of them to every other step in this
+        # job — including the ones that run third-party actions.
+        #
+        # AI_MODELS is a variable, not a secret: which model writes the entry
+        # is operational configuration, and keeping it out of the code is what
+        # makes a provider switch a settings change rather than a template
+        # release rolled out across every generated project.
         env:
-          AI_MODELS_TOKEN: ${{ secrets.AI_MODELS_TOKEN }}
+          AI_MODELS: ${{ vars.AI_MODELS }}
+          AI_EFFORT: ${{ vars.AI_EFFORT }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           LATEST_VERSION: ${{ steps.check.outputs.latest_version }}
+          # `make update-template` re-reads the template CHANGELOG through the
+          # same helper the check step uses, so it needs the same token for the
+          # same reason — see the note there. Actions does not export
+          # GITHUB_TOKEN to a step by itself, so without this line that call is
+          # anonymous: same job, same runner IP, seconds later. It fails quietly
+          # too — the changelog fetch is wrapped, so a 403 leaves the AI with no
+          # template changelog to summarise and says so only in a warning.
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           make update-template ARGS="--version $LATEST_VERSION --ci-output $GITHUB_OUTPUT"
+
+      # Without this, a conflicted update produces no pull request at all — the
+      # one outcome this workflow exists to report. `create-pull-request` begins
+      # with `git checkout -B <temp> HEAD`, and git refuses that while the index
+      # holds unmerged entries: `error: you need to resolve your current index
+      # first`. Its own `git add -A` comes later and is never reached. So the
+      # run counted the conflicts, wrote the draft body naming them, and then
+      # died on git before it could open anything — measured on a real update
+      # that left `CLAUDE.md`, `CONTRIBUTING.md` and `README.md` unmerged.
+      #
+      # Staging them is what the draft is *for*: what copier left travels in the
+      # commit, the pull request opens as a draft listing the files, and a human
+      # resolves them on the branch. Only the unmerged paths are staged — what
+      # else belongs in the commit is `create-pull-request`'s business, and
+      # keeping this step to one job keeps its log readable. `-z`/`-0` because a
+      # conflicted path may hold spaces or non-ASCII, and `-r` so an empty list
+      # is a no-op: `has_conflicts` is also set by a marker found in a file git
+      # considers merged, and that case has nothing to stage.
+      #
+      # The status letters are logged rather than the names alone, because
+      # markers do not travel for every shape. Measured over all four git can
+      # leave here: `UU` and `AA` stage the file with `<<<<<<<` in it, but `UD`
+      # (we modified, the template deleted) stages our side and `DU` (we
+      # deleted, the template modified) stages theirs — neither carries a
+      # marker, one side silently wins, and the pull request then shows a clean
+      # file while its own body lists that path as conflicted. The letters are
+      # the only thing in the run that says which of the two happened.
+      #
+      # `sed` ends that pipeline on purpose. GitHub runs this with `bash -e`,
+      # `grep` exits 1 when it matches nothing, and `has_conflicts` can be true
+      # with no unmerged path at all — so with `grep` last the step would fail
+      # in exactly the case the `-r` below exists to tolerate. Verified both
+      # ways: `grep` last exits 1, `sed` last exits 0.
+      - name: Stage conflicted files
+        if: steps.check.outputs.needs_update == 'true' && steps.existing.outputs.skip != 'true' && steps.update.outputs.has_conflicts == 'true'
+        run: |
+          echo "Unmerged paths copier left behind (UU/AA carry markers, UD/DU do not):"
+          git status --short --untracked-files=no | grep -E '^(U.|.U|AA|DD)' | sed 's/^/  /'
+          git diff --name-only --diff-filter=U -z | xargs -0 -r git add --
 
       - name: Setup Rust
         if: steps.check.outputs.needs_update == 'true' && steps.existing.outputs.skip != 'true'
@@ -236,7 +296,7 @@ jobs:
             | `make format-check` | ${{ steps.gates.outputs.format == 'true' && 'pass' || '**fail**' }} |
             | `make rust-check` | ${{ steps.gates.outputs.rust == 'true' && 'pass' || '**fail**' }} |
             | `make analyze --fatal-infos` | ${{ steps.gates.outputs.analyze == 'true' && 'pass' || '**fail**' }} |
-            | CHANGELOG entry | ${{ steps.update.outputs.changelog_updated == 'true' && 'written by AI' || format('**not written** ({0})', steps.update.outputs.changelog_error) }} |
+            | CHANGELOG entry | ${{ steps.update.outputs.changelog_updated == 'true' && format('written by `{0}`', steps.update.outputs.ai_provider) || format('**not written** ({0})', steps.update.outputs.changelog_error) }} |
 
             ### Template changelog for this range
 

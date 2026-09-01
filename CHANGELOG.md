@@ -2,7 +2,68 @@
 
 ### For Users
 
+#### ✨ Highlights
+
+- **The published package initialises again** — `2.0.1` shipped
+  `flutter_rust_bridge: ^2.12.0` alongside generated bindings that record
+  `2.12.0` and are compared against the runtime with `==`. flutter_rust_bridge
+  2.13.0 was published on 2026-08-23 and landed inside that caret, so from that
+  day on every fresh resolution — there is no committed lockfile to hold it
+  still — threw from `RustLib.init()`. The constraint now admits exactly one
+  version.
+- **`flutter test` finds the native library** — `flutter_tools` installs the
+  hooked library under `build/native_assets/<os>/`, a directory neither of the
+  two paths searched before covered, so a Flutter package depending on this one
+  failed in `init()` in its own unit tests while the app itself ran fine.
+- **openmls** — unchanged this release (openmls-v0.8.1)
+- **openmls_frb v2.0.1** — unchanged this release; `rust/` has not moved since
+  the `openmls_frb-2.0.1` tag, so the published native binary is reused as is
+  and no rebuild is needed
+
 #### Fixed
+
+- **`RustLib.init()` threw for anyone who resolved this package after
+  2026-08-23** (`pubspec.yaml`) — `flutter_rust_bridge` was declared as
+  `^2.12.0`, while the committed `lib/src/rust/frb_generated.dart` records
+  `codegenVersion => '2.12.0'` and the runtime compares that string to its own
+  with `==`. flutter_rust_bridge 2.13.0 was published on 2026-08-23 and landed
+  inside the caret, so every fresh resolution from that day on — this
+  repository's CI and every consumer of the published package alike — failed
+  initialisation with `codegen version (2.12.0) should be the same as runtime
+  version (2.13.0)`. `pubspec.lock` is deliberately not committed for a
+  library, so nothing held the version still, and the shipped archive carries
+  both halves of the contradiction: the caret in its pubspec and the generated
+  file that fixes the other side. The two pins that were already exact,
+  `="2.12.0"` in `rust/Cargo.toml` and `FRB_CODEGEN_VERSION` in the `Makefile`,
+  were never the ones at risk.
+
+  The constraint now admits exactly one version, written `>=2.12.0 <2.12.1`.
+  Nothing wider is safe: the check is string equality, so every version a range
+  admits except the one that generated the bindings fails, and `>=2.12.0
+  <2.13.0` would only narrow the window — flutter_rust_bridge ships patch
+  releases, and a 2.12.1 would break it identically. One version is also what
+  upstream documents — *"all flutter_rust_bridge-related packages will need to
+  have exactly the same version"* — and what its own `integrate` step writes
+  with `dart pub add`.
+
+  The range form, rather than the bare `2.12.0`, is forced by the release path
+  and not by taste. `dart pub publish` warns that a single-version constraint
+  "should allow more than one version", and it exits 65 on any warning, so
+  `make publish-dry-run` — which both `make release` and `publish.yml` gate on
+  — fails, and the package cannot be published at all. `>=2.12.0 <2.12.1`
+  resolves to the same single version and does not trip that check. Measured
+  rather than assumed: four constraint shapes were run through
+  `dart pub publish --dry-run`, and only the bare version produced the warning.
+
+  One consequence for consumers, and it is the intended one. Anyone who also
+  depends on another flutter_rust_bridge wrapper built against a different
+  version now gets a version-solving failure out of `pub get`, instead of a
+  successful resolve followed by a throw at `init()`. The incompatibility was
+  always there — two sets of generated bindings cannot both equal one runtime
+  version — so what changes is only that it surfaces where it can be acted on.
+
+  Nothing else moves. `rustContentHash` is unchanged, so the published native
+  binary still matches and no rebuild or regeneration is needed.
 
 - **The native library was not found under `flutter test`**
   (`lib/src/platform/platform_io.dart`, `lib/src/openmls.dart`,
@@ -29,6 +90,16 @@
 ### For Contributors
 
 #### Changed
+
+- **`make codegen` now uses the pinned generator** (`Makefile`) —
+  `FRB_CODEGEN_VERSION` pins the binary that `make setup-frb-codegen` installs,
+  but `codegen` did not depend on that target and ran whatever
+  `flutter_rust_bridge_codegen` happened to be on `PATH`. Regenerating with a
+  different version rewrites the bindings and the `codegenVersion` they carry
+  — the same drift the three pins exist to prevent, arriving through the one
+  door they did not cover. Where CI already ran the two in sequence nothing
+  changes: the prerequisite only reads `--version` when the pinned binary is
+  already installed.
 
 - **Adopted copier template v4.3.0 → v4.4.0** (`.copier-answers.yml`,
   `Makefile`, `hook/build.dart`, `scripts/src/check_template_updates.dart`,
@@ -93,12 +164,96 @@
   installation accepts it.
 
   **Documentation stopped promising a changelog generator that no longer
-  runs.** GitHub Models is in its retirement brownout, so the AI step fails on
-  every run and labels the pull request `changelog-needed`; the setup
+  ran.** GitHub Models was in its retirement brownout, so the AI step failed on
+  every run and labelled the pull request `changelog-needed`; the setup
   instructions said otherwise in three places, and the update skill told
   whoever ran it to expect an entry. `README.md` also still described template
   updates as notification pull requests, which is what they were before the
-  workflow started applying them.
+  workflow started applying them. The v4.6.0 adoption below replaces the
+  provider outright, so these notices are gone again in the same release.
+
+- **Adopted copier template v4.5.0 → v4.6.0** (`.copier-answers.yml`, and the
+  files listed below) — five changes arrive with it.
+
+  **The AI changelog works again, against a provider this repository names.**
+  GitHub Models was retired on 2026-07-30 and the step had failed on every run
+  since. `AI_MODELS` now holds an ordered `provider/model` list and the first
+  entry that has a key and answers wins, so the next provider change is a
+  repository-variable edit rather than a template release. Anthropic, Google and
+  OpenRouter are each called through their own API over `dart:io` rather than a
+  `curl` subprocess, because the HTTP status decides whether the next entry is
+  tried and a subprocess would put the key in process arguments. The next entry
+  is tried only when a model produced **no** answer — network failure, an
+  auth/rate-limit/server status, a refusal, or a response cut off at the token
+  limit — never on the content of an answer, and nothing is salvaged from a
+  partial one: a missing field leaves the entry unwritten and the pull request
+  labelled `changelog-needed`, which is the path that already existed.
+
+  **This repository is not configured by the adoption itself.** There is no
+  default list, deliberately: with `AI_MODELS` unset nothing is called, which is
+  also how a project says "no AI here". Until the variable and a provider key
+  are set, update pull requests keep arriving with `changelog-needed` exactly as
+  they do today. `AI_MODELS_TOKEN` is now read nowhere and can be deleted.
+
+  **What the entry is judged against is now written down**
+  (`.github/agent-prompts/changelog-scope.md`) — which crates this package
+  binds, what `MlsEngine` actually exposes, and which upstream areas it never
+  touches, including that this package implements its own storage rather than
+  using `openmls_memory_storage`. The prompt classifies every upstream change
+  against that list, and an upstream change that cannot be tied to something
+  named there is invisible to this package's users. The file is written once and
+  never overwritten by a template update, so it is this repository's to keep
+  current.
+
+  **The test suite no longer skips `update-openmls-*` pull requests**
+  (`.github/workflows/test.yml`) — the bump whose entire payload is new native
+  code was the only pull request merged without the suite, clippy, `rust-test`,
+  `cargo-deny`, the MSRV check or `verify-third-party-notices` running against
+  it on any platform. `make build` runs before `make test` in the reusable
+  workflow and the build hook then finds `rust/target/release` without
+  downloading, which is what justified the skip and now removes the need for it.
+  **This has an immediate consequence:** PR #15 (openmls 0.9.0) will start
+  running the suite and will fail — `HpkeKemType::XWingKemDraft6` and the
+  `MLS_256_XWING_CHACHA20POLY1305_SHA256_Ed25519` ciphersuite no longer exist
+  upstream. That failure is real and was previously invisible.
+
+  **`make verify-frb-pins`, and Dependabot on `pub` and `cargo`**
+  (`Makefile`, `scripts/verify_frb_pins.dart`, `.github/dependabot.yml`) — five
+  files record the flutter_rust_bridge version and two of them are compared with
+  `==` at runtime, so the new gate reads all five and rejects both a caret and
+  the unpublishable bare form, with the reason. It reads every occurrence rather
+  than the first, because the first is not always the one that counts: a
+  `dependency_overrides` entry replaces the dependency outright, a second pin in
+  a `[target.'cfg(…)']` section resolves per target, and make takes a later `=`
+  over an earlier `?=`. It runs beside `verify-third-party-notices` on the Linux
+  leg; five file reads, no build.
+  Dependabot now watches the published constraints and the native crate's
+  dependencies, ignoring `flutter_rust_bridge` in both because its version has
+  to move in four places at once and a one-file pull request is wrong by
+  construction. The upstream crates are ignored under `cargo` for a different reason: Dependabot's cargo updater does follow git refs, so without that it would open its own pull request for the same bump the update workflow exists to make — without codegen, the bindings tripwire, the CHANGELOG entry or the version badge.
+
+  Also in this adoption: `lints` capped to one minor line because
+  `make analyze ARGS="--fatal-infos"` turns any new info-level lint into a build
+  failure and `pubspec.lock` is not committed (precautionary — 6.1.0 was
+  measured against this repository with nothing to report); `ffigen`'s floor
+  raised to `^20.1.1`; protoc added to the template-update workflow's gates
+  upstream, which this repository does not render since it needs no protobuf
+  compiler; and the repair and review agents, both inert until `AGENT_ENGINE`
+  names one.
+
+- **Dependabot no longer rewrites constraints it was told to leave alone** (`.github/dependabot.yml`) — `pub`'s default versioning strategy is `widen`, "extend only the upper bound to include the new version", and it applies that across the whole manifest rather than only to what it is updating. The first run here opened a pull request whose four updates were `ffigen`, `lints`, `code_assets` and `hooks` — and which also rewrote `flutter_rust_bridge` from `">=2.12.0 <2.12.1"` to `^2.12.0`. That is the one constraint in this file that must not float: it is the exact regression that broke every consumer of the published package when flutter_rust_bridge 2.13.0 landed inside that caret. `lints`, `ffigen` and `hooks` were widened past bounds set on purpose as well.
+
+  `ignore` is no defence, and it is worth being precise about why: it stops Dependabot opening a pull request *for* a dependency, not editing that dependency's constraint while it edits the file for other reasons. `flutter_rust_bridge` was ignored and rewritten anyway. `versioning-strategy: increase-if-necessary` fixes it — a constraint that already admits the new version is left alone, so a dependency nothing is updating stays untouched. `cargo` needs none of this: on the same run it changed exactly the one crate it was bumping and left every pin alone.
+
+  `make verify-frb-pins` caught the rewrite on all four platforms before it could merge — its first real encounter, and what it exists for.
+
+- **The `pub` and `cargo` groups take minor and patch only** (`.github/dependabot.yml`) — grouping a major with everything else blocks the rest: one unmergeable entry takes the whole pull request down.
+
+  It separates more than its name suggests, and the first run after the change is the evidence. Dependabot's commit trailers report a 0.x bump as `version-update:semver-minor`, but its *grouping* applies Cargo's own reading, where a 0.x minor is the breaking bump, and keeps them out of a `minor`+`patch` group anyway. The six-crate cargo group split into a group of two (`log` patch, `uuid` 1.x minor) plus one pull request each for `rand`, `sha2`, `hkdf` and `aes-gcm-siv` — the four that need a migration. Exactly the intended shape.
+
+- **`dart-lang/setup-dart` 1.8.x is ignored, temporarily and narrowly** (`.github/dependabot.yml`) — 1.8.0 added a problem matcher for `dart analyze` and registers it with `::add-matcher::dart-analyzer.json`. The path resolves against the *calling* action's directory, and this repository calls setup-dart from inside its own `setup-fvm` composite action, so the runner looks under `.github/actions/setup-fvm/`, does not find it, and fails the job fourteen seconds in, before anything is built. It failed that way on all four platforms.
+
+  Only the 1.8 line is ignored, so 1.9.0 arrives for evaluation rather than this freezing the action; 1.8.1, the latest at the time of writing, does not fix it. The bump is worth little here in any case: setup-dart exists in that action solely to provide a `dart` binary for `dart pub global activate fvm` on the next line, and everything that builds and tests this package comes from the FVM-pinned SDK.
 
 ## [2.0.1] - 2026-08-03
 

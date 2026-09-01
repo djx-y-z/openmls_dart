@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:test/test.dart';
 
 import '../../scripts/src/update_template.dart';
@@ -260,6 +262,65 @@ void main() {
         lessThan(lineOf(result, '## [2.0.0] - 2026-07-30')),
       );
       expect(lineOf(result, entry), lessThan(lineOf(result, releasedMarker)));
+    });
+  });
+
+  // `copier copy` ends with a `dart format .` task, because the template
+  // hard-wraps Dart whose rendered width depends on the answers. `copier
+  // update` runs no tasks, so this stands in for that one — and it has to
+  // survive the state an update most often leaves behind.
+  group('formatAfterUpdate', () {
+    late Directory dir;
+
+    setUp(() => dir = Directory.systemTemp.createTempSync('fmt_after_update'));
+    tearDown(() => dir.deleteSync(recursive: true));
+
+    File write(String name, String content) =>
+        File('${dir.path}/$name')..writeAsStringSync(content);
+
+    test('formats what copier left unformatted', () async {
+      final file = write('ugly.dart', 'void main(){final x=1;   print(x);}\n');
+
+      await formatAfterUpdate(workingDirectory: dir.path);
+
+      expect(
+        file.readAsStringSync(),
+        'void main() {\n  final x = 1;\n  print(x);\n}\n',
+      );
+    });
+
+    test('leaves a conflicted file alone and does not throw', () async {
+      const marked =
+          '<<<<<<< before updating\n'
+          "void main() { print('ours'); }\n"
+          '=======\n'
+          "void main() { print('theirs'); }\n"
+          '>>>>>>> after updating\n';
+      final conflicted = write('conflicted.dart', marked);
+      final ugly = write('ugly.dart', 'void main(){final x=1;   print(x);}\n');
+
+      // The formatter exits non-zero here, because a file carrying conflict
+      // markers cannot be parsed. That is expected — findConflicts has already
+      // reported it — and must not fail the update.
+      await expectLater(
+        formatAfterUpdate(
+          conflicts: const ['conflicted.dart'],
+          workingDirectory: dir.path,
+        ),
+        completes,
+      );
+
+      expect(conflicted.readAsStringSync(), marked);
+      expect(ugly.readAsStringSync(), contains('  final x = 1;'));
+    });
+
+    test('is a no-op on an already formatted tree', () async {
+      const formatted = 'void main() {}\n';
+      final file = write('fine.dart', formatted);
+
+      await formatAfterUpdate(workingDirectory: dir.path);
+
+      expect(file.readAsStringSync(), formatted);
     });
   });
 }

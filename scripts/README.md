@@ -54,7 +54,7 @@ make check-template-updates ARGS="--json"
 make check-template-updates ARGS="--ci-output /path/to/output"
 ```
 
-This script is used by the `check-template-updates.yml` workflow, which creates notification PRs with changelog and update instructions.
+This script is used by the `check-template-updates.yml` workflow, which applies the update with `copier update` and opens a pull request carrying the result — a draft when copier could not merge something, or when the new version did not land in `.copier-answers.yml`.
 
 ## Regenerating FRB Bindings
 
@@ -124,4 +124,6 @@ The `check-openmls-updates.yml` workflow:
 The `check-template-updates.yml` workflow:
 1. Runs daily to check for new copier template versions
 2. Compares with current version in `.copier-answers.yml`
-3. Creates a notification PR with changelog and update instructions
+3. Applies the update with `copier update` and reports what it could not merge
+4. Runs the same three gates the pre-commit hook runs, and records the results
+5. Opens a PR with the applied update — a draft when it needs a human to finish it
