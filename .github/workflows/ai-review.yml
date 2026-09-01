@@ -496,7 +496,7 @@ jobs:
       - name: Run the reviewer (Claude Code)
         id: claude
         if: needs.config.outputs.engine == 'claude-code'
-        uses: anthropics/claude-code-action@c038e4dcdedfbbca18dfb17df35a17e40ded4ddc # v1.0.186
+        uses: anthropics/claude-code-action@a874e9ecd7bb36efdad65429c6b35815f5a08f10 # v1.0.210
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           github_token: ${{ github.token }}
