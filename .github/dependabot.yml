@@ -106,6 +106,36 @@ updates:
       # `make setup-frb-codegen` + `make codegen` is the procedure.
       - dependency-name: "flutter_rust_bridge"
 
+      # hooks 2.x and code_assets 2.x are blocked by the pinned Flutter SDK, not
+      # by this repository's code. `hook/build.dart` needs a zero-line diff: it
+      # uses only `build()`, `BuildInput` and `BuildOutputBuilder`, and hooks
+      # 2.0.0's one breaking change (`ProtocolExtension` from interface to base
+      # class) touches none of them.
+      #
+      # It is a resolver failure. hooks >= 2.1.0 pulls `record_use ^1.0.0`,
+      # which needs `meta ^1.19.0`, and Flutter 3.38.4 pins `meta: 1.17.0`
+      # exactly (packages/flutter/pubspec.yaml). The first stable release to
+      # relax that to `meta: ^1.18.3` is 3.47.0.
+      #
+      # The reason to ignore rather than merge and fix is that the damage is not
+      # ours: the root package resolves fine because it has no `flutter: sdk`
+      # dependency, so this breaks `example/` and every Flutter *consumer* on an
+      # SDK that pins meta below 1.19.0 — anyone on 3.44.x or earlier — while
+      # our own CI would look merely red. code_assets 2.0.0 requires
+      # hooks ^2.2.0, so the two only move together and ignoring one without the
+      # other just changes which pull request arrives.
+      #
+      # Lift both when .fvmrc moves to Flutter >= 3.47.0. The constraints in
+      # pubspec.yaml already say the same thing ("Majors (hooks 2.x,
+      # code_assets 2.x) are a deliberate migration, not a bump"); this is what
+      # stops Dependabot proposing that migration once a week in the meantime.
+      - dependency-name: "hooks"
+        versions:
+          - "2.x"
+      - dependency-name: "code_assets"
+        versions:
+          - "2.x"
+
   # The native crate's dependencies. These are compiled into the binary the
   # build hook downloads, so a vulnerable transitive crate reaches consumers as
   # shipped code rather than as a build-time inconvenience — `make rust-audit`
