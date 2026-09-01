@@ -25,7 +25,6 @@ use super::types::{
     MlsWireFormatPolicy, ProcessedMessageType, StagedCommitInfo, WelcomeInspectResult,
 };
 use crate::snapshot_storage::{SnapshotOpenMlsProvider, SnapshotStorageProvider};
-use crate::wire_decode::from_exact_bytes;
 
 // ═══════════════════════════════════════════════════════════════
 // HELPERS
@@ -500,7 +499,7 @@ impl MlsEngine {
             .store(provider.storage())
             .map_err(|e| format!("Failed to store signer: {}", e))?;
 
-        let welcome_msg = from_exact_bytes::<MlsMessageIn>(&welcome_bytes)
+        let welcome_msg = MlsMessageIn::tls_deserialize_exact_bytes(&welcome_bytes)
             .map_err(|e| format!("Failed to deserialize welcome: {}", e))?;
         let welcome = match welcome_msg.extract() {
             MlsMessageBodyIn::Welcome(w) => w,
@@ -510,7 +509,7 @@ impl MlsEngine {
         let join_config = config.to_join_config();
         let ratchet_tree: Option<RatchetTreeIn> = ratchet_tree_bytes
             .map(|rt_bytes| {
-                from_exact_bytes::<RatchetTreeIn>(&rt_bytes)
+                RatchetTreeIn::tls_deserialize_exact_bytes(&rt_bytes)
                     .map_err(|e| format!("Failed to deserialize ratchet tree: {}", e))
             })
             .transpose()?;
@@ -543,7 +542,7 @@ impl MlsEngine {
             .store(provider.storage())
             .map_err(|e| format!("Failed to store signer: {}", e))?;
 
-        let welcome_msg = from_exact_bytes::<MlsMessageIn>(&welcome_bytes)
+        let welcome_msg = MlsMessageIn::tls_deserialize_exact_bytes(&welcome_bytes)
             .map_err(|e| format!("Failed to deserialize welcome: {}", e))?;
         let welcome = match welcome_msg.extract() {
             MlsMessageBodyIn::Welcome(w) => w,
@@ -555,7 +554,7 @@ impl MlsEngine {
             .map_err(|e| format!("Failed to process welcome: {}", e))?;
 
         if let Some(rt_bytes) = ratchet_tree_bytes {
-            let ratchet_tree = from_exact_bytes::<RatchetTreeIn>(&rt_bytes)
+            let ratchet_tree = RatchetTreeIn::tls_deserialize_exact_bytes(&rt_bytes)
                 .map_err(|e| format!("Failed to deserialize ratchet tree: {}", e))?;
             join_builder = join_builder.with_ratchet_tree(ratchet_tree);
         }
@@ -584,7 +583,7 @@ impl MlsEngine {
     ) -> Result<WelcomeInspectResult, String> {
         let provider = self.load_global().await?;
 
-        let welcome_msg = from_exact_bytes::<MlsMessageIn>(&welcome_bytes)
+        let welcome_msg = MlsMessageIn::tls_deserialize_exact_bytes(&welcome_bytes)
             .map_err(|e| format!("Failed to deserialize welcome: {}", e))?;
         let welcome = match welcome_msg.extract() {
             MlsMessageBodyIn::Welcome(w) => w,
@@ -626,7 +625,7 @@ impl MlsEngine {
             .store(provider.storage())
             .map_err(|e| format!("Failed to store signer: {}", e))?;
 
-        let gi_msg = from_exact_bytes::<MlsMessageIn>(&group_info_bytes)
+        let gi_msg = MlsMessageIn::tls_deserialize_exact_bytes(&group_info_bytes)
             .map_err(|e| format!("Failed to deserialize group info: {}", e))?;
         let verifiable_group_info = match gi_msg.extract() {
             MlsMessageBodyIn::GroupInfo(gi) => gi,
@@ -636,7 +635,7 @@ impl MlsEngine {
 
         let ratchet_tree: Option<RatchetTreeIn> = ratchet_tree_bytes
             .map(|rt_bytes| {
-                from_exact_bytes::<RatchetTreeIn>(&rt_bytes)
+                RatchetTreeIn::tls_deserialize_exact_bytes(&rt_bytes)
                     .map_err(|e| format!("Failed to deserialize ratchet tree: {}", e))
             })
             .transpose()?;
@@ -687,7 +686,7 @@ impl MlsEngine {
             .store(provider.storage())
             .map_err(|e| format!("Failed to store signer: {}", e))?;
 
-        let gi_msg = from_exact_bytes::<MlsMessageIn>(&group_info_bytes)
+        let gi_msg = MlsMessageIn::tls_deserialize_exact_bytes(&group_info_bytes)
             .map_err(|e| format!("Failed to deserialize group info: {}", e))?;
         let verifiable_group_info = match gi_msg.extract() {
             MlsMessageBodyIn::GroupInfo(gi) => gi,
@@ -697,7 +696,7 @@ impl MlsEngine {
 
         let mut ext_builder = MlsGroup::external_commit_builder().with_config(join_config);
         if let Some(rt_bytes) = ratchet_tree_bytes {
-            let ratchet_tree = from_exact_bytes::<RatchetTreeIn>(&rt_bytes)
+            let ratchet_tree = RatchetTreeIn::tls_deserialize_exact_bytes(&rt_bytes)
                 .map_err(|e| format!("Failed to deserialize ratchet tree: {}", e))?;
             ext_builder = ext_builder.with_ratchet_tree(ratchet_tree);
         }
@@ -1061,7 +1060,7 @@ impl MlsEngine {
 
         let mut key_packages = Vec::with_capacity(key_packages_bytes.len());
         for kp_bytes in key_packages_bytes {
-            let kp_in = from_exact_bytes::<KeyPackageIn>(&kp_bytes)
+            let kp_in = KeyPackageIn::tls_deserialize_exact_bytes(&kp_bytes)
                 .map_err(|e| format!("Failed to deserialize key package: {}", e))?;
             let kp = kp_in
                 .validate(provider.crypto(), ProtocolVersion::Mls10)
@@ -1098,7 +1097,7 @@ impl MlsEngine {
 
         let mut key_packages = Vec::with_capacity(key_packages_bytes.len());
         for kp_bytes in key_packages_bytes {
-            let kp_in = from_exact_bytes::<KeyPackageIn>(&kp_bytes)
+            let kp_in = KeyPackageIn::tls_deserialize_exact_bytes(&kp_bytes)
                 .map_err(|e| format!("Failed to deserialize key package: {}", e))?;
             let kp = kp_in.validate(provider.crypto(), ProtocolVersion::Mls10)
                 .map_err(|e| format!("Failed to validate key package: {}", e))?;
@@ -1218,7 +1217,7 @@ impl MlsEngine {
         let indices: Vec<LeafNodeIndex> = remove_indices.iter().map(|&i| LeafNodeIndex::new(i)).collect();
         let mut key_packages = Vec::with_capacity(add_key_packages_bytes.len());
         for kp_bytes in add_key_packages_bytes {
-            let kp_in = from_exact_bytes::<KeyPackageIn>(&kp_bytes)
+            let kp_in = KeyPackageIn::tls_deserialize_exact_bytes(&kp_bytes)
                 .map_err(|e| format!("Failed to deserialize key package: {}", e))?;
             let kp = kp_in.validate(provider.crypto(), ProtocolVersion::Mls10)
                 .map_err(|e| format!("Failed to validate key package: {}", e))?;
@@ -1286,7 +1285,7 @@ impl MlsEngine {
         let provider = self.load_for_group(&group_id_bytes).await?;
         let mut group = load_group(&group_id_bytes, &provider)?;
 
-        let kp_in = from_exact_bytes::<KeyPackageIn>(&key_package_bytes)
+        let kp_in = KeyPackageIn::tls_deserialize_exact_bytes(&key_package_bytes)
             .map_err(|e| format!("Failed to deserialize key package: {}", e))?;
         let kp = kp_in.validate(provider.crypto(), ProtocolVersion::Mls10)
             .map_err(|e| format!("Failed to validate key package: {}", e))?;
@@ -1556,7 +1555,7 @@ impl MlsEngine {
         if !options.add_key_packages.is_empty() {
             let mut key_packages = Vec::with_capacity(options.add_key_packages.len());
             for kp_bytes in &options.add_key_packages {
-                let kp_in = from_exact_bytes::<KeyPackageIn>(kp_bytes)
+                let kp_in = KeyPackageIn::tls_deserialize_exact_bytes(kp_bytes)
                     .map_err(|e| format!("Failed to deserialize key package: {}", e))?;
                 let kp = kp_in.validate(provider.crypto(), ProtocolVersion::Mls10)
                     .map_err(|e| format!("Failed to validate key package: {}", e))?;
@@ -1627,7 +1626,7 @@ impl MlsEngine {
         let provider = self.load_for_group(&group_id_bytes).await?;
         let mut group = load_group(&group_id_bytes, &provider)?;
 
-        let msg_in = from_exact_bytes::<MlsMessageIn>(&message_bytes)
+        let msg_in = MlsMessageIn::tls_deserialize_exact_bytes(&message_bytes)
             .map_err(|e| format!("Failed to deserialize message: {}", e))?;
         let protocol_msg = msg_in.try_into_protocol_message()
             .map_err(|e| format!("Not a protocol message: {}", e))?;
@@ -1714,7 +1713,7 @@ impl MlsEngine {
         let provider = self.load_for_group(&group_id_bytes).await?;
         let mut group = load_group(&group_id_bytes, &provider)?;
 
-        let msg_in = from_exact_bytes::<MlsMessageIn>(&message_bytes)
+        let msg_in = MlsMessageIn::tls_deserialize_exact_bytes(&message_bytes)
             .map_err(|e| format!("Failed to deserialize message: {}", e))?;
         let protocol_msg = msg_in.try_into_protocol_message()
             .map_err(|e| format!("Not a protocol message: {}", e))?;
@@ -1941,7 +1940,7 @@ impl MlsEngine {
 /// message (i.e. it's a Welcome, GroupInfo, or KeyPackage).
 #[flutter_rust_bridge::frb(sync)]
 pub fn mls_message_extract_group_id(message_bytes: Vec<u8>) -> Result<Vec<u8>, String> {
-    let msg_in = from_exact_bytes::<MlsMessageIn>(&message_bytes)
+    let msg_in = MlsMessageIn::tls_deserialize_exact_bytes(&message_bytes)
         .map_err(|e| format!("Failed to deserialize message: {}", e))?;
     let protocol_msg = msg_in
         .try_into_protocol_message()
@@ -1954,7 +1953,7 @@ pub fn mls_message_extract_group_id(message_bytes: Vec<u8>) -> Result<Vec<u8>, S
 /// Returns an error if the message is not a protocol message.
 #[flutter_rust_bridge::frb(sync)]
 pub fn mls_message_extract_epoch(message_bytes: Vec<u8>) -> Result<u64, String> {
-    let msg_in = from_exact_bytes::<MlsMessageIn>(&message_bytes)
+    let msg_in = MlsMessageIn::tls_deserialize_exact_bytes(&message_bytes)
         .map_err(|e| format!("Failed to deserialize message: {}", e))?;
     let protocol_msg = msg_in
         .try_into_protocol_message()
@@ -1968,7 +1967,7 @@ pub fn mls_message_extract_epoch(message_bytes: Vec<u8>) -> Result<u64, String> 
 /// Returns an error if the message is not a protocol message.
 #[flutter_rust_bridge::frb(sync)]
 pub fn mls_message_content_type(message_bytes: Vec<u8>) -> Result<String, String> {
-    let msg_in = from_exact_bytes::<MlsMessageIn>(&message_bytes)
+    let msg_in = MlsMessageIn::tls_deserialize_exact_bytes(&message_bytes)
         .map_err(|e| format!("Failed to deserialize message: {}", e))?;
     let protocol_msg = msg_in
         .try_into_protocol_message()

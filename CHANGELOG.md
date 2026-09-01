@@ -65,10 +65,21 @@
   bytes that come straight off the network. Upstream now returns the
   authoritative unconsumed tail. The disclosure window is why 1.4.2's and
   2.0.0's entries describe this as hardening in general terms; this is the
-  first release able to name it. The local decoder stays in place for now — on
-  0.9.0 both paths are correct and agree — and removing it is a separate change
-  so that a version bump and a change to security-critical parsing are reviewed
-  apart.
+  first release able to name it.
+
+  The local decoder is gone with it (`rust/src/wire_decode.rs`,
+  `rust/src/api/engine.rs`): all nineteen call sites decode through openmls'
+  own `tls_deserialize_exact_bytes` again. That was held back until the fix
+  covered *both* halves of the problem, because the workaround was never only
+  about the panic — `Extension::tls_deserialize` did not require a payload to
+  be fully consumed, so on input with trailing bytes the two decoders resumed
+  from different offsets and disagreed about what the message said. 0.9.0
+  fixes the remainder arithmetic (the advisory) and makes known structured
+  extension payloads reject trailing bytes (upstream #2134), so the two paths
+  now agree and the removal is behaviour-neutral rather than a rollback to the
+  old behaviour. The fuzz target over those decoders is deliberately kept: the
+  types are still what the API parses straight off the network, and they are
+  worth fuzzing whichever decoder is behind them.
 
 - **The X-Wing dependency tree moves off every pinned advisory version**
   (`rust/Cargo.lock`, `.cargo/audit.toml`, `rust/deny.toml`) — 0.8.1 pinned the
