@@ -229,9 +229,9 @@
 
   `make verify-frb-pins` caught the rewrite on all four platforms before it could merge — its first real encounter, and what it exists for.
 
-- **The `pub` and `cargo` groups take minor and patch only** (`.github/dependabot.yml`) — grouping a major with everything else blocks the rest: one unmergeable entry takes the whole pull request down. For `pub` this does what it says — `ffigen` 20 → 21 and `hooks` 1 → 2 now arrive on their own.
+- **The `pub` and `cargo` groups take minor and patch only** (`.github/dependabot.yml`) — grouping a major with everything else blocks the rest: one unmergeable entry takes the whole pull request down.
 
-  For `cargo` it is close to a no-op, and saying otherwise would be wrong. Cargo crates are overwhelmingly 0.x, where the *minor* is the breaking bump, and Dependabot classifies by the version string: `rand` 0.9 → 0.10, `sha2` 0.10 → 0.11 and `rusqlite` 0.34 → 0.40 are all `version-update:semver-minor` in its own commit trailers. The filter does not separate the breaking ones there — CI does, and did. What it still buys is a genuine 1.x → 2.x arriving on its own.
+  It separates more than its name suggests, and the first run after the change is the evidence. Dependabot's commit trailers report a 0.x bump as `version-update:semver-minor`, but its *grouping* applies Cargo's own reading, where a 0.x minor is the breaking bump, and keeps them out of a `minor`+`patch` group anyway. The six-crate cargo group split into a group of two (`log` patch, `uuid` 1.x minor) plus one pull request each for `rand`, `sha2`, `hkdf` and `aes-gcm-siv` — the four that need a migration. Exactly the intended shape.
 
 - **`dart-lang/setup-dart` 1.8.x is ignored, temporarily and narrowly** (`.github/dependabot.yml`) — 1.8.0 added a problem matcher for `dart analyze` and registers it with `::add-matcher::dart-analyzer.json`. The path resolves against the *calling* action's directory, and this repository calls setup-dart from inside its own `setup-fvm` composite action, so the runner looks under `.github/actions/setup-fvm/`, does not find it, and fails the job fourteen seconds in, before anything is built. It failed that way on all four platforms.
 

@@ -128,13 +128,14 @@ updates:
     commit-message:
       prefix: "chore(deps)"
     groups:
-      # Minor and patch only, which for this ecosystem is close to a no-op and
-      # is kept for the day it is not. Cargo crates are overwhelmingly 0.x,
-      # where a *minor* is the breaking bump — measured, from Dependabot's own
-      # trailers: `rand` 0.9 -> 0.10, `sha2` 0.10 -> 0.11 and
-      # `rusqlite` 0.34 -> 0.40 are all `version-update:semver-minor`. So this
-      # filter does not separate the breaking ones; CI does, and did. What it
-      # does catch is a genuine 1.x -> 2.x, which is worth its own pull request.
+      # Minor and patch only, and it separates more than that name suggests.
+      # Dependabot's commit trailers call a 0.x bump `semver-minor` — `rand`
+      # 0.9 -> 0.10 and `rusqlite` 0.34 -> 0.40 both say so — but its *grouping*
+      # applies Cargo's own reading, where a 0.x minor is the breaking bump,
+      # and keeps them out of a minor+patch group anyway. Measured on the first
+      # run after this landed: a six-crate group became a group of two (`log`
+      # patch, `uuid` 1.x minor) plus one pull request each for `rand`, `sha2`,
+      # `hkdf` and `aes-gcm-siv`. Read the version string, not the trailer.
       cargo:
         patterns:
           - "*"
