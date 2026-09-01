@@ -311,10 +311,17 @@
   it on any platform. `make build` runs before `make test` in the reusable
   workflow and the build hook then finds `rust/target/release` without
   downloading, which is what justified the skip and now removes the need for it.
-  **This has an immediate consequence:** PR #15 (openmls 0.9.0) will start
-  running the suite and will fail — `HpkeKemType::XWingKemDraft6` and the
-  `MLS_256_XWING_CHACHA20POLY1305_SHA256_Ed25519` ciphersuite no longer exist
-  upstream. That failure is real and was previously invisible.
+  **This had an immediate consequence:** PR #15 (openmls 0.9.0) started running
+  the suite and failed. That failure was real and had been invisible — but the
+  cause recorded here when this entry was written was wrong, and is corrected
+  rather than left standing: `HpkeKemType::XWingKemDraft6` and the
+  `MLS_256_XWING_CHACHA20POLY1305_SHA256_Ed25519` ciphersuite were read as
+  removed upstream, and neither was. Both still exist in 0.9.0 with unchanged
+  spelling and the same 0x004D code point, behind the new
+  `draft-ietf-mls-pq-ciphersuites` feature. A feature-gated variant reports as
+  `E0599 ... no variant named X`, which is indistinguishable from a removal
+  without checking upstream — the misreading the bump checklist now warns
+  about.
 
   **`make verify-frb-pins`, and Dependabot on `pub` and `cargo`**
   (`Makefile`, `scripts/verify_frb_pins.dart`, `.github/dependabot.yml`) — five
