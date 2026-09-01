@@ -2,6 +2,24 @@
 
 ### For Users
 
+#### ✨ Highlights
+
+- **The published package initialises again** — `2.0.1` shipped
+  `flutter_rust_bridge: ^2.12.0` alongside generated bindings that record
+  `2.12.0` and are compared against the runtime with `==`. flutter_rust_bridge
+  2.13.0 was published on 2026-08-23 and landed inside that caret, so from that
+  day on every fresh resolution — there is no committed lockfile to hold it
+  still — threw from `RustLib.init()`. The constraint now admits exactly one
+  version.
+- **`flutter test` finds the native library** — `flutter_tools` installs the
+  hooked library under `build/native_assets/<os>/`, a directory neither of the
+  two paths searched before covered, so a Flutter package depending on this one
+  failed in `init()` in its own unit tests while the app itself ran fine.
+- **openmls** — unchanged this release (openmls-v0.8.1)
+- **openmls_frb v2.0.1** — unchanged this release; `rust/` has not moved since
+  the `openmls_frb-2.0.1` tag, so the published native binary is reused as is
+  and no rebuild is needed
+
 #### Fixed
 
 - **`RustLib.init()` threw for anyone who resolved this package after
