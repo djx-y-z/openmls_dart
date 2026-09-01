@@ -158,6 +158,14 @@ git commit -m "fix: adapt for openmls vX.Y.Z breaking changes"
       `MLS_256_XWING_CHACHA20POLY1305_SHA256_Ed25519` (0x004D) still exist
       upstream with unchanged wire semantics (a draft bump would be a NEW
       identifier per upstream policy — groups on 0x004D must keep working)
+- [ ] Check whether upstream moved them behind a **cargo feature**, and that the
+      feature is enabled on **all four** openmls crates we depend on. 0.9.0 put
+      both behind `draft-ietf-mls-pq-ciphersuites` without renaming anything,
+      and the resulting `E0599 ... no variant named XWingKemDraft6` reads
+      exactly like a removal. Enabling it only on `openmls` is not enough:
+      `openmls_libcrux_crypto` is a direct dependency, does not receive the
+      feature transitively, and its own `kem_mode` match then fails to compile
+      upstream. `openmls_rust_crypto` and `openmls_traits` need it too.
 - [ ] `make build-web` passes (libcrux WASM compile; getrandom features)
 - [ ] Run the example app's **Post-Quantum** demo tab on native AND Chrome
       (dart2js) — full X-Wing lifecycle smoke must print `RESULT: PASS`

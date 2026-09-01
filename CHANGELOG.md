@@ -2,6 +2,98 @@
 
 ### For Users
 
+#### ✨ Highlights
+
+- **The published package initialises again** — `2.0.1` shipped
+  `flutter_rust_bridge: ^2.12.0` alongside generated bindings that record
+  `2.12.0` and are compared against the runtime with `==`. flutter_rust_bridge
+  2.13.0 was published on 2026-08-23 and landed inside that caret, so from that
+  day on every fresh resolution — there is no committed lockfile to hold it
+  still — threw from `RustLib.init()`. The constraint now admits exactly one
+  version.
+- **`flutter test` finds the native library** — `flutter_tools` installs the
+  hooked library under `build/native_assets/<os>/`, a directory neither of the
+  two paths searched before covered, so a Flutter package depending on this one
+  failed in `init()` in its own unit tests while the app itself ran fine.
+- **The post-quantum dependency tree moves off every advisory it was pinned to**
+  — the X-Wing path's libcrux crates were held at exact versions by openmls
+  0.8.1, and 0.9.0 moves all of them. The ignore lists shrink to one entry.
+- **openmls v0.9.0** — first upstream release since 0.8.1 (2026-02-13), and it
+  closes an advisory this package had been working around locally.
+- **openmls_frb v2.1.0** — Rust FFI bindings
+
+#### Changed
+
+- **openmls 0.8.1 → 0.9.0** (`rust/Cargo.toml`) — the X-Wing ciphersuite is
+  unaffected despite an upstream feature gate. 0.9.0 puts
+  `HpkeKemType::XWingKemDraft6` and
+  `MLS_256_XWING_CHACHA20POLY1305_SHA256_Ed25519` behind
+  `draft-ietf-mls-pq-ciphersuites`, but nothing was renamed and the code point
+  is still 0x004D, so `MlsCiphersuite.mls256Xwing…` keeps working exactly as
+  before. Existing databases are unaffected too: the storage format does not
+  move, which was verified by reopening a database written by the published
+  2.0.1 binary and decrypting a message it had encrypted and never opened.
+
+- **Two upstream message states are now named instead of reported as unknown**
+  (`rust/src/api/engine.rs`) — 0.9.0 splits `OwnPendingCommit` and
+  `OwnPrivateMessage` out of what used to be errors, and `processMessage` would
+  otherwise have returned "Unknown processed message content type" for both.
+  `OwnPrivateMessage` replaces 0.8.1's `CannotDecryptOwnMessage`: the same
+  input, the same rejection, reached by a different path, and it now says why —
+  the own sender ratchet is encryption-only, so a message this client authored
+  cannot be read back. `OwnPendingCommit` cannot occur through this engine at
+  all, because every commit-producing call merges before it returns and no
+  pending commit ever reaches storage; it is handled anyway. No type in the
+  Dart API gains a value.
+
+- **rusqlite 0.34 → 0.37** (`rust/Cargo.toml`) — not a chosen upgrade. openmls
+  0.9.0 pulls `openmls_sqlite_storage`, which pins `rusqlite = "0.37"`; cargo
+  resolves optional dependencies into the lockfile even when the feature is
+  off, and `links = "sqlite3"` admits exactly one. Nothing about the database
+  changes: the SQLCipher amalgamation libsqlite3-sys 0.35 bundles is
+  byte-identical to the one 0.32 bundled (same SHA-256, SQLite 3.46.1), so the
+  on-disk format is untouched.
+
+#### Security
+
+- **The out-of-bounds parsing bug is now fixed upstream, not only worked around
+  here** (`rust/Cargo.toml`) — [GHSA-rrmv-c79f-cf5r][gh-rrmv] was published on
+  2026-08-25 with `patched_versions: 0.9.0`. It is the bug behind the
+  `Read`-based decoder this package has carried since 1.4.2: openmls' manual
+  `DeserializeBytes` impls sliced the input at the *re-serialized* length and
+  indexed out of bounds when that exceeded the bytes actually consumed, on
+  bytes that come straight off the network. Upstream now returns the
+  authoritative unconsumed tail. The disclosure window is why 1.4.2's and
+  2.0.0's entries describe this as hardening in general terms; this is the
+  first release able to name it.
+
+  The local decoder is gone with it (`rust/src/wire_decode.rs`,
+  `rust/src/api/engine.rs`): all nineteen call sites decode through openmls'
+  own `tls_deserialize_exact_bytes` again. That was held back until the fix
+  covered *both* halves of the problem, because the workaround was never only
+  about the panic — `Extension::tls_deserialize` did not require a payload to
+  be fully consumed, so on input with trailing bytes the two decoders resumed
+  from different offsets and disagreed about what the message said. 0.9.0
+  fixes the remainder arithmetic (the advisory) and makes known structured
+  extension payloads reject trailing bytes (upstream #2134), so the two paths
+  now agree and the removal is behaviour-neutral rather than a rollback to the
+  old behaviour. The fuzz target over those decoders is deliberately kept: the
+  types are still what the API parses straight off the network, and they are
+  worth fuzzing whichever decoder is behind them.
+
+- **The X-Wing dependency tree moves off every pinned advisory version**
+  (`rust/Cargo.lock`, `.cargo/audit.toml`, `rust/deny.toml`) — 0.8.1 pinned the
+  libcrux crates at versions whose advisories could only be accepted or argued
+  unreachable. 0.9.0 moves the whole tree: `libcrux-secrets` 0.0.5 → 0.0.6,
+  which is the fix version for the one entry that was an **accepted**
+  availability risk rather than an unreachable one (RUSTSEC-2026-0212,
+  incorrect constant-time swap/select on aarch64); `libcrux-ed25519` 0.0.6 →
+  0.0.9, past the 0.0.7 that fixes RUSTSEC-2026-0075; `libcrux-aead` 0.0.7 →
+  0.0.9; `hpke-rs` 0.6.1 → 0.7.0. The ignore lists shrink accordingly —
+  `.cargo/audit.toml` to nothing, `rust/deny.toml` to a single unmaintained
+  build-time proc-macro — verified by deleting the entries and re-running the
+  gates rather than by reading version numbers.
+
 #### Fixed
 
 - **`RustLib.init()` threw for anyone who resolved this package after
@@ -72,6 +164,31 @@
 ### For Contributors
 
 #### Changed
+
+- **MSRV 1.89 → 1.91** (`rust/Cargo.toml`) — required by openmls 0.9.0, whose
+  workspace declares it. The 1.89 floor was ours, chosen for
+  `std::fs::File::try_lock` so the single-writer lock would not need an `unsafe`
+  `libc::flock`; that requirement still holds, it is simply no longer the
+  binding one. No CI change was needed — the MSRV job reads `rust-version` out
+  of the manifest and installs that toolchain, so the two cannot drift.
+
+- **Dependabot may not raise rusqlite past 0.37** (`.github/dependabot.yml`) —
+  for two independent reasons, both written out at the entry. It is pinned
+  rather than chosen, because `openmls_sqlite_storage` requires `rusqlite
+  = "0.37"` and `links = "sqlite3"` admits exactly one package, so 0.38+ does
+  not resolve at all. And 0.40.x is separately unshippable: it bundles SQLCipher
+  4.14.0, whose `sqlcipher_fprintf` allocates on Windows, so a failing
+  `VirtualLock` under `cipher_memory_security = ON` logs a warning, which
+  allocates, which recurses until the stack is gone. Pull requests #19 and #21
+  both died that way, which is what makes it a ceiling rather than a
+  postponement.
+
+- **The upstream-bump checklist records the feature-gate trap**
+  (`.claude/skills/update-openmls/SKILL.md`) — a gated ciphersuite variant
+  reports as `E0599 ... no variant named XWingKemDraft6`, which reads exactly
+  like a removal and cost this bump a wrong diagnosis. The checklist now says to
+  look for a new cargo feature first, and that it has to go on all four openmls
+  crates rather than only on `openmls`.
 
 - **`make codegen` now uses the pinned generator** (`Makefile`) —
   `FRB_CODEGEN_VERSION` pins the binary that `make setup-frb-codegen` installs,
@@ -194,10 +311,17 @@
   it on any platform. `make build` runs before `make test` in the reusable
   workflow and the build hook then finds `rust/target/release` without
   downloading, which is what justified the skip and now removes the need for it.
-  **This has an immediate consequence:** PR #15 (openmls 0.9.0) will start
-  running the suite and will fail — `HpkeKemType::XWingKemDraft6` and the
-  `MLS_256_XWING_CHACHA20POLY1305_SHA256_Ed25519` ciphersuite no longer exist
-  upstream. That failure is real and was previously invisible.
+  **This had an immediate consequence:** PR #15 (openmls 0.9.0) started running
+  the suite and failed. That failure was real and had been invisible — but the
+  cause recorded here when this entry was written was wrong, and is corrected
+  rather than left standing: `HpkeKemType::XWingKemDraft6` and the
+  `MLS_256_XWING_CHACHA20POLY1305_SHA256_Ed25519` ciphersuite were read as
+  removed upstream, and neither was. Both still exist in 0.9.0 with unchanged
+  spelling and the same 0x004D code point, behind the new
+  `draft-ietf-mls-pq-ciphersuites` feature. A feature-gated variant reports as
+  `E0599 ... no variant named X`, which is indistinguishable from a removal
+  without checking upstream — the misreading the bump checklist now warns
+  about.
 
   **`make verify-frb-pins`, and Dependabot on `pub` and `cargo`**
   (`Makefile`, `scripts/verify_frb_pins.dart`, `.github/dependabot.yml`) — five
@@ -1147,6 +1271,7 @@
 - X.509 `x509()` documents that application layer must validate certificate chains
 - SECURITY.md: sensitive API table, known limitations, web deployment recommendations, vulnerability reporting via GitHub Security Advisories
 
+[gh-rrmv]: https://github.com/openmls/openmls/security/advisories/GHSA-rrmv-c79f-cf5r
 [Unreleased]: https://github.com/djx-y-z/openmls_dart/compare/v2.0.1...HEAD
 [2.0.1]: https://github.com/djx-y-z/openmls_dart/compare/v2.0.0...v2.0.1
 [2.0.0]: https://github.com/djx-y-z/openmls_dart/compare/v1.4.2...v2.0.0

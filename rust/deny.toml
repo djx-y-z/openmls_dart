@@ -19,58 +19,20 @@ version = 2
 # on an upstream semver pin) or is not applicable to how we build. Each entry
 # carries an inline justification.
 #
-# The three crypto vulnerabilities (RUSTSEC-2026-0124 / -0075 / -0073) mirror the
-# `[advisories].ignore` list in `.cargo/audit.toml` (the source of truth for the
-# reachability analysis); their non-libcrux routing is enforced by the
-# `classical_ops_do_not_init_libcrux` test in `rust/src/hybrid_crypto.rs`. Revisit
-# all of these when bumping to the next upstream OpenMLS release.
+# The libcrux crypto advisories that used to dominate this list are gone:
+# openmls-v0.9.0 moves the whole libcrux tree past every version they applied
+# to, so they no longer match a crate in the graph. See `.cargo/audit.toml`,
+# which now carries an empty list and the reasoning. `cargo deny` warns with
+# `advisory-not-detected` when an entry here stops matching — that warning is
+# the signal to delete the entry, not to keep it "just in case".
 ignore = [
-    # --- Crypto vulnerabilities (see .cargo/audit.toml for full justification) ---
-    # libcrux-chacha20poly1305 DoS-class panic on overlong ciphertext buffer.
-    # Enters the tree only via the X-Wing path (openmls_libcrux_crypto →
-    # hpke-rs-libcrux); trigger structurally unreachable (exact-size buffers +
-    # length check). Message-layer AEAD routes to RustCrypto. Pinned by
-    # hpke-rs-libcrux 0.6.1 → libcrux-aead =0.0.7, not fixable via cargo update.
-    "RUSTSEC-2026-0124",
-    # libcrux-ed25519 all-zero key gen after 100 consecutive CSPRNG failures.
-    # Unreachable: HybridCrypto routes all signature ops to RustCrypto/dalek.
-    # Fixed in upstream OpenMLS main (libcrux-ed25519 0.0.7), unreleased.
-    "RUSTSEC-2026-0075",
-    # libcrux-poly1305 panic in the STANDALONE mac() fn only; use via
-    # chacha20poly1305 is unaffected (per the advisory) and the standalone API
-    # is never called from our tree.
-    "RUSTSEC-2026-0073",
-
-    # --- 2026-07-21 batch: new libcrux advisories (see .cargo/audit.toml) ---
-    # libcrux-sha3 incremental SHAKE squeeze bug; advisory explicitly does NOT
-    # affect libcrux-ml-kem, which is our only path to libcrux-sha3. Unreachable.
-    "RUSTSEC-2026-0207",
-    # libcrux-sha3 AVX2 (x86-64-only) SHAKE-256 panic; advisory: does not affect
-    # ML-KEM (buffers always divisible by 8). Unreachable, DoS-class.
-    "RUSTSEC-2026-0208",
-    # libcrux-aesgcm AAD-length limit; libcrux-aesgcm is never invoked (the only
-    # X-Wing suite is ChaCha20Poly1305; classical AES-GCM routes to RustCrypto).
-    "RUSTSEC-2026-0209",
-    # libcrux-aesgcm non-constant-time tag check; same reachability as 0209 —
-    # libcrux-aesgcm is dead code in our tree.
-    "RUSTSEC-2026-0211",
-    # libcrux-secrets incorrect constant-time swap/select on aarch64. NOT
-    # unreachable — ACCEPTED availability-only risk (CVSS 4.0 VC:N/VI:N/VA:H): on
-    # ARM an X-Wing op may return incorrect output and FAIL; it cannot leak keys
-    # or forge. X-Wing is experimental/opt-in. Fixed in libcrux-secrets 0.0.6,
-    # pinned =0.0.5 by openmls-v0.8.1. See .cargo/audit.toml for the full note.
-    "RUSTSEC-2026-0212",
-
-    # --- Unmaintained transitive dev/build dependencies (informational) ---
+    # --- Unmaintained transitive build dependencies (informational) ---
     # cargo-deny flags unmaintained advisories that `cargo audit` does not fail
-    # on. These crates are pulled transitively by upstream (openmls_test / proc
-    # macros / the WASM timer shim), are not in the shipped crypto path, and
-    # have no available upgrade we can pin. Kept explicit (not a blanket policy)
-    # so any newly-appearing unmaintained crate still surfaces for review.
-    "RUSTSEC-2021-0139", # ansi_term — via openmls_test (test-utils feature)
-    "RUSTSEC-2024-0384", # instant — via fluvio-wasm-timer (openmls WASM time shim)
+    # on. This crate is pulled transitively by upstream, is not in the shipped
+    # crypto path, and has no available upgrade we can pin. Kept explicit (not a
+    # blanket policy) so any newly-appearing unmaintained crate still surfaces
+    # for review.
     "RUSTSEC-2026-0173", # proc-macro-error2 — via hax-lib-macros (libcrux/X-Wing build-time proc-macro)
-    "RUSTSEC-2026-0210", # libcrux-aesgcm renamed to libcrux-aes; the crate is dead code in our tree (see the 0209/0211 notes above)
 ]
 
 [licenses]

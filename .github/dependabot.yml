@@ -150,3 +150,32 @@ updates:
       - dependency-name: "openmls_basic_credential"
       - dependency-name: "openmls_traits"
       - dependency-name: "openmls_libcrux_crypto"
+
+      # rusqlite has a ceiling of 0.37, for two independent reasons.
+      #
+      # It is pinned, not chosen: openmls 0.9.0 pulls optional
+      # `openmls_sqlite_storage`, which requires `rusqlite = "0.37"` ->
+      # `libsqlite3-sys ^0.35`. Cargo resolves optional dependencies into the
+      # lockfile even when the feature is off, and `links = "sqlite3"` admits
+      # exactly one package — so 0.38+ does not resolve at all while we are on
+      # openmls 0.9.0.
+      #
+      # And 0.40.x is independently unshippable: it bundles SQLCipher 4.14.0,
+      # whose `sqlcipher_fprintf` (new in 4.11.0) allocates on Windows. With
+      # `PRAGMA cipher_memory_security = ON` every allocation calls
+      # `sqlcipher_mlock`; when `VirtualLock` fails on a CI runner
+      # (`1453 ERROR_NO_SYSTEM_RESOURCES`) it logs a warning, which allocates,
+      # which recurses — ~8 KB of stack per level until the 1 MB Windows stack
+      # is gone. The job dies with `-1073741571` (`0xC00000FD`,
+      # STATUS_STACK_OVERFLOW). Not a flake: pull requests #19 and #21 both
+      # died that way. Fixed upstream in SQLCipher 4.18.0 (affected 4.11-4.15).
+      #
+      # Our 4.6.1 has no `sqlcipher_fprintf` at all, which is why main logs that
+      # same warning 26,150 times and still passes.
+      #
+      # Lift this when openmls moves off `rusqlite = "0.37"` AND the bundled
+      # SQLCipher is >= 4.18.0. Check with:
+      #   grep -c sqlcipher_fprintf ~/.cargo/registry/src/*/libsqlite3-sys-<v>/sqlcipher/sqlite3.c
+      - dependency-name: "rusqlite"
+        versions:
+          - ">=0.38"
