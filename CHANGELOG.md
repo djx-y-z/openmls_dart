@@ -183,6 +183,21 @@
   both died that way, which is what makes it a ceiling rather than a
   postponement.
 
+- **Dependabot may not propose the `hooks` / `code_assets` 2.x migration**
+  (`.github/dependabot.yml`) — it is blocked by the pinned Flutter SDK, not by
+  this repository's code: `hook/build.dart` needs a zero-line diff, since hooks
+  2.0.0's one breaking change (`ProtocolExtension` from interface to base class)
+  touches none of the three things it uses. What fails is version solving —
+  hooks ≥ 2.1.0 pulls `record_use ^1.0.0`, which needs `meta ^1.19.0`, and
+  Flutter 3.38.4 pins `meta: 1.17.0` exactly. The reason to ignore rather than
+  leave a red pull request open is where the damage lands: the root package
+  resolves fine because it has no `flutter: sdk` dependency, so this repository's
+  own CI understates it, while merging would make the published package
+  unresolvable for every Flutter consumer on an SDK that pins meta below 1.19.0
+  — anyone on 3.44.x or earlier. Both names are ignored together because
+  `code_assets 2.0.0` requires `hooks ^2.2.0`. Lift both when the pinned Flutter
+  reaches 3.47.0, the first stable that relaxes the pin to `meta: ^1.18.3`.
+
 - **The upstream-bump checklist records the feature-gate trap**
   (`.claude/skills/update-openmls/SKILL.md`) — a gated ciphersuite variant
   reports as `E0599 ... no variant named XWingKemDraft6`, which reads exactly
