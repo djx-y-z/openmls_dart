@@ -1,10 +1,14 @@
 //! Hybrid OpenMLS crypto provider.
 //!
-//! RustCrypto remains the backend for all classical MLS 1.0 ciphersuites.
-//! The X-Wing hybrid post-quantum KEM (`HpkeKemType::XWingKemDraft6`, used by
-//! the experimental `MLS_256_XWING_CHACHA20POLY1305_SHA256_Ed25519` suite) is
-//! implemented by OpenMLS's libcrux provider, so HPKE operations for that KEM
-//! — and only that KEM — are delegated there.
+//! RustCrypto is the backend for every ciphersuite this provider supports but
+//! one. The exception is the experimental
+//! `MLS_256_XWING_CHACHA20POLY1305_SHA256_Ed25519` suite (0x004D), which
+//! `RustCrypto::supports()` rejects; OpenMLS's libcrux provider implements it,
+//! so HPKE operations for that **one suite** — identified by its full
+//! `HpkeConfig` triple, not by its KEM — are delegated there. Everything else,
+//! including the nine ML-KEM suites (three of which share X-Wing's KEM), runs
+//! on RustCrypto. See [`routes_to_libcrux`] for why the KEM alone is not a
+//! usable discriminator.
 //!
 //! The libcrux provider is initialized **lazily** on the first X-Wing
 //! operation: classical ciphersuites never depend on libcrux initialization
@@ -20,7 +24,7 @@ use openmls_traits::{
     random::OpenMlsRand,
     types::{
         AeadType, Ciphersuite, CryptoError, ExporterSecret, HashType, HpkeCiphertext, HpkeConfig,
-        HpkeKemType, HpkeKeyPair, KemOutput, SignatureScheme,
+        HpkeKeyPair, KemOutput, SignatureScheme,
     },
 };
 
@@ -60,16 +64,31 @@ impl Default for HybridCrypto {
     }
 }
 
+/// The one ciphersuite this provider delegates to libcrux.
+const LIBCRUX_CIPHERSUITE: Ciphersuite = Ciphersuite::MLS_256_XWING_CHACHA20POLY1305_SHA256_Ed25519;
+
 /// Single routing predicate for the whole provider: an operation belongs to
-/// libcrux iff its KEM is X-Wing. `supports()` derives the KEM from the
+/// libcrux iff its HPKE configuration is *exactly* that of
+/// [`LIBCRUX_CIPHERSUITE`]. `supports()` derives the config from the
 /// ciphersuite via `hpke_config()`, so both dispatch paths can never diverge.
-fn uses_xwing_kem(config: &HpkeConfig) -> bool {
-    matches!(config.0, HpkeKemType::XWingKemDraft6)
+///
+/// **Match the whole triple, never the KEM alone.** `hpke_seal`, `hpke_open`,
+/// `derive_hpke_keypair` and the two `hpke_setup_*` methods receive only an
+/// `HpkeConfig` — the ciphersuite is not recoverable at the call site, so the
+/// triple is the entire identifying information available. And the KEM alone
+/// no longer identifies a suite: openmls 0.9.0 gave `XWingKemDraft6` to four
+/// ciphersuites (X-Wing plus three `MLKEM768X25519` variants — X-Wing *is*
+/// ML-KEM-768 + X25519), where 0.8.1 had given it to one. A `matches!` on the
+/// KEM therefore started routing three suites into libcrux silently.
+/// `libcrux_routing_is_limited_to_xwing` pins this.
+fn routes_to_libcrux(config: &HpkeConfig) -> bool {
+    let HpkeConfig(kem, kdf, aead) = LIBCRUX_CIPHERSUITE.hpke_config();
+    config.0 == kem && config.1 == kdf && config.2 == aead
 }
 
 impl OpenMlsCrypto for HybridCrypto {
     fn supports(&self, ciphersuite: Ciphersuite) -> Result<(), CryptoError> {
-        if uses_xwing_kem(&ciphersuite.hpke_config()) {
+        if routes_to_libcrux(&ciphersuite.hpke_config()) {
             self.libcrux()?.supports(ciphersuite)
         } else {
             self.rust.supports(ciphersuite)
@@ -162,7 +181,7 @@ impl OpenMlsCrypto for HybridCrypto {
         aad: &[u8],
         ptxt: &[u8],
     ) -> Result<HpkeCiphertext, CryptoError> {
-        if uses_xwing_kem(&config) {
+        if routes_to_libcrux(&config) {
             self.libcrux()?.hpke_seal(config, pk_r, info, aad, ptxt)
         } else {
             self.rust.hpke_seal(config, pk_r, info, aad, ptxt)
@@ -177,7 +196,7 @@ impl OpenMlsCrypto for HybridCrypto {
         info: &[u8],
         aad: &[u8],
     ) -> Result<Vec<u8>, CryptoError> {
-        if uses_xwing_kem(&config) {
+        if routes_to_libcrux(&config) {
             self.libcrux()?.hpke_open(config, input, sk_r, info, aad)
         } else {
             self.rust.hpke_open(config, input, sk_r, info, aad)
@@ -192,7 +211,7 @@ impl OpenMlsCrypto for HybridCrypto {
         exporter_context: &[u8],
         exporter_length: usize,
     ) -> Result<(KemOutput, ExporterSecret), CryptoError> {
-        if uses_xwing_kem(&config) {
+        if routes_to_libcrux(&config) {
             self.libcrux()?.hpke_setup_sender_and_export(
                 config,
                 pk_r,
@@ -220,7 +239,7 @@ impl OpenMlsCrypto for HybridCrypto {
         exporter_context: &[u8],
         exporter_length: usize,
     ) -> Result<ExporterSecret, CryptoError> {
-        if uses_xwing_kem(&config) {
+        if routes_to_libcrux(&config) {
             self.libcrux()?.hpke_setup_receiver_and_export(
                 config,
                 enc,
@@ -246,7 +265,7 @@ impl OpenMlsCrypto for HybridCrypto {
         config: HpkeConfig,
         ikm: &[u8],
     ) -> Result<HpkeKeyPair, CryptoError> {
-        if uses_xwing_kem(&config) {
+        if routes_to_libcrux(&config) {
             self.libcrux()?.derive_hpke_keypair(config, ikm)
         } else {
             self.rust.derive_hpke_keypair(config, ikm)
@@ -381,11 +400,16 @@ mod tests {
         assert!(hybrid.libcrux.get().is_some(), "X-Wing op must initialize libcrux");
     }
 
-    /// The public API ciphersuite list and the provider must stay in sync:
-    /// every suite advertised by `supported_ciphersuites()` (api/types.rs)
-    /// must be supported by the shipped crypto provider, and every provider
-    /// suite that maps into the public enum must be advertised. Guards the
-    /// two lists against silent drift.
+    /// The public API ciphersuite list and the provider must stay in sync,
+    /// as a **bijection**: every suite advertised by `supported_ciphersuites()`
+    /// (api/types.rs) must be supported by the shipped crypto provider, and
+    /// every suite the provider supports must be nameable in `MlsCiphersuite`
+    /// *and* present in that list.
+    ///
+    /// Both directions matter. A suite in the list the provider cannot run is
+    /// a promise we break; a suite the provider runs but the enum cannot name
+    /// makes `inspect_welcome` fail on a group the caller could otherwise have
+    /// joined, because it maps the group's ciphersuite before returning.
     #[test]
     fn api_list_matches_provider_support() {
         let hybrid = HybridCrypto::new();
@@ -399,12 +423,16 @@ mod tests {
         }
 
         for native in hybrid.supported_ciphersuites() {
-            if let Ok(api_cs) = crate::api::types::native_to_ciphersuite(native) {
-                assert!(
-                    api_list.iter().any(|c| ciphersuite_to_native_eq(c, &api_cs)),
-                    "provider supports {native:?} (mapped to enum) but API list omits it"
-                );
-            }
+            // Deliberately NOT `if let Ok(..)`: skipping the suites the enum
+            // cannot name is what let openmls 0.9.0's nine new ciphersuites go
+            // out on the wire while the Dart API still offered four.
+            let api_cs = crate::api::types::native_to_ciphersuite(native).unwrap_or_else(|e| {
+                panic!("provider supports {native:?} but MlsCiphersuite cannot name it: {e}")
+            });
+            assert!(
+                api_list.iter().any(|c| ciphersuite_to_native_eq(c, &api_cs)),
+                "provider supports {native:?} (mapped to enum) but API list omits it"
+            );
         }
     }
 
@@ -416,12 +444,131 @@ mod tests {
         crate::api::types::ciphersuite_to_native(a) == crate::api::types::ciphersuite_to_native(b)
     }
 
-    /// Full MLS group lifecycle on MLS_256_XWING_CHACHA20POLY1305_SHA256_Ed25519:
-    /// create group → key package → add member (commit + Welcome) → join →
-    /// application messages in both directions.
+    /// Routing drift guard: of every ciphersuite this provider supports,
+    /// **exactly one** — X-Wing (0x004D) — may be delegated to libcrux.
+    ///
+    /// This is the test that pins the reachability arguments recorded in
+    /// `.cargo/audit.toml` and `rust/deny.toml`: a libcrux advisory is only
+    /// arguable as unreachable for a given operation family while the set of
+    /// suites reaching libcrux is exactly this one. `classical_ops_do_not_init_libcrux`
+    /// proves classical suites stay away from libcrux, but it samples a single
+    /// hard-coded suite and so cannot bound the set — this one enumerates.
+    ///
+    /// It went red for three suites when openmls 0.9.0 gave `XWingKemDraft6`
+    /// to four ciphersuites instead of one.
+    #[test]
+    fn libcrux_routing_is_limited_to_xwing() {
+        let hybrid = HybridCrypto::new();
+        let intended = Ciphersuite::MLS_256_XWING_CHACHA20POLY1305_SHA256_Ed25519;
+
+        let routed: Vec<Ciphersuite> = hybrid
+            .supported_ciphersuites()
+            .into_iter()
+            .filter(|cs| routes_to_libcrux(&cs.hpke_config()))
+            .collect();
+
+        assert_eq!(
+            routed,
+            vec![intended],
+            "exactly one supported ciphersuite may route to libcrux, got {routed:?} — \
+             the libcrux advisory reachability arguments in .cargo/audit.toml and \
+             rust/deny.toml are stated over this set"
+        );
+
+        // The same claim operationally rather than through the predicate: run
+        // the HPKE method most likely to reach a backend, on a fresh provider
+        // per suite, and require libcrux to still be untouched afterwards.
+        for cs in hybrid.supported_ciphersuites().into_iter().filter(|cs| *cs != intended) {
+            let probe = HybridCrypto::new();
+            probe
+                .derive_hpke_keypair(cs.hpke_config(), &[3u8; 32])
+                .unwrap_or_else(|e| panic!("{cs:?} HPKE keygen failed on RustCrypto: {e:?}"));
+            assert!(
+                probe.libcrux.get().is_none(),
+                "{cs:?} reached libcrux; only {intended:?} may"
+            );
+        }
+    }
+
+    /// Every ciphersuite OpenMLS advertises **by default** must be one this
+    /// provider can actually execute, and one the public API can name.
+    ///
+    /// `capabilities_to_native` (api/types.rs) passes `None` for an empty
+    /// ciphersuite list, and `Capabilities::new(None, ..)` fills that with
+    /// `default_ciphersuites()` — so this list is what goes out in a leaf node
+    /// whenever the caller does not pin capabilities. Advertising a suite the
+    /// provider cannot run makes peers pick it and fail; advertising one the
+    /// enum cannot name makes `inspect_welcome` reject the group before the
+    /// application can decide whether to join.
+    ///
+    /// openmls 0.9.0's `draft-ietf-mls-pq-ciphersuites` feature grew this
+    /// default list from 4 entries to 13 with no signature change here.
+    #[test]
+    fn openmls_defaults_are_executable_and_nameable() {
+        let hybrid = HybridCrypto::new();
+        let defaults: Vec<Ciphersuite> = Capabilities::new(None, None, None, None, None)
+            .ciphersuites()
+            .iter()
+            .map(|vc| {
+                Ciphersuite::try_from(*vc)
+                    .unwrap_or_else(|e| panic!("default ciphersuite {vc:?} is not a known suite: {e:?}"))
+            })
+            .collect();
+
+        for cs in &defaults {
+            hybrid.supports(*cs).unwrap_or_else(|e| {
+                panic!("OpenMLS advertises {cs:?} by default but this provider rejects it: {e:?}")
+            });
+            crate::api::types::native_to_ciphersuite(*cs).unwrap_or_else(|e| {
+                panic!("OpenMLS advertises {cs:?} by default but MlsCiphersuite cannot name it: {e}")
+            });
+        }
+
+        // Set equality, not just the subset above: a suite the provider can run
+        // but OpenMLS does not advertise by default would silently drop out of
+        // every leaf node built without explicit capabilities.
+        let mut defaults_sorted = defaults.clone();
+        let mut supported_sorted = hybrid.supported_ciphersuites();
+        defaults_sorted.sort_by_key(|c| u16::from(*c));
+        supported_sorted.sort_by_key(|c| u16::from(*c));
+        assert_eq!(
+            defaults_sorted, supported_sorted,
+            "OpenMLS's default ciphersuite list and this provider's support list have drifted apart"
+        );
+    }
+
+    /// Full MLS group lifecycle on the one suite delegated to libcrux, plus the
+    /// two things only this suite can assert: that the material on the wire is
+    /// really ML-KEM-sized, and that it is really libcrux producing it.
     #[test]
     fn xwing_full_group_lifecycle() {
-        let cs = Ciphersuite::MLS_256_XWING_CHACHA20POLY1305_SHA256_Ed25519;
+        let cs = LIBCRUX_CIPHERSUITE;
+        let hybrid = HybridCrypto::new();
+
+        // Backend identity, classical direction first (the assertion below is
+        // only meaningful while libcrux is still untouched).
+        let classical = Ciphersuite::MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519;
+        let classical_kp = hybrid
+            .derive_hpke_keypair(classical.hpke_config(), &[9u8; 32])
+            .expect("derive classical HPKE keypair");
+        assert_eq!(
+            classical_kp.public.len(),
+            32,
+            "classical X25519 HPKE public key should be 32 bytes"
+        );
+        assert!(hybrid.libcrux.get().is_none(), "classical HPKE must not touch libcrux");
+
+        let xwing_kp = hybrid
+            .derive_hpke_keypair(cs.hpke_config(), &[9u8; 32])
+            .expect("derive X-Wing HPKE keypair");
+
+        // Backend identity, X-Wing direction. The size check below cannot carry
+        // this on its own: RustCrypto's `kem_mode` also maps `XWingKemDraft6`,
+        // so an ML-KEM-sized key proves the algorithm, not the provider.
+        assert!(
+            hybrid.libcrux.get().is_some(),
+            "X-Wing HPKE must be delegated to libcrux, not answered by RustCrypto"
+        );
 
         // Anti-downgrade guard: an X-Wing HPKE keypair MUST carry real ML-KEM-768
         // material on the wire, not a silent X25519-only fallback. A bare X25519
@@ -429,29 +576,41 @@ mod tests {
         // ML-KEM-768 encapsulation key (~1184 bytes) plus the X25519 share, so it
         // is well over 1000 bytes. If routing ever silently degraded to classical
         // X25519, this assertion would fail.
-        {
-            let hybrid = HybridCrypto::new();
-            let xwing_kp = hybrid
-                .derive_hpke_keypair(cs.hpke_config(), &[9u8; 32])
-                .expect("derive X-Wing HPKE keypair");
-            let pubkey_len = xwing_kp.public.len();
-            assert!(
-                pubkey_len > 1000,
-                "X-Wing HPKE public key must be ML-KEM-sized (>1000 bytes), \
-                 got {pubkey_len} bytes — possible silent downgrade to X25519"
-            );
+        let pubkey_len = xwing_kp.public.len();
+        assert!(
+            pubkey_len > 1000,
+            "X-Wing HPKE public key must be ML-KEM-sized (>1000 bytes), \
+             got {pubkey_len} bytes — possible silent downgrade to X25519"
+        );
 
-            // Sanity contrast: the classical X25519 suite's HPKE public key is 32 bytes.
-            let classical = Ciphersuite::MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519;
-            let classical_kp = hybrid
-                .derive_hpke_keypair(classical.hpke_config(), &[9u8; 32])
-                .expect("derive classical HPKE keypair");
-            assert_eq!(
-                classical_kp.public.len(),
-                32,
-                "classical X25519 HPKE public key should be 32 bytes"
-            );
+        full_group_lifecycle(cs);
+    }
+
+    /// Every ciphersuite the public API advertises must survive a complete
+    /// group lifecycle — not merely be accepted by `supports()`.
+    ///
+    /// `supported_ciphersuites()` is a promise made to callers, and the cost of
+    /// breaking it is not a compile error: a peer picks the suite out of a leaf
+    /// node and the failure lands at `inspect_welcome` or at the first commit.
+    /// openmls 0.9.0 grew that list from 4 suites to 13 with no signature
+    /// change, so keygen-level evidence is not enough — this runs the whole
+    /// cycle, including the ML-DSA signature suites, whose identities come from
+    /// `openmls_basic_credential` and need its `draft-ietf-mls-pq-ciphersuites`
+    /// feature (see rust/Cargo.toml).
+    #[test]
+    fn all_supported_ciphersuites_full_group_lifecycle() {
+        for api_cs in crate::api::types::supported_ciphersuites() {
+            full_group_lifecycle(crate::api::types::ciphersuite_to_native(&api_cs));
         }
+    }
+
+    /// One full MLS group lifecycle on `cs`, against the production provider
+    /// wiring: create group → key package → add member (commit + Welcome) →
+    /// join → application messages in both directions.
+    fn full_group_lifecycle(cs: Ciphersuite) {
+        // Captured output is replayed on failure, so the last line printed
+        // names the suite whose lifecycle broke.
+        println!("full_group_lifecycle: {cs:?}");
 
         let alice_provider = test_provider();
         let bob_provider = test_provider();
@@ -517,7 +676,7 @@ mod tests {
 
         // Alice → Bob application message.
         let msg_out = alice_group
-            .create_message(&alice_provider, &alice_signer, b"hello bob (xwing)")
+            .create_message(&alice_provider, &alice_signer, b"hello bob")
             .expect("alice creates message");
         let msg_bytes = msg_out.tls_serialize_detached().expect("msg serialize");
         let protocol_msg = MlsMessageIn::tls_deserialize_exact_bytes(&msg_bytes)
@@ -529,14 +688,14 @@ mod tests {
             .expect("bob processes message");
         match processed.into_content() {
             ProcessedMessageContent::ApplicationMessage(am) => {
-                assert_eq!(am.into_bytes(), b"hello bob (xwing)".to_vec());
+                assert_eq!(am.into_bytes(), b"hello bob".to_vec());
             }
             _ => panic!("expected application message"),
         }
 
         // Bob → Alice application message.
         let msg_out = bob_group
-            .create_message(&bob_provider, &bob_signer, b"hi alice (xwing)")
+            .create_message(&bob_provider, &bob_signer, b"hi alice")
             .expect("bob creates message");
         let msg_bytes = msg_out.tls_serialize_detached().expect("msg serialize");
         let protocol_msg = MlsMessageIn::tls_deserialize_exact_bytes(&msg_bytes)
@@ -548,7 +707,7 @@ mod tests {
             .expect("alice processes message");
         match processed.into_content() {
             ProcessedMessageContent::ApplicationMessage(am) => {
-                assert_eq!(am.into_bytes(), b"hi alice (xwing)".to_vec());
+                assert_eq!(am.into_bytes(), b"hi alice".to_vec());
             }
             _ => panic!("expected application message"),
         }

@@ -29,7 +29,11 @@ futures = "0.3"
 parking_lot = "0.12"
 openmls = { git = "https://github.com/openmls/openmls", tag = "openmls-v0.9.0", features = ["test-utils", "draft-ietf-mls-pq-ciphersuites"] }
 openmls_rust_crypto = { git = "https://github.com/openmls/openmls", tag = "openmls-v0.9.0", features = ["draft-ietf-mls-pq-ciphersuites"] }
-openmls_basic_credential = { git = "https://github.com/openmls/openmls", tag = "openmls-v0.9.0", features = ["test-utils"] }
+# `draft-ietf-mls-pq-ciphersuites` is named explicitly, not inherited: it only
+# reaches this crate transitively while `openmls/test-utils` keeps the optional
+# `dep:openmls_basic_credential` alive. Without it `SignatureKeyPair::new`
+# has no ML-DSA arms and the four MLDSA ciphersuites cannot build an identity.
+openmls_basic_credential = { git = "https://github.com/openmls/openmls", tag = "openmls-v0.9.0", features = ["test-utils", "draft-ietf-mls-pq-ciphersuites"] }
 openmls_traits = { git = "https://github.com/openmls/openmls", tag = "openmls-v0.9.0", features = ["draft-ietf-mls-pq-ciphersuites"] }
 # libcrux-based provider: only used for the X-Wing hybrid post-quantum KEM
 # (HpkeKemType::XWingKemDraft6); everything else stays on openmls_rust_crypto.

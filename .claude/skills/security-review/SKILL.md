@@ -18,11 +18,18 @@ This library uses Flutter Rust Bridge (FRB) with OpenMLS (pure Rust):
 - **Storage** is Rust-owned and encrypted — SQLCipher on native, IndexedDB + Web Crypto AES-256-GCM on WASM
 
 When reviewing changes to `hybrid_crypto.rs`, additionally verify:
-- Non-XWing paths delegate to RustCrypto verbatim (arguments unmodified, no rerouting)
-- Routing predicate stays `uses_xwing_kem()` everywhere (single source of dispatch)
+- Every path except the one libcrux ciphersuite delegates to RustCrypto verbatim
+  (arguments unmodified, no rerouting)
+- Routing predicate stays `routes_to_libcrux()` everywhere (single source of dispatch),
+  and keeps matching the **whole `HpkeConfig` triple**. Never narrow it back to the
+  KEM: openmls 0.9.0 gives `XWingKemDraft6` to four ciphersuites, so a KEM match
+  silently routes three ML-KEM suites into libcrux
 - RNG (`OpenMlsRand`) stays delegated to RustCrypto
-- The `.cargo/audit.toml` RustSec ignore justifications depend on this routing —
-  the `classical_ops_do_not_init_libcrux` test enforces it and must stay green
+- The `.cargo/audit.toml` RustSec ignore justifications depend on this routing.
+  Three tests enforce it and must stay green:
+  `libcrux_routing_is_limited_to_xwing` (bounds the set of suites reaching libcrux,
+  by predicate and by operation), `classical_ops_do_not_init_libcrux` (per-operation
+  families: signature, AEAD, hash, KDF), and `api_list_matches_provider_support`
 
 ## Security Categories
 

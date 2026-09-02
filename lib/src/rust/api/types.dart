@@ -8,7 +8,12 @@ import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
 // These functions are ignored because they are not marked as `pub`: `capabilities_to_native`, `ciphersuite_to_native`, `extensions_from_mls`, `native_to_ciphersuite`, `wire_format_to_native`
 
-/// Returns the list of supported ciphersuites.
+/// Returns every ciphersuite this build can execute.
+///
+/// This is the same set OpenMLS advertises in a leaf node when the caller does
+/// not pin [`MlsCapabilities::ciphersuites`], and every entry is covered by a
+/// full group-lifecycle test. Note that most of them are **experimental**
+/// post-quantum suites on provisional code points — see [`MlsCiphersuite`].
 List<MlsCiphersuite> supportedCiphersuites() =>
     RustLib.instance.api.crateApiTypesSupportedCiphersuites();
 
@@ -128,7 +133,13 @@ class MlsCapabilities {
   /// Supported protocol versions (1 = MLS 1.0).
   final Uint16List versions;
 
-  /// Supported ciphersuites.
+  /// Supported ciphersuites, as raw MLS code points.
+  ///
+  /// An **empty** list is not "advertise nothing" — it means "use OpenMLS's
+  /// defaults", which is every ciphersuite [`supported_ciphersuites`]
+  /// returns, ten of them experimental post-quantum suites. To advertise a
+  /// narrower set, list the code points explicitly (e.g. `[0x0001, 0x0002,
+  /// 0x0003]` for the IANA-registered MLS 1.0 suites only).
   final Uint16List ciphersuites;
 
   /// Supported extension types.
@@ -169,9 +180,42 @@ class MlsCapabilities {
 }
 
 /// MLS ciphersuite selection.
+///
+/// The first three variants are the IANA-registered MLS 1.0 ciphersuites
+/// (RFC 9420 §17.1) and are the right choice for interoperable deployments.
+///
+/// # The post-quantum suites are experimental
+///
+/// Every other variant is a post-quantum or hybrid suite taken from
+/// [draft-ietf-mls-pq-ciphersuites][draft] — or, for
+/// [`Mls256XwingChacha20poly1305Sha256Ed25519`], from an expired individual
+/// draft. They share these limitations, and each carries the full warning on
+/// its own documentation:
+///
+/// - **The code points are provisional and not registered with IANA.** They may
+///   be renumbered or withdrawn. The numeric value is stated on each variant so
+///   that a future renumbering is visible in a diff rather than silent.
+/// - **Interoperability is limited** to stacks implementing the same draft
+///   revision — in practice, OpenMLS-based ones.
+/// - **Groups created on these suites may need migrating** once an official
+///   IANA-registered post-quantum suite is standardized.
+/// - The underlying ML-KEM / ML-DSA / X-Wing implementations are pre-1.0.
+///
+/// [draft]: https://datatracker.ietf.org/doc/draft-ietf-mls-pq-ciphersuites
 enum MlsCiphersuite {
+  /// DH KEM X25519 | AES-GCM 128 | SHA2-256 | Ed25519 (0x0001).
+  ///
+  /// IANA-registered, RFC 9420. The recommended default.
   mls128DhkemX25519Aes128GcmSha256Ed25519,
+
+  /// DH KEM X25519 | ChaCha20Poly1305 | SHA2-256 | Ed25519 (0x0003).
+  ///
+  /// IANA-registered, RFC 9420.
   mls128DhkemX25519Chacha20Poly1305Sha256Ed25519,
+
+  /// DH KEM P-256 | AES-GCM 128 | SHA2-256 | ECDSA P-256 (0x0002).
+  ///
+  /// IANA-registered, RFC 9420.
   mls128DhkemP256Aes128GcmSha256P256,
 
   /// **Experimental** hybrid post-quantum ciphersuite based on the X-Wing
@@ -188,7 +232,81 @@ enum MlsCiphersuite {
   /// - The underlying libcrux KEM implementation is pre-1.0 (its ML-KEM
   ///   source is formally verified, but compiled executables carry no
   ///   side-channel-resistance verification).
+  ///
+  /// This is the only suite whose HPKE operations are delegated to the
+  /// libcrux provider; every other suite runs on RustCrypto.
   mls256XwingChacha20Poly1305Sha256Ed25519,
+
+  /// **Experimental** ML-KEM-1024 | AES-GCM 256 | SHA2-384 | ECDSA P-384
+  /// (0x0042, provisional TBD8).
+  ///
+  /// Pure post-quantum KEM with a classical signature — no hybrid KEM, so it
+  /// carries no classical fallback if ML-KEM is broken. Provisional code
+  /// point; see the type-level documentation.
+  mls192Mlkem1024Aes256GcmSha384P384,
+
+  /// **Experimental** ML-KEM-768 + X25519 | AES-GCM 256 | SHA2-384 | Ed25519
+  /// (0x004E, provisional TBD2).
+  ///
+  /// Hybrid KEM (the same construction as X-Wing) with a classical signature.
+  /// Provisional code point; see the type-level documentation.
+  mls128Mlkem768X25519Aes256GcmSha384Ed25519,
+
+  /// **Experimental** ML-KEM-768 + X25519 | AES-GCM 128 | SHA2-256 | Ed25519
+  /// (0x004F, provisional TBD1).
+  ///
+  /// Hybrid KEM (the same construction as X-Wing) with a classical signature.
+  /// Provisional code point; see the type-level documentation.
+  mls128Mlkem768X25519Aes128GcmSha256Ed25519,
+
+  /// **Experimental** ML-KEM-768 | AES-GCM 256 | SHA2-384 | ECDSA P-256
+  /// (0x0050, provisional TBD7).
+  ///
+  /// Pure post-quantum KEM with a classical signature — no hybrid KEM, so it
+  /// carries no classical fallback if ML-KEM is broken. Provisional code
+  /// point; see the type-level documentation.
+  mls128Mlkem768Aes256GcmSha384P256,
+
+  /// **Experimental** ML-KEM-768 | AES-GCM 256 | SHA2-384 | ML-DSA-65
+  /// (0x0051, provisional TBD10).
+  ///
+  /// Post-quantum KEM *and* signature — no classical fallback in either.
+  /// Provisional code point; see the type-level documentation.
+  mls192Mlkem768Aes256GcmSha384Mldsa65,
+
+  /// **Experimental** ML-KEM-768 + X25519 | ChaCha20Poly1305 | SHA2-384 |
+  /// ML-DSA-44 (0x0052, provisional TBD9).
+  ///
+  /// Hybrid KEM (the same construction as X-Wing) with a post-quantum
+  /// signature. Provisional code point; see the type-level documentation.
+  mls128Mlkem768X25519Chacha20Poly1305Sha384Mldsa44,
+
+  /// **Experimental** ML-KEM-1024 | AES-GCM 256 | SHA2-512 | ML-DSA-87
+  /// (0x0906, provisional).
+  ///
+  /// The strongest suite offered: post-quantum KEM *and* signature at the
+  /// 256-bit security level — and correspondingly the largest key material
+  /// and the slowest. No classical fallback in either primitive. Provisional
+  /// code point; see the type-level documentation.
+  mls256Mlkem1024Aes256GcmSha512Mldsa87,
+
+  /// **Experimental** ML-KEM-1024 | AES-GCM 256 | SHA2-384 | ML-DSA-87
+  /// (0x0907, provisional TBD11).
+  ///
+  /// As [`Self::Mls256Mlkem1024Aes256gcmSha512Mldsa87`] but with SHA2-384.
+  /// Post-quantum KEM *and* signature; no classical fallback in either.
+  /// Provisional code point; see the type-level documentation.
+  mls256Mlkem1024Aes256GcmSha384Mldsa87,
+
+  /// **Experimental** ML-KEM-768 | AES-GCM 256 | SHA2-384 | Ed25519
+  /// (0xF042, provisional TBD6).
+  ///
+  /// Pure post-quantum KEM with a classical signature — no hybrid KEM, so it
+  /// carries no classical fallback if ML-KEM is broken. The code point sits
+  /// in the private-use range and is carried over from the former
+  /// `AIR_128_MLKEM768_AES256GCM_SHA384_Ed25519` suite for backwards
+  /// compatibility. Provisional; see the type-level documentation.
+  mls128Mlkem768Aes256GcmSha384Ed25519,
 }
 
 /// An MLS extension (type + data).

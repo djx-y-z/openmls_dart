@@ -21,7 +21,7 @@ Dart bindings for [OpenMLS](https://github.com/openmls/openmls), providing a Rus
 
 - **MLS Protocol (RFC 9420)**: Secure group messaging with forward secrecy and post-compromise security
 - **Group Key Agreement**: Efficient tree-based group key agreement (TreeKEM)
-- **Post-Quantum (Experimental)**: Hybrid X-Wing ciphersuite (ML-KEM-768 + X25519) — see [Post-Quantum Support](#post-quantum-support-experimental)
+- **Post-Quantum (Experimental)**: Ten hybrid and pure post-quantum ciphersuites (X-Wing, ML-KEM-768/1024, ML-DSA-44/65/87) — see [Post-Quantum Support](#post-quantum-support-experimental)
 - **Encrypted Storage**: All MLS state encrypted at rest — SQLCipher on native, Web Crypto AES-256-GCM on WASM
 - **Basic & X.509 Credentials**: Support for both credential types
 - **Flutter & CLI Support**: Works with Flutter apps and standalone Dart CLI applications
@@ -30,23 +30,66 @@ Dart bindings for [OpenMLS](https://github.com/openmls/openmls), providing a Rus
 
 ## Post-Quantum Support (Experimental)
 
-The `MlsCiphersuite.mls256XwingChacha20Poly1305Sha256Ed25519` ciphersuite uses the
-**X-Wing** hybrid KEM ([draft-connolly-cfrg-xwing-kem](https://datatracker.ietf.org/doc/draft-connolly-cfrg-xwing-kem/)):
-ML-KEM-768 combined with X25519, so group secrets stay confidential if *either*
-component remains unbroken. It protects against harvest-now-decrypt-later attacks.
-HPKE operations for this suite run on [libcrux](https://github.com/cryspen/libcrux)
-(formally verified ML-KEM); all classical suites continue to run unchanged on RustCrypto.
+`supportedCiphersuites()` returns thirteen ciphersuites. Three are the
+IANA-registered MLS 1.0 suites from RFC 9420; **the other ten are experimental
+post-quantum suites on provisional code points.** All thirteen are exercised
+end-to-end by the test suite — a full group lifecycle each, not merely a key
+generation.
+
+### The classical suites (interoperable)
+
+| Suite | Value |
+|---|---|
+| `mls128DhkemX25519Aes128GcmSha256Ed25519` | 0x0001 |
+| `mls128DhkemP256Aes128GcmSha256P256` | 0x0002 |
+| `mls128DhkemX25519Chacha20Poly1305Sha256Ed25519` | 0x0003 |
+
+### The post-quantum suites (experimental)
+
+`Hybrid` means the KEM keeps a classical component, so group secrets stay
+confidential if *either* half holds. `PQ-only` means there is **no classical
+fallback**: a break of ML-KEM (or ML-DSA) breaks the suite outright.
+
+| Suite | Value | KEM | Signature |
+|---|---|---|---|
+| `mls256XwingChacha20Poly1305Sha256Ed25519` | 0x004D | Hybrid (X-Wing) | Ed25519 |
+| `mls192Mlkem1024Aes256GcmSha384P384` | 0x0042 | PQ-only ML-KEM-1024 | ECDSA P-384 |
+| `mls128Mlkem768X25519Aes256GcmSha384Ed25519` | 0x004E | Hybrid (ML-KEM-768 + X25519) | Ed25519 |
+| `mls128Mlkem768X25519Aes128GcmSha256Ed25519` | 0x004F | Hybrid (ML-KEM-768 + X25519) | Ed25519 |
+| `mls128Mlkem768Aes256GcmSha384P256` | 0x0050 | PQ-only ML-KEM-768 | ECDSA P-256 |
+| `mls192Mlkem768Aes256GcmSha384Mldsa65` | 0x0051 | PQ-only ML-KEM-768 | ML-DSA-65 |
+| `mls128Mlkem768X25519Chacha20Poly1305Sha384Mldsa44` | 0x0052 | Hybrid (ML-KEM-768 + X25519) | ML-DSA-44 |
+| `mls256Mlkem1024Aes256GcmSha512Mldsa87` | 0x0906 | PQ-only ML-KEM-1024 | ML-DSA-87 |
+| `mls256Mlkem1024Aes256GcmSha384Mldsa87` | 0x0907 | PQ-only ML-KEM-1024 | ML-DSA-87 |
+| `mls128Mlkem768Aes256GcmSha384Ed25519` | 0xF042 | PQ-only ML-KEM-768 | Ed25519 |
 
 **Read before using — honest limitations:**
 
-- **Experimental, not standardized.** The ciphersuite value (0x004D) is **not
-  registered with IANA** and originates from an expired individual draft. The
-  IETF MLS working group is standardizing *different* post-quantum suites; when
-  an official suite is published, groups using X-Wing will need to migrate.
-  We will track the official suite and provide a migration path.
-- **Limited interoperability.** Only OpenMLS-based stacks (and ts-mls) support
-  this suite. Use it in closed deployments where all clients use this library
-  or OpenMLS — not for cross-vendor federation.
+- **Experimental, not standardized.** None of these code points is registered
+  with IANA. The nine `MLKEM`/`MLDSA` suites carry the provisional values from
+  [draft-ietf-mls-pq-ciphersuites](https://datatracker.ietf.org/doc/draft-ietf-mls-pq-ciphersuites),
+  which may be renumbered or withdrawn before publication; X-Wing (0x004D) comes
+  from an *expired individual* draft. When official suites are published, groups
+  created on these will need to migrate. We will track the official suites and
+  provide a migration path.
+- **Limited interoperability.** In practice only OpenMLS-based stacks (and, for
+  X-Wing, ts-mls) implement these. Use them in closed deployments where every
+  client uses this library or OpenMLS — not for cross-vendor federation.
+- **`PQ-only` suites have no classical fallback.** If you want the
+  harvest-now-decrypt-later protection *without* betting solely on lattice
+  assumptions, choose a `Hybrid` row.
+- **The underlying implementations are pre-1.0.** ML-KEM, ML-DSA and X-Wing are
+  provided by the RustCrypto and libcrux stacks at pre-1.0 versions.
+
+### X-Wing specifically
+
+`mls256XwingChacha20Poly1305Sha256Ed25519` uses the **X-Wing** hybrid KEM
+([draft-connolly-cfrg-xwing-kem](https://datatracker.ietf.org/doc/draft-connolly-cfrg-xwing-kem/)):
+ML-KEM-768 combined with X25519, so group secrets stay confidential if *either*
+component remains unbroken. It is the only suite whose HPKE operations run on
+[libcrux](https://github.com/cryspen/libcrux) (formally verified ML-KEM); every
+other suite, classical and post-quantum alike, runs on RustCrypto.
+
 - **libcrux is pre-1.0 and not fully audited.** Its ML-KEM source is formally
   verified (hax/F*: correctness, secret independence, panic freedom), but
   compiled binaries carry no side-channel-resistance verification, and the
@@ -54,6 +97,16 @@ HPKE operations for this suite run on [libcrux](https://github.com/cryspen/libcr
 - The X-Wing construction itself is peer-reviewed
   ([IND-CCA secure if either ML-KEM-768 or X25519 holds](https://eprint.iacr.org/2024/039))
   and its wire format has been stable across draft revisions.
+
+### What your peers see
+
+A leaf node advertises the ciphersuites you are willing to accept. Unless you
+pass explicit `capabilities`, OpenMLS fills that list with **all thirteen**
+suites above — so peers may choose an experimental one for a group you join.
+To advertise a narrower set, pass `MlsCapabilities` with an explicit
+`ciphersuites` list (as raw `u16` values) to `createGroupWithBuilder` or
+`proposeSelfUpdate`. Note that `createKeyPackage` takes no capabilities
+argument, so key packages always advertise the full list.
 
 ## Implementation Status
 

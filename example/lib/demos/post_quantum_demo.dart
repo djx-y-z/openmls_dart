@@ -13,10 +13,13 @@ Uint8List _testKey() {
   return Uint8List.fromList(List.generate(32, (_) => rng.nextInt(256)));
 }
 
-/// Post-quantum (X-Wing) demo: runs the full group lifecycle on the
-/// experimental hybrid X-Wing ciphersuite (ML-KEM-768 + X25519), preceded by
-/// a classical-suite regression check. On web this doubles as the WASM
-/// runtime smoke test for the libcrux-backed X-Wing path.
+/// Post-quantum demo: runs the full group lifecycle on a classical suite (a
+/// regression check), then on three experimental post-quantum suites chosen to
+/// hit three different backend paths — libcrux-backed X-Wing, a RustCrypto
+/// hybrid suite that shares X-Wing's KEM but carries an ML-DSA signature, and a
+/// pure ML-KEM suite. On web this doubles as the WASM runtime smoke test; no CI
+/// gate builds or runs wasm32, so it has to be re-run by hand after any change
+/// to ciphersuites or crypto routing.
 class PostQuantumDemoTab extends StatefulWidget {
   const PostQuantumDemoTab({super.key});
 
@@ -42,12 +45,30 @@ class _PostQuantumDemoTabState extends State<PostQuantumDemoTab> {
       r.writeln('1. classical lifecycle ($classical)');
       await _lifecycle(classical, 'classical', r);
 
-      // 2. The X-Wing post-quantum lifecycle.
+      // 2. X-Wing — the one suite delegated to the libcrux provider.
       const xwing = MlsCiphersuite.mls256XwingChacha20Poly1305Sha256Ed25519;
-      r.writeln('2. X-Wing lifecycle ($xwing)');
+      r.writeln('2. X-Wing lifecycle, libcrux-backed ($xwing)');
       await _lifecycle(xwing, 'X-Wing', r);
 
-      r.writeln('RESULT: PASS — X-Wing lifecycle verified on this platform');
+      // 3. ML-KEM-768 + X25519 with an ML-DSA-44 signature. Two things only
+      //    this suite covers: it shares X-Wing's KEM yet must run on
+      //    RustCrypto (a routing regression would send it to libcrux, which
+      //    has no ML-DSA and rejects it outright), and it is the only
+      //    post-quantum *signature* in this demo.
+      const mldsa =
+          MlsCiphersuite.mls128Mlkem768X25519Chacha20Poly1305Sha384Mldsa44;
+      r.writeln('3. ML-KEM-768+X25519 / ML-DSA-44 lifecycle ($mldsa)');
+      await _lifecycle(mldsa, 'ML-DSA-44', r);
+
+      // 4. A pure ML-KEM suite — no hybrid KEM, a different code path again.
+      const mlkem = MlsCiphersuite.mls128Mlkem768Aes256GcmSha384Ed25519;
+      r.writeln('4. ML-KEM-768 lifecycle ($mlkem)');
+      await _lifecycle(mlkem, 'ML-KEM-768', r);
+
+      r.writeln(
+        'RESULT: PASS — classical, X-Wing, ML-DSA and ML-KEM lifecycles '
+        'verified on this platform',
+      );
       setState(() => _result = r.toString());
     } catch (e) {
       setState(() => _result = 'RESULT: FAIL\nError: $e');
@@ -171,11 +192,12 @@ class _PostQuantumDemoTabState extends State<PostQuantumDemoTab> {
   Widget build(BuildContext context) {
     return SingleChildScrollView(
       child: DemoCard(
-        title: 'Post-Quantum (X-Wing)',
+        title: 'Post-Quantum',
         description:
-            'Full group lifecycle on the experimental hybrid X-Wing '
-            'ciphersuite (ML-KEM-768 + X25519, draft) with a classical-suite '
-            'regression check. Not IANA-registered — see README limitations.',
+            'Full group lifecycle on three experimental post-quantum '
+            'ciphersuites — X-Wing (libcrux), ML-KEM-768+X25519 with ML-DSA-44, '
+            'and pure ML-KEM-768 — with a classical-suite regression check. '
+            'None are IANA-registered — see README limitations.',
         onRun: _run,
         isLoading: _loading,
         result: _result,

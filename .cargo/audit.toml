@@ -20,6 +20,23 @@
 # Add an entry back only with an inline justification, the way the removed ones
 # carried theirs. `deny.toml` keeps its own list for the unmaintained-crate
 # advisories that `cargo audit` does not fail on.
+#
+# A libcrux reachability argument is only as good as the guard that bounds what
+# reaches libcrux. Three tests in `rust/src/hybrid_crypto.rs` do that, and any
+# such justification should cite them:
+#
+#   - `libcrux_routing_is_limited_to_xwing` — enumerates every supported
+#     ciphersuite and requires that exactly one (X-Wing, 0x004D) routes to
+#     libcrux, both by the routing predicate and by running HPKE keygen on a
+#     fresh provider per suite. This is the one that bounds the set.
+#   - `classical_ops_do_not_init_libcrux` — per operation family (signature,
+#     AEAD, hash, KDF), the justification most ignores were phrased over.
+#   - `api_list_matches_provider_support` — keeps the advertised suite list and
+#     the provider in bijection, so the set above cannot grow unnoticed.
+#
+# The bounding guard was added after openmls 0.9.0 gave `XWingKemDraft6` to four
+# ciphersuites instead of one: the routing predicate matched on the KEM, so three
+# ML-KEM suites began reaching libcrux while every existing test stayed green.
 
 [advisories]
 ignore = []

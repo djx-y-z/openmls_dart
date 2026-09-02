@@ -42,12 +42,30 @@ void main() {
       expect(
         supportedCiphersuites(),
         unorderedEquals(const [
+          // MLS 1.0, IANA-registered (RFC 9420).
           MlsCiphersuite.mls128DhkemX25519Aes128GcmSha256Ed25519,
           MlsCiphersuite.mls128DhkemX25519Chacha20Poly1305Sha256Ed25519,
           MlsCiphersuite.mls128DhkemP256Aes128GcmSha256P256,
+          // Experimental post-quantum, provisional code points.
           MlsCiphersuite.mls256XwingChacha20Poly1305Sha256Ed25519,
+          MlsCiphersuite.mls192Mlkem1024Aes256GcmSha384P384,
+          MlsCiphersuite.mls128Mlkem768X25519Aes256GcmSha384Ed25519,
+          MlsCiphersuite.mls128Mlkem768X25519Aes128GcmSha256Ed25519,
+          MlsCiphersuite.mls128Mlkem768Aes256GcmSha384P256,
+          MlsCiphersuite.mls192Mlkem768Aes256GcmSha384Mldsa65,
+          MlsCiphersuite.mls128Mlkem768X25519Chacha20Poly1305Sha384Mldsa44,
+          MlsCiphersuite.mls256Mlkem1024Aes256GcmSha512Mldsa87,
+          MlsCiphersuite.mls256Mlkem1024Aes256GcmSha384Mldsa87,
+          MlsCiphersuite.mls128Mlkem768Aes256GcmSha384Ed25519,
         ]),
       );
+    });
+
+    test('supportedCiphersuites covers every MlsCiphersuite value', () {
+      // The Rust-side bijection guard (api_list_matches_provider_support) ties
+      // this list to the crypto provider. This ties it to the Dart enum: a
+      // variant that exists but is never advertised would be dead API.
+      expect(supportedCiphersuites(), unorderedEquals(MlsCiphersuite.values));
     });
   });
 

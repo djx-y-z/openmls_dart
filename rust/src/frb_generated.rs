@@ -3944,6 +3944,17 @@ impl CstDecode<crate::api::types::MlsCiphersuite> for i32 {
             1 => crate::api::types::MlsCiphersuite::Mls128DhkemX25519Chacha20poly1305Sha256Ed25519,
             2 => crate::api::types::MlsCiphersuite::Mls128DhkemP256Aes128gcmSha256P256,
             3 => crate::api::types::MlsCiphersuite::Mls256XwingChacha20poly1305Sha256Ed25519,
+            4 => crate::api::types::MlsCiphersuite::Mls192Mlkem1024Aes256gcmSha384P384,
+            5 => crate::api::types::MlsCiphersuite::Mls128Mlkem768x25519Aes256gcmSha384Ed25519,
+            6 => crate::api::types::MlsCiphersuite::Mls128Mlkem768x25519Aes128gcmSha256Ed25519,
+            7 => crate::api::types::MlsCiphersuite::Mls128Mlkem768Aes256gcmSha384P256,
+            8 => crate::api::types::MlsCiphersuite::Mls192Mlkem768Aes256gcmSha384Mldsa65,
+            9 => {
+                crate::api::types::MlsCiphersuite::Mls128Mlkem768x25519Chacha20poly1305Sha384Mldsa44
+            }
+            10 => crate::api::types::MlsCiphersuite::Mls256Mlkem1024Aes256gcmSha512Mldsa87,
+            11 => crate::api::types::MlsCiphersuite::Mls256Mlkem1024Aes256gcmSha384Mldsa87,
+            12 => crate::api::types::MlsCiphersuite::Mls128Mlkem768Aes256gcmSha384Ed25519,
             _ => unreachable!("Invalid variant for MlsCiphersuite: {}", self),
         }
     }
@@ -4381,6 +4392,17 @@ impl SseDecode for crate::api::types::MlsCiphersuite {
             1 => crate::api::types::MlsCiphersuite::Mls128DhkemX25519Chacha20poly1305Sha256Ed25519,
             2 => crate::api::types::MlsCiphersuite::Mls128DhkemP256Aes128gcmSha256P256,
             3 => crate::api::types::MlsCiphersuite::Mls256XwingChacha20poly1305Sha256Ed25519,
+            4 => crate::api::types::MlsCiphersuite::Mls192Mlkem1024Aes256gcmSha384P384,
+            5 => crate::api::types::MlsCiphersuite::Mls128Mlkem768x25519Aes256gcmSha384Ed25519,
+            6 => crate::api::types::MlsCiphersuite::Mls128Mlkem768x25519Aes128gcmSha256Ed25519,
+            7 => crate::api::types::MlsCiphersuite::Mls128Mlkem768Aes256gcmSha384P256,
+            8 => crate::api::types::MlsCiphersuite::Mls192Mlkem768Aes256gcmSha384Mldsa65,
+            9 => {
+                crate::api::types::MlsCiphersuite::Mls128Mlkem768x25519Chacha20poly1305Sha384Mldsa44
+            }
+            10 => crate::api::types::MlsCiphersuite::Mls256Mlkem1024Aes256gcmSha512Mldsa87,
+            11 => crate::api::types::MlsCiphersuite::Mls256Mlkem1024Aes256gcmSha384Mldsa87,
+            12 => crate::api::types::MlsCiphersuite::Mls128Mlkem768Aes256gcmSha384Ed25519,
             _ => unreachable!("Invalid variant for MlsCiphersuite: {}", inner),
         };
     }
@@ -5094,6 +5116,15 @@ impl flutter_rust_bridge::IntoDart for crate::api::types::MlsCiphersuite {
             Self::Mls128DhkemX25519Chacha20poly1305Sha256Ed25519 => 1.into_dart(),
             Self::Mls128DhkemP256Aes128gcmSha256P256 => 2.into_dart(),
             Self::Mls256XwingChacha20poly1305Sha256Ed25519 => 3.into_dart(),
+            Self::Mls192Mlkem1024Aes256gcmSha384P384 => 4.into_dart(),
+            Self::Mls128Mlkem768x25519Aes256gcmSha384Ed25519 => 5.into_dart(),
+            Self::Mls128Mlkem768x25519Aes128gcmSha256Ed25519 => 6.into_dart(),
+            Self::Mls128Mlkem768Aes256gcmSha384P256 => 7.into_dart(),
+            Self::Mls192Mlkem768Aes256gcmSha384Mldsa65 => 8.into_dart(),
+            Self::Mls128Mlkem768x25519Chacha20poly1305Sha384Mldsa44 => 9.into_dart(),
+            Self::Mls256Mlkem1024Aes256gcmSha512Mldsa87 => 10.into_dart(),
+            Self::Mls256Mlkem1024Aes256gcmSha384Mldsa87 => 11.into_dart(),
+            Self::Mls128Mlkem768Aes256gcmSha384Ed25519 => 12.into_dart(),
             _ => unreachable!(),
         }
     }
@@ -5719,6 +5750,15 @@ impl SseEncode for crate::api::types::MlsCiphersuite {
 crate::api::types::MlsCiphersuite::Mls128DhkemX25519Chacha20poly1305Sha256Ed25519 => { 1 }
 crate::api::types::MlsCiphersuite::Mls128DhkemP256Aes128gcmSha256P256 => { 2 }
 crate::api::types::MlsCiphersuite::Mls256XwingChacha20poly1305Sha256Ed25519 => { 3 }
+crate::api::types::MlsCiphersuite::Mls192Mlkem1024Aes256gcmSha384P384 => { 4 }
+crate::api::types::MlsCiphersuite::Mls128Mlkem768x25519Aes256gcmSha384Ed25519 => { 5 }
+crate::api::types::MlsCiphersuite::Mls128Mlkem768x25519Aes128gcmSha256Ed25519 => { 6 }
+crate::api::types::MlsCiphersuite::Mls128Mlkem768Aes256gcmSha384P256 => { 7 }
+crate::api::types::MlsCiphersuite::Mls192Mlkem768Aes256gcmSha384Mldsa65 => { 8 }
+crate::api::types::MlsCiphersuite::Mls128Mlkem768x25519Chacha20poly1305Sha384Mldsa44 => { 9 }
+crate::api::types::MlsCiphersuite::Mls256Mlkem1024Aes256gcmSha512Mldsa87 => { 10 }
+crate::api::types::MlsCiphersuite::Mls256Mlkem1024Aes256gcmSha384Mldsa87 => { 11 }
+crate::api::types::MlsCiphersuite::Mls128Mlkem768Aes256gcmSha384Ed25519 => { 12 }
  _ => { unimplemented!(""); }}, serializer);
     }
 }

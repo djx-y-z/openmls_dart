@@ -447,4 +447,98 @@ void main() {
       await aliceFs.close();
     });
   });
+
+  group('every advertised ciphersuite', () {
+    // supportedCiphersuites() is a promise: a suite listed there is one a
+    // caller may build a group on. openmls 0.9.0 grew the underlying provider
+    // list from 4 suites to 13 behind a cargo feature, with no signature change
+    // on this side, so the list is verified rather than asserted.
+    //
+    // The Rust-side `all_supported_ciphersuites_full_group_lifecycle` proves the
+    // crypto works. This proves the *binding* does: each Dart enum value must
+    // cross the FFI to the native suite it names, in both directions. FRB
+    // serializes enums by index, so a mis-ordered variant would silently create
+    // a group on a different ciphersuite than the caller asked for — no error,
+    // wrong crypto.
+    for (final suite in MlsCiphersuite.values) {
+      test('$suite: create, add, welcome join, messaging', () async {
+        final aliceCs = TestIdentity.create('alice-cs', ciphersuite: suite);
+        final bobCs = TestIdentity.create('bob-cs', ciphersuite: suite);
+        final config = MlsGroupConfig.defaultConfig(ciphersuite: suite);
+
+        final groupResult = await alice.createGroup(
+          config: config,
+          signerBytes: aliceCs.signerBytes,
+          credentialIdentity: aliceCs.credentialIdentity,
+          signerPublicKey: aliceCs.publicKey,
+        );
+        final groupIdBytes = groupResult.groupId;
+
+        // Round-trip through both conversion directions: the suite the group
+        // reports must be the one that was requested.
+        expect(
+          await alice.groupCiphersuite(groupIdBytes: groupIdBytes),
+          equals(suite),
+          reason: 'group reports a different ciphersuite than requested',
+        );
+
+        final bobKp = await bob.createKeyPackage(
+          ciphersuite: suite,
+          signerBytes: bobCs.signerBytes,
+          credentialIdentity: bobCs.credentialIdentity,
+          signerPublicKey: bobCs.publicKey,
+        );
+        final addResult = await alice.addMembers(
+          groupIdBytes: groupIdBytes,
+          signerBytes: aliceCs.signerBytes,
+          keyPackagesBytes: [bobKp.keyPackageBytes],
+        );
+        await alice.mergePendingCommit(groupIdBytes: groupIdBytes);
+
+        // inspectWelcome is how an application decides whether to join, and it
+        // maps the ciphersuite before returning — so an unnameable suite fails
+        // here, before the decision, even though the join itself would succeed.
+        final info = await bob.inspectWelcome(
+          config: config,
+          welcomeBytes: addResult.welcome,
+        );
+        expect(info.ciphersuite, equals(suite));
+
+        await bob.joinGroupFromWelcome(
+          config: config,
+          welcomeBytes: addResult.welcome,
+          signerBytes: bobCs.signerBytes,
+        );
+        expect(
+          await bob.groupMembers(groupIdBytes: groupIdBytes),
+          hasLength(2),
+        );
+
+        // Application message both ways: the ratchet actually runs.
+        final plaintext = Uint8List.fromList(utf8.encode('hello bob'));
+        final encrypted = await alice.createMessage(
+          groupIdBytes: groupIdBytes,
+          signerBytes: aliceCs.signerBytes,
+          message: plaintext,
+        );
+        final received = await bob.processMessage(
+          groupIdBytes: groupIdBytes,
+          messageBytes: encrypted.ciphertext,
+        );
+        expect(received.applicationMessage, equals(plaintext));
+
+        final reply = Uint8List.fromList(utf8.encode('hi alice'));
+        final encryptedReply = await bob.createMessage(
+          groupIdBytes: groupIdBytes,
+          signerBytes: bobCs.signerBytes,
+          message: reply,
+        );
+        final receivedReply = await alice.processMessage(
+          groupIdBytes: groupIdBytes,
+          messageBytes: encryptedReply.ciphertext,
+        );
+        expect(receivedReply.applicationMessage, equals(reply));
+      });
+    }
+  });
 }

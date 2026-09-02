@@ -169,9 +169,8 @@ jobs:
         shell: bash
 
       # Crate-level unit tests. Same single-leg rationale as clippy above: these
-      # assert platform-independent invariants. Notably they cover
-      # `classical_ops_do_not_init_libcrux`, which several advisory ignores in
-      # .cargo/audit.toml and rust/deny.toml cite as their justification.
+      # assert platform-independent invariants, including any test cited as the
+      # justification for an advisory ignore in .cargo/audit.toml or deny.toml.
       - name: Rust unit tests
         if: matrix.name == 'Linux x86_64'
         run: make rust-test
