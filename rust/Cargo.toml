@@ -27,12 +27,25 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 futures = "0.3"
 parking_lot = "0.12"
-openmls = { git = "https://github.com/openmls/openmls", tag = "openmls-v0.9.0", features = ["test-utils", "draft-ietf-mls-pq-ciphersuites"] }
+# `test-utils` is deliberately absent, and must stay absent in a shipped
+# binary: it implies `backtrace`, and `LibraryError::custom()` then formats a
+# symbolized Rust backtrace — build-machine paths, symbol names, crate layout —
+# into an error that travels the *ordinary* error channel out to the Dart
+# caller, no panic required. It also drags a test harness into the release
+# graph — `openmls_test`, `wasm-bindgen-test` and `minicov` among fifteen crates
+# that leave the third-party notices with it.
+# The one thing this crate used it for was `MlsGroup::export_group_context()`,
+# which is a one-line wrapper over `self.public_group.group_context()`; both
+# `public_group()` and `GroupContext`'s accessors became public in 0.9.0, so
+# `api/engine.rs` calls that chain directly.
+openmls = { git = "https://github.com/openmls/openmls", tag = "openmls-v0.9.0", features = ["draft-ietf-mls-pq-ciphersuites"] }
 openmls_rust_crypto = { git = "https://github.com/openmls/openmls", tag = "openmls-v0.9.0", features = ["draft-ietf-mls-pq-ciphersuites"] }
-# `draft-ietf-mls-pq-ciphersuites` is named explicitly, not inherited: it only
-# reaches this crate transitively while `openmls/test-utils` keeps the optional
-# `dep:openmls_basic_credential` alive. Without it `SignatureKeyPair::new`
-# has no ML-DSA arms and the four MLDSA ciphersuites cannot build an identity.
+# Both features are named explicitly rather than inherited.
+# `draft-ietf-mls-pq-ciphersuites`: without it `SignatureKeyPair::new` has no
+# ML-DSA arms and the four MLDSA ciphersuites cannot build an identity.
+# `test-utils`: this is *this* crate's feature, not openmls's — it is what makes
+# `SignatureKeyPair::private()` reachable (`api/keys.rs`), and it implies no
+# backtrace.
 openmls_basic_credential = { git = "https://github.com/openmls/openmls", tag = "openmls-v0.9.0", features = ["test-utils", "draft-ietf-mls-pq-ciphersuites"] }
 openmls_traits = { git = "https://github.com/openmls/openmls", tag = "openmls-v0.9.0", features = ["draft-ietf-mls-pq-ciphersuites"] }
 # libcrux-based provider: only used for the X-Wing hybrid post-quantum KEM

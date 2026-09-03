@@ -170,6 +170,30 @@ git commit -m "fix: adapt for openmls vX.Y.Z breaking changes"
 - [ ] Run the example app's **Post-Quantum** demo tab on native AND Chrome
       (dart2js) — full X-Wing lifecycle smoke must print `RESULT: PASS`
 
+### Shipped cargo features (extra steps on every upstream bump)
+
+- [ ] `openmls/test-utils` must stay **absent** from `rust/Cargo.toml`. It
+      implies `openmls/backtrace`, under which `LibraryError::custom()` formats
+      a symbolized Rust backtrace — build-machine paths, symbol names, crate
+      layout — into an error that reaches the Dart caller through the *ordinary*
+      error channel, no panic involved. Features are additive, so it cannot be
+      turned on "only for tests": anything enabling it puts it in the shipped
+      binary, on **every** platform — cargo unifies features across the
+      `[target.'cfg(...)'.dependencies]` tables, so the wasm32 build gets it too.
+      Verify with `strings <artifact> | grep 'Backtrace:'` — zero hits on both
+      `rust/target/release/libopenmls_frb.dylib` and
+      `rust/target/wasm32/openmls_frb_bg.wasm`.
+- [ ] `MlsGroup::public_group()`, `PublicGroup::group_context()` and
+      `GroupContext::{tree_hash, confirmed_transcript_hash}` must still be
+      public and un-gated — `api/engine.rs::export_group_context` uses that
+      chain precisely *instead of* the `test-utils`-gated
+      `MlsGroup::export_group_context()`. If upstream re-gates any of them, do
+      not re-add `test-utils`; raise it upstream, as was done for the accessors
+      that 0.9.0 opened up.
+- [ ] `openmls_basic_credential/test-utils` is a **different** crate's feature
+      and stays — it is what makes `SignatureKeyPair::private()` reachable for
+      `privateKey()`, and it implies no backtrace.
+
 ---
 
 ## Quick Update (Automatic)

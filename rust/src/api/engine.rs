@@ -955,7 +955,7 @@ impl MlsEngine {
         let provider = self.load_for_group(&group_id_bytes).await?;
         let group = load_group(&group_id_bytes, &provider)?;
         let cs = native_to_ciphersuite(group.ciphersuite())?;
-        let ctx = group.export_group_context();
+        let ctx = group.public_group().group_context();
         let ext_bytes = ctx
             .extensions()
             .tls_serialize_detached()

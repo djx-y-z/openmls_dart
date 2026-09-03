@@ -29,6 +29,11 @@
   could not run there at all. Both this and the item above arrived with the
   0.9.0 bump and are fixed in the same unreleased version, so no published
   release was ever affected.
+- **Rust backtraces stop reaching Dart error strings** — the shipped binary
+  enabled openmls's `test-utils` feature, and with it openmls formatted a
+  symbolized backtrace into the internal errors that travel the ordinary error
+  channel out to the caller. Dropping the feature also takes a test harness out
+  of the release dependency graph.
 - **openmls v0.9.0** — first upstream release since 0.8.1 (2026-02-13), and it
   closes an advisory this package had been working around locally.
 - **openmls_frb v2.1.0** — Rust FFI bindings
@@ -142,6 +147,39 @@
   now name them. The existing guard was not wrong, it was unbounded: it proved
   that a single hard-coded classical suite stays off libcrux, which said nothing
   about how many other suites had arrived there.
+
+- **openmls no longer formats a Rust backtrace into errors the Dart caller
+  receives** (`rust/Cargo.toml`, `rust/src/api/engine.rs`) — the shipped binary
+  enabled openmls's `test-utils`, which implies its `backtrace` feature. With
+  that on, `LibraryError::custom()` builds its message as
+  `"Error description: {s}\n Backtrace:\n{…}"` — a symbolized Rust backtrace
+  carrying build-machine paths, symbol names and crate layout. `LibraryError` is
+  what openmls raises *instead of* unwrapping when an internal invariant is
+  violated, and it is returned like any other error, so this package formatted
+  it into the error string the caller gets. **No panic was required to reach
+  it.** The feature is now off on every platform: the `" Backtrace:"` literal is
+  gone from both shipped artifacts — the native library, 309 KiB smaller, and
+  the WebAssembly one, 84 KiB smaller. Web consumers were affected too, because
+  cargo unifies features across the platform-specific dependency tables, so the
+  wasm32 build had been carrying `test-utils` as well.
+
+  It could not simply be switched off before. Cargo features are additive, and
+  `MlsGroup::export_group_context()` was gated behind `test-utils` along with
+  the `tree_hash` and `confirmed_transcript_hash` accessors that
+  `exportGroupContext()` reports, so dropping the feature meant dropping fields
+  from `MlsGroupContextInfo` — a breaking change for the sake of a hygiene fix.
+  openmls 0.9.0 made `MlsGroup::public_group()` public, and
+  `export_group_context()` is a one-line wrapper over
+  `self.public_group.group_context()`, so the replacement is the *same call
+  chain* rather than an equivalent one: the same six fields, the same values,
+  and regenerating the bindings produces no diff at all. Nothing in the Dart API
+  changes.
+
+  `SECURITY.md` described this feature as enabling "accessor methods" with "no
+  test-only code paths activated in production". That was true of
+  `openmls_basic_credential`'s feature of the same name — still enabled, still
+  what makes `privateKey()` possible — but never of openmls's, and the entry now
+  says which is which.
 
 - **Signature private keys are wiped from memory when dropped** (upstream,
   `openmls_basic_credential` 0.5.0 → 0.6.0) — `SignatureKeyPair.private` was a
@@ -317,10 +355,23 @@
   `openmls/draft-ietf-mls-pq-ciphersuites`, which propagates with `?` and so
   applies only while `openmls/test-utils` keeps the optional dependency alive.
   Without it `SignatureKeyPair::new` has no ML-DSA arms and the four ML-DSA
-  ciphersuites cannot build an identity at all — a coupling worth breaking,
-  given there is an open question about dropping `test-utils` from the shipped
-  binary. Feature-only change: `Cargo.lock` and the third-party notices are
-  untouched.
+  ciphersuites cannot build an identity at all — a coupling that had to be
+  broken before `test-utils` could be dropped from the shipped binary, which
+  this same release then does (see Security). Feature-only change on its own:
+  `Cargo.lock` and the third-party notices are untouched by this bullet.
+
+- **A test harness no longer resolves into the release dependency graph**
+  (`rust/Cargo.toml`, `rust/Cargo.lock`, `THIRD_PARTY_NOTICES.txt`) — dropping
+  `openmls/test-utils` (see Security) takes fifteen crates out of the notices,
+  279 → 264: `wasm-bindgen-test` with its macro and shared crates, `minicov`,
+  `openmls_test`, `async-trait`, `cast`, `itertools` 0.14, `libm`,
+  `nu-ansi-term`, `oorandom`, `same-file`, `walkdir`, `winapi-util` and
+  `windows-sys`. Nine of them leave `Cargo.lock` outright; the rest stay
+  resolved but unreachable. `openmls_memory_storage` is not among them — it is a
+  plain dependency of `openmls_rust_crypto` and `openmls_libcrux_crypto`, not a
+  test-only one. Neither is `backtrace`, which flutter_rust_bridge's
+  `allo-isolate` declares independently of anything openmls does; what changed
+  is that openmls's own feature of that name is off.
 
 - **The example app's post-quantum tab covers three backend paths instead of
   one** (`example/lib/demos/post_quantum_demo.dart`) — it now runs the full
@@ -336,7 +387,10 @@
   reports as `E0599 ... no variant named XWingKemDraft6`, which reads exactly
   like a removal and cost this bump a wrong diagnosis. The checklist now says to
   look for a new cargo feature first, and that it has to go on all four openmls
-  crates rather than only on `openmls`.
+  crates rather than only on `openmls`. A second block covers the opposite
+  direction — which features must stay *off* in a shipped binary, and how to
+  check the built artifacts for it — so a later bump cannot quietly restore the
+  backtrace described under Security.
 
 - **`make codegen` now uses the pinned generator** (`Makefile`) —
   `FRB_CODEGEN_VERSION` pins the binary that `make setup-frb-codegen` installs,
