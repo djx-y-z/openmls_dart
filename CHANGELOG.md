@@ -18,9 +18,53 @@
 - **The post-quantum dependency tree moves off every advisory it was pinned to**
   — the X-Wing path's libcrux crates were held at exact versions by openmls
   0.8.1, and 0.9.0 moves all of them. The ignore lists shrink to one entry.
+- **Nine more ciphersuites, all of them post-quantum** **(breaking)** —
+  `MlsCiphersuite` grows from four values to thirteen, matching what the crypto
+  provider actually runs. The nine were already going out on the wire in every
+  leaf node built from the openmls 0.9.0 bump; they were simply not nameable in
+  the Dart API, which made a group using one impossible to inspect and therefore
+  impossible to decide about joining.
+- **X-Wing is again the only suite delegated to libcrux** — three ML-KEM suites
+  had begun routing to a backend validated only for X-Wing, and one of them
+  could not run there at all. Both this and the item above arrived with the
+  0.9.0 bump and are fixed in the same unreleased version, so no published
+  release was ever affected.
 - **openmls v0.9.0** — first upstream release since 0.8.1 (2026-02-13), and it
   closes an advisory this package had been working around locally.
 - **openmls_frb v2.1.0** — Rust FFI bindings
+
+#### Changed (Breaking)
+
+- **`MlsCiphersuite` gains nine values** (`rust/src/api/types.rs`,
+  `lib/src/rust/api/types.dart`) — the enum described four ciphersuites while
+  the shipped crypto provider supported thirteen, and it was the provider's list
+  that peers saw. `supportedCiphersuites()` now returns all thirteen, and every
+  one of them is exercised by a full group lifecycle in both the Rust and the
+  Dart test suites — created, added to, joined via Welcome, and messaged in both
+  directions — rather than merely advertised.
+
+  The gap was not cosmetic. Enabling `draft-ietf-mls-pq-ciphersuites` for X-Wing
+  also put nine ML-KEM suites into OpenMLS's `default_ciphersuites()`, which is
+  what `Capabilities::new` fills in when a caller does not pin capabilities — so
+  from the 0.9.0 bump onward, key packages and leaf nodes advertised all
+  thirteen. A peer picking one of the nine produced a group that
+  `inspectWelcome` refused with `Unsupported ciphersuite`, *before* the
+  application could decide whether to join, even though the join itself would
+  have worked. 0.8.1's default list held exactly the four the enum named, so
+  2.0.1 was consistent and the drift never reached a published release — it is
+  introduced and fixed within this one.
+
+  Ten of the thirteen are **experimental** suites on provisional code points
+  that are not registered with IANA and may be renumbered or withdrawn; several
+  are pure ML-KEM, with no classical component to fall back on. The README now
+  lists every suite with its code point, its KEM and its signature, and says
+  which are hybrid and which are not.
+
+  **Action required:** an exhaustive `switch` over `MlsCiphersuite` no longer
+  compiles. Add the nine new cases, or a `default:`. Nothing else changes — the
+  original four keep their names, their meanings and their positions in the
+  enum, so existing values continue to serialize identically and no stored group
+  or key package is affected.
 
 #### Changed
 
@@ -46,6 +90,19 @@
   pending commit ever reaches storage; it is handled anyway. No type in the
   Dart API gains a value.
 
+- **Key package lifetime validation errors read differently** (upstream) — no
+  code changed here, but the strings these errors produce did, and an
+  application matching on them will stop matching. `LifetimeError` replaced
+  `RangeTooBig` / `NotCurrent` with `Expired { not_after, now }`,
+  `NotValidYet { not_before, now }` and `SystemTimeBeforeUnixEpoch`, so the
+  reason is now stated with the timestamps instead of being a single opaque
+  case. At the same time `LeafNodeValidationError::Lifetime` and
+  `KeyPackageVerifyError::InvalidLifetime` became `#[error(transparent)]`, which
+  drops the wrapper prefix: where 0.8.1 produced "Lifetime is not acceptable.",
+  0.9.0 produces the inner error's own text. These reach Dart through the
+  ordinary error string, so treat the text as diagnostic and branch on the
+  operation instead.
+
 - **rusqlite 0.34 → 0.37** (`rust/Cargo.toml`) — not a chosen upgrade. openmls
   0.9.0 pulls `openmls_sqlite_storage`, which pins `rusqlite = "0.37"`; cargo
   resolves optional dependencies into the lockfile even when the feature is
@@ -55,6 +112,46 @@
   on-disk format is untouched.
 
 #### Security
+
+- **Three ciphersuites had begun using a crypto backend validated only for
+  X-Wing** (`rust/src/hybrid_crypto.rs`) — this provider delegates one
+  ciphersuite, X-Wing (0x004D), to OpenMLS's libcrux provider, because
+  RustCrypto does not accept it; everything else runs on RustCrypto. The
+  predicate that made that decision matched on the **KEM**, which identified
+  exactly one suite in openmls 0.8.1. 0.9.0 gives `XWingKemDraft6` to four
+  suites — X-Wing plus three `MLKEM768X25519` variants, which is arithmetically
+  reasonable, since X-Wing *is* ML-KEM-768 combined with X25519 — so three
+  ciphersuites silently began having their HPKE operations answered by a
+  backend that had never been validated for them. This arrived with the 0.9.0
+  bump in this same unreleased version, so no published release shipped it.
+
+  One of the three could not be answered at all:
+  `MLS_128_MLKEM768X25519_CHACHA20POLY1305_SHA384_MLDSA44` was advertised in
+  every key package while libcrux rejected it with `UnsupportedCiphersuite`,
+  having no ML-DSA signatures. RustCrypto implements it, so the routing fix
+  makes that suite work rather than merely stop misrouting.
+
+  The predicate now matches the whole `HpkeConfig` triple, which is unique per
+  suite and is also the only information the HPKE methods receive — they are
+  handed a config, never a ciphersuite. Two tests pin it, and they are the ones
+  a libcrux advisory's reachability argument should now cite: one enumerates
+  every supported ciphersuite and requires that exactly one reaches libcrux —
+  by the predicate *and* by running HPKE keygen on a fresh provider per suite —
+  and one keeps the advertised list and the provider in bijection so the set
+  cannot grow unnoticed. `.cargo/audit.toml` and the security-review checklist
+  now name them. The existing guard was not wrong, it was unbounded: it proved
+  that a single hard-coded classical suite stays off libcrux, which said nothing
+  about how many other suites had arrived there.
+
+- **Signature private keys are wiped from memory when dropped** (upstream,
+  `openmls_basic_credential` 0.5.0 → 0.6.0) — `SignatureKeyPair.private` was a
+  plain `Vec<u8>`, so a signing key's bytes were left in freed heap memory when
+  the pair went out of scope, and no `Drop` impl could be added downstream
+  because the type is upstream's. It is now a `SecretVLBytes`, which is
+  `ZeroizeOnDrop`. This package constructs one of these per signing operation,
+  so it is on a hot path. The fix had been merged upstream since March and
+  unreleased; this package argued for its release on
+  [openmls#2116][om-2116], which 0.9.0 closes. It needs no change here.
 
 - **The out-of-bounds parsing bug is now fixed upstream, not only worked around
   here** (`rust/Cargo.toml`) — [GHSA-rrmv-c79f-cf5r][gh-rrmv] was published on
@@ -197,6 +294,42 @@
   — anyone on 3.44.x or earlier. Both names are ignored together because
   `code_assets 2.0.0` requires `hooks ^2.2.0`. Lift both when the pinned Flutter
   reaches 3.47.0, the first stable that relaxes the pin to `meta: ^1.18.3`.
+
+- **Two guards now bound what the crypto routing may do**
+  (`rust/src/hybrid_crypto.rs`, `.cargo/audit.toml`,
+  `.github/workflows/test-reusable.yml`,
+  `.claude/skills/security-review/SKILL.md`) — both were written before the
+  routing fix and confirmed red against it, so they cover the defect rather than
+  the patch. `libcrux_routing_is_limited_to_xwing` enumerates every supported
+  ciphersuite and requires exactly one to reach libcrux;
+  `openmls_defaults_are_executable_and_nameable` requires every suite OpenMLS
+  advertises by default to be one this provider can run *and* the public enum
+  can name, which is the guard at the source of the drift — that list is what
+  goes on the wire whenever a caller does not pin capabilities.
+  `api_list_matches_provider_support` was also tightened: its second loop used
+  `if let Ok(..)`, so suites the enum could not name were skipped in silence,
+  which is precisely how nine of them went unnoticed. The workflow comment that
+  named a single test by hand is back to the template's wording, which refers to
+  whichever tests a justification cites.
+
+- **`openmls_basic_credential` names the post-quantum feature explicitly**
+  (`rust/Cargo.toml`) — it was reaching the crate only through
+  `openmls/draft-ietf-mls-pq-ciphersuites`, which propagates with `?` and so
+  applies only while `openmls/test-utils` keeps the optional dependency alive.
+  Without it `SignatureKeyPair::new` has no ML-DSA arms and the four ML-DSA
+  ciphersuites cannot build an identity at all — a coupling worth breaking,
+  given there is an open question about dropping `test-utils` from the shipped
+  binary. Feature-only change: `Cargo.lock` and the third-party notices are
+  untouched.
+
+- **The example app's post-quantum tab covers three backend paths instead of
+  one** (`example/lib/demos/post_quantum_demo.dart`) — it now runs the full
+  lifecycle on X-Wing (libcrux), on the ML-KEM-768 + X25519 suite with an
+  ML-DSA-44 signature (RustCrypto, and the suite a routing regression breaks
+  outright), and on a pure ML-KEM-768 suite, after the classical regression
+  check. This tab is the only wasm32 runtime check that exists — no CI gate
+  builds or runs WASM — so it has to be re-run by hand after any change to
+  ciphersuites or crypto routing, and it is now worth more when it is.
 
 - **The upstream-bump checklist records the feature-gate trap**
   (`.claude/skills/update-openmls/SKILL.md`) — a gated ciphersuite variant
@@ -1287,6 +1420,7 @@
 - SECURITY.md: sensitive API table, known limitations, web deployment recommendations, vulnerability reporting via GitHub Security Advisories
 
 [gh-rrmv]: https://github.com/openmls/openmls/security/advisories/GHSA-rrmv-c79f-cf5r
+[om-2116]: https://github.com/openmls/openmls/issues/2116
 [Unreleased]: https://github.com/djx-y-z/openmls_dart/compare/v2.0.1...HEAD
 [2.0.1]: https://github.com/djx-y-z/openmls_dart/compare/v2.0.0...v2.0.1
 [2.0.0]: https://github.com/djx-y-z/openmls_dart/compare/v1.4.2...v2.0.0
