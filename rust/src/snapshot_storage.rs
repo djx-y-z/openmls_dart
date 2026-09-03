@@ -946,6 +946,66 @@ impl OpenMlsProvider for SnapshotOpenMlsProvider {
 mod tests {
     use super::*;
 
+    /// The shipped release profile must not turn panics into aborts.
+    ///
+    /// `panic = "abort"` skips unwinding, so `Drop` never runs and the
+    /// zeroize-on-Drop above — plus the DB key material in `encrypted_db.rs` —
+    /// is silently bypassed, leaving plaintext in memory after any panic.
+    ///
+    /// This has to read the manifest rather than observe a running panic:
+    /// Cargo forces `panic = "unwind"` for the `test` and `bench` profiles and
+    /// rejects the key on per-package overrides, so the setting that actually
+    /// ships is unobservable from inside a test binary.
+    ///
+    /// Native targets only. `wasm32-unknown-unknown` aborts by target default,
+    /// which no profile key changes.
+    #[test]
+    fn release_profile_must_not_abort_on_panic() {
+        let manifest = include_str!("../Cargo.toml");
+        let mut in_release = false;
+        let mut saw_release = false;
+
+        for raw in manifest.lines() {
+            // Strip comments first. The manifest explains this invariant
+            // in prose that names the very key being looked for, and nothing
+            // stops that prose from moving inside the section.
+            let line = raw.split('#').next().unwrap_or_default().trim();
+            if line.is_empty() {
+                continue;
+            }
+            if line.starts_with('[') {
+                // Exact match on purpose. `[profile.release.package.*]` cannot
+                // carry `panic` at all, so it is not this test's business.
+                in_release = line == "[profile.release]";
+                saw_release |= in_release;
+                continue;
+            }
+            if !in_release {
+                continue;
+            }
+            let Some((key, value)) = line.split_once('=') else {
+                continue;
+            };
+            if key.trim() != "panic" {
+                continue;
+            }
+            assert_ne!(
+                value.trim().trim_matches(['"', '\'']),
+                "abort",
+                "[profile.release] sets `panic = \"abort\"`. Remove it: abort \
+                 skips unwinding, so the zeroize-on-Drop of the snapshot \
+                 HashMaps and of the DB key material never runs and plaintext \
+                 key material survives a panic in memory.",
+            );
+        }
+
+        assert!(
+            saw_release,
+            "no `[profile.release]` section in rust/Cargo.toml — this test can \
+             no longer see the profile it is meant to guard.",
+        );
+    }
+
     #[test]
     fn unchanged_snapshot_has_no_updates() {
         let provider =

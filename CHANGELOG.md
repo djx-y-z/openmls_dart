@@ -229,6 +229,18 @@
   build-time proc-macro — verified by deleting the entries and re-running the
   gates rather than by reading version numbers.
 
+- **A panic on the web skips the zeroize that a native panic still performs**
+  (`SECURITY.md`) — `wasm32-unknown-unknown` compiles with `panic = "abort"` by
+  target default, so a Rust panic there traps the WebAssembly instance instead
+  of unwinding and no destructor runs: the snapshot's plaintext `HashMap`s and
+  the database key material are left in the module's linear memory until the
+  page drops it. Native builds unwind and do zeroize — `[profile.release]`
+  deliberately carries no `panic` key — so the hole is web-only and opens only
+  on the panic path; ordinary operation zeroizes on both platforms. Nothing in
+  the shipped package changed: the property was always this way and is now
+  written down, as Known Limitation 12, because a web deployment's threat model
+  depends on it.
+
 #### Fixed
 
 - **`RustLib.init()` threw for anyone who resolved this package after
@@ -298,7 +310,32 @@
 
 ### For Contributors
 
+#### Added
+
+- **A test now guards the release profile's panic strategy**
+  (`rust/src/snapshot_storage.rs`, `rust/Cargo.toml`) — the *absence* of a
+  `panic` key in `[profile.release]` is load-bearing: `panic = "abort"` would
+  skip unwinding, so `Drop` would never run and the zeroize of both snapshot
+  `HashMap`s and of the database key material would be silently bypassed,
+  leaving plaintext key material in memory after any panic. Nothing in the tree
+  recorded that, let alone enforced it. It cannot be checked at runtime —
+  Cargo forces unwind for the `test` and `bench` profiles and rejects the key
+  on per-package overrides, so the setting that actually ships is invisible
+  from inside a test binary — so the test reads the manifest instead. It goes
+  red on `panic = "abort"` in either TOML string form, and on the section
+  being renamed away, so it cannot rot into a no-op.
+
 #### Changed
+
+- **The `unsafe_code = "deny"` comment named an opt-out that does not exist**
+  (`rust/Cargo.toml`, `rust/src/lib.rs`) — both copies listed
+  `snapshot_storage`'s "interior-mutability shim" as one of three modules
+  opting out of the deny, but that module contains no `unsafe` at all. There
+  are two opt-outs: the FRB-generated bridge and `encrypted_db`'s WASM `unsafe
+  impl Send + Sync`. The parenthetical claiming both go through a module-level
+  `#![allow(unsafe_code)]` was wrong too — the bridge carries an item-level
+  `#[allow]`. `SECURITY.md`'s own count was already right, which is how the
+  drift stayed invisible.
 
 - **MSRV 1.89 → 1.91** (`rust/Cargo.toml`) — required by openmls 0.9.0, whose
   workspace declares it. The 1.89 floor was ours, chosen for

@@ -76,6 +76,16 @@ web-sys = { version = "0.3", features = [
     "AesGcmParams",
 ] }
 
+# The absence of a `panic` key is load-bearing. `panic = "abort"` skips
+# unwinding, so `Drop` never runs: the zeroize-on-Drop of the snapshot HashMaps
+# (`snapshot_storage.rs`) and of the DB key material (`encrypted_db.rs`) would
+# be silently bypassed, leaving plaintext key material in memory after a panic.
+# Enforced by `release_profile_must_not_abort_on_panic` in `snapshot_storage.rs`,
+# which reads this file: Cargo forces unwind for the `test`/`bench` profiles, so
+# no running test can observe the setting that actually ships. A
+# `-Cpanic=abort` in RUSTFLAGS would bypass that test — do not add one.
+# Native targets only. `wasm32-unknown-unknown` aborts by target default and no
+# key here changes that; on the web the zeroize is skipped after a panic.
 [profile.release]
 lto = true
 opt-level = "z"
@@ -92,8 +102,8 @@ overflow-checks = true
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ["cfg(frb_expand)"] }
-# Hand-written code denies unsafe by default. The few modules that legitimately
-# need it opt out explicitly: the FRB-generated bridge (#[allow] in lib.rs),
-# snapshot_storage's interior-mutability shim, and encrypted_db's WASM
-# `unsafe impl Send + Sync` (both via module-level #![allow(unsafe_code)]).
+# Hand-written code denies unsafe by default. Exactly two places opt out, each
+# with its own attribute: the FRB-generated bridge (`#[allow(unsafe_code)]` on
+# `mod frb_generated` in lib.rs) and encrypted_db's WASM `unsafe impl Send +
+# Sync` (module-level `#![allow(unsafe_code)]`).
 unsafe_code = "deny"

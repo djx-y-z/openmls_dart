@@ -333,6 +333,8 @@ Since `crypto.subtle` protects the key but not the plaintext at the API boundary
 
 11. **Web Crypto plaintext visibility:** On WASM, while the encryption key is protected as a non-extractable `CryptoKey`, plaintext is briefly visible during `crypto.subtle.encrypt/decrypt` calls. An attacker with XSS could monkey-patch these methods. Mitigate with strict CSP headers (see [Web Deployment Recommendations](#web-deployment-recommendations)).
 
+12. **Panics skip zeroization on the web:** `wasm32-unknown-unknown` compiles with `panic = "abort"` by target default, and the release profile does not override it. A Rust panic there traps the WebAssembly instance instead of unwinding, so destructors never run and the zeroize-on-Drop a native build still performs — the snapshot's plaintext `HashMap`s and the database key material — is skipped, leaving that plaintext in the module's linear memory until the page drops it (typically a reload). Native targets unwind: `[profile.release]` deliberately carries no `panic` key, and a test asserts it stays that way. Ordinary, non-panicking operation zeroizes on both platforms; this gap opens only on the panic path.
+
 ## Code Review Security Checklist
 
 When reviewing code changes, verify:
