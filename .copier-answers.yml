@@ -1,4 +1,4 @@
-_commit: v4.6.0
+_commit: v4.7.0
 _src_path: https://github.com/djx-y-z/copier-dart-frb-wrapper.git
 android_compile_sdk: '36'
 android_gradle_version: 8.11.1
@@ -11,6 +11,7 @@ dart_sdk_version: ^3.10.0
 description: Dart wrapper for OpenMLS — a Rust implementation of the Messaging Layer
     Security (MLS) protocol (RFC 9420)
 enable_claude: true
+enable_freezed: false
 enable_fuzzing: true
 enable_protoc: false
 enable_web: true
@@ -25,7 +26,7 @@ native_library_name: openmls
 native_repo: openmls/openmls
 package_name: openmls
 rust_edition: '2024'
-rust_version: '1.89'
+rust_version: '1.91'
 topics: mls,encryption,messaging,e2ee,rust
 upstream_crates: openmls,openmls_rust_crypto,openmls_basic_credential,openmls_traits,openmls_libcrux_crypto
 upstream_version: openmls-v0.9.0

@@ -44,10 +44,53 @@ make build-android ARGS="--target arm64-v8a"  # Build for specific Android ABI
 make build-web                          # Build WASM for web
 ```
 
+### Web
+
+```bash
+make test-web                     # Browser suite: headless Chrome, real DOM APIs
+make test-web CHROMEDRIVER=/path/to/chromedriver   # pin the driver (see below)
+make test-web ARGS="--release"    # release profile, when the suite gets slow
+make test-web ARGS="-- --nocapture"                # show console::log output
+```
+
+`make test-web` is the **only** command here that EXECUTES web code. `make test`
+is the Dart VM and `make build-web` only compiles, so without it every
+`cfg(target_arch = "wasm32")` branch in the crate is covered by nothing — and
+those branches are exactly the ones nothing else can reach, because a wasm32
+body is a *different implementation* of the same function rather than the same
+code on another host.
+
+⚠ **Pin chromedriver.** wasm-pack looks for one on `$PATH`, honours
+`--chromedriver`, and otherwise DOWNLOADS THE LATEST — an unpinned network
+fetch on every run. The `CHROMEDRIVER` **environment variable is not honoured**
+— wasm-pack overwrites it with its own — hence the make variable, which becomes
+the flag. CI resolves the runner image's preinstalled driver and fails closed if
+there is none.
+
+⚠ **That pins the DRIVER and not the BROWSER, and a green run is no evidence
+otherwise.** With no `webdriver.json` and no `WASM_BINDGEN_TEST_WEBDRIVER_JSON`,
+the test runner sends empty capabilities and ChromeDriver launches whatever
+Chrome is installed. To pin it, point that variable at a file carrying
+`{"goog:chromeOptions": {"binary": "<browser path>"}}`; the run then prints `Ok`
+instead of `Not found` under "Try find webdriver.json". `Ok` alone only proves
+the file was READ — check that a deliberately bad path fails, or the pin may be
+parsed and dropped.
+
+⚠ **A mismatched driver does not necessarily fail loudly**, so "it went green"
+does not mean the driver matched the browser.
+
+⚠ **`WASM_BINDGEN_TEST_TIMEOUT` is raised to 120 s in the Makefile.** The
+browser runs every test on one JS thread, so a test that blocks it starves the
+callbacks every concurrently-driven test is waiting on. The failure that
+produces names whichever test was scheduled LAST rather than the slow one, so it
+reads as a hang somewhere unrelated.
+
 ### Rust Quality
 ```bash
 make rust-check                   # Check Rust code compiles
 make rust-clippy                  # Lint Rust code with clippy (warnings = errors)
+make rust-doc                     # Rustdoc GATE: intra-doc links, -D warnings
+make rust-geiger                  # Unsafe-expression census (DIAGNOSTIC, not gated)
 make rust-audit                   # Audit Rust dependencies for vulnerabilities
 make rust-deny                    # Check advisories/licenses/sources (cargo-deny)
 ```
@@ -69,8 +112,28 @@ make analyze                             # Run static analysis
 make analyze ARGS="--fatal-infos"        # Strict analysis
 make format                              # Format Dart code
 make format-check                        # Check formatting without changes
-make doc                                 # Generate documentation
+make doc                                 # Generate documentation (FAILS on unresolved doc refs)
 ```
+
+**`make doc` is a gate, not just a generator.** `dartdoc_options.yaml` promotes
+`unresolved-doc-reference` to an error, so the target exits non-zero when a
+docstring references a symbol dartdoc cannot resolve, and CI runs it. This
+matters because `lib/src/rust/` is generated from the Rust docstrings in
+`rust/src/api/`: a Rust intra-doc reference (``[`Type::method`]``) is copied
+verbatim and reaches pub.dev as a dead link. Write references to the Dart
+surface in **plain backticks with the Dart camelCase name**.
+
+⚠ The gate cannot see a *wrong* name: plain backticks resolve nothing, so they
+never warn. It proves every `[...]` reference points at a real symbol, not that
+the prose names the right one.
+
+`make rust-doc` is the counterpart for the Rust side — the intra-doc links in
+the parts of `rust/src/` that stay in Rust, which `make doc` cannot see. It is
+also a gate (`RUSTDOCFLAGS=-D warnings`), and CI runs it.
+
+`dartdoc_options.yaml` is `.pubignore`d on purpose — pub.dev runs dartdoc itself
+and would honour the same promotion, which could break documentation generation
+for an already-published version.
 
 ### Utilities
 ```bash

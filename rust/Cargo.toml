@@ -60,11 +60,26 @@ rusqlite = { version = "0.37", features = ["bundled-sqlcipher-vendored-openssl"]
 # OpenMLS requires `js` feature for WASM: enables fluvio_wasm_timer for time access
 # Cargo merges features from [dependencies] and [target.*.dependencies]
 openmls = { git = "https://github.com/openmls/openmls", tag = "openmls-v0.9.0", features = ["js"] }
-# Diamond dependency: some upstream crates use getrandom 0.2, some use 0.3
-# Both need to be configured for WASM to work correctly
+# getrandom refuses to compile for wasm32-unknown-unknown until its browser
+# backend is selected by name, and three majors coexist in a modern Rust crypto
+# graph. Cargo unions features per package version and per target, so declaring
+# each here is what turns the backend on for every crate that reaches it on the
+# Web, and changes nothing for the native builds.
+#
+# 0.4 is the one that is easy to miss. The RustCrypto stack reaches it through
+# aead 0.6 -> crypto-common, which declares it with NO target cfg, so it is
+# compiled for wasm32 as well — and a `--cfg getrandom_backend="wasm_js"` in
+# .cargo/config.toml does NOT cover it: 0.4 does not recognise that value and
+# selects its backend from the feature alone. Here it arrives a second way too,
+# through openmls_libcrux_crypto via rand 0.10 (hpke-rs-libcrux).
+#
+# Getting it wrong is loud rather than silently weak: getrandom `compile_error!`s
+# when it has no backend for this target, so `make build-web` fails closed.
+# If one of these is genuinely unreachable, `cargo tree --target
+# wasm32-unknown-unknown -i getrandom@<version>` says so — the declaration is
+# then the only thing holding it in the graph and can be dropped.
 getrandom_02 = { package = "getrandom", version = "0.2", features = ["js"] }
 getrandom = { version = "0.3", features = ["wasm_js"] }
-# openmls_libcrux_crypto pulls getrandom 0.4 via rand 0.10 (hpke-rs-libcrux)
 getrandom_04 = { package = "getrandom", version = "0.4", features = ["wasm_js"] }
 idb = "0.6"
 wasm-bindgen = "0.2"
@@ -76,16 +91,34 @@ web-sys = { version = "0.3", features = [
     "AesGcmParams",
 ] }
 
-# The absence of a `panic` key is load-bearing. `panic = "abort"` skips
-# unwinding, so `Drop` never runs: the zeroize-on-Drop of the snapshot HashMaps
-# (`snapshot_storage.rs`) and of the DB key material (`encrypted_db.rs`) would
-# be silently bypassed, leaving plaintext key material in memory after a panic.
+[target.'cfg(target_arch = "wasm32")'.dev-dependencies]
+# The browser harness `make test-web` drives. Target-gated so a native
+# `cargo test` does not build a browser harness it can never run.
+#
+# ⚠ This is NOT visible to the third-party notices gate, and does not need to
+# be: `make third-party-notices` runs `cargo tree --edges normal,build`, which
+# excludes EVERY dev-dependency on every target, gated or not.
+wasm-bindgen-test = "0.3"
+
+# ⚠ The absence of a `panic` key here is load-bearing. Adding
+# `panic = "abort"` would trade a small binary saving for skipping unwinding
+# altogether, and unwinding is what runs `Drop` — so every zeroize-on-Drop in
+# this crate would silently stop happening on the one path where it matters
+# most, a failure in the middle of an operation holding key material. Nothing
+# would fail; the wipe would just not occur. The same applies to
+# `-Cpanic=abort` in RUSTFLAGS, which bypasses this file entirely.
+#
 # Enforced by `release_profile_must_not_abort_on_panic` in `snapshot_storage.rs`,
-# which reads this file: Cargo forces unwind for the `test`/`bench` profiles, so
-# no running test can observe the setting that actually ships. A
-# `-Cpanic=abort` in RUSTFLAGS would bypass that test — do not add one.
-# Native targets only. `wasm32-unknown-unknown` aborts by target default and no
-# key here changes that; on the web the zeroize is skipped after a panic.
+# which reads this file rather than the profile it runs under: Cargo forces
+# unwind for `test`/`bench`, so no running test can observe the setting that
+# actually ships.
+#
+# It is a native-target statement only: `wasm32-unknown-unknown` aborts on
+# panic by default (`rustc --print cfg --target wasm32-unknown-unknown` says
+# `panic="abort"`), and no profile key changes that — a panic traps the module,
+# destructors do not run, and anything held in linear memory stays there until
+# the page is reloaded. Say so in SECURITY.md rather than assuming the profile
+# covers it.
 [profile.release]
 lto = true
 opt-level = "z"

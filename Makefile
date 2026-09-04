@@ -8,7 +8,7 @@
 # On Windows CI (Git Bash), use cmd to run fvm.bat from PATH:
 # Example: make build ARGS="--target x86_64-pc-windows-msvc" FVM="cmd //c fvm"
 
-.PHONY: help setup setup-fvm setup-rust-tools setup-frb-codegen setup-android setup-web setup-fuzz codegen regen build build-android build-web test coverage analyze format format-check get clean version get-version check-new-openmls-version check-exists-openmls-frb-release check-template-updates update-template check-targets third-party-notices verify-third-party-notices verify-frb-pins rust-audit rust-deny rust-check rust-test rust-clippy fuzz fuzz-list fuzz-seed doc publish publish-dry-run rust-update update-changelog release-frb release setup-repo-protections
+.PHONY: help setup setup-fvm setup-rust-tools setup-frb-codegen setup-android setup-web setup-fuzz codegen regen build build-android build-web run-example-web test-web test coverage analyze format format-check get clean version get-version check-new-openmls-version check-exists-openmls-frb-release check-template-updates update-template check-targets third-party-notices verify-third-party-notices verify-frb-pins rust-audit rust-deny rust-check rust-test rust-clippy rust-doc rust-geiger fuzz fuzz-list fuzz-seed doc publish publish-dry-run rust-update update-changelog release-frb release setup-repo-protections
 
 # FVM command - can be overridden to provide full path on Windows CI
 FVM ?= fvm
@@ -51,6 +51,8 @@ help:
 	@echo "    make build-android                - Build for Android (all ABIs)"
 	@echo "                                        Example: make build-android ARGS=\"--target arm64-v8a\""
 	@echo "    make build-web                    - Build WASM for web platform"
+	@echo "    make run-example-web              - Build WASM and run example/ in Chrome"
+	@echo "                                        Example: make run-example-web ARGS=\"--web-port=5599\""
 	@echo ""
 	@echo "  CI / VERSION CHECKS"
 	@echo "    make check-new-openmls-version  - Check for new upstream openmls version"
@@ -71,7 +73,11 @@ help:
 	@echo "  RUST QUALITY"
 	@echo "    make rust-check                   - Check Rust code compiles"
 	@echo "    make rust-test                    - Run Rust unit tests"
+	@echo "    make test-web                     - Run the crate's browser tests (headless Chrome)"
+	@echo "                                        Example: make test-web CHROMEDRIVER=/path/to/chromedriver"
 	@echo "    make rust-clippy                  - Lint Rust code with clippy (warnings = errors)"
+	@echo "    make rust-doc                     - Rustdoc gate over the crate (-D warnings)"
+	@echo "    make rust-geiger                  - Unsafe-expression census (diagnostic, not a gate)"
 	@echo "    make rust-audit                   - Audit Rust dependencies for vulnerabilities"
 	@echo "    make rust-deny                    - Check advisories/licenses/sources (cargo-deny)"
 	@echo ""
@@ -89,7 +95,7 @@ help:
 	@echo "                                        Example: make analyze ARGS=\"--fatal-infos\""
 	@echo "    make format                       - Format Dart code"
 	@echo "    make format-check                 - Check Dart code formatting"
-	@echo "    make doc                          - Generate API documentation"
+	@echo "    make doc                          - Generate API docs (GATE: fails on unresolved refs)"
 	@echo ""
 	@echo "  RELEASE"
 	@echo "    make release-frb                  - Release openmls_frb native crate (stage 1)"
@@ -142,7 +148,7 @@ setup-rust-tools:
 	@echo "Installing Rust tools..."
 	@if ! command -v cargo-audit >/dev/null 2>&1; then \
 		echo "Installing cargo-audit..."; \
-		cargo install cargo-audit; \
+		cargo install cargo-audit --locked; \
 	else \
 		echo "cargo-audit already installed"; \
 	fi
@@ -224,6 +230,13 @@ regen: codegen
 # Build
 # =============================================================================
 
+# ⚠ Deliberately NOT `--locked`, unlike the release workflow. A project
+# generated from this template has no rust/Cargo.lock until something builds it
+# for the first time — copier's tasks do not create one — and this target is
+# what `test-reusable.yml` runs on every push, so `--locked` here would fail a
+# new project's very first CI run on all four platforms. The reproducibility
+# claim belongs where the shipped artifact is produced, and that is where the
+# flag is. Once your Cargo.lock is committed, adding it here is a good idea.
 build:
 	@echo "Building Rust library..."
 	cargo build --release --manifest-path rust/Cargo.toml $(ARGS)
@@ -243,6 +256,80 @@ build-web:
 	@rm -f rust/target/wasm32/.gitignore rust/target/wasm32/package.json
 	@echo ""
 	@echo "Build complete! WASM files at: rust/target/wasm32/"
+
+# Run the example app in a browser against a freshly built WASM module.
+#
+# The order is the whole point, and each step is there because skipping it has
+# a failure mode:
+#
+#   1. `make build-web` first, because nothing else in this repository compiles
+#      wasm32 on demand — running the app without it serves whatever was built
+#      last, which can be a different commit's Rust.
+#   2. `rm -rf example/web/pkg` next. The build hook prefers a local wasm build
+#      over a downloaded one and declares the built files as dependencies, so
+#      it *should* refresh on its own; the wipe costs nothing and removes the
+#      case where a stale copy is served and the failure looks like a Rust bug.
+#   3. `flutter run -d chrome` last, and NOT `--wasm`: that flag compiles the
+#      Dart half with dart2wasm, which flutter_rust_bridge's generated decoders
+#      do not support. The Rust side is a wasm module either way.
+#
+# Pass flutter arguments through ARGS, e.g. ARGS="--web-port=5599".
+run-example-web: build-web
+	@rm -rf example/web/pkg
+	cd example && $(FVM) flutter run -d chrome $(ARGS)
+
+# The wasm32 test runner's own timeout defaults to 20 s, and it is raised here
+# rather than when it first bites. The browser runs every test on ONE JS
+# thread, so a test that blocks it — a key derivation, a password hash, any
+# CPU-bound synchronous work — starves the callbacks that every other
+# concurrently-driven test is waiting on: the suite is charged for its slowest
+# member instead of each test being timed on its own. The resulting failure is
+# actively misleading. The runner names whichever test was scheduled LAST, not
+# the slow one, and then SIGKILLs the driver with every other test already
+# green, so it reads as a hang in an unrelated test.
+#
+# Unlike CHROMEDRIVER below, this variable IS honoured from the environment, so
+# `?=` lets a caller override it.
+WASM_BINDGEN_TEST_TIMEOUT ?= 120
+export WASM_BINDGEN_TEST_TIMEOUT
+
+# Run the crate's #[wasm_bindgen_test] tests in a real headless browser.
+#
+# THE ONLY TARGET HERE THAT EXECUTES WEB CODE. `make test` is the Dart VM and
+# `make build-web` only compiles, so without this every
+# `cfg(target_arch = "wasm32")` branch in the crate is reachable by no check at
+# all. Those branches are precisely the ones nothing else can cover: a wasm32
+# body is a *different implementation* of the same function rather than the
+# same code running on another host, so a green native suite says nothing about
+# it. `current_time()` in rust/src/utils.rs is the scaffold's example — native
+# reads the system clock, wasm32 calls into JavaScript.
+#
+# ⚠ Pass a chromedriver. wasm-pack looks for one on $$PATH, honours
+# `--chromedriver`, and otherwise DOWNLOADS THE LATEST — an unpinned network
+# fetch on every run. That, and not a version mismatch, is the reason to pin:
+# a mismatched driver is not known to fail loudly, so a green run is no
+# evidence the driver matched the browser. The CHROMEDRIVER *environment*
+# variable is NOT honoured — wasm-pack overwrites it with its own — which is
+# why this is a make variable that becomes the flag:
+#   make test-web CHROMEDRIVER=/path/to/chromedriver
+#
+# ⚠ And that pins the DRIVER, not the BROWSER. With no `webdriver.json` and no
+# WASM_BINDGEN_TEST_WEBDRIVER_JSON, the runner sends empty capabilities and
+# ChromeDriver launches whatever Chrome is installed. To pin the browser, point
+# WASM_BINDGEN_TEST_WEBDRIVER_JSON at a file carrying
+# {"goog:chromeOptions": {"binary": "<path to the browser>"}}. The run then
+# prints `Ok` instead of `Not found` under "Try find webdriver.json", which is
+# the only line in the log saying a browser pin applied at all — and `Ok` alone
+# only proves the file was READ, so check a deliberately bad path fails too.
+#
+# ⚠ `console::log_1` output is swallowed unless the run is given --nocapture,
+# so a measurement printed from a test is invisible by default:
+#   make test-web ARGS="-- --nocapture"
+# Debug wasm is far slower than a native debug build; ARGS="--release" is the
+# lever when the suite gets slow.
+test-web:
+	cd rust && wasm-pack test --headless --chrome \
+		$(if $(CHROMEDRIVER),--chromedriver "$(CHROMEDRIVER)",) --lib $(ARGS)
 # =============================================================================
 # Rust Quality
 # =============================================================================
@@ -263,6 +350,76 @@ rust-test:
 # `cd rust/fuzz && cargo +nightly clippy`.
 rust-clippy:
 	cargo clippy --manifest-path rust/Cargo.toml --all-targets -- -D warnings
+
+# Rustdoc over the hand-written crate, and a GATE: it fails the build on a
+# broken intra-doc link rather than reporting one.
+#
+# What it covers is the half `make doc` structurally cannot see: the `[...]`
+# links in the parts of rust/src/ that stay in Rust — private items, `//!`
+# module headers, anything not copied out to Dart — where that link syntax is
+# correct style and nothing else reads it. It is NOT the guard for the shipped
+# documentation. Only docstrings under rust/src/api/ are copied verbatim into
+# lib/src/rust/ and published, and there the failure is the opposite one: a
+# link that resolves in Rust and reaches pub.dev dead. `make doc` plus the
+# plain-backtick rule in CLAUDE.md is what covers that half.
+#
+# ⚠ EVERY FLAG BELOW IS LOAD-BEARING. Drop one and this target reports 0 over a
+# surface it never read — which is worse than not having it, because the zero
+# reads as evidence.
+#
+# --document-private-items, because rustdoc resolves intra-doc links only in
+# the items it is DOCUMENTING. A private `mod` is not documented by default, so
+# without this every private module's links go unchecked while the count stays
+# at 0. Note that a link to a private item is not nameable across modules even
+# with this flag; plain backticks plus prose naming the file is the honest form
+# there.
+#
+# RUSTDOCFLAGS=-D warnings, because `cargo doc` exits 0 on warnings. A
+# diagnostic nobody reads and a gate that cannot fail are the same thing.
+#
+# --no-deps keeps the output to this crate.
+#
+# The wasm32 leg, because `cfg(target_arch = "wasm32")` modules are invisible to
+# the host run: each leg documents a tree the other cannot compile, so one run
+# checks only half the crate.
+#
+# ⚠ Both legs run with `cd rust`, NOT --manifest-path. Cargo discovers
+# .cargo/config.toml relative to the CWD, so invoking this from the repository
+# root silently drops rust/.cargo/config.toml — the file carrying the wasm32
+# rustflags — and the wasm32 leg is then built without the configuration the
+# crate expects.
+rust-doc:
+	cd rust && RUSTDOCFLAGS="-D warnings" cargo doc --no-deps \
+		--document-private-items $(ARGS)
+	cd rust && RUSTDOCFLAGS="-D warnings" cargo doc --no-deps \
+		--document-private-items --target wasm32-unknown-unknown $(ARGS)
+
+# cargo-geiger's census of memory-unsafe expressions across the dependency
+# graph. DIAGNOSTIC ONLY — deliberately wired into no workflow, for the two
+# reasons below. No setup target installs it: `cargo install cargo-geiger`.
+#
+# Reading the number: this crate denies unsafe in hand-written code
+# (`[lints.rust] unsafe_code = "deny"`), and the FRB-generated module opts out
+# at its declaration in rust/src/lib.rs. So a non-zero count for this crate
+# itself is generated code, and everything below it is upstream. Compare a run
+# against a baseline recorded when the graph last moved, never against 0.
+#
+# ⚠ Why it is not a gate as it stands:
+#
+#   1. IT EXITS NON-ZERO ON A CLEAN RUN. cargo-geiger 0.13 ends with
+#      "error: Found N warnings" where every one is
+#      "Dependency file was never scanned:" for a non-Rust file it was handed
+#      anyway — READMEs, .proto, .c. Nothing to do with unsafe code. A gate
+#      would have to filter that before its exit code meant anything.
+#   2. The count is not this project's to hold still. The generated bridge
+#      dominates it, and every `make codegen` and every FRB bump rewrites that
+#      file.
+#
+# `$(CURDIR)` is not decoration: cargo-geiger 0.13 refuses a relative
+# --manifest-path outright ("is not an absolute path"), unlike every other
+# cargo subcommand this Makefile drives.
+rust-geiger:
+	cargo geiger --manifest-path $(CURDIR)/rust/Cargo.toml $(ARGS)
 
 rust-audit:
 	cargo audit --file rust/Cargo.lock
@@ -376,9 +533,25 @@ release:
 test:
 	$(FVM) dart test $(ARGS)
 
+# The number this prints is coverage of the code somebody in this repository
+# WROTE. Everything under lib/src/rust/ is emitted by `make codegen` — that is
+# `dart_output` in flutter_rust_bridge.yaml — and is excluded, not just the
+# frb_generated* files: the rest of that directory is the same generator's
+# output one layer up, and what goes uncovered in it is almost all `hashCode`
+# and `operator ==` on value classes. Including it lets a codegen run move the
+# badge with nobody having written a line, which is noise a coverage gate is
+# supposed to not have.
+#
+# `--ignore-files` is an addMultiOption, so repeat it (or comma-join it) for
+# more than one glob. Do NOT "normalise" the second glob to
+# `**/lib/src/rust/**`: a glob starting with `**` cannot match an absolute path
+# (glob's DoubleStarNode is canMatchAbsolute = false), so it is tested only
+# against the CWD-relative path, in which nothing precedes `lib` — it silently
+# matches nothing and the ignore quietly stops working. This form is anchored to
+# the repository root, which is where make runs it.
 coverage:
 	$(FVM) dart test --coverage=coverage
-	$(FVM) dart run coverage:format_coverage --check-ignore --lcov --in=coverage --out=coverage/lcov.info --report-on=lib --ignore-files '**/frb_generated*.dart'
+	$(FVM) dart run coverage:format_coverage --check-ignore --lcov --in=coverage --out=coverage/lcov.info --report-on=lib --ignore-files '**/frb_generated*.dart' --ignore-files 'lib/src/rust/**'
 	lcov --summary coverage/lcov.info
 
 analyze:
@@ -396,6 +569,10 @@ format:
 format-check:
 	$(FVM) dart format --output=none --set-exit-if-changed . $(ARGS)
 
+# A GATE, not just a generator: dartdoc_options.yaml promotes
+# `unresolved-doc-reference` to an error, so this exits non-zero on a docstring
+# that names a symbol dartdoc cannot resolve. That file carries the reasoning
+# and the one thing the gate cannot see.
 doc:
 	@touch .skip_openmls_hook
 	@rm -rf doc; $(FVM) dart doc $(ARGS); ret=$$?; rm -f .skip_openmls_hook; exit $$ret

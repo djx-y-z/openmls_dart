@@ -383,7 +383,11 @@ This package wraps OpenMLS. For security issues in the underlying library:
 If you discover a security vulnerability, please report it responsibly:
 
 1. **Do NOT** open a public GitHub issue for security vulnerabilities
-2. Use [GitHub's private vulnerability reporting](https://github.com/djx-y-z/openmls_dart/security/advisories/new) to report the issue
+2. Use [GitHub's private vulnerability reporting](https://github.com/djx-y-z/openmls_dart/security/advisories/new)
+   — it opens a draft advisory only the maintainers can see, and it is the one
+   channel that needs no contact details published anywhere. It has to be
+   enabled once per repository (Settings → Security → Private vulnerability
+   reporting) before that link works for outside reporters.
 3. Include as much detail as possible:
    - Description of the vulnerability
    - Steps to reproduce

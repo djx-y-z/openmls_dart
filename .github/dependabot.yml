@@ -29,29 +29,6 @@ updates:
       # Bumped manually during security backports.
       - dependency-name: "dtolnay/rust-toolchain"
 
-      # TEMPORARY, and the condition for removing it is precise: setup-dart
-      # 1.8.0 added a problem matcher for `dart analyze` and registers it with
-      # `::add-matcher::dart-analyzer.json`. That path resolves against the
-      # *calling* action's directory, and this repository calls setup-dart from
-      # inside its own composite action, so the runner looks for the file in
-      # .github/actions/setup-fvm/ and fails the job 14 seconds in, before
-      # anything is built:
-      #
-      #   ##[error]Could not find file '.../setup-fvm/dart-analyzer.json'
-      #
-      # Only the 1.8 line is ignored, so 1.9.0 arrives for evaluation rather
-      # than this freezing the action. Delete this entry once a release fixes
-      # the path; 1.8.1 (the latest at the time of writing) does not.
-      #
-      # Worth knowing what the bump is actually worth here: setup-dart exists
-      # in this action only to provide a `dart` binary for the next line,
-      # `dart pub global activate fvm`. Everything that builds and tests the
-      # project comes from the FVM-pinned SDK, so this bump changes no version
-      # that reaches the code.
-      - dependency-name: "dart-lang/setup-dart"
-        versions:
-          - "1.8.x"
-
   # The published package's own constraints — the ones that reach a consumer's
   # resolver. Watching them is the lesson of a real incident: a caret on
   # `flutter_rust_bridge` let a new minor into the published archive with nobody
@@ -106,35 +83,42 @@ updates:
       # `make setup-frb-codegen` + `make codegen` is the procedure.
       - dependency-name: "flutter_rust_bridge"
 
-      # hooks 2.x and code_assets 2.x are blocked by the pinned Flutter SDK, not
-      # by this repository's code. `hook/build.dart` needs a zero-line diff: it
-      # uses only `build()`, `BuildInput` and `BuildOutputBuilder`, and hooks
-      # 2.0.0's one breaking change (`ProtocolExtension` from interface to base
-      # class) touches none of them.
+      # The build-hook protocol packages. `hook/build.dart` itself needs a
+      # zero-line diff — it uses only `build()`, `BuildInput` and
+      # `BuildOutputBuilder`, and hooks 2.0.0's one breaking change
+      # (`ProtocolExtension` from interface to base class) touches none of them.
       #
-      # It is a resolver failure. hooks >= 2.1.0 pulls `record_use ^1.0.0`,
-      # which needs `meta ^1.19.0`, and Flutter 3.38.4 pins `meta: 1.17.0`
-      # exactly (packages/flutter/pubspec.yaml). The first stable release to
-      # relax that to `meta: ^1.18.3` is 3.47.0.
+      # Majors are blocked by the pinned Flutter SDK rather than by anything in
+      # this repository, so the pull request cannot be merged and cannot be
+      # fixed here either: hooks >= 2.1.0 pulls
+      # `record_use ^1.0.0`, which needs `meta ^1.19.0`, while Flutter
+      # 3.38.4 pins `meta: 1.17.0` exactly (packages/flutter/pubspec.yaml). The
+      # first stable SDK to relax that is 3.47.0.
       #
-      # The reason to ignore rather than merge and fix is that the damage is not
-      # ours: the root package resolves fine because it has no `flutter: sdk`
-      # dependency, so this breaks `example/` and every Flutter *consumer* on an
-      # SDK that pins meta below 1.19.0 — anyone on 3.44.x or earlier — while
-      # our own CI would look merely red. code_assets 2.0.0 requires
-      # hooks ^2.2.0, so the two only move together and ignoring one without the
-      # other just changes which pull request arrives.
+      # Ignoring rather than merging-and-fixing, because the damage is not
+      # local: the root package resolves fine — it has no `flutter: sdk`
+      # dependency — so a bump breaks `example/` and every Flutter *consumer* on
+      # an SDK that pins meta below 1.19.0, while this repository's own CI looks
+      # merely red. code_assets 2.0.0 requires hooks ^2.2.0, so the two move
+      # together and ignoring one alone only changes which pull request arrives.
       #
-      # Lift both when .fvmrc moves to Flutter >= 3.47.0. The constraints in
-      # pubspec.yaml already say the same thing ("Majors (hooks 2.x,
-      # code_assets 2.x) are a deliberate migration, not a bump"); this is what
-      # stops Dependabot proposing that migration once a week in the meantime.
+      # ⚠ Written as `update-types` rather than `versions: ["2.x"]` on purpose.
+      # A wildcard is not a version requirement: this template already shipped
+      # `versions: ["1.8.x"]` for a GitHub Action, and Dependabot parsed it
+      # through `Gem::Requirement`, which has no wildcard expansion — the entry
+      # matched nothing at all and the bot went on proposing the bump while the
+      # ignore sat in the file looking like protection. `update-types` needs no
+      # parsing of a version string and says what is meant: no majors.
+      #
+      # Lift when .fvmrc moves to Flutter >= 3.47.0. pubspec.yaml says the same
+      # thing in its own comment ("Majors are a deliberate migration, not a
+      # bump"); this is what stops the proposal arriving weekly in the meantime.
       - dependency-name: "hooks"
-        versions:
-          - "2.x"
+        update-types:
+          - "version-update:semver-major"
       - dependency-name: "code_assets"
-        versions:
-          - "2.x"
+        update-types:
+          - "version-update:semver-major"
 
   # The native crate's dependencies. These are compiled into the binary the
   # build hook downloads, so a vulnerable transitive crate reaches consumers as

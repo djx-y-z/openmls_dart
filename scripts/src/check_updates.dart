@@ -211,6 +211,30 @@ Future<Map<String, dynamic>> _fetchLatestRelease() async {
   return jsonDecode(body) as Map<String, dynamic>;
 }
 
+/// Rewrites the upstream version badge in [readmeContent] to [newVersion].
+///
+/// [newVersion] is the raw upstream tag — the value every *other* substitution
+/// in [updateVersionFiles] needs, because `rust/Cargo.toml`, `CLAUDE.md` and
+/// `.copier-answers.yml` all record a tag. The badge is the one consumer that
+/// must not have it: it displays a version, and the library name is already in
+/// the badge text, so writing the tag verbatim renders the prefix twice —
+/// `badge/openmls-openmls-v1.2.3`. It is
+/// normalised here and nowhere else.
+///
+/// A leading `v` is kept exactly as the badge already spells it, and content
+/// with no badge comes back unchanged.
+String updateReadmeBadge(String readmeContent, String newVersion) {
+  // [![name](https://img.shields.io/badge/name-vX.Y.Z-orange.svg)]
+  final badgePattern = RegExp(
+    r'(\[!\[openmls\]\(https://img\.shields\.io/badge/openmls-)(v?)[0-9]+\.[0-9]+\.[0-9]+[^)]*(-orange\.svg\)\])',
+  );
+  final version = _normalizeVersion(newVersion);
+  return readmeContent.replaceAllMapped(
+    badgePattern,
+    (m) => '${m.group(1)}${m.group(2)}$version${m.group(3)}',
+  );
+}
+
 /// Update upstream version in all relevant files.
 ///
 /// Updates:
@@ -293,17 +317,10 @@ Future<UpdateFilesResult> updateVersionFiles({
   final readmeFile = File('${packageDir.path}/README.md');
   if (readmeFile.existsSync()) {
     if (!silent) logStep('Updating README.md badge...');
-    var content = readmeFile.readAsStringSync();
-    // Match badge pattern: [![name](https://img.shields.io/badge/name-vX.Y.Z-orange.svg)]
-    final badgePattern = RegExp(
-      r'(\[!\[openmls\]\(https://img\.shields\.io/badge/openmls-)v?[0-9]+\.[0-9]+\.[0-9]+[^)]*(-orange\.svg\)\])',
-    );
-    if (badgePattern.hasMatch(content)) {
-      content = content.replaceAllMapped(
-        badgePattern,
-        (match) => '${match.group(1)}$newVersion${match.group(2)}',
-      );
-      await readmeFile.writeAsString(content);
+    final content = readmeFile.readAsStringSync();
+    final updated = updateReadmeBadge(content, newVersion);
+    if (updated != content) {
+      await readmeFile.writeAsString(updated);
       updatedFiles.add('README.md');
       if (!silent) logInfo('Updated README.md badge');
     }

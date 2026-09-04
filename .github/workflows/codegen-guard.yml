@@ -1,0 +1,67 @@
+# Refuse a pull request whose FRB bindings were never regenerated.
+#
+# This exists because the alternative was measured and lost. Replaying the
+# reviewer over all 47 merged pull requests (2026-09-03) put its recall on this
+# exact condition at 6 of 28 — 21% — even though the `codegen-failed` label sits
+# in plain text in the context file it reads, and even though its reasoning on
+# the ones it did catch was sound. A model that understands a rule and applies
+# it one time in five is not a gate. This is the same rule in two lines of
+# shell, at 100%.
+#
+# The condition is the label ALONE, deliberately. "Label present AND
+# lib/src/rust/ unchanged" reads like the stricter test and is the weaker one:
+# when codegen fails, an unchanged lib/src/rust/ is the EXPECTED state, so the
+# second clause adds nothing — and it would let the check pass on a pull request
+# where somebody hand-edited the generated bindings, which is the worse outcome
+# of the two.
+#
+# 28 pull requests merged carrying this label before this guard existed. The
+# reason they went untested is separate and already fixed: `test.yml` used to
+# skip every bot-authored pull request, so the branch whose entire payload is
+# new native code was the one branch the suite never ran against.
+
+name: Codegen Guard
+
+on:
+  pull_request:
+    # `labeled` and `unlabeled` are not decoration. The label arrives when the
+    # update workflow opens the pull request, and it is removed by hand once
+    # somebody regenerates the bindings. Without `unlabeled` that removal does
+    # not re-run this check and the pull request stays red with nothing left to
+    # fix — a gate reporting a failure that no longer exists, which is the
+    # failure mode this whole guard was written to avoid.
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  bindings:
+    name: FRB bindings were regenerated
+    runs-on: ubuntu-latest
+    steps:
+      - name: Refuse a pull request marked codegen-failed
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+
+          # Read back from the API rather than from `github.event`, for the
+          # reason `ai-review.yml` gives for doing the same: the payload is a
+          # snapshot taken when the event fired, and this label is attached in
+          # the same breath as the pull request is opened. Whether an `opened`
+          # payload carries it is a race nobody should have to reason about.
+          LABELS=$(gh pr view "$PR" --json labels --jq '[.labels[].name] | join(" ")')
+          echo "Labels: ${LABELS:-<none>}"
+
+          for l in $LABELS; do
+            if [ "$l" = "codegen-failed" ]; then
+              echo "::error::#${PR} is labelled codegen-failed: \`make codegen\` did not complete, so the bindings under lib/src/rust/ do not correspond to the upstream version this pull request pins. Regenerate them (\`make codegen\`), commit the result, and remove the label. Do not hand-edit lib/src/rust/ — the next codegen run reverts it."
+              exit 1
+            fi
+          done
+
+          echo "No codegen-failed label. Bindings are as generated."

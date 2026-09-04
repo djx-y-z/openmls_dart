@@ -11,9 +11,9 @@ import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 /// Returns every ciphersuite this build can execute.
 ///
 /// This is the same set OpenMLS advertises in a leaf node when the caller does
-/// not pin [`MlsCapabilities::ciphersuites`], and every entry is covered by a
+/// not pin `MlsCapabilities.ciphersuites`, and every entry is covered by a
 /// full group-lifecycle test. Note that most of them are **experimental**
-/// post-quantum suites on provisional code points — see [`MlsCiphersuite`].
+/// post-quantum suites on provisional code points — see `MlsCiphersuite`.
 List<MlsCiphersuite> supportedCiphersuites() =>
     RustLib.instance.api.crateApiTypesSupportedCiphersuites();
 
@@ -136,7 +136,7 @@ class MlsCapabilities {
   /// Supported ciphersuites, as raw MLS code points.
   ///
   /// An **empty** list is not "advertise nothing" — it means "use OpenMLS's
-  /// defaults", which is every ciphersuite [`supported_ciphersuites`]
+  /// defaults", which is every ciphersuite `supportedCiphersuites`
   /// returns, ten of them experimental post-quantum suites. To advertise a
   /// narrower set, list the code points explicitly (e.g. `[0x0001, 0x0002,
   /// 0x0003]` for the IANA-registered MLS 1.0 suites only).
@@ -188,7 +188,7 @@ class MlsCapabilities {
 ///
 /// Every other variant is a post-quantum or hybrid suite taken from
 /// [draft-ietf-mls-pq-ciphersuites][draft] — or, for
-/// [`Mls256XwingChacha20poly1305Sha256Ed25519`], from an expired individual
+/// `mls256XwingChacha20Poly1305Sha256Ed25519`, from an expired individual
 /// draft. They share these limitations, and each carries the full warning on
 /// its own documentation:
 ///
@@ -293,7 +293,7 @@ enum MlsCiphersuite {
   /// **Experimental** ML-KEM-1024 | AES-GCM 256 | SHA2-384 | ML-DSA-87
   /// (0x0907, provisional TBD11).
   ///
-  /// As [`Self::Mls256Mlkem1024Aes256gcmSha512Mldsa87`] but with SHA2-384.
+  /// As `mls256Mlkem1024Aes256GcmSha512Mldsa87` but with SHA2-384.
   /// Post-quantum KEM *and* signature; no classical fallback in either.
   /// Provisional code point; see the type-level documentation.
   mls256Mlkem1024Aes256GcmSha384Mldsa87,

@@ -50,6 +50,91 @@ const _withUnreleased = '''
 
 void main() {
   _breakingContradictionTests();
+  group('releaseNotesFrom', () {
+    // The case that made this function exist. `curl -s` has no `-f`, so a
+    // rate-limited reply arrives with exit code 0 and no `tag_name`; before the
+    // guard it fell through to an absent `body` and returned the "nothing was
+    // published" sentinel, which the changelog was then written from as though
+    // it were a fact about the release.
+    test('a rate-limited reply is an error, not an empty release', () {
+      expect(
+        () => releaseNotesFrom({
+          'message': 'API rate limit exceeded for 20.1.2.3',
+          'documentation_url': 'https://docs.github.com/rest',
+        }, 'v1.2.3'),
+        throwsA(
+          isA<Exception>().having(
+            (e) => e.toString(),
+            'message',
+            allOf(contains('v1.2.3'), contains('rate limit')),
+          ),
+        ),
+      );
+    });
+
+    test('a server error is an error too', () {
+      expect(
+        () => releaseNotesFrom({'message': 'Server Error'}, 'v1.2.3'),
+        throwsA(isA<Exception>()),
+      );
+    });
+
+    test('an unrecognised payload still refuses rather than inventing', () {
+      expect(
+        () => releaseNotesFrom(<String, dynamic>{}, 'v1.2.3'),
+        throwsA(
+          isA<Exception>().having(
+            (e) => e.toString(),
+            'message',
+            contains('unrecognised response'),
+          ),
+        ),
+      );
+    });
+
+    // Kept distinct from the above: a missing release is a fact about the
+    // repository and reads differently to whoever has to act on it.
+    test('a missing release keeps its own specific message', () {
+      expect(
+        () => releaseNotesFrom({'message': 'Not Found'}, 'v9.9.9'),
+        throwsA(
+          isA<Exception>().having(
+            (e) => e.toString(),
+            'message',
+            contains('Release v9.9.9 not found'),
+          ),
+        ),
+      );
+    });
+
+    // The case the guard must NOT break: some upstreams publish every release
+    // with an empty body, and that is ordinary rather than an error.
+    test('a real release with an empty body is normal', () {
+      expect(
+        releaseNotesFrom({'tag_name': 'v1.2.3', 'body': ''}, 'v1.2.3'),
+        equals('No release notes were published for this release.'),
+      );
+      expect(
+        releaseNotesFrom({'tag_name': 'v1.2.3', 'body': '   \n  '}, 'v1.2.3'),
+        equals('No release notes were published for this release.'),
+      );
+      expect(
+        releaseNotesFrom({'tag_name': 'v1.2.3'}, 'v1.2.3'),
+        equals('No release notes were published for this release.'),
+      );
+    });
+
+    test('a real release with a body returns it', () {
+      expect(
+        releaseNotesFrom({
+          'tag_name': 'v1.2.3',
+          'body': 'Fixed a thing.',
+        }, 'v1.2.3'),
+        equals('Fixed a thing.'),
+      );
+    });
+  });
+
   group('insertChangelogEntry', () {
     test('creates the [Unreleased] section when none exists', () {
       final result = insertChangelogEntry(

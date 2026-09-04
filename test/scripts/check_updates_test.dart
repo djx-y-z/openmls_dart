@@ -124,4 +124,45 @@ void main() {
       );
     });
   });
+
+  group('updateReadmeBadge', () {
+    // Held in a Dart const rather than interpolated at every use, so the lines
+    // below have the same width in every generated project and `dart format`
+    // has nothing to rewrite whatever the library is called.
+    const lib = 'openmls';
+    String badge(String version) =>
+        '[![$lib](https://img.shields.io/badge/$lib-$version-orange.svg)]';
+
+    test('writes the version, not the tag', () {
+      expect(
+        updateReadmeBadge(badge('v0.8.1'), '${_prefix}0.9.0'),
+        badge('v0.9.0'),
+      );
+    });
+
+    test('keeps a badge that omits the leading v', () {
+      expect(
+        updateReadmeBadge(badge('0.8.1'), '${_prefix}0.9.0'),
+        badge('0.9.0'),
+      );
+    });
+
+    test('leaves content with no badge alone', () {
+      const readme = 'no badge here';
+      expect(updateReadmeBadge(readme, '${_prefix}0.9.0'), readme);
+    });
+
+    // Regression: the badge was written from the raw tag, which every other
+    // file this script rewrites genuinely needs. Here it spelled the prefix
+    // twice — `badge/openmls-openmls-v0.9.0`
+    // — because the badge text already carries the library name. Only a
+    // project whose prefix is not a bare `v` can see it, which is why this
+    // test exists only for those.
+    test('never writes the tag prefix into the badge text', () {
+      expect(
+        updateReadmeBadge(badge('v0.8.1'), '${_prefix}0.9.0'),
+        isNot(contains('$lib-$_prefix')),
+      );
+    });
+  });
 }

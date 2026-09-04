@@ -95,7 +95,7 @@ abstract class MlsEngine implements RustOpaqueInterface {
   /// On native the database is locked exclusively. A second engine on the same
   /// file — another instance, isolate or process — fails with "Database is
   /// already open by another connection or process" rather than silently
-  /// overwriting this one's group state. [`MlsEngine::close`] releases the
+  /// overwriting this one's group state. `MlsEngine.close` releases the
   /// lock; an overlapping opener waits out a five-second timeout first, so
   /// handing the file over during teardown still works.
   ///

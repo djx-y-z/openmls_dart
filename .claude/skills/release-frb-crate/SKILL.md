@@ -19,7 +19,7 @@ release.
 
 ## Why this is separate from dependency updates
 
-Automated libsignal update PRs (`check-openmls-updates.yml`) **no longer bump
+Automated openmls update PRs (`check-openmls-updates.yml`) **no longer bump
 the `openmls_frb` crate version** — they only update the openmls dependency
 and the CHANGELOG. Multiple dependency updates accumulate on `main` without
 publishing a throwaway native binary. When you decide to cut a release, this

@@ -176,20 +176,47 @@ jobs:
         run: make rust-test
         shell: bash
 
-      # The notice inventory is generated from the resolved dependency graph, so
-      # any dependency change invalidates it. Verified once, on Linux x86_64:
-      # the generator unions every release target regardless of the host.
-      - name: Verify third-party notices
+      # The Web target is compiled by nothing else in this workflow: `make
+      # build` is host-only, so without this step a change that breaks the
+      # wasm32 build reaches a release tag before anyone finds out.
+      - name: Setup web build tools
         if: matrix.name == 'Linux x86_64'
-        run: make verify-third-party-notices
+        run: make setup-web
         shell: bash
 
-      # Cheap enough to run unconditionally, but kept on one leg for the same
-      # reason as the notices above: it reads committed files, so all four legs
-      # would read the same bytes and report the same answer.
-      - name: Verify FRB pins agree
+      - name: Build WASM
         if: matrix.name == 'Linux x86_64'
-        run: make verify-frb-pins
+        run: make build-web
+        shell: bash
+
+      # The only step in this workflow that EXECUTES web code. Everything else
+      # here is the Dart VM or a compile, and a `cfg(target_arch = "wasm32")`
+      # body is a different implementation of the same function rather than the
+      # same code on another host — so a green native suite is no evidence
+      # about it.
+      #
+      # chromedriver is resolved from the runner image and never downloaded.
+      # wasm-pack fetches the LATEST chromedriver when it finds none on $PATH,
+      # which is an unpinned network dependency in every CI run — that, and not
+      # a version mismatch, is why this fails closed rather than falling back.
+      # A mismatch is not known to bite loudly, so a green run is no evidence
+      # the driver matched. Nor does --chromedriver pin the BROWSER: with no
+      # webdriver.json and no WASM_BINDGEN_TEST_WEBDRIVER_JSON this job runs on
+      # the image's Chrome, whichever that is.
+      - name: Rust unit tests (browser)
+        if: matrix.name == 'Linux x86_64'
+        run: |
+          set -euo pipefail
+          if [ -n "${CHROMEWEBDRIVER:-}" ] && [ -x "${CHROMEWEBDRIVER}/chromedriver" ]; then
+            driver="${CHROMEWEBDRIVER}/chromedriver"
+          elif command -v chromedriver >/dev/null 2>&1; then
+            driver="$(command -v chromedriver)"
+          else
+            echo "::error::no preinstalled chromedriver on this runner; refusing to let wasm-pack fetch an unpinned one"
+            exit 1
+          fi
+          echo "using $driver ($("$driver" --version))"
+          make test-web CHROMEDRIVER="$driver"
         shell: bash
 
       - name: Analyze
@@ -207,6 +234,38 @@ jobs:
       - name: Check deployment targets
         if: matrix.name == 'Linux x86_64'
         run: make check-targets
+        shell: bash
+
+      # Documentation gate. The Dart surface in `lib/src/rust/` is generated
+      # from the Rust docstrings in `rust/src/api/`, so a reference written in
+      # Rust syntax (`[`Type::method`]`) is copied verbatim and reaches pub.dev
+      # as a dead link that nothing else catches. BLOCKING: dartdoc_options.yaml
+      # promotes `unresolved-doc-reference` to an error, so this step fails the
+      # build rather than reporting. Same single-leg rationale as clippy above —
+      # dartdoc reads only Dart sources, so the result is platform-independent.
+      #
+      # NOTE what it does NOT catch: a reference in plain backticks resolves
+      # nothing and so never warns. The gate proves every `[...]` reference
+      # points at a real symbol; it cannot prove the prose names the right one.
+      - name: Check documentation
+        if: matrix.name == 'Linux x86_64'
+        run: make doc
+        shell: bash
+
+      # The other half of the documentation gate, and the half `make doc`
+      # structurally cannot see: intra-doc links in the parts of `rust/src/`
+      # that stay in Rust — private items, module headers, anything not copied
+      # out to Dart. BLOCKING: the Makefile runs it under
+      # `RUSTDOCFLAGS=-D warnings`, so a broken `[...]` link fails the build
+      # instead of printing a warning nobody reads.
+      #
+      # ⚠ It is placed after the web steps rather than beside clippy because
+      # its wasm32 leg needs the target that `make setup-web` installs above.
+      # Two legs, because `cfg(target_arch = "wasm32")` modules are invisible
+      # to the host run: each documents a tree the other cannot compile.
+      - name: Check Rust documentation
+        if: matrix.name == 'Linux x86_64'
+        run: make rust-doc
         shell: bash
 
       # Run tests without coverage (non-Linux or coverage disabled)
@@ -231,6 +290,34 @@ jobs:
           COVERAGE=$(lcov --summary coverage/lcov.info 2>&1 | grep 'lines' | sed 's/.*: //' | sed 's/%.*//')
           echo "percentage=$COVERAGE" >> $GITHUB_OUTPUT
           echo "Coverage: $COVERAGE%"
+        shell: bash
+
+      # ── Bookkeeping gates, last on purpose ──────────────────────────────
+      #
+      # These check committed files against the dependency graph rather than
+      # exercising any code, and they are placed after everything that does
+      # because a step failing takes every step after it with it. Run early,
+      # a stale notice inventory means the Dart suite never runs at all on
+      # this leg — and the inventory goes stale on EVERY dependency bump,
+      # which is exactly the pull request whose code most needs testing. The
+      # bookkeeping failure is real and still fails the job; it just no
+      # longer decides whether the tests get to report.
+      #
+      # Both stay on one leg: they read committed files, so all four legs
+      # would read the same bytes and reach the same answer. Linux x86_64 is
+      # the one that also runs coverage, so nothing else is waiting on it.
+
+      # The notice inventory is generated from the resolved dependency graph, so
+      # any dependency change invalidates it. Verified once, on Linux x86_64:
+      # the generator unions every release target regardless of the host.
+      - name: Verify third-party notices
+        if: matrix.name == 'Linux x86_64'
+        run: make verify-third-party-notices
+        shell: bash
+
+      - name: Verify FRB pins agree
+        if: matrix.name == 'Linux x86_64'
+        run: make verify-frb-pins
         shell: bash
 
   # ============================================

@@ -1,0 +1,23 @@
+# dartdoc configuration — see https://dart.dev/go/dartdoc-options-file
+#
+# `unresolved-doc-reference` is promoted from a warning to an ERROR, which is
+# what turns `make doc` from a generator into a gate: it exits non-zero when a
+# docstring names a symbol dartdoc cannot resolve, instead of printing a
+# warning into a log nobody reads.
+#
+# It earns its place here rather than in a project that happens to want strict
+# docs. The Dart surface under `lib/src/rust/` is generated from the Rust
+# docstrings in `rust/src/api/`, copied VERBATIM — so a reference written in
+# Rust's intra-doc syntax (``[`Type::method`]``) is valid Rust, resolves on the
+# Rust side, and reaches pub.dev as a dead link. Nothing else in this project
+# looks at that. Write references to the Dart surface in plain backticks with
+# the Dart camelCase name.
+#
+# ⚠ What this canNOT catch: plain backticks resolve nothing, so they never
+# warn. The gate proves every `[...]` reference points at a real symbol; it
+# cannot prove the prose names the right one.
+#
+# This file is `.pubignore`d on purpose — see the note there.
+dartdoc:
+  errors:
+    - unresolved-doc-reference

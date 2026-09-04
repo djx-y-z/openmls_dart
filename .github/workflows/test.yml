@@ -44,6 +44,9 @@ on:
       - 'scripts/**'
       - 'Makefile'
       - 'pubspec.yaml'
+      # The doc gate lives in this file: without it `make doc` stops promoting
+      # unresolved references to errors and the CI step passes silently.
+      - 'dartdoc_options.yaml'
       - 'THIRD_PARTY_NOTICES.txt'
       - '.gitattributes'
       - '.copier-answers.yml'
@@ -57,6 +60,9 @@ on:
       - 'scripts/**'
       - 'Makefile'
       - 'pubspec.yaml'
+      # The doc gate lives in this file: without it `make doc` stops promoting
+      # unresolved references to errors and the CI step passes silently.
+      - 'dartdoc_options.yaml'
       - 'THIRD_PARTY_NOTICES.txt'
       - '.gitattributes'
       - '.copier-answers.yml'

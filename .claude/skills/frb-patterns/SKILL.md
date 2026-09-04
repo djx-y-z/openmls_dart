@@ -164,6 +164,12 @@ impl MlsSignatureKeyPair {
 }
 ```
 
+```rust
+// ❌ WRONG — a free function generates `mlsSignatureKeyPairGenerate()` in Dart,
+// a top-level function instead of a constructor on the type.
+pub fn mls_signature_key_pair_generate(ciphersuite: MlsCiphersuite) -> Result<MlsSignatureKeyPair, String> { ... }
+```
+
 **Dart usage:**
 ```dart
 final signer = MlsSignatureKeyPair.generate(ciphersuite: ciphersuite);
@@ -301,12 +307,54 @@ Use `Vec<u8>` for complex types instead of trying to pass OpenMLS types directly
 
 ## Web/WASM Considerations
 
-- `getrandom` uses Web Crypto API on WASM
+FRB handles web platform differences automatically, but keep in mind:
+
+### RNG on Web
+The `getrandom` crate uses Web Crypto API on WASM.
+Configuration in `rust/.cargo/config.toml`:
+```toml
+[target.wasm32-unknown-unknown]
+rustflags = ['--cfg', 'getrandom_backend="wasm_js"']
+```
+
+### Web Crypto
 - `crypto.subtle` requires a secure context (HTTPS or localhost)
-- Non-extractable `CryptoKey` protects encryption key from JS extraction
-- `WasmCryptoKey` newtype with `unsafe impl Send + Sync` (safe on single-threaded WASM)
-- Configuration in `rust/.cargo/config.toml`:
-  ```toml
-  [target.wasm32-unknown-unknown]
-  rustflags = ['--cfg', 'getrandom_backend="wasm_js"']
-  ```
+- The DB key is imported as a non-extractable `CryptoKey`, so the raw bytes are
+  zeroized right after `importKey()` and never reachable through the JS API
+
+### No Threading on WASM
+- Avoid `parking_lot::Mutex` in hot paths on web
+- Use single-threaded alternatives when possible
+- FRB handles this automatically for most cases
+
+### A JS handle inside an opaque type is not `Send + Sync`
+
+FRB requires the types it exposes to be `Send + Sync`. A handle obtained from
+the browser — anything wrapping a `JsValue`, such as a `web_sys` object — is
+neither, because `JsValue` holds a raw pointer into the JS heap. Holding one in
+a struct FRB exposes fails to compile with a `Send`/`Sync` bound error that
+names a type you did not write.
+
+The fix is a newtype whose safety argument is the target itself:
+
+```rust
+/// `wasm32-unknown-unknown` is single-threaded: there is no second thread for
+/// this handle to be sent to, so the bound FRB requires is vacuously true.
+/// This reasoning is target-specific and does NOT transfer to native code.
+struct WebHandle(web_sys::SomeJsType);
+unsafe impl Send for WebHandle {}
+unsafe impl Sync for WebHandle {}
+```
+
+Keep it behind `#[cfg(target_arch = "wasm32")]` alongside the code that needs
+it. The same struct on a native target would be an unsound `unsafe impl` rather
+than a workaround, and nothing in the compiler would object.
+
+The live instance here is `WasmCryptoKey` in `rust/src/encrypted_db.rs`, which
+wraps `web_sys::CryptoKey`; it is why that module carries a `#![allow(unsafe_code)]`
+while the rest of the crate denies it.
+
+### Building WASM
+```bash
+make build-web
+```

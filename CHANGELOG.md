@@ -243,6 +243,24 @@
 
 #### Fixed
 
+- **Six dead references in the published API documentation**
+  (`rust/src/api/types.rs`, `rust/src/api/engine.rs`, `lib/src/rust/`) —
+  flutter_rust_bridge copies a Rust doc comment into the generated Dart
+  verbatim, and Rust's intra-doc syntax is not Dart's: ``[`MlsCiphersuite`]``
+  puts a code span *inside* the brackets, which dartdoc reads as a reference
+  named `` `MlsCiphersuite` `` and cannot resolve. Each one reached pub.dev as a
+  dead link — the type-level note on `MlsCiphersuite`, the cross-reference
+  between the two ML-DSA-87 suites, and the mentions of `supportedCiphersuites`,
+  `MlsCapabilities.ciphersuites` and `MlsEngine.close`. They are now written the
+  way this package's Rust API doc comments have to be written: plain backticks
+  around the Dart camelCase name, which resolves on neither side and rots on
+  neither either.
+
+  Nothing here was noticed by a human: dartdoc reports an unresolved reference
+  as a *warning* and exits zero, so the links had been dead for as long as they
+  had existed. `make doc` is a blocking gate now (see the template adoption
+  below), which is what surfaced them.
+
 - **`RustLib.init()` threw for anyone who resolved this package after
   2026-08-23** (`pubspec.yaml`) — `flutter_rust_bridge` was declared as
   `^2.12.0`, while the committed `lib/src/rust/frb_generated.dart` records
@@ -326,6 +344,51 @@
   being renamed away, so it cannot rot into a no-op.
 
 #### Changed
+
+- **copier template adopted: v4.6.0 → v4.7.0** (28 files) — the release is
+  mostly gates, and two of them close holes this project knew it had.
+
+  **wasm32 is executed in CI, not merely compiled.** `test-reusable.yml` gains
+  `Build WASM` and `Rust unit tests (browser)`, and `make test-web` runs the
+  crate's `#[cfg(target_arch = "wasm32")]` tests in headless Chrome through
+  wasm-pack. Until now every wasm32 branch in the crate was covered by nothing:
+  `make test` is the Dart VM and `make build-web` only compiles, while a wasm32
+  body is a *different implementation* of the same function rather than the same
+  code on another host. The manifest gains
+  `[target.'cfg(target_arch = "wasm32")'.dev-dependencies] wasm-bindgen-test`,
+  which is invisible to `make third-party-notices` — it runs
+  `cargo tree --edges normal,build`, which excludes every dev-dependency on
+  every target — and `make verify-third-party-notices` confirms the inventory is
+  unchanged despite eight new crates in `Cargo.lock`.
+
+  **Two documentation gates now block.** `make doc` promotes
+  `unresolved-doc-reference` to an error through a new `dartdoc_options.yaml`
+  (`.pubignore`d, so pub.dev's own dartdoc run is not held to it and a future
+  dartdoc release cannot break documentation generation for an already-published
+  version), and `make rust-doc` runs rustdoc under `-D warnings` on the host and
+  on wasm32. The first was red on adoption — see the six dead references above.
+
+  **Bookkeeping no longer outranks tests.** `verify-third-party-notices` and
+  `verify-frb-pins` moved *after* the test steps, so a stale inventory no longer
+  fails the Linux leg before a single test has run.
+
+  **Answers, not just files.** `rust_version` is raised to `1.91` to match the
+  manifest, so `README.md` and `CONTRIBUTING.md` stop advertising a toolchain
+  that cannot build the crate and the next update cannot render the stale number
+  back over it; the new `enable_freezed` question is answered `false`, because
+  flutter_rust_bridge needs freezed only for data-carrying enums and structs
+  this API does not have.
+
+  Also arriving: `codegen-guard.yml` (a pull request labelled `codegen-failed`
+  fails a required check rather than relying on a reviewer noticing),
+  `.github/agent-prompts/repair-build.md`, `--locked` in the release builds,
+  `make rust-geiger` and `make run-example-web`, `lib/src/rust/**` excluded from
+  the coverage report (370 lines over 10 files becomes 51 over 4 — the
+  hand-written half — both at 100%, so the badge does not move), four items in
+  the upstream-bump checklist (a feature gate
+  reads as `E0599`; features are additive and reach the shipped artifacts;
+  advisory ignores are re-earned on every bump; MSRV lives in two files), and a
+  CONTRIBUTING that is a document rather than a stub.
 
 - **The `unsafe_code = "deny"` comment named an opt-out that does not exist**
   (`rust/Cargo.toml`, `rust/src/lib.rs`) — both copies listed
@@ -596,9 +659,11 @@
 
   It separates more than its name suggests, and the first run after the change is the evidence. Dependabot's commit trailers report a 0.x bump as `version-update:semver-minor`, but its *grouping* applies Cargo's own reading, where a 0.x minor is the breaking bump, and keeps them out of a `minor`+`patch` group anyway. The six-crate cargo group split into a group of two (`log` patch, `uuid` 1.x minor) plus one pull request each for `rand`, `sha2`, `hkdf` and `aes-gcm-siv` — the four that need a migration. Exactly the intended shape.
 
-- **`dart-lang/setup-dart` 1.8.x is ignored, temporarily and narrowly** (`.github/dependabot.yml`) — 1.8.0 added a problem matcher for `dart analyze` and registers it with `::add-matcher::dart-analyzer.json`. The path resolves against the *calling* action's directory, and this repository calls setup-dart from inside its own `setup-fvm` composite action, so the runner looks under `.github/actions/setup-fvm/`, does not find it, and fails the job fourteen seconds in, before anything is built. It failed that way on all four platforms.
+- **`dart-lang/setup-dart`'s problem matcher is switched off at the source** (`.github/actions/setup-fvm/action.yml`, `.github/dependabot.yml`) — 1.8.0 added a problem matcher for `dart analyze` and registers it with `::add-matcher::dart-analyzer.json`. The path resolves against the *calling* action's directory, and this repository calls setup-dart from inside its own `setup-fvm` composite action, so the runner looked under `.github/actions/setup-fvm/`, did not find it, and failed the job fourteen seconds in, before anything was built. It failed that way on all four platforms.
 
-  Only the 1.8 line is ignored, so 1.9.0 arrives for evaluation rather than this freezing the action; 1.8.1, the latest at the time of writing, does not fix it. The bump is worth little here in any case: setup-dart exists in that action solely to provide a `dart` binary for `dart pub global activate fvm` on the next line, and everything that builds and tests this package comes from the FVM-pinned SDK.
+  The first response, within this same unreleased range, was a Dependabot `ignore` on the 1.8 line. That was the wrong tool twice over. The action is now pinned to 1.8.1 with `problem-matcher: 'false'`, which is the input the upstream issue points at, so the version is free to move again — and the ignore has been deleted, because `versions: ["1.8.x"]` never matched anything in the first place: Dependabot parses that string through `Gem::Requirement`, which has no wildcard expansion. It sat in the file looking like protection while the bot went on proposing the bump. The same reading applies to the `hooks` and `code_assets` majors, whose ignores are rewritten from `versions: ["2.x"]` to `update-types: [version-update:semver-major]` in the same pass.
+
+  The bump was worth little here in any case: setup-dart exists in that action solely to provide a `dart` binary for `dart pub global activate fvm` on the next line, and everything that builds and tests this package comes from the FVM-pinned SDK.
 
 ## [2.0.1] - 2026-08-03
 

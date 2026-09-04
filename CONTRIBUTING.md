@@ -28,19 +28,25 @@ Please be respectful and considerate of others. We expect all contributors to:
 
 ### Prerequisites
 
-- [Dart SDK](https://dart.dev/get-dart) (3.10.0+)
+- [Rust toolchain](https://rustup.rs/) (1.91+) — `rust-version` in
+  `rust/Cargo.toml` is the authority; this is the same number
+- [Dart SDK]( https://dart.dev/get-dart ) (^3.10.0) or Flutter
+  (>=3.38.0) — `make setup` installs the pinned Flutter through fvm
+- `make` (see **Windows Users** below)
 - Git
-- **For running tests:** Rust toolchain (1.89+)
+
+Nothing here is needed to *use* the published package: consumers get a
+precompiled native library through the build hook.
 
 ### Fork and Clone
 
 1. Fork the repository on GitHub
-2. Clone your fork locally:
+2. Clone **your fork**, not this repository:
    ```bash
    git clone https://github.com/YOUR_USERNAME/openmls_dart.git
    cd openmls_dart
    ```
-3. Add upstream remote:
+3. Add the upstream remote, so you can keep the fork current:
    ```bash
    git remote add upstream https://github.com/djx-y-z/openmls_dart.git
    ```
@@ -55,20 +61,21 @@ Run the setup command to install everything automatically:
 make setup
 ```
 
-This will:
-1. Check that Rust toolchain is installed (shows instructions if not)
-2. Install FVM (Flutter Version Management) and project's Flutter version
-3. Install cargo-audit for Rust dependency vulnerability scanning
-4. Install flutter_rust_bridge_codegen for binding generation
-5. Get all dependencies
+It checks that a Rust toolchain is present (and tells you where to get one if
+not), installs fvm and the Flutter version pinned in `.fvmrc`, then installs
+the Rust tooling the gates need — `cargo-audit`, `cargo-deny` and
+`flutter_rust_bridge_codegen` at the exact version this project pins.
+
+Optional, per platform: `make setup-android` (cargo-ndk), `make setup-web`
+(wasm-pack), `make setup-fuzz` (nightly + cargo-fuzz).
 
 ### Verify Setup
 
 ```bash
-# Show all available commands
+# Every command this project has, with a one-line description each
 make help
 
-# Run tests to ensure everything works
+# The end-to-end check: this builds the native library if it is missing
 make test
 ```
 
@@ -93,12 +100,14 @@ On Windows, enable [Developer Mode][windows-dev-mode] before the first
 
 ### Windows Users
 
-On Windows, you need to install `make` first:
-- Via Chocolatey: `choco install make`
-- Via Scoop: `scoop install make`
-- Or use Git Bash / WSL
+Every task in this project runs through `make`, which Windows does not ship.
+Install it first:
 
-Then run `make setup` as above.
+- Chocolatey: `choco install make`
+- Scoop: `scoop install make`
+- Or work in Git Bash or WSL, where it is already present
+
+Then `make setup` as above.
 
 ### Project Structure
 
@@ -122,6 +131,11 @@ openmls_dart/
 └── Makefile                    # Entry point for all commands
 ```
 
+Two of those are load-bearing conventions rather than layout: `lib/src/rust/`
+is generated output that `make codegen` rewrites, so an edit there survives
+exactly until the next run; and `scripts/` is called through `make`, which is
+where the arguments and the environment each script expects are set.
+
 ## Making Changes
 
 ### Create a Branch
@@ -131,25 +145,23 @@ Create a branch for your changes:
 ```bash
 git checkout -b feature/your-feature-name
 # or
-git checkout -b fix/your-bug-fix
+git checkout -b fix/the-thing-that-is-broken
 ```
 
 ### Types of Contributions
 
-We welcome:
-
-- **Bug fixes** - Fix issues in existing code
-- **Documentation** - Improve docs, examples, comments
-- **Tests** - Add or improve test coverage
-- **Features** - New functionality (please discuss first)
-- **Performance** - Optimizations with benchmarks
+- **Bug fixes** — with a test that fails before the fix
+- **Documentation** — including the comments that explain why a constraint exists
+- **Tests** — especially for a path only one platform reaches
+- **Features** — please open an issue first
+- **Performance** — with a measurement, not an argument
 
 ### Before You Start
 
-For major changes:
-1. Open an issue first to discuss the change
-2. Wait for feedback from maintainers
-3. This helps avoid wasted effort on changes that won't be merged
+For anything larger than a fix, open an issue and wait for a reply. This
+project pins versions, caps constraints and gates releases on grounds that are
+written down but not always obvious from the diff — a change can be correct and
+still be wrong here, and finding that out in review is expensive for you.
 
 ## Testing
 
@@ -262,6 +274,14 @@ Types:
 
 5. Wait for review - maintainers will review and may request changes
 
+Before pushing, run what CI will run: `make test`, `make format-check`,
+`make analyze`, and both documentation gates, `make doc` and `make rust-doc`
+(`dartdoc_options.yaml` promotes an unresolved reference to an error, and
+`make rust-doc` runs under `-D warnings`). If you touched a
+`cfg(target_arch = "wasm32")` branch, add `make test-web` — it is the only
+check that executes web code, and it needs a driver:
+`make test-web CHROMEDRIVER=/path/to/chromedriver`.
+
 ### PR Checklist
 
 Before submitting:
@@ -270,8 +290,12 @@ Before submitting:
 - [ ] Tests pass locally (`make test`)
 - [ ] Static analysis passes (`make analyze`)
 - [ ] Code is formatted (`make format-check`)
+- [ ] Both documentation gates pass (`make doc`, `make rust-doc`)
+- [ ] A touched `wasm32` branch was run in a browser (`make test-web`)
+- [ ] Generated bindings are regenerated and committed, not hand-edited
 - [ ] Documentation is updated if needed
 - [ ] CHANGELOG.md is updated for user-facing changes
+- [ ] New constraints, pins and caps carry a comment saying why
 - [ ] Commit messages are clear and follow conventions
 
 ## Coding Standards
@@ -343,11 +367,21 @@ All development tasks should be done via Makefile:
 | `make build` | Build Rust library locally (native) |
 | `make build-web` | Build WASM for web |
 | `make build-android` | Build for Android |
+| `make run-example-web` | Build the WASM and run `example/` in Chrome |
 | `make test` | Run all tests |
+| `make test-web` | Run the crate's browser tests (headless Chrome; needs a chromedriver) |
 | `make coverage` | Run tests with coverage report |
 | `make analyze` | Run static analysis |
+| `make doc` | Dartdoc GATE — an unresolved doc reference is an error |
+| `make rust-doc` | Rustdoc GATE — `-D warnings`, host and wasm32 |
 | `make rust-audit` | Check Rust dependencies for vulnerabilities |
+| `make rust-deny` | Advisories, licences and sources (cargo-deny) |
 | `make rust-check` | Quick Rust type check |
+| `make rust-clippy` | Lint the Rust code (warnings are errors) |
+| `make rust-test` | Run the crate's native Rust tests |
+| `make rust-geiger` | Unsafe-expression census (diagnostic, not a gate) |
+| `make third-party-notices` | Regenerate THIRD_PARTY_NOTICES.txt |
+| `make verify-third-party-notices` | Verify it still matches the dependency graph |
 | `make format` | Format Dart code |
 | `make format-check` | Check Dart code formatting |
 | `make get` | Get dependencies |
@@ -362,23 +396,34 @@ All development tasks should be done via Makefile:
 
 ### Regenerating FRB Bindings
 
-When modifying Rust API code in `rust/src/api/`:
+Everything under `lib/src/rust/` is generated from `rust/src/api/`. Change the
+Rust API and the Dart side does not follow until you run:
 
 ```bash
-# Regenerate Flutter Rust Bridge bindings
 make codegen
-
-# Test the new bindings
 make test
 ```
 
-**When to regenerate:**
-- After modifying Rust API code in `rust/src/api/`
-- After updating OpenMLS version (if API changed)
+Regenerate when you add, remove or change anything in `rust/src/api/` — a
+signature, a type, an enum variant, or a doc comment, which flutter_rust_bridge
+copies into the Dart output verbatim — and after an OpenMLS bump that moves the
+API this crate calls. Commit the result: the bindings are checked in, CI
+compares them against what codegen produces, and the runtime asserts that its
+own flutter_rust_bridge version equals the one recorded in them.
+
+Never hand-edit a generated file to fix a build. The next `make codegen`
+reverts it, which turns a red build into a red build nobody can reproduce.
 
 ### Updating Upstream OpenMLS
 
-**Automatic (CI):** A daily workflow checks for new OpenMLS releases and creates PRs.
+The CI automatically checks for new openmls releases daily and creates PRs. The automation includes:
+- Updating `pubspec.yaml` with new version
+- Updating `Cargo.lock` dependencies
+- Regenerating FRB bindings
+- Generating an AI-written CHANGELOG entry, when `AI_MODELS` names a model that
+  has a key — see [Setting up AI Changelog](#setting-up-ai-changelog) below.
+  Without one the PR is still opened and labelled `changelog-needed`, and the
+  entry is written by hand.
 
 **Manual update:**
 

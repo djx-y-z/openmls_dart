@@ -15,16 +15,27 @@ all-features = false
 
 [advisories]
 version = 2
-# Advisory IDs are ignored here only when the risk cannot be remediated (blocked
-# on an upstream semver pin) or is not applicable to how we build. Each entry
-# carries an inline justification.
+# Add advisory IDs here (each with a justification comment) only to consciously
+# accept a risk that cannot yet be remediated, e.g. an unmaintained build-time
+# dependency pulled transitively by an upstream crate with no available upgrade.
+#
+# Two things about this list that are easy to get wrong:
+#
+#   - An entry that stops matching is reported as `advisory-not-detected`. That
+#     warning is the signal to DELETE the entry, not to keep it in case the
+#     crate comes back: an ignore nobody can trigger is indistinguishable from
+#     one that is quietly covering a second advisory it was never reviewed for.
+#     Re-check the whole list on every upstream bump — empty it, run
+#     `make rust-deny`, and re-add only what fires again, with a fresh reason.
+#
+#   - This list and `.cargo/audit.toml` are not interchangeable. cargo-deny
+#     also reports *unmaintained* advisories, which `cargo audit` does not fail
+#     on, so an entry here is often one `make rust-audit` never needed.
 #
 # The libcrux crypto advisories that used to dominate this list are gone:
 # openmls-v0.9.0 moves the whole libcrux tree past every version they applied
 # to, so they no longer match a crate in the graph. See `.cargo/audit.toml`,
-# which now carries an empty list and the reasoning. `cargo deny` warns with
-# `advisory-not-detected` when an entry here stops matching — that warning is
-# the signal to delete the entry, not to keep it "just in case".
+# which now carries an empty list and the reasoning.
 ignore = [
     # --- Unmaintained transitive build dependencies (informational) ---
     # cargo-deny flags unmaintained advisories that `cargo audit` does not fail
@@ -41,6 +52,13 @@ confidence-threshold = 0.9
 # The project's own license plus the permissive licenses commonly found in a
 # Rust dependency tree. Extend this list if `cargo deny check licenses` reports
 # a license it did not encounter (that is expected the first time you build).
+#
+# Rendered as one de-duplicated list rather than "own license, then the common
+# set": three of the four licenses this template offers (MIT, Apache-2.0,
+# BSD-3-Clause) are already in that set, so the straightforward form emits them
+# twice and cargo-deny reports the duplicate against this file. AGPL-3.0 is the
+# one that genuinely adds entries, which is why it carries the two SPDX
+# spellings the tree actually uses.
 allow = [
     "MIT",
     "Apache-2.0",

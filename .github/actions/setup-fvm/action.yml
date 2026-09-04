@@ -17,9 +17,22 @@ runs:
   using: composite
   steps:
     - name: Setup Dart SDK
-      uses: dart-lang/setup-dart@65eb853c7ba17dde3be364c3d2858773e7144260 # v1.7.2
+      uses: dart-lang/setup-dart@6afc89df92d6eb3834022f73cd65adc8cdfcb92d # v1.8.1
       with:
         sdk: stable
+        # setup-dart 1.8.0 registers a `dart analyze` problem matcher with
+        # `::add-matcher::dart-analyzer.json` and resolves that path against
+        # GITHUB_ACTION_PATH, which for a composite action calling it is the
+        # *caller's* directory. This action is that caller, so the runner looks
+        # for .github/actions/setup-fvm/dart-analyzer.json, does not find it,
+        # and fails the job before anything is built — every leg of the test
+        # matrix at once, and publish.yml and build-openmls.yml with
+        # them, since they call this action too.
+        # Upstream: dart-lang/setup-dart#198, open; 1.8.1 does not fix it.
+        # Nothing in this action runs `dart analyze` — that job uses the
+        # FVM-pinned SDK — so the matcher buys nothing here even when it works.
+        # Quoted: the action compares the input against the literal 'false'.
+        problem-matcher: 'false'
 
     - name: Install FVM (Unix)
       if: runner.os != 'Windows'

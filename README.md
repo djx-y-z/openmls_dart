@@ -263,13 +263,10 @@ The Rust core of openmls ships as a `.wasm` module in both modes — `--wasm` on
 
 ### For Contributors / Source Builds
 
-If you want to build from source (or precompiled binaries are not available):
-
-- [Flutter](https://flutter.dev/) 3.38+
-- [FVM](https://fvm.app/) (optional, for version management)
-- **Rust toolchain** (1.89+):
-  - [rustup](https://rustup.rs/) - Rust toolchain installer
-  - `cargo` - Rust package manager (installed with rustup)
+- [Flutter](https://flutter.dev/docs/get-started/install) (>=3.38.0)
+- [Rust](https://rustup.rs/) (1.91+) — must match `rust-version` in `rust/Cargo.toml`
+- [FVM](https://fvm.app/) (recommended for version management)
+- Make (for build commands; see the Windows note in CONTRIBUTING.md)
 
 ### Setup
 

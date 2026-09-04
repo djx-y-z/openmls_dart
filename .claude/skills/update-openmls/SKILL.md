@@ -55,6 +55,15 @@ git -C /tmp/upstream diff vOLD..vNEW -- <crate>/src | grep -E '^[-+].*(pub fn|pu
 **1e. Upstream `Cargo.toml` deltas** — MSRV bumps, new/removed features,
 dependency updates with security advisories.
 
+⚠ **An MSRV bump moves two files, not one.** `rust-version` in
+`rust/Cargo.toml` is what CI reads — `test-reusable.yml` greps it and feeds it
+to the toolchain action — but that line is *rendered* from the `rust_version`
+answer in `.copier-answers.yml`, and so is the version README.md advertises to
+contributors. Raise the answer together with the manifest. Otherwise the README
+keeps promising a toolchain that can no longer build the crate, nothing
+notices (the two are never compared), and the next `copier update` renders the
+stale number straight back over the manifest.
+
 Summarize findings as:
 - **Breaking changes** (API removals, signature changes) → Rust wrapper must adapt
 - **New features / new APIs** → candidates to expose in `rust/src/api/`
@@ -72,6 +81,38 @@ Common issues:
 - **Removed traits** (e.g., `Ord` for `PublicKey`)
 - **Changed function signatures**
 - **Renamed types**
+- **An item moved behind a cargo feature.** `E0599: no variant named X` (or
+  `no method named X`) reads exactly like a removal, and upstream release notes
+  tend to say "gated" rather than "removed", so the two are easy to conflate —
+  the wrong diagnosis costs a wrapper rewritten to live without something that
+  is still there. Check the feature table in that crate's `Cargo.toml` before
+  adapting anything. Features are **not** transitive across crates: enabling
+  one on the top-level crate does not enable it for a sibling crate this
+  project depends on directly, so every dependency line in `rust/Cargo.toml`
+  that names the gated item needs the feature of its own.
+
+### Step 2b: Keep diagnostic features out of the shipped binary
+
+Cargo features are additive and unified across every dependency table, so a
+feature enabled anywhere — including under
+`[target.'cfg(target_arch = "wasm32")'.dependencies]` — is enabled everywhere
+the crate is built. There is no "for tests only", and no "native only": the
+published library and the wasm module carry it too.
+
+The features worth watching are the ones that change what error *values*
+contain rather than what the API offers. One that turns errors into symbolized
+backtraces needs no panic to reach a caller: the string travels the ordinary
+error channel, crosses FFI, and lands in the consuming application's logs
+naming internal paths and, on some platforms, absolute build paths.
+
+When a bump adds such a feature, or moves an existing one, check the artifacts
+rather than the manifest — the manifest is where the mistake looks harmless:
+
+```bash
+make build && make build-web
+# 0 hits required, on the native library AND the wasm module
+strings <built artifact> | grep -c '<a string the feature introduces>'
+```
 
 ### Step 3: Fix Rust Code (if needed)
 
@@ -129,6 +170,20 @@ version = "X.Y.Z"
 make rust-check
 ```
 
+### Step 9b: Re-validate the advisory ignores
+
+`.cargo/audit.toml` and `rust/deny.toml` carry ignores that were justified
+against the dependency graph as it stood when each was added. A bump moves that
+graph: an advisory can become unreachable, or a new one can arrive in the same
+crate an old entry silently covers.
+
+Empty both lists, run `make rust-audit` and `make rust-deny`, and re-add only
+what fires again — each with a reason written for the graph as it is now. An
+entry that matches nothing is reported by cargo-deny as `advisory-not-detected`
+and should be deleted rather than kept in case the crate comes back; the two
+files are not interchangeable either, since cargo-deny also reports
+*unmaintained* advisories that `cargo audit` does not fail on.
+
 ### Step 10: Commit Changes
 
 ```bash
@@ -146,6 +201,12 @@ git commit -m "fix: adapt for openmls vX.Y.Z breaking changes"
 - [ ] `make analyze` — no issues
 - [ ] CHANGELOG.md — accurate and complete (breaking changes, security fixes)
 - [ ] `rust/Cargo.toml` — `openmls_frb` version bumped (automatic; verify)
+- [ ] An `E0599` was checked against the upstream feature table before being
+      treated as a removal
+- [ ] No diagnostic/test-only upstream feature ships — checked with `strings`
+      on the built artifacts, not by reading the manifest
+- [ ] Advisory ignores emptied and re-added from what still fires
+- [ ] MSRV: `rust-version` and the `rust_version` answer moved together
 - [ ] `make rust-check` — sync Cargo.lock
 - [ ] Commit all changes
 

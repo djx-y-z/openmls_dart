@@ -95,10 +95,42 @@ Future<String> _fetchReleaseNotes(String version) async {
     throw Exception('Failed to fetch release from GitHub');
   }
 
-  final json = jsonDecode(result.stdout as String) as Map<String, dynamic>;
+  return releaseNotesFrom(
+    jsonDecode(result.stdout as String) as Map<String, dynamic>,
+    version,
+  );
+}
 
+/// Read the release body out of a decoded `releases/tags/<v>` response.
+///
+/// Split out of the fetch so the decision can be tested without a network: the
+/// fetch above is one `curl` call, and everything that can go wrong afterwards
+/// is decided here.
+///
+/// `curl -s` carries no `-f`, so it exits 0 on 403, 429 and every 5xx — the
+/// exit code says the transport worked, not that GitHub answered with a
+/// release. The `Not Found` test is not enough on its own either: it matches
+/// one exact string, while a rate-limited reply reads "API rate limit exceeded
+/// for <ip>". Without the `tag_name` test such a reply used to fall through to
+/// `body`, which is absent, and this returned "No release notes were
+/// published" — an API failure laundered into a fact the changelog was then
+/// written from. The request is unauthenticated, so the ceiling is 60 requests
+/// an hour per IP and GitHub's runners share IPs.
+///
+/// `tag_name` is the discriminator rather than `body` because a real release
+/// with an empty body is the ordinary case here and has to keep working,
+/// whereas no error payload carries a tag name. `_fetchUpstreamCommits` tests
+/// for `commits` for the same reason.
+String releaseNotesFrom(Map<String, dynamic> json, String version) {
   if (json.containsKey('message') && json['message'] == 'Not Found') {
     throw Exception('Release $version not found');
+  }
+
+  if (json['tag_name'] == null) {
+    throw Exception(
+      'GitHub did not return a release for $version: '
+      '${json['message'] ?? 'unrecognised response'}',
+    );
   }
 
   // Some upstreams publish every release with an empty body, so this is an

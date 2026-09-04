@@ -4,6 +4,14 @@ Makefile
 .fvmrc
 .skip_openmls_hook
 
+# Doc gate config — development and CI only. It promotes
+# `unresolved-doc-reference` to an ERROR so `make doc` fails the build here.
+# pub.dev runs dartdoc itself and would honour the same setting, so shipping it
+# would let a future dartdoc release break documentation generation for an
+# ALREADY-PUBLISHED version, which can never be re-cut. CI runs the gate before
+# publish.yml publishes, so the archive is clean without carrying the strictness.
+dartdoc_options.yaml
+
 # CI/CD
 .github/
 
