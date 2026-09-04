@@ -254,7 +254,33 @@
   written down, as Known Limitation 12, because a web deployment's threat model
   depends on it.
 
+- **The security policy now covers the post-quantum suites it ships**
+  (`SECURITY.md`) — the file said nothing about them: no mention of libcrux,
+  X-Wing, or a provisional code point anywhere. That was tolerable while the
+  enum named four suites and one of them was experimental; it is not now that
+  it names thirteen and ten are. Known Limitation 13 states what a reader has
+  to decide about — the code points are unregistered and may be renumbered or
+  withdrawn, several suites have no classical component to fall back on, the
+  implementations are pre-1.0, and an empty `MlsCapabilities.ciphersuites`
+  advertises all thirteen — and where the mitigation is. It also records the
+  invariant the `.cargo/audit.toml` reachability arguments are stated over:
+  exactly one suite reaches libcrux, enforced by three tests. Documentation
+  only; nothing in the shipped code changed.
+
 #### Fixed
+
+- **The way to narrow what a key package advertises was undocumented, and the
+  README said it did not exist** (`rust/src/api/engine.rs`,
+  `lib/src/rust/api/engine.dart`, `README.md`) — `createKeyPackage` and
+  `createKeyPackageWithOptions` carried no doc comment at all, and the README
+  stated outright that "`createKeyPackage` takes no capabilities argument, so
+  key packages always advertise the full list". The second half is false:
+  `KeyPackageOptions.capabilities` exists and reaches
+  `builder.leaf_node_capabilities`. Since this release is the one that grows
+  the advertised list from four suites to thirteen, that sentence sat exactly
+  where a reader would go looking for the mitigation and told them there was
+  none. Both functions now document what the defaults advertise and which one
+  to reach for; the README points at the option instead of ruling it out.
 
 - **Six dead references in the published API documentation**
   (`rust/src/api/types.rs`, `rust/src/api/engine.rs`, `lib/src/rust/`) —
@@ -361,10 +387,48 @@
   Cargo forces unwind for the `test` and `bench` profiles and rejects the key
   on per-package overrides, so the setting that actually ships is invisible
   from inside a test binary — so the test reads the manifest instead. It goes
-  red on `panic = "abort"` in either TOML string form, and on the section
-  being renamed away, so it cannot rot into a no-op.
+  red on `panic = "abort"` in either TOML string form, on the section being
+  renamed away, and — because an exact `[profile.release]` header match is a
+  thing TOML gives several ways around — on any non-comment line of the
+  manifest that names both `panic` and `abort`, whatever shape it is written
+  in. Verified by putting `release.panic = "abort"` somewhere the header match
+  cannot see and watching it go red.
 
 #### Changed
+
+- **The libcrux routing guard exercises all five HPKE methods, not one**
+  (`rust/src/hybrid_crypto.rs`) — `libcrux_routing_is_limited_to_xwing` has
+  two halves, and the operational half ran `derive_hpke_keypair` alone. Each
+  of `hpke_seal`, `hpke_open`, `hpke_setup_sender_and_export`,
+  `hpke_setup_receiver_and_export` and `derive_hpke_keypair` makes its own
+  `routes_to_libcrux` call, so a wrong backend introduced in one of the other
+  four left both halves green: the predicate is unchanged, and nothing called
+  the method. All five now run per ciphersuite on a fresh provider, with a
+  full seal/open round-trip and an exporter-secret agreement check, and
+  libcrux must still be uninitialised after each — the failure names the
+  method. Confirmed against the defect rather than the patch: routing
+  `hpke_open` unconditionally to libcrux turns the test red on the first
+  ciphersuite, where before it stayed green.
+
+- **The two `unsafe_code` opt-outs are item-level, and the comments describing
+  them are true** (`rust/src/encrypted_db.rs`, `rust/src/lib.rs`,
+  `rust/Cargo.toml`) — `encrypted_db.rs` opened with a module-wide
+  `#![allow(unsafe_code)]` for a single wasm32-gated `unsafe impl Send + Sync`
+  pair, which exempted all 1,500 lines of it, native half included. The allow
+  moves onto the two impls. Both comments said the bridge and this module opt
+  out "each with its own attribute", naming a module-level one here; both now
+  say item-level, which is what they both are.
+
+- **`CLAUDE.md` described a version key that does not exist, and an unsigned
+  release tag** — the native library version was documented as
+  `openmls: native_version:` in `pubspec.yaml`; there is no such key, and
+  `hook/build.dart` reads the crate version out of `rust/Cargo.toml`, which is
+  what decides the binary a consumer downloads. The publishing checklist still
+  ended in `git tag -a`, which the `Protect release tags` ruleset rejects for
+  want of a signature and which the two-stage `make release-frb` / `make
+  release` flow replaced; it now points at that flow and lists the gates to
+  have green before it, including that stage 1 only *warns* when local main is
+  ahead of origin.
 
 - **copier template adopted: v4.6.0 → v4.7.0** (34 files) — the release is
   mostly gates, and two of them close holes this project knew it had.

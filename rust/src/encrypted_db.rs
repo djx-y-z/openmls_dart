@@ -11,10 +11,6 @@
 //! CREATE TABLE db_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 //! ```
 
-// WASM's `WasmCryptoKey` newtype carries `unsafe impl Send + Sync` (sound
-// because WASM is single-threaded); it needs unsafe under `unsafe_code = "deny"`.
-#![allow(unsafe_code)]
-
 use zeroize::Zeroize;
 
 /// Current database schema version.
@@ -97,9 +93,15 @@ impl Drop for StorageUpdates {
 #[cfg(target_arch = "wasm32")]
 struct WasmCryptoKey(web_sys::CryptoKey);
 
+// The two opt-outs from `unsafe_code = "deny"` are attached to the impls
+// themselves rather than to the module. A module-level `#![allow]` would have
+// covered the whole file — including the native half, which contains no
+// `unsafe` and must keep being unable to grow any.
 #[cfg(target_arch = "wasm32")]
+#[allow(unsafe_code)]
 unsafe impl Send for WasmCryptoKey {}
 #[cfg(target_arch = "wasm32")]
+#[allow(unsafe_code)]
 unsafe impl Sync for WasmCryptoKey {}
 
 pub struct EncryptedDb {

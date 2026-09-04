@@ -135,8 +135,9 @@ overflow-checks = true
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ["cfg(frb_expand)"] }
-# Hand-written code denies unsafe by default. Exactly two places opt out, each
-# with its own attribute: the FRB-generated bridge (`#[allow(unsafe_code)]` on
+# Hand-written code denies unsafe by default. Exactly two places opt out, both
+# with an item-level `#[allow(unsafe_code)]`: the FRB-generated bridge (on
 # `mod frb_generated` in lib.rs) and encrypted_db's WASM `unsafe impl Send +
-# Sync` (module-level `#![allow(unsafe_code)]`).
+# Sync` (on the two impls). Neither is module-wide, so adding `unsafe` anywhere
+# else in either file is still a compile error.
 unsafe_code = "deny"

@@ -1004,6 +1004,26 @@ mod tests {
             "no `[profile.release]` section in rust/Cargo.toml — this test can \
              no longer see the profile it is meant to guard.",
         );
+
+        // The loop above matches `[profile.release]` exactly, which TOML gives
+        // several ways around: `[profile]` with `release.panic = "abort"`, a
+        // bare `profile.release.panic = "abort"`, or an inline
+        // `release = { panic = "abort" }`. Rather than enumerate the shapes —
+        // the enumeration is what would rot — reject the pair outright. No line
+        // of this manifest has any business naming both, so anything that does
+        // is either the setting itself in a shape the loop cannot see, or a
+        // deliberate change that should come with a deliberate edit here.
+        for raw in manifest.lines() {
+            let line = raw.split('#').next().unwrap_or_default();
+            assert!(
+                !(line.contains("panic") && line.contains("abort")),
+                "rust/Cargo.toml names both `panic` and `abort` outside a \
+                 comment, on: {}\nIf this is a profile setting, it turns off \
+                 unwinding and with it the zeroize-on-Drop of the snapshot \
+                 HashMaps and of the DB key material.",
+                line.trim(),
+            );
+        }
     }
 
     #[test]

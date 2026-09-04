@@ -6562,6 +6562,18 @@ class MlsEngineImpl extends RustOpaque implements MlsEngine {
     credentialBytes: credentialBytes,
   );
 
+  /// Builds a key package with OpenMLS's defaults for everything except the
+  /// ciphersuite and the credential.
+  ///
+  /// Those defaults include the advertised capabilities, and the ciphersuite
+  /// list inside them is every suite `supportedCiphersuites` returns — ten of
+  /// them experimental post-quantum suites on provisional code points. A peer
+  /// reading this key package may therefore pick one of those for a group.
+  ///
+  /// To advertise a narrower set, or to change the lifetime, mark the package
+  /// last-resort, or attach extensions, use `createKeyPackageWithOptions`
+  /// instead: `KeyPackageOptions.capabilities` is where the ciphersuite list
+  /// goes.
   Future<KeyPackageResult> createKeyPackage({
     required MlsCiphersuite ciphersuite,
     required List<int> signerBytes,
@@ -6577,6 +6589,14 @@ class MlsEngineImpl extends RustOpaque implements MlsEngine {
     credentialBytes: credentialBytes,
   );
 
+  /// Builds a key package, overriding the defaults `createKeyPackage` leaves
+  /// alone.
+  ///
+  /// Every field of `KeyPackageOptions` is optional and an unset one keeps
+  /// OpenMLS's default. `capabilities` is the one with a wire consequence:
+  /// setting `MlsCapabilities.ciphersuites` to an explicit list of raw code
+  /// points is the only way to stop a key package advertising every suite
+  /// this provider supports, experimental ones included.
   Future<KeyPackageResult> createKeyPackageWithOptions({
     required MlsCiphersuite ciphersuite,
     required List<int> signerBytes,

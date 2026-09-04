@@ -281,12 +281,15 @@ See `.github/rulesets/README.md`.
 
 ## Native Library Version
 
-The openmls version is specified in `pubspec.yaml`:
+Two different versions live here and neither is in `pubspec.yaml`:
 
-```yaml
-openmls:
-  native_version: "1.0.0"  # Current version
-```
+- **The upstream openmls version** is the git tag in `rust/Cargo.toml`
+  (`tag = "openmls-v0.9.0"` on each of the five openmls dependency lines). This
+  is what `make check-new-openmls-version` reads and updates.
+- **The native crate version** is `[package] version` in `rust/Cargo.toml`.
+  `hook/build.dart` parses it (`_readVersion`) and downloads
+  `openmls_frb-<version>` from GitHub Releases, so the archive's copy of
+  `rust/Cargo.toml` is what decides which binary a consumer gets.
 
 To check/update the version:
 ```bash
@@ -523,23 +526,33 @@ Rules:
 
 ## Publishing Checklist
 
+Releasing itself is **"Release Flow (two stages)"** above — `make release-frb`
+then `make release`. Do not bump versions, tag or push by hand: both scripts
+require a clean tree, bump the right file, finalize the CHANGELOG, and create a
+**signed** tag (`git tag -s`), which the `Protect release tags` ruleset requires.
+An unsigned `git tag -a` is rejected.
+
+What to have green before starting stage 1:
+
 ```bash
-# 1. Run quality checks
-make analyze
-make test
+make analyze ARGS="--fatal-infos"
 make format-check
-
-# 2. Update version in pubspec.yaml
-# 3. Update CHANGELOG.md
-
-# 4. Dry run
-make publish-dry-run
-
-# 5. Create annotated tag and push (CI will publish)
-git tag -a vX.Y.Z -m "Release vX.Y.Z"
-git push origin main
-git push origin vX.Y.Z
+make test
+make rust-test
+make rust-clippy
+make doc                        # blocking: unresolved doc references
+make rust-doc                   # blocking: intra-doc links, host + wasm32
+make rust-audit
+make rust-deny
+make verify-frb-pins
+make verify-third-party-notices
+make publish-dry-run            # exits 65 on ANY warning, dirty tree included
 ```
+
+Push first and let CI go green: `make release-frb` only *warns* when local main
+is ahead of origin, then pushes those commits together with the release tag —
+so unreviewed commits would reach origin at the same moment the tag starts the
+native build.
 
 ## Claude Skills
 

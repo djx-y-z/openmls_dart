@@ -475,18 +475,65 @@ mod tests {
              rust/deny.toml are stated over this set"
         );
 
-        // The same claim operationally rather than through the predicate: run
-        // the HPKE method most likely to reach a backend, on a fresh provider
-        // per suite, and require libcrux to still be untouched afterwards.
+        // The same claim operationally rather than through the predicate.
+        //
+        // All five HPKE methods make their own `routes_to_libcrux` call, so
+        // exercising one of them says nothing about the other four: a wrong
+        // backend introduced in `hpke_open` alone would leave both the
+        // predicate above and a keygen-only probe green. Every one of the five
+        // therefore runs, on a fresh provider per suite, and libcrux must still
+        // be uninitialised after each — `libcrux` is a `OnceLock` filled on
+        // first use, so `get().is_none()` is a faithful "was never reached".
+        //
+        // `HpkeConfig` is neither `Copy` nor `Clone`, hence `cs.hpke_config()`
+        // per call rather than one binding reused.
+        const INFO: &[u8] = b"routing probe";
+        const AAD: &[u8] = b"routing aad";
+        const PTXT: &[u8] = b"routing plaintext";
+        const CTX: &[u8] = b"routing exporter";
+
         for cs in hybrid.supported_ciphersuites().into_iter().filter(|cs| *cs != intended) {
             let probe = HybridCrypto::new();
-            probe
+            let untouched = |method: &str| {
+                assert!(
+                    probe.libcrux.get().is_none(),
+                    "{cs:?} reached libcrux through {method}; only {intended:?} may"
+                );
+            };
+
+            let kp = probe
                 .derive_hpke_keypair(cs.hpke_config(), &[3u8; 32])
-                .unwrap_or_else(|e| panic!("{cs:?} HPKE keygen failed on RustCrypto: {e:?}"));
-            assert!(
-                probe.libcrux.get().is_none(),
-                "{cs:?} reached libcrux; only {intended:?} may"
+                .unwrap_or_else(|e| panic!("{cs:?} derive_hpke_keypair failed on RustCrypto: {e:?}"));
+            untouched("derive_hpke_keypair");
+
+            let ctxt = probe
+                .hpke_seal(cs.hpke_config(), &kp.public, INFO, AAD, PTXT)
+                .unwrap_or_else(|e| panic!("{cs:?} hpke_seal failed on RustCrypto: {e:?}"));
+            untouched("hpke_seal");
+
+            let ptxt = probe
+                .hpke_open(cs.hpke_config(), &ctxt, &kp.private, INFO, AAD)
+                .unwrap_or_else(|e| panic!("{cs:?} hpke_open failed on RustCrypto: {e:?}"));
+            assert_eq!(ptxt, PTXT, "{cs:?} HPKE round-trip returned different bytes");
+            untouched("hpke_open");
+
+            let (enc, sender_secret) = probe
+                .hpke_setup_sender_and_export(cs.hpke_config(), &kp.public, INFO, CTX, 32)
+                .unwrap_or_else(|e| {
+                    panic!("{cs:?} hpke_setup_sender_and_export failed on RustCrypto: {e:?}")
+                });
+            untouched("hpke_setup_sender_and_export");
+
+            let receiver_secret = probe
+                .hpke_setup_receiver_and_export(cs.hpke_config(), &enc, &kp.private, INFO, CTX, 32)
+                .unwrap_or_else(|e| {
+                    panic!("{cs:?} hpke_setup_receiver_and_export failed on RustCrypto: {e:?}")
+                });
+            assert_eq!(
+                &*sender_secret, &*receiver_secret,
+                "{cs:?} sender and receiver exported different secrets"
             );
+            untouched("hpke_setup_receiver_and_export");
         }
     }
 
