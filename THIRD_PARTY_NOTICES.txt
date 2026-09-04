@@ -312,12 +312,12 @@ find-msvc-tools 0.1.11
   License: MIT OR Apache-2.0
   Texts:   LICENSE-APACHE [T17], LICENSE-MIT [T36]
 
-flutter_rust_bridge 2.12.0
+flutter_rust_bridge 2.13.0
   License: MIT
   Notice:  ships no licence file of its own; canonical MIT terms [C3]
   Source:  https://github.com/fzyzcjy/flutter_rust_bridge
 
-flutter_rust_bridge_macros 2.12.0
+flutter_rust_bridge_macros 2.13.0
   License: MIT
   Notice:  ships no licence file of its own; canonical MIT terms [C3]
   Source:  https://github.com/fzyzcjy/flutter_rust_bridge
@@ -11505,8 +11505,8 @@ SOFTWARE.
 ------------------------------------------------------------------------------
 
 Crates:
-  flutter_rust_bridge@2.12.0
-  flutter_rust_bridge_macros@2.12.0
+  flutter_rust_bridge@2.13.0
+  flutter_rust_bridge_macros@2.13.0
 
 MIT License
 

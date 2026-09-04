@@ -17,7 +17,7 @@ FVM ?= fvm
 # Must match the flutter_rust_bridge dependency in pubspec.yaml — a codegen
 # binary of a different version produces different bindings, which makes CI
 # and local codegen runs disagree.
-FRB_CODEGEN_VERSION ?= 2.12.0
+FRB_CODEGEN_VERSION ?= 2.13.0
 
 # Arguments are passed via ARGS variable
 ARGS ?=

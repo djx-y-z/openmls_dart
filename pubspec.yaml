@@ -19,7 +19,7 @@ dependencies:
   # 65 on any warning, which would make the package unreleasable. The caret is
   # stripped rather than trusted absent, so this, FRB_CODEGEN_VERSION and the
   # `=` pin in Cargo.toml stay in step whatever `frb_version` is answered with.
-  flutter_rust_bridge: ">=2.12.0 <2.12.1"
+  flutter_rust_bridge: ">=2.13.0 <2.13.1"
   # SHA256 verification for native library downloads
   crypto: ^3.0.7
   # Build hooks for automatic native library download. Left on the caret
