@@ -11,7 +11,7 @@ use openmls::prelude::*;
 ///
 /// Every other variant is a post-quantum or hybrid suite taken from
 /// [draft-ietf-mls-pq-ciphersuites][draft] — or, for
-/// [`Mls256XwingChacha20poly1305Sha256Ed25519`], from an expired individual
+/// [`Self::Mls256XwingChacha20poly1305Sha256Ed25519`], from an expired individual
 /// draft. They share these limitations, and each carries the full warning on
 /// its own documentation:
 ///
