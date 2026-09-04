@@ -105,8 +105,10 @@ pass explicit `capabilities`, OpenMLS fills that list with **all thirteen**
 suites above — so peers may choose an experimental one for a group you join.
 To advertise a narrower set, pass `MlsCapabilities` with an explicit
 `ciphersuites` list (as raw `u16` values) to `createGroupWithBuilder` or
-`proposeSelfUpdate`. Note that `createKeyPackage` takes no capabilities
-argument, so key packages always advertise the full list.
+`proposeSelfUpdate`. `createKeyPackage` itself takes no capabilities argument,
+so a key package built with it advertises the full list — use
+`createKeyPackageWithOptions` and set `KeyPackageOptions.capabilities` to narrow
+that one too.
 
 ## Implementation Status
 

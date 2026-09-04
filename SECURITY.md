@@ -315,7 +315,7 @@ Since `crypto.subtle` protects the key but not the plaintext at the API boundary
 
 2. **In-memory storage:** `MlsEngine.create(dbPath: ':memory:', ...)` creates an ephemeral in-memory database. All state is lost when the engine is dropped. Use a file path in production.
 
-3. **Minimal `unsafe` code:** The wrapper layer has one `unsafe` usage: `Send + Sync` impl for `WasmCryptoKey` (wrapping `web_sys::CryptoKey`), which is safe because WASM is single-threaded. All other `unsafe` usage is in upstream OpenMLS, RustCrypto, and `web-sys` crates.
+3. **Minimal `unsafe` code:** `unsafe_code = "deny"` covers the crate, with exactly two opt-outs. The hand-written one is the `Send + Sync` impl for `WasmCryptoKey` (wrapping `web_sys::CryptoKey`), sound because `wasm32-unknown-unknown` is single-threaded. The other is `rust/src/frb_generated.rs`, the flutter_rust_bridge-generated bridge — it ships inside this crate rather than in a dependency, is machine-generated rather than reviewed line by line, and carries its own `#[allow(unsafe_code)]`. Beyond those two, `unsafe` is upstream: OpenMLS, RustCrypto and `web-sys`.
 
 4. **Concurrency:** Operations on one `MlsEngine` are serialized internally — each load → operate → save runs under an engine-wide async lock — and a second connection to the same database file is refused, so concurrent calls cannot lose each other's state. What the library cannot decide for you is *protocol* order: handing `processMessage` messages out of order still breaks the group's epoch sequence.
 

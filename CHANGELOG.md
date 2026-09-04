@@ -66,10 +66,23 @@
   which are hybrid and which are not.
 
   **Action required:** an exhaustive `switch` over `MlsCiphersuite` no longer
-  compiles. Add the nine new cases, or a `default:`. Nothing else changes — the
-  original four keep their names, their meanings and their positions in the
+  compiles. Add the nine new cases, or a `default:`. Stored state is untouched —
+  the original four keep their names, their meanings and their positions in the
   enum, so existing values continue to serialize identically and no stored group
-  or key package is affected.
+  or key package has to be migrated.
+
+  **Action required, and this one is on the wire:** what a client advertises
+  changes even if you touch no code. `MlsCapabilities.ciphersuites` reads an
+  empty list as "use OpenMLS's defaults", and that default list grew with the
+  same feature — from four entries to thirteen — so a leaf node or key package
+  built without explicit capabilities now advertises all thirteen, nine of them
+  provisional code points not registered with IANA. Nothing breaks: RFC 9420
+  lets a client advertise suites it is never asked to run, and the group's suite
+  stays the creator's choice. But a peer may now pick an experimental suite for
+  a group you would join. To keep 2.0.1's advertised set, pass `MlsCapabilities`
+  with an explicit `ciphersuites` list of raw code points — `[0x0001, 0x0002,
+  0x0003]` — to `createGroupWithBuilder`, `proposeSelfUpdate` and
+  `createKeyPackageWithOptions`.
 
 #### Changed
 
@@ -301,8 +314,16 @@
   always there — two sets of generated bindings cannot both equal one runtime
   version — so what changes is only that it surfaces where it can be acted on.
 
-  Nothing else moves. `rustContentHash` is unchanged, so the published native
-  binary still matches and no rebuild or regeneration is needed.
+  Nothing else moves for this fix: `rustContentHash` is unchanged, so it needs
+  no regeneration of its own. Worth stating what that hash does *not* cover,
+  since this release leans on it nowhere: it is computed over the FFI function
+  signatures, not over enum variants, so the ciphersuite expansion above leaves
+  it unchanged too — bindings naming thirteen suites would load against a native
+  binary that knows four without the runtime check firing. What prevents that is
+  the release order rather than the hash. The build hook resolves its download
+  from the crate version in `rust/Cargo.toml`, which ships inside the archive,
+  and the stage-2 release refuses to run until the stage-1 native release for
+  that exact version exists.
 
 - **The native library was not found under `flutter test`**
   (`lib/src/platform/platform_io.dart`, `lib/src/openmls.dart`,
@@ -345,7 +366,7 @@
 
 #### Changed
 
-- **copier template adopted: v4.6.0 → v4.7.0** (28 files) — the release is
+- **copier template adopted: v4.6.0 → v4.7.0** (34 files) — the release is
   mostly gates, and two of them close holes this project knew it had.
 
   **wasm32 is executed in CI, not merely compiled.** `test-reusable.yml` gains
@@ -478,15 +499,18 @@
   lifecycle on X-Wing (libcrux), on the ML-KEM-768 + X25519 suite with an
   ML-DSA-44 signature (RustCrypto, and the suite a routing regression breaks
   outright), and on a pure ML-KEM-768 suite, after the classical regression
-  check. This tab is the only wasm32 runtime check that exists — no CI gate
-  builds or runs WASM — so it has to be re-run by hand after any change to
-  ciphersuites or crypto routing, and it is now worth more when it is.
+  check. CI now builds the WebAssembly module and runs the crate's browser
+  tests (see the template adoption above), but that suite is a single test over
+  `current_time`: no gate exercises a ciphersuite, the IndexedDB store or Web
+  Crypto on wasm32. This tab remains the only runtime check of those, so it has
+  to be re-run by hand after any change to ciphersuites or crypto routing, and
+  it is now worth more when it is.
 
 - **The upstream-bump checklist records the feature-gate trap**
   (`.claude/skills/update-openmls/SKILL.md`) — a gated ciphersuite variant
   reports as `E0599 ... no variant named XWingKemDraft6`, which reads exactly
   like a removal and cost this bump a wrong diagnosis. The checklist now says to
-  look for a new cargo feature first, and that it has to go on all four openmls
+  look for a new cargo feature first, and that it has to go on all five openmls
   crates rather than only on `openmls`. A second block covers the opposite
   direction — which features must stay *off* in a shipped binary, and how to
   check the built artifacts for it — so a later bump cannot quietly restore the
