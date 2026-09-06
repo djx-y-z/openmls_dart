@@ -86,6 +86,26 @@
 
 #### Changed
 
+- **The Android libraries are built with NDK r28 instead of r26**
+  (`.github/workflows/build-openmls.yml`, `.copier-answers.yml`) — the shipped
+  `.so` for all three ABIs is now produced by Clang 19 rather than Clang 17.
+  Not a chosen upgrade. `rusqlite`'s `bundled-sqlcipher-vendored-openssl`
+  vendors OpenSSL, and the openmls 0.9.0 bump re-resolved that from 3.5.5 to
+  **3.6.3**, which ships an SM3 x86-64 assembly implementation using the Intel
+  SM3 instructions `vsm3msg1`, `vsm3msg2` and `vsm3rnds2`. NDK r26's Clang 17
+  does not know them, so `x86_64-linux-android` failed to build at all
+  (`invalid instruction mnemonic`); Clang 18 is the first that assembles them,
+  and r28 is the current stable line.
+
+  Rolling OpenSSL back was rejected rather than untried: `openssl-src`'s newest
+  3.5 packaging is `300.5.5+3.5.5`, and OpenSSL 3.5.5 carries seven CVEs fixed
+  only in 3.5.6 and later, which that crate does not package. The rollback
+  would have traded a build failure for known vulnerabilities.
+
+  The gap that let this reach a release tag is that **Android is built only on
+  an `openmls_frb-*` tag** — the `Tests` workflow never cross-compiles it — so
+  the breakage sat on `main` from the 0.9.0 bump until the first tag after it.
+
 - **flutter_rust_bridge 2.12.0 → 2.13.0** (`pubspec.yaml`, `rust/Cargo.toml`,
   `Makefile`, `lib/src/rust/`, `.copier-answers.yml`) — moved in all five places
   that have to agree, which `make verify-frb-pins` checks, and the published

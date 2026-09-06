@@ -87,8 +87,8 @@ curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 echo $ANDROID_NDK_HOME
 
 # Common paths
-export ANDROID_NDK_HOME=~/Android/Sdk/ndk/26.3.11579264
-export ANDROID_NDK_HOME=~/Library/Android/sdk/ndk/26.3.11579264
+export ANDROID_NDK_HOME=~/Android/Sdk/ndk/28.2.13676358
+export ANDROID_NDK_HOME=~/Library/Android/sdk/ndk/28.2.13676358
 ```
 
 ### Build fails on Windows
