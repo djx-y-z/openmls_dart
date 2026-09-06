@@ -197,7 +197,7 @@ pub struct MlsCapabilities {
 
 /// Options for creating a key package with the builder API.
 pub struct KeyPackageOptions {
-    /// Lifetime in seconds. None = default (90 days).
+    /// Lifetime in seconds. None = default (84 days).
     pub lifetime_seconds: Option<u64>,
     /// Mark as last-resort key package.
     pub last_resort: bool,

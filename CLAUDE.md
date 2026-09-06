@@ -23,7 +23,7 @@ make build --target aarch64-apple-darwin  # make interprets --target as its own 
 ```bash
 make setup                        # Full setup (FVM + Rust tools)
 make setup-fvm                    # Install FVM + Flutter only
-make setup-rust-tools             # Install Rust tools (cargo-audit, frb_codegen)
+make setup-rust-tools             # Install Rust tools (cargo-audit, cargo-deny, frb_codegen)
 make setup-web                    # Install web build tools (wasm-pack)
 make setup-android                # Install Android build tools (cargo-ndk)
 ```
@@ -284,7 +284,8 @@ See `.github/rulesets/README.md`.
 Two different versions live here and neither is in `pubspec.yaml`:
 
 - **The upstream openmls version** is the git tag in `rust/Cargo.toml`
-  (`tag = "openmls-v0.9.0"` on each of the five openmls dependency lines). This
+  (`tag = "openmls-v0.9.0"` on each of the six openmls dependency lines — five
+  crates, with `openmls` declared a second time for `wasm32`). This
   is what `make check-new-openmls-version` reads and updates.
 - **The native crate version** is `[package] version` in `rust/Cargo.toml`.
   `hook/build.dart` parses it (`_readVersion`) and downloads
@@ -561,5 +562,10 @@ Claude Code skills available in this project (invoke with `/<skill>` or used aut
 | Skill | Description |
 |-------|-------------|
 | `add-db-migration` | Add a new database migration to EncryptedDb (schema/data format changes) |
-| `release-package` | Prepare a new version for publication to pub.dev |
+| `build-native` | Build the native libraries for a given platform |
+| `frb-patterns` | Flutter Rust Bridge patterns and conventions for this project |
+| `release-frb-crate` | Release a new `openmls_frb` native crate (stage 1) |
+| `release-package` | Prepare a new version for publication to pub.dev (stage 2) |
+| `security-review` | Review changes for security issues and secure API usage |
+| `update-openmls` | Update the upstream openmls version |
 | `update-template` | Update copier template to latest version |

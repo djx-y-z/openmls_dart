@@ -47,7 +47,7 @@ abstract class MlsCredential implements RustOpaqueInterface {
 
   /// Create an X.509 credential from a certificate chain.
   ///
-  /// Each entry in `certificate_chain` is a DER-encoded X.509 certificate.
+  /// Each entry in `certificateChain` is a DER-encoded X.509 certificate.
   /// The first certificate should be the end-entity (leaf) certificate,
   /// followed by intermediate certificates in order toward the root.
   ///

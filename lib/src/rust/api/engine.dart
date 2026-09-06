@@ -15,7 +15,7 @@ import 'types.dart';
 /// Extract the group ID from an MLS protocol message.
 ///
 /// Useful for routing incoming messages to the right group before calling
-/// `process_message`. Returns an error if the message is not a protocol
+/// `processMessage`. Returns an error if the message is not a protocol
 /// message (i.e. it's a Welcome, GroupInfo, or KeyPackage).
 Uint8List mlsMessageExtractGroupId({required List<int> messageBytes}) => RustLib
     .instance
@@ -72,7 +72,7 @@ abstract class MlsEngine implements RustOpaqueInterface {
   ///
   /// # Arguments
   ///
-  /// * `db_path` — Database location.
+  /// * `dbPath` — Database location.
   ///   - **Native**: file path for SQLCipher (e.g. `"path/to/mls.db"`).
   ///     Use `":memory:"` for an ephemeral in-memory database (destroyed on drop,
   ///     useful for tests). A `"file:…"` URI is rejected: the path it resolves
@@ -84,7 +84,7 @@ abstract class MlsEngine implements RustOpaqueInterface {
   ///   - Tip: include an account identifier in the path to isolate data per user
   ///     (e.g. `"mls_{account_id}.db"` on native, `"mls_{account_id}"` on web).
   ///
-  /// * `encryption_key` — 32-byte AES-256 key that protects data at rest.
+  /// * `encryptionKey` — 32-byte AES-256 key that protects data at rest.
   ///   The caller is responsible for generating, storing, and providing this key.
   ///   Recommended pattern: generate a random key on first launch and persist it
   ///   in platform secure storage (e.g. Keychain on iOS/macOS, Android Keystore,

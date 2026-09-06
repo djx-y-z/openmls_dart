@@ -342,12 +342,14 @@ mod tests {
     /// Classical operations must never initialize the libcrux provider —
     /// proves lazy init keeps classical suites independent of libcrux.
     ///
-    /// This test also MECHANICALLY ENFORCES the reachability justifications in
-    /// `.cargo/audit.toml`: RUSTSEC-2026-0075 (libcrux-ed25519) and
-    /// RUSTSEC-2026-0124 (libcrux-chacha20poly1305) are ignored there on the
-    /// grounds that signature and AEAD operations never route to libcrux. If a
-    /// future refactor changes that routing, this test fails and the ignore
-    /// entries must be re-justified.
+    /// This test also MECHANICALLY ENFORCES the reasoning `.cargo/audit.toml`
+    /// records: its ignore list is empty, and the libcrux advisories it used to
+    /// carry — RUSTSEC-2026-0075 (libcrux-ed25519) and RUSTSEC-2026-0124
+    /// (libcrux-chacha20poly1305) among them — were justified on the grounds
+    /// that signature and AEAD operations never route to libcrux. openmls 0.9.0
+    /// moved the tree past every one of them, so none matches today. If a future
+    /// refactor changes that routing, this test fails before an ignore is needed
+    /// again.
     #[test]
     fn classical_ops_do_not_init_libcrux() {
         let hybrid = HybridCrypto::new();

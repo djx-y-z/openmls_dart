@@ -35,7 +35,7 @@ impl MlsSignatureKeyPair {
     /// Reconstruct a key pair from raw private and public key bytes.
     ///
     /// # Security
-    /// `private_key` is moved (not copied) into the key pair.
+    /// `privateKey` is moved (not copied) into the key pair.
     #[flutter_rust_bridge::frb(sync)]
     pub fn from_raw(
         ciphersuite: MlsCiphersuite,
@@ -73,7 +73,7 @@ impl MlsSignatureKeyPair {
     ///
     /// The returned bytes contain the **public key and signature scheme only** —
     /// no private key material. To reconstruct a full key pair with private key,
-    /// use `from_raw()` with the original private key bytes.
+    /// use `fromRaw()` with the original private key bytes.
     #[flutter_rust_bridge::frb(sync)]
     pub fn serialize(&self) -> Result<Vec<u8>, String> {
         // SignatureKeyPair doesn't expose private key bytes directly.
@@ -93,7 +93,7 @@ impl MlsSignatureKeyPair {
     /// Deserialize a key pair from bytes (public key + scheme only).
     ///
     /// Note: This only restores the public key and scheme. To reconstruct
-    /// a full key pair with private key, use `from_raw()`.
+    /// a full key pair with private key, use `fromRaw()`.
     #[flutter_rust_bridge::frb(sync)]
     pub fn deserialize_public(bytes: Vec<u8>) -> Result<MlsSignatureKeyPair, String> {
         let skp: SerializableKeyPair =

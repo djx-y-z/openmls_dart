@@ -7141,7 +7141,7 @@ class MlsSignatureKeyPairImpl extends RustOpaque
   ///
   /// The returned bytes contain the **public key and signature scheme only** —
   /// no private key material. To reconstruct a full key pair with private key,
-  /// use `from_raw()` with the original private key bytes.
+  /// use `fromRaw()` with the original private key bytes.
   Uint8List serialize() =>
       RustLib.instance.api.crateApiKeysMlsSignatureKeyPairSerialize(that: this);
 

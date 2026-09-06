@@ -15,7 +15,7 @@ Dart bindings for [OpenMLS](https://github.com/openmls/openmls), providing a Rus
 |             | Android | iOS   | macOS  | Linux      | Windows | Web |
 |-------------|---------|-------|--------|------------|---------|-----|
 | **Support** | SDK 24+ | 13.0+ | 10.15+ | arm64, x64 | x64     | WASM |
-| **Arch**    | arm64, armv7, x64 | arm64 | arm64, x64 | arm64, x64 | x64 | wasm32 |
+| **Arch**    | arm64, armv7, x64 | arm64, x64 (sim) | arm64, x64 | arm64, x64 | x64 | wasm32 |
 
 ## Features
 
@@ -131,15 +131,17 @@ that one too.
 
 **Group Lifecycle**: `createGroup`, `createGroupWithBuilder`, `joinGroupFromWelcome`, `joinGroupFromWelcomeWithOptions`, `inspectWelcome`, `joinGroupExternalCommit`, `joinGroupExternalCommitV2`
 
-**State Queries**: `groupId`, `groupEpoch`, `groupIsActive`, `groupMembers`, `groupCiphersuite`, `groupOwnIndex`, `groupCredential`, `groupExtensions`, `groupPendingProposals`, `groupHasPendingProposals`, `groupMemberAt`, `groupMemberLeafIndex`, `groupOwnLeafNode`, `groupConfirmationTag`, `exportRatchetTree`, `exportGroupInfo`, `exportSecret`, `exportGroupContext`, `getPastResumptionPsk`
+**State Queries**: `groupId`, `groupEpoch`, `groupIsActive`, `groupMembers`, `groupCiphersuite`, `groupOwnIndex`, `groupCredential`, `groupExtensions`, `groupPendingProposals`, `groupHasPendingProposals`, `groupMemberAt`, `groupMemberLeafIndex`, `groupOwnLeafNode`, `groupConfirmationTag`, `groupConfiguration`, `groupEpochAuthenticator`, `exportRatchetTree`, `exportGroupInfo`, `exportSecret`, `exportGroupContext`, `getPastResumptionPsk`
 
 **Mutations**: `addMembers`, `addMembersWithoutUpdate`, `removeMembers`, `selfUpdate`, `selfUpdateWithNewSigner`, `swapMembers`, `leaveGroup`, `leaveGroupViaSelfRemove`
 
-**Proposals**: `proposeAdd`, `proposeRemove`, `proposeSelfUpdate`, `proposeExternalPsk`, `proposeGroupContextExtensions`, `proposeCustomProposal`, `proposeRemoveMemberByCredential`
+**Proposals**: `proposeAdd`, `proposeRemove`, `proposeSelfUpdate`, `proposeExternalPsk`, `proposeGroupContextExtensions`, `proposeCustomProposal`, `proposeRemoveMemberByCredential`, `removePendingProposal`
 
 **Commit/Merge**: `commitToPendingProposals`, `mergePendingCommit`, `clearPendingCommit`, `clearPendingProposals`, `setConfiguration`, `updateGroupContextExtensions`, `flexibleCommit`
 
 **Messages**: `createMessage`, `processMessage`, `processMessageWithInspect`, `mlsMessageExtractGroupId`, `mlsMessageExtractEpoch`, `mlsMessageContentType`
+
+**Engine & Storage**: `close`, `isClosed`, `schemaVersion`, `deleteGroup`, `deleteKeyPackage`
 
 </details>
 
@@ -403,7 +405,7 @@ new version in `.copier-answers.yml`.
 **Best Practices:**
 - Keep the library updated to the latest version
 - Store the 32-byte encryption key in platform secure storage (Keychain, Android Keystore, `flutter_secure_storage`)
-- Never log or expose serialized key material (`signer.serialize()`, private keys)
+- Never log or expose serialized key material (`serializeSigner()`, `privateKey()`)
 - Use `SecureBytes.wrap()` or `.zeroize()` for sensitive data (serialized keys, shared secrets) — see [SECURITY.md](SECURITY.md)
 - Process MLS messages in order to maintain group state consistency
 - **Web deployment:** Enable strict CSP headers (`script-src 'self'`) and serve over HTTPS

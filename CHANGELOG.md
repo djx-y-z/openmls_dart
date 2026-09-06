@@ -297,6 +297,31 @@
 
 #### Fixed
 
+- **The published key package lifetime default was wrong, and four other
+  documents disagreed with the code** (`rust/src/api/types.rs`,
+  `rust/src/api/keys.rs`, `rust/src/api/engine.rs`,
+  `rust/src/api/credential.rs`, `README.md`, `SECURITY.md`, `lib/openmls.dart`)
+  — `KeyPackageOptions.lifetimeSeconds` documented `None` as "default (90
+  days)". openmls 0.9.0 sets that default to `3 * 28` days, i.e. **84**, and it
+  is the default that applies: `createKeyPackage` builds without a lifetime and
+  `createKeyPackageWithOptions` sets one only when the caller passes it. A
+  rotation window sized off the docstring was sized against a number this
+  package never used.
+
+  Alongside it, six references in published doc comments named Rust spellings
+  that do not exist on the Dart surface — `from_raw()` for `fromRaw`, and the
+  parameters `db_path`, `encryption_key`, `process_message`,
+  `certificate_chain`, `private_key`. `make doc` cannot catch these: the
+  references are in plain backticks, which resolve nothing and so never warn.
+  The README's hardening list named `signer.serialize()` as key material when
+  it carries only the public key and scheme, where `SECURITY.md` names the two
+  that do carry secrets; `SECURITY.md` described RustSec ignore justifications
+  in `.cargo/audit.toml`, whose list is empty and whose header says so; the
+  "Full API reference" omitted eight methods, two of which the security policy
+  tells the reader to use; the architecture table gave iOS one architecture
+  while the release ships and the build hook resolves an `x86_64` simulator
+  slice (the cell now says so explicitly); and `lib/openmls.dart`'s install snippet still said `^1.0.0`.
+
 - **The way to narrow what a key package advertises was undocumented, and the
   README said it did not exist** (`rust/src/api/engine.rs`,
   `lib/src/rust/api/engine.dart`, `README.md`) — `createKeyPackage` and

@@ -82,7 +82,7 @@ class FlexibleCommitOptions {
 
 /// Options for creating a key package with the builder API.
 class KeyPackageOptions {
-  /// Lifetime in seconds. None = default (90 days).
+  /// Lifetime in seconds. None = default (84 days).
   final BigInt? lifetimeSeconds;
 
   /// Mark as last-resort key package.

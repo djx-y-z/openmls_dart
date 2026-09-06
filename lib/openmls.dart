@@ -8,7 +8,7 @@
 ///
 /// ```yaml
 /// dependencies:
-///   openmls: ^1.0.0
+///   openmls: ^3.0.0
 /// ```
 ///
 /// Native libraries are downloaded automatically during build via Dart Build Hooks.

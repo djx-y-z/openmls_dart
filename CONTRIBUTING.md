@@ -359,7 +359,7 @@ All development tasks should be done via Makefile:
 |---------|-------------|
 | `make setup` | Install all required tools (Rust check, FVM, cargo-audit, FRB codegen) |
 | `make setup-fvm` | Install FVM and project Flutter version only |
-| `make setup-rust-tools` | Install Rust tools (cargo-audit, flutter_rust_bridge_codegen) |
+| `make setup-rust-tools` | Install Rust tools (cargo-audit, cargo-deny, flutter_rust_bridge_codegen) |
 | `make setup-web` | Install wasm-pack for web builds (optional) |
 | `make setup-android` | Install cargo-ndk for Android builds (optional) |
 | `make help` | Show all available commands |
@@ -584,7 +584,7 @@ See [dart.dev/tools/pub/automated-publishing](https://dart.dev/tools/pub/automat
 ## Third-party notices
 
 `THIRD_PARTY_NOTICES.txt` is generated from the resolved Rust dependency graph
-and verified byte-for-byte in CI, in `build-<package>.yml` and in both release
+and verified byte-for-byte in CI, in `build-openmls.yml` and in both release
 preflights. Regenerate it with `make third-party-notices` after any dependency
 change — `make rust-update` already does. `make verify-third-party-notices`
 prints the first differing line and the entries unique to each side, so a CI

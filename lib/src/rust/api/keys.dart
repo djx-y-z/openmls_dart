@@ -30,7 +30,7 @@ abstract class MlsSignatureKeyPair implements RustOpaqueInterface {
   /// Deserialize a key pair from bytes (public key + scheme only).
   ///
   /// Note: This only restores the public key and scheme. To reconstruct
-  /// a full key pair with private key, use `from_raw()`.
+  /// a full key pair with private key, use `fromRaw()`.
   static MlsSignatureKeyPair deserializePublic({required List<int> bytes}) =>
       RustLib.instance.api.crateApiKeysMlsSignatureKeyPairDeserializePublic(
         bytes: bytes,
@@ -39,7 +39,7 @@ abstract class MlsSignatureKeyPair implements RustOpaqueInterface {
   /// Reconstruct a key pair from raw private and public key bytes.
   ///
   /// # Security
-  /// `private_key` is moved (not copied) into the key pair.
+  /// `privateKey` is moved (not copied) into the key pair.
   static MlsSignatureKeyPair fromRaw({
     required MlsCiphersuite ciphersuite,
     required List<int> privateKey,
@@ -70,7 +70,7 @@ abstract class MlsSignatureKeyPair implements RustOpaqueInterface {
   ///
   /// The returned bytes contain the **public key and signature scheme only** —
   /// no private key material. To reconstruct a full key pair with private key,
-  /// use `from_raw()` with the original private key bytes.
+  /// use `fromRaw()` with the original private key bytes.
   Uint8List serialize();
 
   /// Returns the signature scheme as a u16.
