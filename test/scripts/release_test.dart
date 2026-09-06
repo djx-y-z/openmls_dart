@@ -238,4 +238,76 @@ void main() {
       }
     });
   });
+
+  group('describeFrbReleaseDrift', () {
+    // Shaped like the real files, trimmed to the lines that decide whether the
+    // published native binary matches the bindings shipped against it.
+    String bindings(String codegen) =>
+        "  @override\n  String get codegenVersion => '$codegen';\n"
+        '  @override\n  int get rustContentHash => 450650216;\n';
+    String cargo(String upstream) =>
+        '[dependencies]\n'
+        'openmls = { git = "https://example.invalid/upstream", '
+        'tag = "$upstream" }\n';
+
+    List<String> drift({
+      required String ourCodegen,
+      required String theirCodegen,
+      String ourUpstream = 'v1.2.3',
+      String theirUpstream = 'v1.2.3',
+    }) => describeFrbReleaseDrift(
+      tag: 'openmls_frb-1.0.0',
+      ourBindings: bindings(ourCodegen),
+      theirBindings: bindings(theirCodegen),
+      ourCargo: cargo(ourUpstream),
+      theirCargo: cargo(theirUpstream),
+    );
+
+    test('is silent when the tag was built from this tree', () {
+      // The ordinary post-stage-1 state: stage 2 adds commits, but neither the
+      // bindings nor the upstream pin move between the two stages.
+      expect(drift(ourCodegen: '2.13.0', theirCodegen: '2.13.0'), isEmpty);
+    });
+
+    test('a moved codegen version alone is enough to refuse', () {
+      // The hazard the existence check cannot see: a release carrying the right
+      // version string, built by a different generator. `rustContentHash`
+      // compares the FFI surface, which such a move need not touch, so nothing
+      // else catches it.
+      final reported = drift(ourCodegen: '2.13.0', theirCodegen: '2.12.0');
+      expect(reported, hasLength(1));
+      expect(
+        reported.single,
+        allOf(
+          contains('flutter_rust_bridge codegen'),
+          contains('2.13.0'),
+          contains('2.12.0'),
+        ),
+      );
+    });
+
+    test('a moved upstream pin alone is enough to refuse', () {
+      final reported = drift(
+        ourCodegen: '2.13.0',
+        theirCodegen: '2.13.0',
+        theirUpstream: 'v1.0.0',
+      );
+      expect(reported, hasLength(1));
+      expect(
+        reported.single,
+        allOf(contains('openmls:'), contains('v1.2.3'), contains('v1.0.0')),
+      );
+    });
+
+    test('both moving is reported as both, not as one', () {
+      expect(
+        drift(
+          ourCodegen: '2.13.0',
+          theirCodegen: '2.12.0',
+          theirUpstream: 'v1.0.0',
+        ),
+        hasLength(2),
+      );
+    });
+  });
 }

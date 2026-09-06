@@ -108,10 +108,12 @@ wasm-bindgen-test = "0.3"
 # would fail; the wipe would just not occur. The same applies to
 # `-Cpanic=abort` in RUSTFLAGS, which bypasses this file entirely.
 #
-# Enforced by `release_profile_must_not_abort_on_panic` in `snapshot_storage.rs`,
+# Enforced by `release_profile_must_not_abort_on_panic` in `src/utils.rs`,
 # which reads this file rather than the profile it runs under: Cargo forces
 # unwind for `test`/`bench`, so no running test can observe the setting that
-# actually ships.
+# actually ships. It rejects the key in either TOML string form and, because an
+# exact section match is a thing TOML gives several ways around, any
+# non-comment line here that names both `panic` and `abort`.
 #
 # It is a native-target statement only: `wasm32-unknown-unknown` aborts on
 # panic by default (`rustc --print cfg --target wasm32-unknown-unknown` says

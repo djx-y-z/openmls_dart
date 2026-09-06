@@ -47,6 +47,10 @@ on:
       # The doc gate lives in this file: without it `make doc` stops promoting
       # unresolved references to errors and the CI step passes silently.
       - 'dartdoc_options.yaml'
+      # Same reasoning one gate over: this file decides what `make analyze`
+      # reports, so a commit that changes only the lint configuration is
+      # precisely the one that must re-run it.
+      - 'analysis_options.yaml'
       - 'THIRD_PARTY_NOTICES.txt'
       - '.gitattributes'
       - '.copier-answers.yml'
@@ -63,6 +67,10 @@ on:
       # The doc gate lives in this file: without it `make doc` stops promoting
       # unresolved references to errors and the CI step passes silently.
       - 'dartdoc_options.yaml'
+      # Same reasoning one gate over: this file decides what `make analyze`
+      # reports, so a commit that changes only the lint configuration is
+      # precisely the one that must re-run it.
+      - 'analysis_options.yaml'
       - 'THIRD_PARTY_NOTICES.txt'
       - '.gitattributes'
       - '.copier-answers.yml'

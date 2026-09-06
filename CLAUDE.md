@@ -290,7 +290,8 @@ Two different versions live here and neither is in `pubspec.yaml`:
 - **The native crate version** is `[package] version` in `rust/Cargo.toml`.
   `hook/build.dart` parses it (`_readVersion`) and downloads
   `openmls_frb-<version>` from GitHub Releases, so the archive's copy of
-  `rust/Cargo.toml` is what decides which binary a consumer gets.
+  `rust/Cargo.toml` is what decides which binary a consumer gets. It is also
+  why stage 1 has to finish before stage 2.
 
 To check/update the version:
 ```bash
@@ -527,11 +528,11 @@ Rules:
 
 ## Publishing Checklist
 
-Releasing itself is **"Release Flow (two stages)"** above — `make release-frb`
-then `make release`. Do not bump versions, tag or push by hand: both scripts
-require a clean tree, bump the right file, finalize the CHANGELOG, and create a
-**signed** tag (`git tag -s`), which the `Protect release tags` ruleset requires.
-An unsigned `git tag -a` is rejected.
+Releasing itself is **"Release Flow (two stages)"** above — `make release-frb`,
+then `make release`. Do not bump versions, tag or push by hand: each script
+requires a clean tree, bumps the right file, finalizes the CHANGELOG, and
+creates a **signed** tag (`git tag -s`), which the `Protect release tags`
+ruleset requires. An unsigned `git tag -a` is rejected.
 
 What to have green before starting stage 1:
 
@@ -543,17 +544,18 @@ make rust-test
 make rust-clippy
 make doc                        # blocking: unresolved doc references
 make rust-doc                   # blocking: intra-doc links, host + wasm32
+make test-web                   # the crate's wasm32 tests, in a real browser
 make rust-audit
 make rust-deny
 make verify-frb-pins
 make verify-third-party-notices
-make publish-dry-run            # exits 65 on ANY warning, dirty tree included
+make publish-dry-run            # exits 65 on ANY warning, a dirty tree included
 ```
 
-Push first and let CI go green: `make release-frb` only *warns* when local main
-is ahead of origin, then pushes those commits together with the release tag —
-so unreviewed commits would reach origin at the same moment the tag starts the
-native build.
+Push first and let CI go green. `make release-frb` only *warns* when local main
+is ahead of origin and then pushes those commits together with the release tag
+— so commits CI has never seen would reach origin at the same moment the tag
+starts the native build.
 
 ## Claude Skills
 

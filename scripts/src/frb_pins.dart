@@ -172,8 +172,15 @@ String? frbVersionFromMakefile(String content) {
 
 /// Reads the version the committed bindings record, which the runtime compares
 /// against its own with `==`.
-String? frbVersionFromGeneratedBindings(String content) =>
-    RegExp(r"codegenVersion\s*=>\s*'([^']+)'").firstMatch(content)?.group(1);
+///
+/// Anchored on the getter's own declaration, like every other reader here. The
+/// file is generated, so a stray earlier mention is unlikely rather than
+/// impossible — and `firstMatch` on an unanchored pattern would take it, which
+/// is the one way this gate could report agreement it had not checked.
+String? frbVersionFromGeneratedBindings(String content) => RegExp(
+  r"^\s*String get codegenVersion\s*=>\s*'([^']+)'",
+  multiLine: true,
+).firstMatch(content)?.group(1);
 
 /// Reads `frb_version` from `.copier-answers.yml`, caret and quotes and all.
 ///

@@ -233,23 +233,35 @@ String getUpstreamVersion() {
     throw Exception('rust/Cargo.toml not found');
   }
 
-  final content = cargoFile.readAsStringSync();
+  final version = parseUpstreamTag(cargoFile.readAsStringSync());
 
-  // Extract the tag from first upstream dependency
-  // Matches: openmls = { git = "...", tag = "vX.Y.Z" }
-  final versionMatch = RegExp(
-    r'openmls\s*=\s*\{[^}]*tag\s*=\s*"([^"]+)"',
-  ).firstMatch(content);
-
-  if (versionMatch == null) {
+  if (version == null) {
     throw Exception(
       'openmls tag not found in rust/Cargo.toml. '
       'Expected format: openmls = { git = "...", tag = "vX.Y.Z" }',
     );
   }
 
-  return versionMatch.group(1)!.trim();
+  return version;
 }
+
+/// Parses the upstream git tag out of a `rust/Cargo.toml`'s text.
+///
+/// Matches: `openmls = { git = "...", tag = "vX.Y.Z" }`. Split from
+/// [getUpstreamVersion] so the rule is testable without a fixture tree, the way
+/// `frb_pins.dart` splits every reader from the disk.
+///
+/// Anchored, and the inline table may not span lines, because `firstMatch`
+/// takes whichever match comes first in the file. Unanchored it reads a
+/// commented-out pin — the shape an upgrade leaves behind — in preference to
+/// the real one below it. The dangerous direction is a comment naming a
+/// *newer* tag: the update check then reports the dependency as already
+/// current, and an upstream release, security fixes included, silently never
+/// lands. Nothing fails; the update just never happens.
+String? parseUpstreamTag(String content) => RegExp(
+  r'^\s*openmls\s*=\s*\{[^}\n]*tag\s*=\s*"([^"]+)"',
+  multiLine: true,
+).firstMatch(content)?.group(1)?.trim();
 
 /// Compares two semantic versions.
 ///

@@ -484,6 +484,44 @@
   have green before it, including that stage 1 only *warns* when local main is
   ahead of origin.
 
+- **copier template adopted: v4.7.0 → v4.8.0** (12 files) — half of it had
+  already been contributed upstream from here, so what actually arrives is one
+  CI gate and three script fixes.
+
+  **`analysis_options.yaml` joins the test workflow's path filters**, on `push`
+  and `pull_request` both. That file decides what `make analyze` reports, so a
+  commit changing only the lint configuration was precisely the one that did
+  not re-run the gate it changes — `dartdoc_options.yaml` sat one entry above
+  for the same reason and was already listed. This was the one hole the update
+  closed rather than confirmed.
+
+  **`make release` now checks that the stage-1 binary was built from this
+  tree**, not merely that a release carrying the same version string exists.
+  The old check was keyed on the crate version alone, and the crate version
+  does not move until stage 1 runs — so running stage 2 on its own passed it
+  and would publish bindings against whatever binary the previous stage 1 left
+  behind. Neither runtime net catches that: `rustContentHash` compares the FFI
+  *surface*, which an FRB upgrade need not move, and the codegen assert
+  compares the bindings against the flutter_rust_bridge runtime package.
+
+  **Two version readers are anchored.** `getUpstreamVersion` — now split into a
+  testable `parseUpstreamTag` — and `frbVersionFromGeneratedBindings` both used
+  an unanchored `firstMatch`, which takes whichever match comes first in the
+  file rather than the live declaration. A commented-out pin, the shape an
+  upgrade leaves behind, therefore outranked the real one below it. Latent
+  here, since this manifest carries no commented-out pin, and the direction
+  that matters is a comment naming a *newer* tag: `check_updates.dart` would
+  then report the dependency as already current and an upstream release,
+  security fixes included, would silently never land, with nothing failing.
+
+  **The manifest test that enforces the panic strategy moves to its template
+  home.** It was contributed upstream from this project and comes back in
+  `rust/src/utils.rs`, so the local copy in `rust/src/snapshot_storage.rs` is
+  removed and `rust/Cargo.toml`'s comment now names the file that holds it. The
+  suite still reports 27 tests; the assertion is the same one, and it still
+  goes red both on `panic = "abort"` inside `[profile.release]` and on a
+  `release.panic` written where an exact section match cannot see it.
+
 - **copier template adopted: v4.6.0 → v4.7.0** (34 files) — the release is
   mostly gates, and two of them close holes this project knew it had.
 

@@ -235,4 +235,63 @@ void main() {
       );
     });
   });
+
+  group('parseUpstreamTag', () {
+    const realPin =
+        'openmls = { git = "https://example.invalid/upstream", '
+        'tag = "v1.2.3" }';
+
+    test('reads the tag from an ordinary pin', () {
+      expect(parseUpstreamTag(realPin), 'v1.2.3');
+    });
+
+    test('reads the pin, not a commented-out one above it', () {
+      // What an upgrade leaves behind when the old line is kept for reference.
+      expect(
+        parseUpstreamTag(
+          '# openmls = { git = "...", tag = "v1.0.0" }\n'
+          '$realPin',
+        ),
+        'v1.2.3',
+      );
+    });
+
+    test('a comment naming a newer tag cannot report us as up to date', () {
+      // The dangerous direction: read this and the update check reports the
+      // dependency as current, so an upstream release never lands.
+      expect(
+        parseUpstreamTag(
+          '# TODO: try openmls = { git = "...", tag = "v9.9.9" }\n'
+          '$realPin',
+        ),
+        'v1.2.3',
+      );
+    });
+
+    test('an indented comment does not win either', () {
+      expect(
+        parseUpstreamTag(
+          '   # openmls = { git = "...", tag = "v0.1.0" }\n'
+          '$realPin',
+        ),
+        'v1.2.3',
+      );
+    });
+
+    test('the tag may not be picked up from a following line', () {
+      // TOML forbids a newline inside an inline table, so a `tag` below the
+      // dependency belongs to something else and must not be read as its own.
+      expect(
+        parseUpstreamTag(
+          'openmls = { git = "https://example.invalid" }\n'
+          'tag = "v0.1.0"\n',
+        ),
+        isNull,
+      );
+    });
+
+    test('returns null when the pin is absent, so the caller can explain', () {
+      expect(parseUpstreamTag('[dependencies]\nrand = "0.8"\n'), isNull);
+    });
+  });
 }

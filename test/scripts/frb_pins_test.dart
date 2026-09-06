@@ -182,6 +182,19 @@ void main() {
       );
     });
 
+    test('reads the getter, not an earlier mention of the same name', () {
+      // The one shape that could make this gate report agreement it never
+      // checked: `firstMatch` on an unanchored pattern takes whatever comes
+      // first in the file, comment included.
+      expect(
+        frbVersionFromGeneratedBindings(
+          "// String get codegenVersion => '9.9.9';\n"
+          "  @override\n  String get codegenVersion => '2.13.0';\n",
+        ),
+        '2.13.0',
+      );
+    });
+
     // copier.yml's own default for this answer is written quoted, and the
     // gate's failure text tells the reader to edit this file — so a quoted
     // value is a hazard it actively invites.

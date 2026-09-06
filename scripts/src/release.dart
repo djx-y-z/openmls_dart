@@ -18,6 +18,7 @@ library;
 import 'dart:io';
 
 import 'common.dart';
+import 'frb_pins.dart';
 import 'release_common.dart';
 import 'third_party_notices.dart';
 
@@ -28,7 +29,8 @@ import 'third_party_notices.dart';
 /// creates a signed commit + signed tag `vX.Y.Z`, and (unless [push] is false)
 /// pushes `main` and the tag. Prompts
 /// for confirmation before committing unless [assumeYes]. Set [skipFrbCheck]
-/// only if you have manually verified the native binary exists. [date] defaults
+/// only if you have manually verified that the native binary exists *and* was
+/// built from this tree — the flag skips both checks. [date] defaults
 /// to today (YYYY-MM-DD) and is used for the CHANGELOG heading.
 Future<void> releasePackage({
   required String version,
@@ -156,7 +158,9 @@ Future<void> releasePackage({
   if (skipFrbCheck) {
     logWarn(
       '--skip-frb-check: NOT verifying that openmls_frb-$crateVersion '
-      'exists. Make sure stage 1 finished.',
+      'exists, AND NOT verifying that it was built from this tree. Make sure '
+      'stage 1 finished for THIS commit — a release left by an earlier cut '
+      'carries the same version string and different bindings.',
     );
   } else {
     logStep(
@@ -167,6 +171,7 @@ Future<void> releasePackage({
     switch (check.status) {
       case _FrbReleaseStatus.exists:
         logInfo('Found native release openmls_frb-$crateVersion.');
+        await _verifyFrbReleaseIsCurrent(crateVersion);
       case _FrbReleaseStatus.missing:
         throw Exception(
           'Native release openmls_frb-$crateVersion does not exist yet. '
@@ -457,6 +462,122 @@ Future<_FrbCheck> _checkFrbRelease(String crateVersion) async {
     _FrbReleaseStatus.inconclusive,
     stderr.isEmpty ? 'gh release view exited ${result.exitCode}' : stderr,
   );
+}
+
+/// Reads one file out of the repository at [ref], via the GitHub API.
+///
+/// Deliberately not `git show <ref>:<path>`: the tag need not exist locally,
+/// and fetching tags to make it exist is the thing that already aborted a
+/// release once when one of them had diverged.
+Future<String?> _fileAtRef(String ref, String path) async {
+  final result = await Process.run('gh', [
+    'api',
+    '-H',
+    'Accept: application/vnd.github.raw',
+    'repos/{owner}/{repo}/contents/$path?ref=$ref',
+  ]);
+  return result.exitCode == 0 ? result.stdout as String : null;
+}
+
+/// Refuses a stage-2 release whose stage-1 binary was built from a different
+/// tree, rather than merely from a release carrying the same version string.
+///
+/// The existence check above is keyed on the crate version alone, so a release
+/// left over from an earlier cut satisfies it — and the crate version does not
+/// move until stage 1 runs. Running `make release` on its own therefore passes
+/// that check and publishes bindings against whatever binary the last stage 1
+/// happened to leave behind.
+///
+/// Neither runtime net catches the result. `rustContentHash` compares the FFI
+/// *surface*, which an FRB upgrade need not move, and the codegen assert
+/// compares the bindings against the flutter_rust_bridge *runtime package*,
+/// never against the native library. What differs is the generator that decided
+/// the argument marshalling, so the failure is a wire mismatch inside a
+/// consumer's app.
+///
+/// Fails closed, including when the comparison cannot be made;
+/// `--skip-frb-check` is the escape hatch.
+Future<void> _verifyFrbReleaseIsCurrent(String crateVersion) async {
+  final tag = 'openmls_frb-$crateVersion';
+  logStep('Verifying $tag was built from this tree...');
+
+  final theirBindings = await _fileAtRef(
+    tag,
+    'lib/src/rust/frb_generated.dart',
+  );
+  final theirCargo = await _fileAtRef(tag, 'rust/Cargo.toml');
+  if (theirBindings == null || theirCargo == null) {
+    throw Exception(
+      'Could not read lib/src/rust/frb_generated.dart and rust/Cargo.toml at '
+      '$tag, so it cannot be confirmed that the native binary matches this '
+      'tree. Re-run when the API is reachable, or pass --skip-frb-check if you '
+      'have verified the binary by hand.',
+    );
+  }
+
+  final packageDir = getPackageDir().path;
+  final drift = describeFrbReleaseDrift(
+    tag: tag,
+    ourBindings: File(
+      '$packageDir/lib/src/rust/frb_generated.dart',
+    ).readAsStringSync(),
+    theirBindings: theirBindings,
+    ourCargo: File('$packageDir/rust/Cargo.toml').readAsStringSync(),
+    theirCargo: theirCargo,
+  );
+
+  if (drift.isNotEmpty) {
+    throw Exception(
+      'The native release $tag exists but was NOT built from this tree:\n'
+      '  - ${drift.join('\n  - ')}\n'
+      'Publishing now would ship these bindings against that binary. Cut a new '
+      'native crate first:\n'
+      '  make release-frb ARGS="--version <higher than $crateVersion>"\n'
+      'and let its build finish. Pass --skip-frb-check only if you have '
+      'verified the binary by hand.',
+    );
+  }
+  logInfo('$tag matches this tree.');
+}
+
+/// Names every way the tree behind [tag] differs from the working tree in a
+/// respect the native binary depends on. Empty means the binary is current.
+///
+/// Takes strings rather than paths so the rule is testable without a fixture
+/// tree or a network, the way `frb_pins.dart` splits every reader from the
+/// disk. Only the inputs that decide whether the *binary* matches are compared:
+/// the codegen version, which fixes the argument marshalling on both sides of
+/// the FFI, and the upstream pin, which is the source the binary was built
+/// from. Everything else about the two trees is free to differ, because stage 2
+/// legitimately adds commits on top of the stage-1 tag.
+List<String> describeFrbReleaseDrift({
+  required String tag,
+  required String ourBindings,
+  required String theirBindings,
+  required String ourCargo,
+  required String theirCargo,
+}) {
+  final drift = <String>[];
+
+  final ourCodegen = frbVersionFromGeneratedBindings(ourBindings);
+  final theirCodegen = frbVersionFromGeneratedBindings(theirBindings);
+  if (ourCodegen != theirCodegen) {
+    drift.add(
+      'flutter_rust_bridge codegen: this tree generates $ourCodegen, '
+      '$tag was generated by $theirCodegen',
+    );
+  }
+
+  final ourUpstream = parseUpstreamTag(ourCargo);
+  final theirUpstream = parseUpstreamTag(theirCargo);
+  if (ourUpstream != theirUpstream) {
+    drift.add(
+      'openmls: this tree pins $ourUpstream, '
+      '$tag was built against $theirUpstream',
+    );
+  }
+
+  return drift;
 }
 
 /// Today's date as `YYYY-MM-DD` (local time).
