@@ -36,7 +36,7 @@
   of the release dependency graph.
 - **openmls v0.9.0** — first upstream release since 0.8.1 (2026-02-13), and it
   closes an advisory this package had been working around locally.
-- **openmls_frb v2.1.0** — Rust FFI bindings
+- **openmls_frb v2.1.1** — Rust FFI bindings
 
 #### Changed (Breaking)
 
