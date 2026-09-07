@@ -1,0 +1,30 @@
+# actionlint configuration.
+#
+# Read automatically by actionlint from this path, so a bare `actionlint` run
+# on a laptop and `make actionlint` in CI report the same findings. Keeping the
+# suppressions here rather than in command-line flags is the point: a flag that
+# lives only in a workflow makes the local run noisier than the gate, and the
+# usual response to that is to stop running it locally.
+#
+# `ignore` entries are regular expressions matched against the message text.
+#
+# There is exactly one suppression, and it is an actionlint bug rather than a
+# workflow one. actionlint carries a compiled-in copy of popular actions' input
+# schemas, and its copy of `actions/create-github-app-token` predates v3: it
+# still believes `app-id` is required and `client-id` does not exist. The
+# action's own `action.yml` says the opposite — both are `required: false`, and
+# `app-id` carries `deprecationMessage: "Use 'client-id' instead."` — and the
+# workflows that authenticate as the app demonstrably work. So the two findings
+# describe the reverse of the truth, on every workflow that opens a pull
+# request as the bot.
+#
+# The patterns name the action deliberately. A real mistake in some other
+# action, or a different mistake in this one, still reports.
+#
+# Requires an actionlint that knows the `paths` key (CI pins 1.7.12). An older
+# binary rejects the file rather than ignoring it.
+paths:
+  .github/workflows/**:
+    ignore:
+      - 'input "client-id" is not defined in action "actions/create-github-app-token'
+      - 'missing input "app-id" which is required by action "actions/create-github-app-token'

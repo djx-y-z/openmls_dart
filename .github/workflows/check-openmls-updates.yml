@@ -100,7 +100,7 @@ jobs:
           fi
 
           echo "Check completed. Outputs:"
-          cat $GITHUB_OUTPUT || true
+          cat "$GITHUB_OUTPUT" || true
 
       # Idempotency gate: if an open PR for this exact version already exists,
       # do nothing. Without this, every scheduled run regenerates the update
@@ -118,10 +118,10 @@ jobs:
           BRANCH="update-openmls-${LATEST_VERSION}"
           OPEN_PRS=$(gh pr list --head "$BRANCH" --state open --json number --jq 'length')
           if [ "$OPEN_PRS" != "0" ] && [ "$FORCE_UPDATE" != "true" ]; then
-            echo "skip=true" >> $GITHUB_OUTPUT
+            echo "skip=true" >> "$GITHUB_OUTPUT"
             echo "::notice::Open update PR for branch $BRANCH already exists — skipping to avoid force-pushing over it."
           else
-            echo "skip=false" >> $GITHUB_OUTPUT
+            echo "skip=false" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Update rust/Cargo.toml
@@ -153,9 +153,9 @@ jobs:
 
           echo "Running: make check-new-openmls-version ARGS=\"$ARGS\""
           if make check-new-openmls-version ARGS="$ARGS"; then
-            echo "success=true" >> $GITHUB_OUTPUT
+            echo "success=true" >> "$GITHUB_OUTPUT"
           else
-            echo "success=false" >> $GITHUB_OUTPUT
+            echo "success=false" >> "$GITHUB_OUTPUT"
             echo "::error::Failed to update rust/Cargo.toml"
           fi
 
@@ -170,9 +170,9 @@ jobs:
         if: steps.check.outputs.needs_update == 'true' && steps.existing.outputs.skip != 'true'
         run: |
           if make rust-update; then
-            echo "success=true" >> $GITHUB_OUTPUT
+            echo "success=true" >> "$GITHUB_OUTPUT"
           else
-            echo "success=false" >> $GITHUB_OUTPUT
+            echo "success=false" >> "$GITHUB_OUTPUT"
             echo "::warning::Failed to update Cargo.lock"
           fi
 
@@ -194,7 +194,7 @@ jobs:
         if: steps.check.outputs.needs_update == 'true' && steps.existing.outputs.skip != 'true'
         run: |
           if make codegen; then
-            echo "success=true" >> $GITHUB_OUTPUT
+            echo "success=true" >> "$GITHUB_OUTPUT"
             # Whether the FFI surface actually moved, captured as a fact the
             # CHANGELOG step and the reviewer can both rely on.
             #
@@ -208,14 +208,14 @@ jobs:
             # "unchanged" there would hand the CHANGELOG prompt a false fact —
             # it is told the result is real and that it may state it.
             if [ -z "$(git status --porcelain -- lib/src/rust/)" ]; then
-              echo "bindings=unchanged" >> $GITHUB_OUTPUT
+              echo "bindings=unchanged" >> "$GITHUB_OUTPUT"
             else
-              echo "bindings=changed" >> $GITHUB_OUTPUT
+              echo "bindings=changed" >> "$GITHUB_OUTPUT"
               echo "::warning::codegen changed lib/src/rust/ — the FFI surface moved. Review before merging; the openmls_frb bump is not a patch."
             fi
           else
-            echo "success=false" >> $GITHUB_OUTPUT
-            echo "bindings=not-run" >> $GITHUB_OUTPUT
+            echo "success=false" >> "$GITHUB_OUTPUT"
+            echo "bindings=not-run" >> "$GITHUB_OUTPUT"
             echo "::warning::FRB codegen failed. openmls API may have changed."
           fi
 
@@ -250,9 +250,9 @@ jobs:
           BINDINGS: ${{ steps.codegen.outputs.bindings || 'not-run' }}
         run: |
           if make update-changelog ARGS="--version $LATEST_VERSION --from $CURRENT_VERSION --ci --codegen $BINDINGS --ci-output $GITHUB_OUTPUT"; then
-            echo "success=true" >> $GITHUB_OUTPUT
+            echo "success=true" >> "$GITHUB_OUTPUT"
           else
-            echo "success=false" >> $GITHUB_OUTPUT
+            echo "success=false" >> "$GITHUB_OUTPUT"
             echo "::warning::AI changelog update failed. Please update CHANGELOG.md manually."
           fi
 
@@ -349,43 +349,48 @@ jobs:
           CODEGEN_OK: ${{ steps.codegen.outputs.success }}
           CHANGELOG_OK: ${{ steps.changelog.outputs.success }}
         run: |
+          # Each branch below interleaves its appends with conditionals, so the
+          # grouped form shellcheck suggests would put a `{ ... }` around most
+          # of the step. Style only — the quoting rule that actually matters
+          # here (SC2086) is enforced.
+          # shellcheck disable=SC2129
           if [ "$SKIP_EXISTING" = "true" ]; then
-            echo "## Update PR Already Open" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "An open PR for **${LATEST_VERSION}** already exists — nothing to do." >> $GITHUB_STEP_SUMMARY
-            echo "Re-run with \`force_update\` to regenerate it (this force-pushes the PR branch)." >> $GITHUB_STEP_SUMMARY
+            echo "## Update PR Already Open" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "An open PR for **${LATEST_VERSION}** already exists — nothing to do." >> "$GITHUB_STEP_SUMMARY"
+            echo "Re-run with \`force_update\` to regenerate it (this force-pushes the PR branch)." >> "$GITHUB_STEP_SUMMARY"
           elif [ "$NEEDS_UPDATE" = "true" ]; then
-            echo "## Update Available" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "| Property | Value |" >> $GITHUB_STEP_SUMMARY
-            echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
-            echo "| Current openmls | ${CURRENT_VERSION} |" >> $GITHUB_STEP_SUMMARY
-            echo "| New openmls | ${LATEST_VERSION} |" >> $GITHUB_STEP_SUMMARY
-            echo "| Pre-release | ${IS_PRERELEASE} |" >> $GITHUB_STEP_SUMMARY
-            echo "| Cargo.toml | ${CARGO_TOML_OK} |" >> $GITHUB_STEP_SUMMARY
-            echo "| Cargo.lock | ${CARGO_LOCK_OK} |" >> $GITHUB_STEP_SUMMARY
-            echo "| FRB Codegen | ${CODEGEN_OK} |" >> $GITHUB_STEP_SUMMARY
-            echo "| AI Changelog | ${CHANGELOG_OK} |" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "A pull request has been created for review." >> $GITHUB_STEP_SUMMARY
+            echo "## Update Available" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "| Property | Value |" >> "$GITHUB_STEP_SUMMARY"
+            echo "|----------|-------|" >> "$GITHUB_STEP_SUMMARY"
+            echo "| Current openmls | ${CURRENT_VERSION} |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| New openmls | ${LATEST_VERSION} |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| Pre-release | ${IS_PRERELEASE} |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| Cargo.toml | ${CARGO_TOML_OK} |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| Cargo.lock | ${CARGO_LOCK_OK} |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| FRB Codegen | ${CODEGEN_OK} |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| AI Changelog | ${CHANGELOG_OK} |" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "A pull request has been created for review." >> "$GITHUB_STEP_SUMMARY"
             if [ "$CARGO_TOML_OK" = "false" ]; then
-              echo "" >> $GITHUB_STEP_SUMMARY
-              echo "> **Critical**: Failed to update rust/Cargo.toml. Manual update required." >> $GITHUB_STEP_SUMMARY
+              echo "" >> "$GITHUB_STEP_SUMMARY"
+              echo "> **Critical**: Failed to update rust/Cargo.toml. Manual update required." >> "$GITHUB_STEP_SUMMARY"
             fi
             if [ "$CARGO_LOCK_OK" = "false" ]; then
-              echo "" >> $GITHUB_STEP_SUMMARY
-              echo "> **Warning**: Failed to update Cargo.lock. Run \`make rust-update\` manually." >> $GITHUB_STEP_SUMMARY
+              echo "" >> "$GITHUB_STEP_SUMMARY"
+              echo "> **Warning**: Failed to update Cargo.lock. Run \`make rust-update\` manually." >> "$GITHUB_STEP_SUMMARY"
             fi
             if [ "$CODEGEN_OK" = "false" ]; then
-              echo "" >> $GITHUB_STEP_SUMMARY
-              echo "> **Error**: FRB codegen failed. openmls API may have changed. Manual intervention required." >> $GITHUB_STEP_SUMMARY
+              echo "" >> "$GITHUB_STEP_SUMMARY"
+              echo "> **Error**: FRB codegen failed. openmls API may have changed. Manual intervention required." >> "$GITHUB_STEP_SUMMARY"
             fi
             if [ "$CHANGELOG_OK" = "false" ]; then
-              echo "" >> $GITHUB_STEP_SUMMARY
-              echo "> **Warning**: AI changelog update failed. Please update CHANGELOG.md manually." >> $GITHUB_STEP_SUMMARY
+              echo "" >> "$GITHUB_STEP_SUMMARY"
+              echo "> **Warning**: AI changelog update failed. Please update CHANGELOG.md manually." >> "$GITHUB_STEP_SUMMARY"
             fi
           else
-            echo "## Up to Date" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "Current version **${CURRENT_VERSION}** is the latest." >> $GITHUB_STEP_SUMMARY
+            echo "## Up to Date" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "Current version **${CURRENT_VERSION}** is the latest." >> "$GITHUB_STEP_SUMMARY"
           fi

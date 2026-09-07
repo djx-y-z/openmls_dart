@@ -40,7 +40,7 @@ Maintain = 4, **Admin = 5**.
 
 | File | Ruleset | Target | Rules | Bypass |
 |------|---------|--------|-------|--------|
-| `protect-main.json` | Protect main branch | `~DEFAULT_BRANCH` | pull_request (0 approvals), non_fast_forward, deletion | Admin (5) |
+| `protect-main.json` | Protect main branch | `~DEFAULT_BRANCH` | pull_request (0 approvals), required_status_checks, non_fast_forward, deletion | Admin (5) |
 | `signing-commit.json` | Signing commit | `~ALL` branches except `dependabot/**/*` | required_signatures, non_fast_forward | none by default |
 | `delete-branches.json` | Delete branches | `~ALL` branches except `dependabot/**/*` | deletion | Admin (5) |
 | `protect-release-tags.json` | Protect release tags | all tags (`~ALL`) | creation, update, deletion, required_signatures | Admin (5), Maintain (4) |
@@ -55,6 +55,77 @@ new trigger pattern.) `update`+`deletion` make tags immutable;
 `required_signatures` is belt-and-suspenders (`make release-frb` / `make release`
 already sign tags). If GitHub ever rejects `required_signatures` on a tag target,
 drop that one rule.
+
+### Required status checks, and why exactly one is required
+
+`protect-main.json` requires one check, **`FRB bindings were regenerated`** —
+the job in `codegen-guard.yml`. That is not the first instalment of a longer
+list. It is the only check a generated project can require as it stands.
+
+A required check is satisfied by a check run reporting on the head commit. A job
+that runs and is skipped by a job-level `if:` still reports, as `skipped`, and
+that counts as satisfied. A workflow that never starts reports **nothing**, and
+the pull request then waits for it forever — there is no setting that reads a
+missing check as passed. `test.yml` filters its `pull_request` trigger by
+`paths:`, so a pull request touching only `README.md`, `CHANGELOG.md`,
+`CONTRIBUTING.md` or `SECURITY.md` starts no run at all, and requiring any
+`test / …` context would block exactly those pull requests permanently, with
+nothing to fix. `codegen-guard.yml` has no path filter and no job-level
+condition on the job that reports, so it always does.
+
+`integration_id: 15368` is GitHub Actions. Without it the context is satisfied
+by *any* status of that name, including one posted through the API by a token
+holding `repo:status`.
+
+`strict_required_status_checks_policy` is `false` deliberately: `true` requires
+every open pull request to be re-tested against the tip of the default branch
+after each merge, which against a weekly grouped Dependabot batch is a rebase
+treadmill and not a safety property.
+
+Read this rule together with `bypass_actors` above. Admin is `always`, so it
+turns a red check into something an admin has to click past on purpose — worth
+having, but it is not "red CI can no longer merge".
+
+**To require the test matrix as well**, the path filter has to go first: drop
+`paths:` from `test.yml`'s `pull_request` trigger (keep it on `push`, where it
+guards the cache scope — a pull-request run can read the base branch's cache
+scope but never the reverse), let one pull request report under the new trigger,
+then add the contexts
+
+```
+test / Test (Linux x86_64)
+test / Test (Linux ARM64)
+test / Test (macOS ARM64)
+test / Test (Windows x86_64)
+test / Security Audit (Rust)
+test / Dependency Policy (cargo-deny)
+test / MSRV (rust-version from Cargo.toml)
+test / Workflow Lint (actionlint)
+test / Cross-compile (Android arm64-v8a)
+test / Cross-compile (Android armeabi-v7a)
+test / Cross-compile (Android x86_64)
+```
+
+Two cautions. The `test / ` prefix is part of the context and comes from the
+**job id** in `test.yml` that calls the reusable workflow — rename that job and
+every context here stops matching silently, which shows up as "waiting for
+status" rather than as an error. And leave out any leg this project has found to
+be flaky: a required check that fails by itself teaches people to merge past
+required checks, which costs more than the leg is worth. `test / Update Coverage
+Badge` belongs in neither list — it is skipped on pull requests, so it would be
+satisfied, and requiring a badge job asserts nothing.
+
+`Workflow Lint (actionlint)` is worth requiring for a reason the other legs do
+not share: it is the only check that reads the workflows themselves, so it is
+the one that can still report on a pull request whose other jobs never start
+because the file that defines them does not parse.
+
+The three `Cross-compile (Android …)` contexts are the newest entries and the
+easiest to forget, because nothing else in a generated project cross-compiles
+Android: leaving them out is how the gap they were added to close comes back
+with the ruleset saying CI is required. They also run under `publish.yml`, which
+calls the same reusable workflow — so they sit between "start publishing" and
+"published", not only on pull requests.
 
 ### Why Dependabot branches are excluded
 

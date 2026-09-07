@@ -5,8 +5,9 @@
 /// Usage:
 ///   fvm dart scripts/verify_frb_pins.dart
 ///
-/// Exits 0 when they agree, 1 when they do not. Reads five files and nothing
-/// else — no build, no network — so it is cheap enough to gate every push.
+/// Exits 0 when they agree, 1 when they do not. Reads at most six files and
+/// nothing else — no build, no network — so it is cheap enough to gate every
+/// push.
 ///
 /// See `scripts/src/frb_pins.dart` for why the agreement matters: the runtime
 /// asserts the codegen version recorded in the committed bindings equals its
@@ -23,10 +24,11 @@ void main(List<String> args) {
   if (args.contains('--help') || args.contains('-h')) {
     print('Usage: fvm dart scripts/verify_frb_pins.dart');
     print('');
-    print('Checks that pubspec.yaml, rust/Cargo.toml, the Makefile, the');
-    print('committed FRB bindings and .copier-answers.yml all name the same');
-    print('flutter_rust_bridge version, and that the pubspec constraint is');
-    print('written as the publishable single-version range.');
+    print('Checks that pubspec.yaml, rust/Cargo.toml, the Makefile,');
+    print('rust/fuzz/Cargo.toml, the committed FRB bindings and');
+    print('.copier-answers.yml all name the same flutter_rust_bridge version,');
+    print('and that the pubspec constraint is written as the publishable');
+    print('single-version range.');
     return;
   }
 
@@ -46,7 +48,8 @@ void main(List<String> args) {
     stderr.writeln(report);
     stderr.writeln('');
     stderr.writeln(
-      'Move them together: set `frb_version` in .copier-answers.yml, then '
+      'Move them together: set `frb_version` in .copier-answers.yml and the '
+      '`=` pin in every cargo manifest that carries one, then '
       '`make setup-frb-codegen` and `make codegen` so the installed codegen '
       'and the committed bindings match the constraint.',
     );
@@ -54,8 +57,12 @@ void main(List<String> args) {
   }
 
   final version = pins.firstWhere((p) => p.version != null).version;
-  for (final pin in pins) {
-    logInfo('${(pin.version ?? pin.detail).padRight(18)} ${pin.source}');
+  // Absent sources report a sentence rather than a version, and a fixed column
+  // is narrower than several of them; measure it instead of guessing.
+  final found = pins.map((p) => p.version ?? p.detail).toList();
+  final width = found.map((f) => f.length).reduce((a, b) => a > b ? a : b);
+  for (var i = 0; i < pins.length; i++) {
+    logInfo('${found[i].padRight(width)}  ${pins[i].source}');
   }
   logInfo('All flutter_rust_bridge pins agree on $version');
 }

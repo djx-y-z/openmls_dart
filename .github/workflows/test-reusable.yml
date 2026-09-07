@@ -8,6 +8,9 @@
 # Coverage: Only collected on Linux x86_64
 # Badge: Updated only after ALL platform tests pass
 #
+# Also cross-compiles the three Android ABIs, which nothing else outside a
+# release tag does — see the `android` job for why that gap was worth closing.
+#
 # Note: Since we use `dart test` (not `flutter test`), we need to manually
 # build the Rust library before running tests. FRB loads the library from
 # rust/target/release/ directory automatically.
@@ -101,6 +104,145 @@ jobs:
 
       - name: Type-check on the declared MSRV
         run: make rust-check
+
+  # ============================================
+  # Workflow lint (actionlint + shellcheck)
+  # ============================================
+  # The workflows are the one part of this repository that nothing else
+  # rehearses. A job is only ever executed by pushing it, so a typo in an
+  # expression, a context that does not exist, or a `needs:` naming a job
+  # somebody renamed all reach main and then fail on the very run that was
+  # supposed to gate them. actionlint reads them statically, and hands every
+  # `run:` block to shellcheck — which is where most of what it finds lives.
+  #
+  # Suppressions are in `.github/actionlint.yaml` rather than in flags here, so
+  # `make actionlint` on a laptop reports exactly what this job reports.
+  workflow-lint:
+    name: Workflow Lint (actionlint)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      # Pinned by version AND by checksum: this fetches an executable from a
+      # third-party release and then runs it over the repository, which is a
+      # supply-chain surface however small the tool. Nothing bumps this pin
+      # automatically — Dependabot does not read `curl` lines — so moving the
+      # version means taking the new checksum out of that release's
+      # `actionlint_<version>_checksums.txt`.
+      - name: Install actionlint
+        env:
+          ACTIONLINT_VERSION: '1.7.12'
+          ACTIONLINT_SHA256: 8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8
+        run: |
+          set -euo pipefail
+          archive="actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+          curl -fsSL -o "$RUNNER_TEMP/$archive" \
+            "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/${archive}"
+          echo "${ACTIONLINT_SHA256}  $RUNNER_TEMP/$archive" | sha256sum --check -
+          mkdir -p "$RUNNER_TEMP/actionlint-bin"
+          tar -xzf "$RUNNER_TEMP/$archive" -C "$RUNNER_TEMP/actionlint-bin" actionlint
+          echo "$RUNNER_TEMP/actionlint-bin" >> "$GITHUB_PATH"
+
+      # actionlint SKIPS every `run:` block when shellcheck is absent, and its
+      # exit code says so nowhere. On these runners it is preinstalled; this
+      # asserts that rather than trusting it, because the failure mode is a
+      # green gate that quietly stopped checking the part it finds the most in.
+      - name: Assert shellcheck is present
+        run: shellcheck --version
+
+      - name: Lint workflows
+        run: make actionlint
+
+  # ============================================
+  # Android cross-compilation
+  # ============================================
+  # The only place outside a release tag where this package is cross-compiled
+  # for Android at all. `make build` on the matrix legs below builds for the
+  # HOST; the Android `.so` files are produced by
+  # `build-openmls.yml`, which runs on `workflow_dispatch` and on
+  # `openmls_frb-*` tags. Without this job an Android-only build failure is
+  # invisible on main under every green gate and first appears in stage 1 of a
+  # release, with the tag already pushed and the native build the thing that
+  # cannot finish.
+  #
+  # Not hypothetical, and not one dependency's quirk. An upstream bump
+  # re-resolved `openssl-src` from 3.5.5 to 3.6.3 — rusqlite reaches OpenSSL
+  # through `bundled-sqlcipher-vendored-openssl`, so no manifest line changed —
+  # and OpenSSL 3.6 ships `crypto/sm3/sm3-x86_64.S` on Intel SM3 instructions
+  # that NDK r26's Clang 17 cannot assemble. It sat on main from the bump until
+  # the next tag and then failed stage 1 twice. Any cross-compilation target
+  # that no pull request builds is a target whose breakage a release discovers.
+  #
+  # All three ABIs rather than only the one that caught it. Measured on that
+  # release build: about four minutes per ABI, against a critical path of six
+  # and a half in this workflow, so the wall clock does not move. What that
+  # buys is the evidential step — a green run here says the release build will
+  # get through, which one ABI cannot say, because that failure was x86-only
+  # and the same vendored OpenSSL carries aarch64 assembly the x86_64 leg never
+  # reaches.
+  #
+  # It builds and does not test. Nothing here can EXECUTE an Android artefact
+  # without an emulator, and the failure class this exists for is a compile and
+  # assemble failure, which the build reaches.
+  #
+  # ⚠ The NDK version and `--platform` come from the same two answers as
+  # `build-openmls.yml` — `android_ndk_version` and
+  # `android_min_sdk` — so a generated project cannot have them drift. Edit
+  # either file by hand and that stops holding, and a gate built on a different
+  # toolchain than the release is not a gate.
+  android:
+    name: Cross-compile (Android ${{ matrix.abi }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - abi: arm64-v8a
+            rust_target: aarch64-linux-android
+          - abi: armeabi-v7a
+            rust_target: armv7-linux-androideabi
+          - abi: x86_64
+            rust_target: x86_64-linux-android
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Setup Rust
+        uses: ./.github/actions/setup-rust
+        with:
+          targets: ${{ matrix.rust_target }}
+
+      - name: Setup Android NDK
+        uses: android-actions/setup-android@40fd30fb8d7440372e1316f5d1809ec01dcd3699 # v4.0.1
+
+      - name: Install NDK
+        run: |
+          sdkmanager --install "ndk;28.2.13676358"
+          echo "ANDROID_NDK_HOME=$ANDROID_SDK_ROOT/ndk/28.2.13676358" >> "$GITHUB_ENV"
+
+      # ⚠ The cargo-ndk version is pinned here to exactly what
+      # `build-openmls.yml` pins, and the two move together: a gate
+      # built on a different cargo-ndk than the release is not a gate. That
+      # file's comment says what rides on the version — the page-size flags
+      # are cargo-ndk's, not the NDK's.
+      - name: Setup cargo-ndk
+        run: cargo install cargo-ndk --locked --version 4.1.2
+
+      - name: Build for Android ${{ matrix.abi }}
+        run: |
+          # Mirrors `build-openmls.yml`, `--platform` included: it
+          # pins the Android API level the .so links against, and cargo-ndk
+          # would otherwise pick its own default.
+          cd rust
+          cargo ndk -t ${{ matrix.rust_target }} --platform 24 build --release --locked
+
+      # The release runs this on the artefact it is about to upload. Running it
+      # here too is what moves the finding earlier: pinning the tool cannot
+      # notice a linker setting, a target spec or a rustc change that overrides
+      # the page-size flags, and without this the first report of that would be
+      # a release build — the same "only the tag finds out" shape this whole
+      # job exists to close.
+      - name: Verify 16 KB alignment
+        run: make verify-android-alignment
 
   test:
     strategy:
@@ -288,7 +430,7 @@ jobs:
         id: coverage
         run: |
           COVERAGE=$(lcov --summary coverage/lcov.info 2>&1 | grep 'lines' | sed 's/.*: //' | sed 's/%.*//')
-          echo "percentage=$COVERAGE" >> $GITHUB_OUTPUT
+          echo "percentage=$COVERAGE" >> "$GITHUB_OUTPUT"
           echo "Coverage: $COVERAGE%"
         shell: bash
 

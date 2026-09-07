@@ -12,6 +12,18 @@
     { "type": "deletion" },
     { "type": "non_fast_forward" },
     {
+      "type": "required_status_checks",
+      "parameters": {
+        "strict_required_status_checks_policy": false,
+        "required_status_checks": [
+          {
+            "context": "FRB bindings were regenerated",
+            "integration_id": 15368
+          }
+        ]
+      }
+    },
+    {
       "type": "pull_request",
       "parameters": {
         "required_approving_review_count": 0,

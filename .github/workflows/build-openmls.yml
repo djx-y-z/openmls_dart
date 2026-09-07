@@ -254,13 +254,28 @@ jobs:
       - name: Install NDK
         run: |
           sdkmanager --install "ndk;28.2.13676358"
-          echo "ANDROID_NDK_HOME=$ANDROID_SDK_ROOT/ndk/28.2.13676358" >> $GITHUB_ENV
+          echo "ANDROID_NDK_HOME=$ANDROID_SDK_ROOT/ndk/28.2.13676358" >> "$GITHUB_ENV"
 
-      # `--locked` so the tool is built from its own committed lockfile.
-      # ⚠ The cargo-ndk VERSION is still unpinned, and this job produces the
-      # shipped Android .so files.
+      # `--locked` builds the tool from its own committed lockfile; `--version`
+      # decides WHICH tool, and more rides on that than convenience, because
+      # this job produces the shipped Android .so files. cargo-ndk is what
+      # passes `-Wl,-z,max-page-size=16384` and its `common-page-size` twin —
+      # read out of the 4.1.2 binary — and those flags are the only reason the
+      # 64-bit libraries come out 16 KB-aligned, which Google Play has required
+      # of an app's bundled native libraries, for apps targeting Android 15 or
+      # later, since 1 November 2025. The NDK version does not supply it:
+      # r26-built and r28-built artefacts both measure `p_align=0x4000`, and
+      # 32-bit `armeabi-v7a` measures 0x1000 on both, correctly, since the
+      # requirement is a 64-bit one.
+      #
+      # ⚠ Nothing moves this pin for you — Dependabot does not read
+      # `cargo install` lines — so it moves by hand, and `test-reusable.yml`
+      # pins the same version: a gate built on a different cargo-ndk than the
+      # release is not a gate, so the two move together. What makes moving it
+      # safe is the step after the build, which measures the alignment of what
+      # came out instead of trusting the version that produced it.
       - name: Setup cargo-ndk
-        run: cargo install cargo-ndk --locked
+        run: cargo install cargo-ndk --locked --version 4.1.2
 
       - name: Build for Android ${{ matrix.abi }}
         run: |
@@ -269,6 +284,15 @@ jobs:
           # otherwise use its own default).
           cd rust
           cargo ndk -t ${{ matrix.rust_target }} --platform 24 build --release --locked
+
+      # The claim in the cargo-ndk comment, measured on the bytes that are
+      # about to be uploaded. A cargo-ndk that stopped passing the page-size
+      # flags, a pin moved without re-reading them, or a linker setting that
+      # overrode them fail HERE rather than in a consumer's Play Console —
+      # which is otherwise the first place a misaligned library is noticed,
+      # and it is somebody else's release that it stops.
+      - name: Verify 16 KB alignment
+        run: make verify-android-alignment
 
       - name: Upload artifact
         uses: actions/upload-artifact@v7

@@ -105,7 +105,7 @@ jobs:
           fi
 
           echo "Check completed. Outputs:"
-          cat $GITHUB_OUTPUT || true
+          cat "$GITHUB_OUTPUT" || true
 
       # Idempotency gate. It matters more here than for the dependency update:
       # a conflicted template update is finished by a human pushing commits to
@@ -122,10 +122,10 @@ jobs:
           BRANCH="update-template-${LATEST_VERSION}"
           OPEN_PRS=$(gh pr list --head "$BRANCH" --state open --json number --jq 'length')
           if [ "$OPEN_PRS" != "0" ] && [ "$FORCE_UPDATE" != "true" ]; then
-            echo "skip=true" >> $GITHUB_OUTPUT
+            echo "skip=true" >> "$GITHUB_OUTPUT"
             echo "::notice::Open update PR for branch $BRANCH already exists — skipping to avoid force-pushing over it."
           else
-            echo "skip=false" >> $GITHUB_OUTPUT
+            echo "skip=false" >> "$GITHUB_OUTPUT"
           fi
 
       # Pinned for the same reason the actions are pinned by SHA and fvm by
@@ -252,9 +252,9 @@ jobs:
         id: gates
         if: steps.check.outputs.needs_update == 'true' && steps.existing.outputs.skip != 'true'
         run: |
-          if make format-check; then echo "format=true" >> $GITHUB_OUTPUT; else echo "format=false" >> $GITHUB_OUTPUT; fi
-          if make rust-check;   then echo "rust=true"   >> $GITHUB_OUTPUT; else echo "rust=false"   >> $GITHUB_OUTPUT; fi
-          if make analyze ARGS="--fatal-infos"; then echo "analyze=true" >> $GITHUB_OUTPUT; else echo "analyze=false" >> $GITHUB_OUTPUT; fi
+          if make format-check; then echo "format=true" >> "$GITHUB_OUTPUT"; else echo "format=false" >> "$GITHUB_OUTPUT"; fi
+          if make rust-check;   then echo "rust=true"   >> "$GITHUB_OUTPUT"; else echo "rust=false"   >> "$GITHUB_OUTPUT"; fi
+          if make analyze ARGS="--fatal-infos"; then echo "analyze=true" >> "$GITHUB_OUTPUT"; else echo "analyze=false" >> "$GITHUB_OUTPUT"; fi
 
       - name: Create Pull Request
         id: cpr
@@ -384,32 +384,37 @@ jobs:
           COMMIT_LANDED: ${{ steps.update.outputs.commit_landed }}
           CHANGELOG_OK: ${{ steps.update.outputs.changelog_updated }}
         run: |
+          # Each branch below interleaves its appends with conditionals, so the
+          # grouped form shellcheck suggests would put a `{ ... }` around most
+          # of the step. Style only — the quoting rule that actually matters
+          # here (SC2086) is enforced.
+          # shellcheck disable=SC2129
           if [ "$SKIP_EXISTING" = "true" ]; then
-            echo "## Update PR Already Open" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "An open PR for **${LATEST_VERSION}** already exists — nothing to do." >> $GITHUB_STEP_SUMMARY
-            echo "Re-run with \`force_update\` to regenerate it (this force-pushes the PR branch)." >> $GITHUB_STEP_SUMMARY
+            echo "## Update PR Already Open" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "An open PR for **${LATEST_VERSION}** already exists — nothing to do." >> "$GITHUB_STEP_SUMMARY"
+            echo "Re-run with \`force_update\` to regenerate it (this force-pushes the PR branch)." >> "$GITHUB_STEP_SUMMARY"
           elif [ "$NEEDS_UPDATE" = "true" ]; then
-            echo "## Template Update Applied" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "| Property | Value |" >> $GITHUB_STEP_SUMMARY
-            echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
-            echo "| Template | ${TEMPLATE_REPO} |" >> $GITHUB_STEP_SUMMARY
-            echo "| Current | ${CURRENT_VERSION} |" >> $GITHUB_STEP_SUMMARY
-            echo "| Latest | ${LATEST_VERSION} |" >> $GITHUB_STEP_SUMMARY
-            echo "| Pull request | ${PR_NUMBER:-**none created**} |" >> $GITHUB_STEP_SUMMARY
-            echo "| Conflicts | ${CONFLICT_COUNT:-0} |" >> $GITHUB_STEP_SUMMARY
+            echo "## Template Update Applied" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "| Property | Value |" >> "$GITHUB_STEP_SUMMARY"
+            echo "|----------|-------|" >> "$GITHUB_STEP_SUMMARY"
+            echo "| Template | ${TEMPLATE_REPO} |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| Current | ${CURRENT_VERSION} |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| Latest | ${LATEST_VERSION} |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| Pull request | ${PR_NUMBER:-**none created**} |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| Conflicts | ${CONFLICT_COUNT:-0} |" >> "$GITHUB_STEP_SUMMARY"
             # Defaulted because this step runs with `always()`: when the update
             # step itself failed there are no outputs to read, and an empty
             # cell reads as "no" rather than "never got that far".
-            echo "| \`_commit\` bumped | ${COMMIT_LANDED:-did not run} |" >> $GITHUB_STEP_SUMMARY
-            echo "| AI CHANGELOG | ${CHANGELOG_OK:-did not run} |" >> $GITHUB_STEP_SUMMARY
+            echo "| \`_commit\` bumped | ${COMMIT_LANDED:-did not run} |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| AI CHANGELOG | ${CHANGELOG_OK:-did not run} |" >> "$GITHUB_STEP_SUMMARY"
             if [ "$HAS_CONFLICTS" = "true" ]; then
-              echo "" >> $GITHUB_STEP_SUMMARY
-              echo "> **Conflicts**: the PR is a draft and needs manual resolution." >> $GITHUB_STEP_SUMMARY
+              echo "" >> "$GITHUB_STEP_SUMMARY"
+              echo "> **Conflicts**: the PR is a draft and needs manual resolution." >> "$GITHUB_STEP_SUMMARY"
             fi
           else
-            echo "## Template Up to Date" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "Current template version **${CURRENT_VERSION}** is the latest." >> $GITHUB_STEP_SUMMARY
+            echo "## Template Up to Date" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "Current template version **${CURRENT_VERSION}** is the latest." >> "$GITHUB_STEP_SUMMARY"
           fi

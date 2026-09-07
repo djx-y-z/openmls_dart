@@ -259,6 +259,29 @@ This is an upstream limitation in [`flutter_rust_bridge`](https://github.com/fzy
 
 The Rust core of openmls ships as a `.wasm` module in both modes — `--wasm` only changes what the *Dart* code compiles to. Crypto performance and functionality are equivalent.
 
+### Web: `flutter run -d chrome` can skip the build hook and leave `web/pkg/` empty
+
+The build hook provisions the WASM module into your app's `web/pkg/` directory.
+`flutter build web` always reaches it. `flutter run -d chrome` reaches it only while
+Flutter's build system considers its `dart_build` target out of date — and that target's
+cache key does **not** include the target platform. A debug `flutter run` keys its build
+directory on the engine revision, the entrypoint, the build mode and the output path
+alone, so a debug run for *another* platform (`flutter run -d macos`, say) leaves behind a
+`dart_build` stamp naming its own dependencies; the next `flutter run -d chrome` finds
+every one of them unchanged, logs `Skipping target: dart_build`, and never invokes the
+hook. With `web/pkg/` not already provisioned, `RustLib.init()` then fails on a 404 for
+`pkg/openmls_frb.js`.
+
+The hook cannot defend against this — the skip happens above `hooks_runner`, so nothing
+the hook declares as a dependency is ever read. Any one of these unblocks it, and
+`flutter run -d chrome` serves `web/pkg/` normally afterwards:
+
+```bash
+flutter build web                 # provisions web/pkg/ through the same hook
+rm -f build/*/dart_build.stamp    # drop the stale stamp, then run again
+flutter clean                     # the blunt version of the same thing
+```
+
 ## Building from Source
 
 ### For End Users

@@ -1,21 +1,59 @@
-# Refuse a pull request whose FRB bindings were never regenerated.
+# Refuse a pull request whose FRB bindings do not match `rust/src/api/`.
 #
-# This exists because the alternative was measured and lost. Replaying the
-# reviewer over all 47 merged pull requests (2026-09-03) put its recall on this
-# exact condition at 6 of 28 — 21% — even though the `codegen-failed` label sits
-# in plain text in the context file it reads, and even though its reasoning on
-# the ones it did catch was sound. A model that understands a rule and applies
-# it one time in five is not a gate. This is the same rule in two lines of
-# shell, at 100%.
+# Two independent refusals, and it is worth being clear that they are a
+# disjunction rather than a conjunction, because an earlier version of this file
+# argued at length for one of them alone:
 #
-# The condition is the label ALONE, deliberately. "Label present AND
-# lib/src/rust/ unchanged" reads like the stricter test and is the weaker one:
-# when codegen fails, an unchanged lib/src/rust/ is the EXPECTED state, so the
-# second clause adds nothing — and it would let the check pass on a pull request
-# where somebody hand-edited the generated bindings, which is the worse outcome
-# of the two.
+#   1. the `codegen-failed` label is present, or
+#   2. `make codegen` moves something under `lib/src/rust/` or
+#      `rust/src/frb_generated.rs`.
 #
-# 28 pull requests merged carrying this label before this guard existed. The
+# The label came first and stays first because it is the only signal available
+# when codegen did not complete at all: the update workflow attaches it when
+# `make codegen` fails, and at that point there is nothing to compare against.
+# "Label present AND bindings unchanged" would be the weaker rule, not the
+# stricter one — when codegen fails an unchanged `lib/src/rust/` is the EXPECTED
+# state, so the conjunction adds nothing and passes a pull request whose
+# bindings were hand-edited. As a disjunction the second rule adds the case the
+# first cannot see.
+#
+# The label rule exists because the alternative was measured and lost. Replaying
+# the reviewer over all 47 merged pull requests (2026-09-03) put its recall on
+# this exact condition at 6 of 28 — 21% — even though the `codegen-failed` label
+# sits in plain text in the context file it reads, and even though its reasoning
+# on the ones it did catch was sound. A model that understands a rule and
+# applies it one time in five is not a gate. This is the same rule in two lines
+# of shell, at 100%.
+#
+# The regeneration rule closes what the label alone cannot. A pull request that
+# changes an existing signature is already caught elsewhere — `frb_generated.rs`
+# stops compiling and `make build` goes red on all four platforms. A pull
+# request that ADDS a `pub fn`, or edits a docstring, compiles perfectly and
+# simply lacks the function on the Dart side. Nothing reported that. `make
+# codegen` appeared in CI in exactly one place, the bot's own update workflow,
+# and never as a gate on a human's pull request.
+#
+# `git status --porcelain`, not `git diff --exit-code`: codegen can ADD a file,
+# and `git diff` is blind to an untracked path — it would report "unchanged" on
+# the one change that matters most. Scoped to the two generated paths so that a
+# `.skip_*_hook` marker stranded by a codegen that died halfway is not mistaken
+# for drift.
+#
+# ⚠ The job `name:` is load-bearing. `FRB bindings were regenerated` is the
+# required status check named in `.github/rulesets/protect-main.json`, matched
+# as a string. Rename the job — or split it in two, or give it a matrix, both of
+# which change the context name — and the ruleset silently stops matching: the
+# pull request then waits forever on a context nobody reports, which surfaces as
+# "waiting for status" rather than as an error. Growing the job is the only safe
+# direction, which is why the regeneration steps live inside this one job.
+#
+# For the same reason there is no `paths:` filter on the trigger. A workflow
+# filtered out by path reports NOTHING, and a required context with no report is
+# indistinguishable from one that never finishes. The cost is instead avoided
+# per step: the expensive half runs only when the pull request touches something
+# that can move the bindings, and the job reports either way.
+#
+# 28 pull requests merged carrying the label before this guard existed. The
 # reason they went untested is separate and already fixed: `test.yml` used to
 # skip every bot-authored pull request, so the branch whose entire payload is
 # new native code was the one branch the suite never ran against.
@@ -30,6 +68,11 @@ on:
     # not re-run this check and the pull request stays red with nothing left to
     # fix — a gate reporting a failure that no longer exists, which is the
     # failure mode this whole guard was written to avoid.
+    #
+    # Every event runs the whole job, label events included. Skipping the
+    # regeneration on a label toggle would be cheaper and wrong: GitHub takes
+    # the latest run as the verdict, so adding and removing a label would turn a
+    # drift failure green without anything having been re-checked.
     types: [opened, synchronize, reopened, labeled, unlabeled]
 
 permissions:
@@ -41,6 +84,8 @@ jobs:
     name: FRB bindings were regenerated
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v7
+
       - name: Refuse a pull request marked codegen-failed
         env:
           GH_TOKEN: ${{ github.token }}
@@ -65,3 +110,80 @@ jobs:
           done
 
           echo "No codegen-failed label. Bindings are as generated."
+
+      # What codegen reads, and what records which codegen: the API sources, the
+      # generator's own configuration, the manifest whose types the API
+      # re-exports, and the two files that pin the codegen version. The
+      # generated paths are in the list on purpose — a pull request that edits
+      # nothing but `lib/src/rust/` is a pull request hand-editing the bindings,
+      # which is precisely what this should catch rather than skip.
+      #
+      # `rust/` is deliberately coarse, and it over-matches in one known way: a
+      # Dependabot bump to `rust/fuzz/Cargo.toml` runs the whole regeneration
+      # although `rust/fuzz` is its own workspace root and cannot move the
+      # bindings. Left that way on purpose. A manifest change CAN move the
+      # bindings — the types this API re-exports come from those dependencies —
+      # so the cheap error is running when nothing moved, and the expensive one
+      # is the reverse. Narrowing this is how the gate stops seeing the change
+      # it exists for.
+      - name: Decide whether the bindings can have moved
+        id: scope
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+
+          FILES=$(gh pr view "$PR" --json files --jq '.files[].path')
+
+          if printf '%s\n' "$FILES" | grep -Eq '^(rust/|lib/src/rust/|flutter_rust_bridge\.yaml$|Makefile$|\.copier-answers\.yml$)'; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+            echo "This pull request touches codegen inputs; regenerating."
+          else
+            echo "run=false" >> "$GITHUB_OUTPUT"
+            echo "Nothing this pull request touches can move the bindings; skipping regeneration."
+          fi
+
+      - name: Setup FVM and Flutter
+        if: steps.scope.outputs.run == 'true'
+        uses: ./.github/actions/setup-fvm
+
+      - name: Setup Rust
+        if: steps.scope.outputs.run == 'true'
+        uses: ./.github/actions/setup-rust
+
+
+      # The codegen binary is not preinstalled on runners; without this
+      # `make codegen` fails with exit 127. Pinned by the Makefile so this run
+      # and a local one generate identical bindings — the comparison below is
+      # only meaningful if the two generators are the same generator.
+      - name: Install FRB codegen
+        if: steps.scope.outputs.run == 'true'
+        run: make setup-frb-codegen
+
+      - name: Get Dart dependencies
+        if: steps.scope.outputs.run == 'true'
+        run: make get
+
+      - name: Regenerate bindings
+        if: steps.scope.outputs.run == 'true'
+        run: make codegen
+
+      - name: Refuse bindings that do not match rust/src/api/
+        if: steps.scope.outputs.run == 'true'
+        run: |
+          set -euo pipefail
+
+          DRIFT=$(git status --porcelain -- lib/src/rust/ rust/src/frb_generated.rs)
+
+          if [ -n "$DRIFT" ]; then
+            echo "$DRIFT"
+            echo "---"
+            git --no-pager diff --stat -- lib/src/rust/ rust/src/frb_generated.rs
+            echo "::error::Regenerating produced different bindings than the ones committed. Run \`make codegen\` and commit the result. If you have not touched the API, the difference is the codegen version — check FRB_CODEGEN_VERSION in the Makefile against the flutter_rust_bridge pin."
+            exit 1
+          fi
+
+          echo "Bindings match a fresh codegen run."
+

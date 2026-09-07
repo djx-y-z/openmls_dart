@@ -625,7 +625,7 @@ reproducibility.
 
 ## The flutter_rust_bridge pin
 
-Five files record it, and two of them are compared with `==` at runtime:
+Six files can record it, and two of them are compared with `==` at runtime:
 `frb_generated.dart` carries the version of the generator that produced it, and
 `RustLib.init()` throws unless the runtime package's version is the same string.
 So the constraint in `pubspec.yaml` is one version written as a range,
@@ -634,13 +634,30 @@ So the constraint in `pubspec.yaml` is one version written as a range,
 `dart pub publish` warns that a single-version constraint "should allow more
 than one version" and exits 65 on any warning.
 
-`make verify-frb-pins` checks all five agree and that the constraint is written
-in that form. It runs in CI on the Linux leg and costs five file reads — no
-build, no network. Moving the version means moving `frb_version` in
-`.copier-answers.yml`, then `make setup-frb-codegen` and `make codegen` so the
-installed generator and the committed bindings match; a pull request that edits
-one of the five is wrong by construction, which is why Dependabot is told to
-leave `flutter_rust_bridge` alone.
+The sixth, `rust/fuzz/Cargo.toml`, is read only if the fuzz crate names
+`flutter_rust_bridge` — the generated one does not, and until it does there is
+nothing there to disagree. Add the dependency (fuzz targets that build FRB
+types need it) and the pin joins the set, for a reason of its own: the fuzz
+crate takes the main crate by path as well, so a stale pin there does not
+drift — cargo cannot resolve the two together at all, and every fuzz target
+stops building. Nothing else notices, either. `rust/fuzz` is its own workspace
+root, so no resolution under `rust/` passes through it, and the `Fuzz` workflow
+runs only on `rust/**` pull requests and a weekly cron, never on a push.
+
+Two of the six are therefore read only when they exist to be read: the bindings
+do not exist until `make codegen` has run, and the fuzz crate need not name the
+package at all. A manifest that *does* name it but writes the version in some
+other form is neither — that is a failure, because a source the gate cannot
+read is not a source that agrees.
+
+`make verify-frb-pins` checks that every one of them that has something to say
+agrees, and that the constraint is written in that form. It runs in CI on the
+Linux leg and costs six file reads at most — no build, no network. Moving the
+version means moving `frb_version` in `.copier-answers.yml` and the `=` pin in
+every cargo manifest that carries one, then `make setup-frb-codegen` and
+`make codegen` so the installed generator and the committed bindings match; a
+pull request that edits one of them is wrong by construction, which is why
+Dependabot is told to leave `flutter_rust_bridge` alone.
 
 ## Releasing (two stages)
 

@@ -2,6 +2,21 @@
 
 ### For Users
 
+#### Changed
+
+- **The README names a Flutter behaviour that leaves `web/pkg/` empty** — the
+  build hook provisions the WASM module into an app's `web/pkg/`, and
+  `flutter build web` always reaches it, but `flutter run -d chrome` reaches it
+  only while Flutter considers its `dart_build` target out of date. That
+  target's cache key does not include the platform, so a debug run for *another*
+  platform leaves a stamp the Chrome run accepts, logs `Skipping target:
+  dart_build`, and never invokes the hook — `RustLib.init()` then fails on a 404
+  for `pkg/openmls_frb.js`. No hook can defend against it: the skip happens
+  above `hooks_runner`, where nothing the hook declares is read. *Known
+  Limitations* now names the three escapes (`flutter build web`,
+  `rm -f build/*/dart_build.stamp`, `flutter clean`). Behaviour is unchanged —
+  this was always true and was undocumented.
+
 #### Security
 
 - **The snapshot's read path no longer leaves plaintext copies in freed memory**
@@ -36,6 +51,60 @@
   bound outside the wrapper, or if the three lists it counts are no longer
   there. All three of those checks were confirmed to fail on a deliberately
   broken tree that still compiles.
+
+### For Contributors
+
+#### Changed
+
+- **copier template adopted: v4.8.0 → v4.9.0** (23 files, plus this entry) —
+  most of it was
+  written from this project's own findings and has been waiting on the template
+  release; it lands here now. One conflict, in `README.md`, where the template
+  inserts the *Known Limitations* subsection above a heading this project had
+  renamed; resolved by keeping the local headings. Every workflow, composite
+  action and ruleset file is byte-identical to a v4.9.0 render afterwards, and
+  the `Makefile`'s three local hunks (the `mls_message` fuzz-target examples and
+  the `classical_ops_do_not_init_libcrux` reference) survived the merge.
+
+  **Android is cross-compiled on every pull request**, all three ABIs, in
+  `test-reusable.yml`. Until now nothing outside a release tag cross-compiled
+  Android at all, which is exactly how the `openssl-src` 3.6 / NDK r26
+  assembler break sat on main under every green gate and first surfaced as a
+  twice-failed stage 1. Measured before it was written: about four minutes per
+  ABI against this workflow's six-and-a-half-minute critical path, so the wall
+  clock does not move.
+
+  **`make verify-android-alignment` measures the 16 KB alignment Google Play
+  requires** rather than trusting the tool that supplies it. The alignment comes
+  from `cargo-ndk`'s linker flags, not from the NDK — `openmls_frb-2.0.1` (r26)
+  and `2.1.1` (r28) both measure `p_align=0x4000` — so `cargo-ndk` is now pinned
+  to 4.1.2 in the release job and the pull-request job together, and both jobs
+  verify the bytes that come out. A misaligned `.so` breaks no test here; it
+  makes a *consumer's* app unpublishable.
+
+  **`codegen-guard` regenerates the bindings instead of only reading a label.**
+  A pull request that changes an existing signature was already caught, because
+  `frb_generated.rs` stops compiling — but one that merely ADDS a `pub fn`
+  compiled fine and simply lacked the function on the Dart side. The job now
+  runs `make codegen` and refuses drift under `lib/src/rust/` or
+  `rust/src/frb_generated.rs`, keeping its name (`FRB bindings were
+  regenerated`) because `protect-main.json` matches it as a string.
+
+  **`make actionlint` and a `Workflow Lint (actionlint)` job**, pinned by
+  version and by checksum, with the suppressions in `.github/actionlint.yaml` so
+  a local run reports what CI reports. It found 93 things across this
+  repository's workflows and none of them was a bug: 81 shellcheck findings,
+  fixed rather than suppressed, and 12 false positives from actionlint's stale
+  copy of `actions/create-github-app-token`'s inputs.
+
+  **`make verify-frb-pins` reads a sixth source** when `rust/fuzz/Cargo.toml`
+  names `flutter_rust_bridge` — a fuzz crate that drifts from the main crate
+  does not merely disagree, it stops resolving, and nothing else notices.
+
+  ⚠ **`protect-main.json` now carries a required status check, and arriving is
+  not the same as being applied.** The file is in the tree; making GitHub
+  enforce it needs `make setup-repo-protections ARGS="--yes"` as a separate
+  step. Until that runs, `codegen-guard` reports and blocks nothing.
 
 ## [3.0.0] - 2026-09-06
 

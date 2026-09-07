@@ -66,7 +66,7 @@ jobs:
             echo "Running from branch (dry-run mode)"
           fi
 
-          echo "version=$PUBSPEC_VERSION" >> $GITHUB_OUTPUT
+          echo "version=$PUBSPEC_VERSION" >> "$GITHUB_OUTPUT"
           echo "Publishing version: $PUBSPEC_VERSION"
 
       - name: Check if version already published
@@ -116,7 +116,7 @@ jobs:
             echo "changelog<<EOF"
             echo "$CHANGELOG"
             echo "EOF"
-          } >> $GITHUB_OUTPUT
+          } >> "$GITHUB_OUTPUT"
 
       - name: Validate CHANGELOG.md has entry for this version
         run: |

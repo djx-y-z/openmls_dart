@@ -27,7 +27,7 @@ runs:
 
     - name: Add cargo bin to PATH (Unix)
       if: runner.os != 'Windows'
-      run: echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+      run: echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
       shell: bash
 
     - name: Add cargo bin to PATH (Windows)
@@ -38,7 +38,7 @@ runs:
     # Use Strawberry Perl for OpenSSL build (MSYS2 Perl from Git Bash is incompatible)
     - name: Configure Perl for OpenSSL (Windows)
       if: runner.os == 'Windows'
-      run: echo "PERL=C:\Strawberry\perl\bin\perl.exe" >> $GITHUB_ENV
+      run: echo "PERL=C:\Strawberry\perl\bin\perl.exe" >> "$GITHUB_ENV"
       shell: bash
 
     # Cache compiled Rust dependencies (keyed on Cargo.lock, OS, rustc version).
