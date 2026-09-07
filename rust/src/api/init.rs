@@ -19,3 +19,9 @@ pub fn is_openmls_initialized() -> bool {
     // Add initialization state check logic here
     true
 }
+
+/// Temporary probe for the codegen-guard negative test. The bindings are
+/// deliberately NOT regenerated for it: the guard is supposed to notice.
+pub fn codegen_guard_probe(value: u32) -> u32 {
+    value + 1
+}
