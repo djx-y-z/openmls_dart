@@ -1,3 +1,42 @@
+## [Unreleased]
+
+### For Users
+
+#### Security
+
+- **The snapshot's read path no longer leaves plaintext copies in freed memory**
+  (`rust/src/snapshot_storage.rs`) — `kv_read` handed out a clone of the stored
+  value and every caller dropped it unwiped, so each read of MLS key material —
+  `EpochSecrets` and `MessageSecrets` among them — left a plaintext copy on the
+  heap that nothing ever overwrote. Its two siblings did not have this: both
+  `kv_write` and `kv_delete` already zeroized the value they displaced, and both
+  snapshot maps are zeroized on `Drop`. The read was the one way out that was
+  not covered.
+
+  Pre-existing rather than a regression: the diff of this file from `v2.0.1` was
+  additions only. The exposure was bounded by the same window as the rest of the
+  snapshot — single-digit milliseconds per operation — but unlike the maps, the
+  copies were never wiped at all, so they persisted until the allocator reused
+  the pages.
+
+  The fix is a type rather than a convention: `kv_read` returns
+  `Zeroizing<Vec<u8>>`, so a caller cannot bind the value unwrapped without
+  saying so, and the wipe runs on every path out, `?` included. The three
+  decoded item lists behind it (`append_to_list`, `read_list`,
+  `remove_from_list`) are wrapped the same way, because deserializing allocates
+  fresh buffers that the wrapper around the *value* does not reach, and
+  `remove_from_list` additionally wipes both the element `Vec::remove` hands
+  back and the needle it was given.
+
+  Zeroization cannot be asserted from a test — the wipe lands on memory the
+  allocator may already have reused, and reading it back would be undefined
+  behaviour — so a source-level test pins the shape instead, in the same way the
+  release-profile test in `utils.rs` pins its invariant. It reads this file and
+  fails if `kv_read`'s return type is widened back, if any decoded item list is
+  bound outside the wrapper, or if the three lists it counts are no longer
+  there. All three of those checks were confirmed to fail on a deliberately
+  broken tree that still compiles.
+
 ## [3.0.0] - 2026-09-06
 
 ### For Users

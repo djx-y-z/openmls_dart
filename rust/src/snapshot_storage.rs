@@ -10,7 +10,7 @@ use openmls_traits::OpenMlsProvider;
 use openmls_traits::storage::{CURRENT_VERSION, StorageProvider, traits};
 use parking_lot::Mutex;
 use std::collections::HashMap;
-use zeroize::Zeroize;
+use zeroize::{Zeroize, Zeroizing};
 
 use crate::encrypted_db::StorageUpdates;
 
@@ -163,8 +163,21 @@ impl SnapshotStorageProvider {
         }
     }
 
-    fn kv_read(&self, key: &[u8]) -> Option<Vec<u8>> {
-        self.current.lock().get(key).cloned()
+    /// Read a value out of the snapshot.
+    ///
+    /// The return is wrapped rather than a bare `Vec<u8>` because every value
+    /// in this map is MLS key material and this is the one operation that
+    /// hands a *copy* of it out. `kv_write` and `kv_delete` already wipe the
+    /// copy they displace; the read path was the one that did not, so each
+    /// read left a plaintext copy in freed heap memory that nothing ever
+    /// overwrote — reads of `EpochSecrets` and `MessageSecrets` included.
+    ///
+    /// The wrapper is what makes it structural instead of a convention: a
+    /// caller cannot bind the value to a plain `Vec<u8>` without unwrapping it
+    /// on purpose, and the wipe runs on every path out of the caller, `?`
+    /// included.
+    fn kv_read(&self, key: &[u8]) -> Option<Zeroizing<Vec<u8>>> {
+        self.current.lock().get(key).cloned().map(Zeroizing::new)
     }
 
     fn kv_delete(&self, key: &[u8]) {
@@ -221,13 +234,17 @@ impl SnapshotStorageProvider {
         item: Vec<u8>,
     ) -> Result<(), SnapshotStorageError> {
         let storage_key = build_key_serde::<V>(label, key)?;
-        let mut list: Vec<Vec<u8>> = match self.kv_read(&storage_key) {
+        // Wrapped for the same reason `kv_read` wraps its return, one level
+        // down: the elements are the decoded plaintext items, and they are
+        // dropped here rather than stored. `item` is moved in, so it rides
+        // out on the same wipe.
+        let mut list: Zeroizing<Vec<Vec<u8>>> = Zeroizing::new(match self.kv_read(&storage_key) {
             Some(bytes) => serde_json::from_slice(&bytes)
                 .map_err(|e| SnapshotStorageError::Serialization(e.to_string()))?,
             None => Vec::new(),
-        };
+        });
         list.push(item);
-        let val_bytes = serde_json::to_vec(&list)
+        let val_bytes = serde_json::to_vec(&*list)
             .map_err(|e| SnapshotStorageError::Serialization(e.to_string()))?;
         self.kv_write(storage_key, val_bytes);
         Ok(())
@@ -241,11 +258,18 @@ impl SnapshotStorageProvider {
         let storage_key = build_key_serde::<V>(label, key)?;
         match self.kv_read(&storage_key) {
             Some(bytes) => {
-                let raw_list: Vec<Vec<u8>> = serde_json::from_slice(&bytes)
-                    .map_err(|e| SnapshotStorageError::Serialization(e.to_string()))?;
+                let raw_list: Zeroizing<Vec<Vec<u8>>> = Zeroizing::new(
+                    serde_json::from_slice(&bytes)
+                        .map_err(|e| SnapshotStorageError::Serialization(e.to_string()))?,
+                );
                 let mut result = Vec::with_capacity(raw_list.len());
-                for item_bytes in raw_list {
-                    let item: Val = serde_json::from_slice(&item_bytes)
+                // Borrowed, not consumed. Moving the elements out of the list
+                // would take them past the wrapper and drop them unwiped,
+                // which is exactly what the wrapper is here to prevent. The
+                // decoded `Val`s are OpenMLS types and wipe themselves or not
+                // on their own terms — that part is not ours to decide.
+                for item_bytes in raw_list.iter() {
+                    let item: Val = serde_json::from_slice(item_bytes)
                         .map_err(|e| SnapshotStorageError::Serialization(e.to_string()))?;
                     result.push(item);
                 }
@@ -262,15 +286,20 @@ impl SnapshotStorageProvider {
         item: Vec<u8>,
     ) -> Result<(), SnapshotStorageError> {
         let storage_key = build_key_serde::<V>(label, key)?;
-        let mut list: Vec<Vec<u8>> = match self.kv_read(&storage_key) {
+        // The needle is a serialized item too — plaintext this function owns
+        // and, unlike in `append_to_list`, never moves into the list.
+        let item = Zeroizing::new(item);
+        let mut list: Zeroizing<Vec<Vec<u8>>> = Zeroizing::new(match self.kv_read(&storage_key) {
             Some(bytes) => serde_json::from_slice(&bytes)
                 .map_err(|e| SnapshotStorageError::Serialization(e.to_string()))?,
             None => return Ok(()),
-        };
-        if let Some(pos) = list.iter().position(|x| *x == item) {
-            list.remove(pos);
+        });
+        if let Some(pos) = list.iter().position(|x| *x == *item) {
+            // `remove` hands the element back instead of dropping it in place,
+            // so it leaves the wrapper's reach. Wipe it on the way out.
+            list.remove(pos).zeroize();
         }
-        let val_bytes = serde_json::to_vec(&list)
+        let val_bytes = serde_json::to_vec(&*list)
             .map_err(|e| SnapshotStorageError::Serialization(e.to_string()))?;
         self.kv_write(storage_key, val_bytes);
         Ok(())
@@ -961,7 +990,7 @@ mod tests {
         let provider = SnapshotStorageProvider::from_entries(Vec::new());
 
         provider.kv_write(b"key".to_vec(), b"value".to_vec());
-        assert_eq!(provider.kv_read(b"key"), Some(b"value".to_vec()));
+        assert_eq!(provider.kv_read(b"key"), Some(Zeroizing::new(b"value".to_vec())));
 
         provider.kv_delete(b"key");
         assert_eq!(provider.kv_read(b"key"), None);
@@ -989,5 +1018,69 @@ mod tests {
             ]
         );
         assert_eq!(updates.deletes, vec![b"deleted".to_vec()]);
+    }
+
+    /// The read path must keep plaintext inside a wiping wrapper.
+    ///
+    /// Zeroization is not observable from a test. The wipe happens in a `Drop`
+    /// on memory the allocator is then free to hand out again, so an assertion
+    /// about it would be an assertion about freed memory — undefined behaviour
+    /// to read, and a false pass the moment the allocator reuses the page. What
+    /// CAN be pinned is the shape of the code that makes the wipe happen; the
+    /// manifest test in `utils.rs` guards its invariant the same way and for
+    /// the same reason.
+    ///
+    /// Two properties, both of them things a refactor reverses without
+    /// noticing:
+    ///
+    /// 1. `kv_read` returns the wrapper. Widen it back to a bare `Vec<u8>` and
+    ///    all five call sites go back to dropping a plaintext copy unwiped.
+    /// 2. Every decoded item list in this file sits inside `Zeroizing<…>`.
+    ///    Those are the elements in `append_to_list`, `read_list` and
+    ///    `remove_from_list`. The wrapper around the *value* does not reach
+    ///    them: deserializing allocates fresh buffers, and those are what
+    ///    hold the plaintext once the value is decoded.
+    ///
+    /// Both needles are assembled at run time on purpose. Written as literals
+    /// they would appear in this file, and the test would match its own source
+    /// — passing with the code it guards deleted. The cost is a rule for
+    /// anyone editing this file: prose naming the item-list type has to name
+    /// the wrapped form, or check 2 reads it as a violation.
+    #[test]
+    fn the_read_path_keeps_plaintext_wrapped() {
+        let source = include_str!("snapshot_storage.rs");
+        let wrapper = format!("{}<", "Zeroizing");
+        let items = format!("Vec<{}>", "Vec<u8>");
+
+        let signature = format!("fn kv_read(&self, key: &[u8]) -> Option<{wrapper}Vec<u8>>>");
+        assert!(
+            source.contains(&signature),
+            "`kv_read` no longer reads `{signature}`. It hands a COPY of MLS key \
+             material to its callers; unwrapped, that copy is dropped without a \
+             wipe and the plaintext stays in freed heap memory.",
+        );
+
+        let mut from = 0;
+        let mut seen = 0;
+        while let Some(offset) = source[from..].find(&items) {
+            let at = from + offset;
+            assert!(
+                source[..at].ends_with(&wrapper),
+                "`{items}` appears outside `{wrapper}…>` at byte {at}. Its \
+                 elements are decoded plaintext list items — dropped unwrapped, \
+                 nothing wipes them.",
+            );
+            seen += 1;
+            from = at + items.len();
+        }
+
+        // A count, because every other assertion here is vacuously true on a
+        // file where the three lists have been renamed out of existence.
+        assert_eq!(
+            seen, 3,
+            "expected the three decoded item lists (`append_to_list`, \
+             `read_list`, `remove_from_list`), found {seen}. A new one needs \
+             the same wrapper; a removed one needs this count moved.",
+        );
     }
 }
