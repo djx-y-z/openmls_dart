@@ -102,9 +102,17 @@
   does not merely disagree, it stops resolving, and nothing else notices.
 
   ⚠ **`protect-main.json` now carries a required status check, and arriving is
-  not the same as being applied.** The file is in the tree; making GitHub
-  enforce it needs `make setup-repo-protections ARGS="--yes"` as a separate
-  step. Until that runs, `codegen-guard` reports and blocks nothing.
+  not the same as being applied.** The file is in the tree; GitHub does not read
+  it. Applying it takes `make setup-repo-protections ARGS="--update --yes"` as a
+  separate step — and `--update` is the load-bearing half: the script is
+  idempotent by ruleset **name**, so without it an existing `Protect main
+  branch` is skipped with a message and exit 0, which looks exactly like
+  success while changing nothing. Verified before overwriting that the live
+  rulesets carry no hand-edits the file would clobber: `delete-branches` and
+  `signing-commit` match byte for byte, `protect-release-tags` differs only in
+  the order of two bypass actors, and `protect-main` differs only by the new
+  rule plus a `required_reviewers: []` default GitHub echoes back. Until it
+  runs, `codegen-guard` reports and blocks nothing.
 
 ## [3.0.0] - 2026-09-06
 
