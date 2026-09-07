@@ -42,7 +42,7 @@ flutter_rust_bridge::frb_generated_boilerplate!(
     default_rust_auto_opaque = RustAutoOpaqueNom,
 );
 pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.13.0";
-pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = 585923240;
+pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -722731269;
 
 // Section: executor
 
@@ -1228,6 +1228,67 @@ fn wire__crate__api__engine__MlsEngine_export_secret_impl(
                         let output_ok = crate::api::engine::MlsEngine::export_secret(
                             &*api_that_guard,
                             api_group_id_bytes,
+                            api_label,
+                            api_context,
+                            api_key_length,
+                        )
+                        .await?;
+                        std::result::Result::Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
+fn wire__crate__api__engine__MlsEngine_export_welcome_secret_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    that: impl CstDecode<
+        RustOpaqueNom<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<MlsEngine>>,
+    >,
+    config: impl CstDecode<crate::api::config::MlsGroupConfig>,
+    welcome_bytes: impl CstDecode<Vec<u8>>,
+    label: impl CstDecode<String>,
+    context: impl CstDecode<Vec<u8>>,
+    key_length: impl CstDecode<u32>,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::DcoCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "MlsEngine_export_welcome_secret",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let api_that = that.cst_decode();
+            let api_config = config.cst_decode();
+            let api_welcome_bytes = welcome_bytes.cst_decode();
+            let api_label = label.cst_decode();
+            let api_context = context.cst_decode();
+            let api_key_length = key_length.cst_decode();
+            move |context| async move {
+                transform_result_dco::<_, _, String>(
+                    (move || async move {
+                        let mut api_that_guard = None;
+                        let decode_indices_ =
+                            flutter_rust_bridge::for_generated::lockable_compute_decode_order(
+                                vec![flutter_rust_bridge::for_generated::LockableOrderInfo::new(
+                                    &api_that, 0, false,
+                                )],
+                            );
+                        for i in decode_indices_ {
+                            match i {
+                                0 => {
+                                    api_that_guard =
+                                        Some(api_that.lockable_decode_async_ref().await)
+                                }
+                                _ => unreachable!(),
+                            }
+                        }
+                        let api_that_guard = api_that_guard.unwrap();
+                        let output_ok = crate::api::engine::MlsEngine::export_welcome_secret(
+                            &*api_that_guard,
+                            api_config,
+                            api_welcome_bytes,
                             api_label,
                             api_context,
                             api_key_length,
@@ -3140,6 +3201,77 @@ fn wire__crate__api__engine__MlsEngine_propose_self_update_impl(
         },
     )
 }
+fn wire__crate__api__engine__MlsEngine_propose_self_update_with_new_signer_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    that: impl CstDecode<
+        RustOpaqueNom<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<MlsEngine>>,
+    >,
+    group_id_bytes: impl CstDecode<Vec<u8>>,
+    old_signer_bytes: impl CstDecode<Vec<u8>>,
+    new_signer_bytes: impl CstDecode<Vec<u8>>,
+    new_credential_identity: impl CstDecode<Vec<u8>>,
+    new_signer_public_key: impl CstDecode<Vec<u8>>,
+    new_credential_bytes: impl CstDecode<Option<Vec<u8>>>,
+    leaf_node_capabilities: impl CstDecode<Option<crate::api::types::MlsCapabilities>>,
+    leaf_node_extensions: impl CstDecode<Option<Vec<crate::api::types::MlsExtension>>>,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::DcoCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "MlsEngine_propose_self_update_with_new_signer",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let api_that = that.cst_decode();
+            let api_group_id_bytes = group_id_bytes.cst_decode();
+            let api_old_signer_bytes = old_signer_bytes.cst_decode();
+            let api_new_signer_bytes = new_signer_bytes.cst_decode();
+            let api_new_credential_identity = new_credential_identity.cst_decode();
+            let api_new_signer_public_key = new_signer_public_key.cst_decode();
+            let api_new_credential_bytes = new_credential_bytes.cst_decode();
+            let api_leaf_node_capabilities = leaf_node_capabilities.cst_decode();
+            let api_leaf_node_extensions = leaf_node_extensions.cst_decode();
+            move |context| async move {
+                transform_result_dco::<_, _, String>(
+                    (move || async move {
+                        let mut api_that_guard = None;
+                        let decode_indices_ =
+                            flutter_rust_bridge::for_generated::lockable_compute_decode_order(
+                                vec![flutter_rust_bridge::for_generated::LockableOrderInfo::new(
+                                    &api_that, 0, false,
+                                )],
+                            );
+                        for i in decode_indices_ {
+                            match i {
+                                0 => {
+                                    api_that_guard =
+                                        Some(api_that.lockable_decode_async_ref().await)
+                                }
+                                _ => unreachable!(),
+                            }
+                        }
+                        let api_that_guard = api_that_guard.unwrap();
+                        let output_ok =
+                            crate::api::engine::MlsEngine::propose_self_update_with_new_signer(
+                                &*api_that_guard,
+                                api_group_id_bytes,
+                                api_old_signer_bytes,
+                                api_new_signer_bytes,
+                                api_new_credential_identity,
+                                api_new_signer_public_key,
+                                api_new_credential_bytes,
+                                api_leaf_node_capabilities,
+                                api_leaf_node_extensions,
+                            )
+                            .await?;
+                        std::result::Result::Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
 fn wire__crate__api__engine__MlsEngine_remove_members_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     that: impl CstDecode<
@@ -3770,6 +3902,32 @@ fn wire__crate__api__keys__MlsSignatureKeyPair_signature_scheme_impl(
         },
     )
 }
+fn wire__crate__api__engine__check_lifetime_at_impl(
+    not_before: impl CstDecode<u64>,
+    not_after: impl CstDecode<u64>,
+    now_unix_seconds: impl CstDecode<u64>,
+) -> flutter_rust_bridge::for_generated::WireSyncRust2DartDco {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_sync::<flutter_rust_bridge::for_generated::DcoCodec, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "check_lifetime_at",
+            port: None,
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Sync,
+        },
+        move || {
+            let api_not_before = not_before.cst_decode();
+            let api_not_after = not_after.cst_decode();
+            let api_now_unix_seconds = now_unix_seconds.cst_decode();
+            transform_result_dco::<_, _, String>((move || {
+                let output_ok = crate::api::engine::check_lifetime_at(
+                    api_not_before,
+                    api_not_after,
+                    api_now_unix_seconds,
+                )?;
+                std::result::Result::Ok(output_ok)
+            })())
+        },
+    )
+}
 fn wire__crate__api__init__init_openmls_impl(
     _library_path: impl CstDecode<String>,
 ) -> flutter_rust_bridge::for_generated::WireSyncRust2DartDco {
@@ -3799,6 +3957,24 @@ fn wire__crate__api__init__is_openmls_initialized_impl(
         move || {
             transform_result_dco::<_, _, ()>((move || {
                 let output_ok = Ok::<_, ()>(crate::api::init::is_openmls_initialized())?;
+                std::result::Result::Ok(output_ok)
+            })())
+        },
+    )
+}
+fn wire__crate__api__engine__key_package_lifetime_impl(
+    key_package_bytes: impl CstDecode<Vec<u8>>,
+) -> flutter_rust_bridge::for_generated::WireSyncRust2DartDco {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_sync::<flutter_rust_bridge::for_generated::DcoCodec, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "key_package_lifetime",
+            port: None,
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Sync,
+        },
+        move || {
+            let api_key_package_bytes = key_package_bytes.cst_decode();
+            transform_result_dco::<_, _, String>((move || {
+                let output_ok = crate::api::engine::key_package_lifetime(api_key_package_bytes)?;
                 std::result::Result::Ok(output_ok)
             })())
         },
@@ -4224,6 +4400,18 @@ impl SseDecode for crate::api::engine::JoinGroupResult {
     }
 }
 
+impl SseDecode for crate::api::engine::KeyPackageLifetime {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_notBefore = <u64>::sse_decode(deserializer);
+        let mut var_notAfter = <u64>::sse_decode(deserializer);
+        return crate::api::engine::KeyPackageLifetime {
+            not_before: var_notBefore,
+            not_after: var_notAfter,
+        };
+    }
+}
+
 impl SseDecode for crate::api::types::KeyPackageOptions {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -4261,6 +4449,18 @@ impl SseDecode for crate::api::engine::LeaveGroupResult {
         let mut var_message = <Vec<u8>>::sse_decode(deserializer);
         return crate::api::engine::LeaveGroupResult {
             message: var_message,
+        };
+    }
+}
+
+impl SseDecode for crate::api::engine::LifetimeVerdict {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_valid = <bool>::sse_decode(deserializer);
+        let mut var_reason = <Option<String>>::sse_decode(deserializer);
+        return crate::api::engine::LifetimeVerdict {
+            valid: var_valid,
+            reason: var_reason,
         };
     }
 }
@@ -4536,6 +4736,17 @@ impl SseDecode for crate::api::types::MlsWireFormatPolicy {
             1 => crate::api::types::MlsWireFormatPolicy::Ciphertext,
             _ => unreachable!("Invalid variant for MlsWireFormatPolicy: {}", inner),
         };
+    }
+}
+
+impl SseDecode for Option<String> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        if (<bool>::sse_decode(deserializer)) {
+            return Some(<String>::sse_decode(deserializer));
+        } else {
+            return None;
+        }
     }
 }
 
@@ -5027,6 +5238,27 @@ impl flutter_rust_bridge::IntoIntoDart<crate::api::engine::JoinGroupResult>
     }
 }
 // Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::api::engine::KeyPackageLifetime {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.not_before.into_into_dart().into_dart(),
+            self.not_after.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::api::engine::KeyPackageLifetime
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::api::engine::KeyPackageLifetime>
+    for crate::api::engine::KeyPackageLifetime
+{
+    fn into_into_dart(self) -> crate::api::engine::KeyPackageLifetime {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
 impl flutter_rust_bridge::IntoDart for crate::api::types::KeyPackageOptions {
     fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
         [
@@ -5081,6 +5313,27 @@ impl flutter_rust_bridge::IntoIntoDart<crate::api::engine::LeaveGroupResult>
     for crate::api::engine::LeaveGroupResult
 {
     fn into_into_dart(self) -> crate::api::engine::LeaveGroupResult {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::api::engine::LifetimeVerdict {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.valid.into_into_dart().into_dart(),
+            self.reason.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::api::engine::LifetimeVerdict
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::api::engine::LifetimeVerdict>
+    for crate::api::engine::LifetimeVerdict
+{
+    fn into_into_dart(self) -> crate::api::engine::LifetimeVerdict {
         self
     }
 }
@@ -5621,6 +5874,14 @@ impl SseEncode for crate::api::engine::JoinGroupResult {
     }
 }
 
+impl SseEncode for crate::api::engine::KeyPackageLifetime {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <u64>::sse_encode(self.not_before, serializer);
+        <u64>::sse_encode(self.not_after, serializer);
+    }
+}
+
 impl SseEncode for crate::api::types::KeyPackageOptions {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -5649,6 +5910,14 @@ impl SseEncode for crate::api::engine::LeaveGroupResult {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
         <Vec<u8>>::sse_encode(self.message, serializer);
+    }
+}
+
+impl SseEncode for crate::api::engine::LifetimeVerdict {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <bool>::sse_encode(self.valid, serializer);
+        <Option<String>>::sse_encode(self.reason, serializer);
     }
 }
 
@@ -5860,6 +6129,16 @@ impl SseEncode for crate::api::types::MlsWireFormatPolicy {
             },
             serializer,
         );
+    }
+}
+
+impl SseEncode for Option<String> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <bool>::sse_encode(self.is_some(), serializer);
+        if let Some(value) = self {
+            <String>::sse_encode(value, serializer);
+        }
     }
 }
 
@@ -6310,6 +6589,15 @@ mod io {
             }
         }
     }
+    impl CstDecode<crate::api::engine::KeyPackageLifetime> for wire_cst_key_package_lifetime {
+        // Codec=Cst (C-struct based), see doc to use other codecs
+        fn cst_decode(self) -> crate::api::engine::KeyPackageLifetime {
+            crate::api::engine::KeyPackageLifetime {
+                not_before: self.not_before.cst_decode(),
+                not_after: self.not_after.cst_decode(),
+            }
+        }
+    }
     impl CstDecode<crate::api::types::KeyPackageOptions> for wire_cst_key_package_options {
         // Codec=Cst (C-struct based), see doc to use other codecs
         fn cst_decode(self) -> crate::api::types::KeyPackageOptions {
@@ -6335,6 +6623,15 @@ mod io {
         fn cst_decode(self) -> crate::api::engine::LeaveGroupResult {
             crate::api::engine::LeaveGroupResult {
                 message: self.message.cst_decode(),
+            }
+        }
+    }
+    impl CstDecode<crate::api::engine::LifetimeVerdict> for wire_cst_lifetime_verdict {
+        // Codec=Cst (C-struct based), see doc to use other codecs
+        fn cst_decode(self) -> crate::api::engine::LifetimeVerdict {
+            crate::api::engine::LifetimeVerdict {
+                valid: self.valid.cst_decode(),
+                reason: self.reason.cst_decode(),
             }
         }
     }
@@ -6690,6 +6987,19 @@ mod io {
             Self::new_with_null_ptr()
         }
     }
+    impl NewWithNullPtr for wire_cst_key_package_lifetime {
+        fn new_with_null_ptr() -> Self {
+            Self {
+                not_before: Default::default(),
+                not_after: Default::default(),
+            }
+        }
+    }
+    impl Default for wire_cst_key_package_lifetime {
+        fn default() -> Self {
+            Self::new_with_null_ptr()
+        }
+    }
     impl NewWithNullPtr for wire_cst_key_package_options {
         fn new_with_null_ptr() -> Self {
             Self {
@@ -6726,6 +7036,19 @@ mod io {
         }
     }
     impl Default for wire_cst_leave_group_result {
+        fn default() -> Self {
+            Self::new_with_null_ptr()
+        }
+    }
+    impl NewWithNullPtr for wire_cst_lifetime_verdict {
+        fn new_with_null_ptr() -> Self {
+            Self {
+                valid: Default::default(),
+                reason: core::ptr::null_mut(),
+            }
+        }
+    }
+    impl Default for wire_cst_lifetime_verdict {
         fn default() -> Self {
             Self::new_with_null_ptr()
         }
@@ -7253,6 +7576,27 @@ mod io {
     }
 
     #[unsafe(no_mangle)]
+    pub extern "C" fn frbgen_openmls_wire__crate__api__engine__MlsEngine_export_welcome_secret(
+        port_: i64,
+        that: usize,
+        config: *mut wire_cst_mls_group_config,
+        welcome_bytes: *mut wire_cst_list_prim_u_8_loose,
+        label: *mut wire_cst_list_prim_u_8_strict,
+        context: *mut wire_cst_list_prim_u_8_loose,
+        key_length: u32,
+    ) {
+        wire__crate__api__engine__MlsEngine_export_welcome_secret_impl(
+            port_,
+            that,
+            config,
+            welcome_bytes,
+            label,
+            context,
+            key_length,
+        )
+    }
+
+    #[unsafe(no_mangle)]
     pub extern "C" fn frbgen_openmls_wire__crate__api__engine__MlsEngine_flexible_commit(
         port_: i64,
         that: usize,
@@ -7758,6 +8102,33 @@ mod io {
     }
 
     #[unsafe(no_mangle)]
+    pub extern "C" fn frbgen_openmls_wire__crate__api__engine__MlsEngine_propose_self_update_with_new_signer(
+        port_: i64,
+        that: usize,
+        group_id_bytes: *mut wire_cst_list_prim_u_8_loose,
+        old_signer_bytes: *mut wire_cst_list_prim_u_8_loose,
+        new_signer_bytes: *mut wire_cst_list_prim_u_8_loose,
+        new_credential_identity: *mut wire_cst_list_prim_u_8_loose,
+        new_signer_public_key: *mut wire_cst_list_prim_u_8_loose,
+        new_credential_bytes: *mut wire_cst_list_prim_u_8_strict,
+        leaf_node_capabilities: *mut wire_cst_mls_capabilities,
+        leaf_node_extensions: *mut wire_cst_list_mls_extension,
+    ) {
+        wire__crate__api__engine__MlsEngine_propose_self_update_with_new_signer_impl(
+            port_,
+            that,
+            group_id_bytes,
+            old_signer_bytes,
+            new_signer_bytes,
+            new_credential_identity,
+            new_signer_public_key,
+            new_credential_bytes,
+            leaf_node_capabilities,
+            leaf_node_extensions,
+        )
+    }
+
+    #[unsafe(no_mangle)]
     pub extern "C" fn frbgen_openmls_wire__crate__api__engine__MlsEngine_remove_members(
         port_: i64,
         that: usize,
@@ -7941,6 +8312,15 @@ mod io {
     }
 
     #[unsafe(no_mangle)]
+    pub extern "C" fn frbgen_openmls_wire__crate__api__engine__check_lifetime_at(
+        not_before: u64,
+        not_after: u64,
+        now_unix_seconds: u64,
+    ) -> flutter_rust_bridge::for_generated::WireSyncRust2DartDco {
+        wire__crate__api__engine__check_lifetime_at_impl(not_before, not_after, now_unix_seconds)
+    }
+
+    #[unsafe(no_mangle)]
     pub extern "C" fn frbgen_openmls_wire__crate__api__init__init_openmls(
         _library_path: *mut wire_cst_list_prim_u_8_strict,
     ) -> flutter_rust_bridge::for_generated::WireSyncRust2DartDco {
@@ -7951,6 +8331,13 @@ mod io {
     pub extern "C" fn frbgen_openmls_wire__crate__api__init__is_openmls_initialized(
     ) -> flutter_rust_bridge::for_generated::WireSyncRust2DartDco {
         wire__crate__api__init__is_openmls_initialized_impl()
+    }
+
+    #[unsafe(no_mangle)]
+    pub extern "C" fn frbgen_openmls_wire__crate__api__engine__key_package_lifetime(
+        key_package_bytes: *mut wire_cst_list_prim_u_8_loose,
+    ) -> flutter_rust_bridge::for_generated::WireSyncRust2DartDco {
+        wire__crate__api__engine__key_package_lifetime_impl(key_package_bytes)
     }
 
     #[unsafe(no_mangle)]
@@ -8294,6 +8681,12 @@ mod io {
     }
     #[repr(C)]
     #[derive(Clone, Copy)]
+    pub struct wire_cst_key_package_lifetime {
+        not_before: u64,
+        not_after: u64,
+    }
+    #[repr(C)]
+    #[derive(Clone, Copy)]
     pub struct wire_cst_key_package_options {
         lifetime_seconds: *mut u64,
         last_resort: bool,
@@ -8310,6 +8703,12 @@ mod io {
     #[derive(Clone, Copy)]
     pub struct wire_cst_leave_group_result {
         message: *mut wire_cst_list_prim_u_8_strict,
+    }
+    #[repr(C)]
+    #[derive(Clone, Copy)]
+    pub struct wire_cst_lifetime_verdict {
+        valid: bool,
+        reason: *mut wire_cst_list_prim_u_8_strict,
     }
     #[repr(C)]
     #[derive(Clone, Copy)]
@@ -8678,6 +9077,26 @@ mod web {
             }
         }
     }
+    impl CstDecode<crate::api::engine::KeyPackageLifetime>
+        for flutter_rust_bridge::for_generated::wasm_bindgen::JsValue
+    {
+        // Codec=Cst (C-struct based), see doc to use other codecs
+        fn cst_decode(self) -> crate::api::engine::KeyPackageLifetime {
+            let self_ = self
+                .dyn_into::<flutter_rust_bridge::for_generated::js_sys::Array>()
+                .unwrap();
+            assert_eq!(
+                self_.length(),
+                2,
+                "Expected 2 elements, got {}",
+                self_.length()
+            );
+            crate::api::engine::KeyPackageLifetime {
+                not_before: self_.get(0).cst_decode(),
+                not_after: self_.get(1).cst_decode(),
+            }
+        }
+    }
     impl CstDecode<crate::api::types::KeyPackageOptions>
         for flutter_rust_bridge::for_generated::wasm_bindgen::JsValue
     {
@@ -8736,6 +9155,26 @@ mod web {
             );
             crate::api::engine::LeaveGroupResult {
                 message: self_.get(0).cst_decode(),
+            }
+        }
+    }
+    impl CstDecode<crate::api::engine::LifetimeVerdict>
+        for flutter_rust_bridge::for_generated::wasm_bindgen::JsValue
+    {
+        // Codec=Cst (C-struct based), see doc to use other codecs
+        fn cst_decode(self) -> crate::api::engine::LifetimeVerdict {
+            let self_ = self
+                .dyn_into::<flutter_rust_bridge::for_generated::js_sys::Array>()
+                .unwrap();
+            assert_eq!(
+                self_.length(),
+                2,
+                "Expected 2 elements, got {}",
+                self_.length()
+            );
+            crate::api::engine::LifetimeVerdict {
+                valid: self_.get(0).cst_decode(),
+                reason: self_.get(1).cst_decode(),
             }
         }
     }
@@ -8970,6 +9409,12 @@ mod web {
                 proposal_type: self_.get(0).cst_decode(),
                 sender_index: self_.get(1).cst_decode(),
             }
+        }
+    }
+    impl CstDecode<Option<String>> for Option<String> {
+        // Codec=Cst (C-struct based), see doc to use other codecs
+        fn cst_decode(self) -> Option<String> {
+            self.map(CstDecode::cst_decode)
         }
     }
     impl CstDecode<Option<Vec<u8>>> for Option<Box<[u8]>> {
@@ -9619,6 +10064,27 @@ mod web {
     }
 
     #[wasm_bindgen]
+    pub fn wire__crate__api__engine__MlsEngine_export_welcome_secret(
+        port_: flutter_rust_bridge::for_generated::MessagePort,
+        that: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
+        config: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
+        welcome_bytes: Box<[u8]>,
+        label: String,
+        context: Box<[u8]>,
+        key_length: u32,
+    ) {
+        wire__crate__api__engine__MlsEngine_export_welcome_secret_impl(
+            port_,
+            that,
+            config,
+            welcome_bytes,
+            label,
+            context,
+            key_length,
+        )
+    }
+
+    #[wasm_bindgen]
     pub fn wire__crate__api__engine__MlsEngine_flexible_commit(
         port_: flutter_rust_bridge::for_generated::MessagePort,
         that: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
@@ -10124,6 +10590,33 @@ mod web {
     }
 
     #[wasm_bindgen]
+    pub fn wire__crate__api__engine__MlsEngine_propose_self_update_with_new_signer(
+        port_: flutter_rust_bridge::for_generated::MessagePort,
+        that: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
+        group_id_bytes: Box<[u8]>,
+        old_signer_bytes: Box<[u8]>,
+        new_signer_bytes: Box<[u8]>,
+        new_credential_identity: Box<[u8]>,
+        new_signer_public_key: Box<[u8]>,
+        new_credential_bytes: Option<Box<[u8]>>,
+        leaf_node_capabilities: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
+        leaf_node_extensions: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
+    ) {
+        wire__crate__api__engine__MlsEngine_propose_self_update_with_new_signer_impl(
+            port_,
+            that,
+            group_id_bytes,
+            old_signer_bytes,
+            new_signer_bytes,
+            new_credential_identity,
+            new_signer_public_key,
+            new_credential_bytes,
+            leaf_node_capabilities,
+            leaf_node_extensions,
+        )
+    }
+
+    #[wasm_bindgen]
     pub fn wire__crate__api__engine__MlsEngine_remove_members(
         port_: flutter_rust_bridge::for_generated::MessagePort,
         that: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
@@ -10307,6 +10800,15 @@ mod web {
     }
 
     #[wasm_bindgen]
+    pub fn wire__crate__api__engine__check_lifetime_at(
+        not_before: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
+        not_after: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
+        now_unix_seconds: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
+    ) -> flutter_rust_bridge::for_generated::WireSyncRust2DartDco {
+        wire__crate__api__engine__check_lifetime_at_impl(not_before, not_after, now_unix_seconds)
+    }
+
+    #[wasm_bindgen]
     pub fn wire__crate__api__init__init_openmls(
         _library_path: String,
     ) -> flutter_rust_bridge::for_generated::WireSyncRust2DartDco {
@@ -10317,6 +10819,13 @@ mod web {
     pub fn wire__crate__api__init__is_openmls_initialized(
     ) -> flutter_rust_bridge::for_generated::WireSyncRust2DartDco {
         wire__crate__api__init__is_openmls_initialized_impl()
+    }
+
+    #[wasm_bindgen]
+    pub fn wire__crate__api__engine__key_package_lifetime(
+        key_package_bytes: Box<[u8]>,
+    ) -> flutter_rust_bridge::for_generated::WireSyncRust2DartDco {
+        wire__crate__api__engine__key_package_lifetime_impl(key_package_bytes)
     }
 
     #[wasm_bindgen]

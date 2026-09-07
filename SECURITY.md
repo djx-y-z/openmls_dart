@@ -268,6 +268,7 @@ The following APIs return data that should be zeroized after use (via `SecureByt
 | `MlsSignatureKeyPair.privateKey()` | Private signing key | HIGH — long-term key material |
 | `serializeSigner()` | JSON with private key | HIGH — contains private key bytes |
 | `engine.exportSecret()` | MLS exporter secret | HIGH — derived secret |
+| `engine.exportWelcomeSecret()` | MLS exporter secret, before joining | HIGH — bit-for-bit the value `exportSecret` returns for that epoch |
 | `engine.getPastResumptionPsk()` | Resumption PSK | HIGH — pre-shared key |
 
 These return `Uint8List` or `List<int>` due to FRB signature constraints. Callers must zeroize.

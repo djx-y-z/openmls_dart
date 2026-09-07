@@ -119,7 +119,7 @@ that one too.
 | Messaging | Done | Encrypt/decrypt application messages with AAD |
 | Proposals | Done | Add, remove, self-update, PSK, custom, group context extensions |
 | Commits | Done | Pending proposals, flexible commit, merge/clear |
-| Key Packages | Done | Create with options (lifetime, last-resort) |
+| Key Packages | Done | Create with options (lifetime, last-resort), read and check the validity window |
 | Credentials | Done | Basic and X.509 credential types |
 | State Queries | Done | Members, epoch, extensions, ratchet tree, group info, PSK export |
 | Storage | Done | Encrypted at rest via `MlsEngine` (SQLCipher / Web Crypto) |
@@ -127,15 +127,15 @@ that one too.
 <details>
 <summary>Full API reference</summary>
 
-**Key Packages**: `createKeyPackage`, `createKeyPackageWithOptions`
+**Key Packages**: `createKeyPackage`, `createKeyPackageWithOptions`, `keyPackageLifetime`, `checkLifetimeAt`
 
-**Group Lifecycle**: `createGroup`, `createGroupWithBuilder`, `joinGroupFromWelcome`, `joinGroupFromWelcomeWithOptions`, `inspectWelcome`, `joinGroupExternalCommit`, `joinGroupExternalCommitV2`
+**Group Lifecycle**: `createGroup`, `createGroupWithBuilder`, `joinGroupFromWelcome`, `joinGroupFromWelcomeWithOptions`, `inspectWelcome`, `exportWelcomeSecret`, `joinGroupExternalCommit`, `joinGroupExternalCommitV2`
 
 **State Queries**: `groupId`, `groupEpoch`, `groupIsActive`, `groupMembers`, `groupCiphersuite`, `groupOwnIndex`, `groupCredential`, `groupExtensions`, `groupPendingProposals`, `groupHasPendingProposals`, `groupMemberAt`, `groupMemberLeafIndex`, `groupOwnLeafNode`, `groupConfirmationTag`, `groupConfiguration`, `groupEpochAuthenticator`, `exportRatchetTree`, `exportGroupInfo`, `exportSecret`, `exportGroupContext`, `getPastResumptionPsk`
 
 **Mutations**: `addMembers`, `addMembersWithoutUpdate`, `removeMembers`, `selfUpdate`, `selfUpdateWithNewSigner`, `swapMembers`, `leaveGroup`, `leaveGroupViaSelfRemove`
 
-**Proposals**: `proposeAdd`, `proposeRemove`, `proposeSelfUpdate`, `proposeExternalPsk`, `proposeGroupContextExtensions`, `proposeCustomProposal`, `proposeRemoveMemberByCredential`, `removePendingProposal`
+**Proposals**: `proposeAdd`, `proposeRemove`, `proposeSelfUpdate`, `proposeSelfUpdateWithNewSigner`, `proposeExternalPsk`, `proposeGroupContextExtensions`, `proposeCustomProposal`, `proposeRemoveMemberByCredential`, `removePendingProposal`
 
 **Commit/Merge**: `commitToPendingProposals`, `mergePendingCommit`, `clearPendingCommit`, `clearPendingProposals`, `setConfiguration`, `updateGroupContextExtensions`, `flexibleCommit`
 

@@ -82,6 +82,18 @@ getrandom_02 = { package = "getrandom", version = "0.2", features = ["js"] }
 getrandom = { version = "0.3", features = ["wasm_js"] }
 getrandom_04 = { package = "getrandom", version = "0.4", features = ["wasm_js"] }
 idb = "0.6"
+# `Lifetime::validate_with_time` (reached by `checkLifetimeAt` in
+# `api/engine.rs`) takes a `SystemTime`, and openmls's `lifetime.rs` selects
+# which one by `cfg(target_arch)`: `web_time`'s here, `std`'s on every other
+# target. They are unrelated types, so the wasm32 build has to be able to name
+# the web-time one — a `std::time::SystemTime` does not compile against it.
+#
+# Same version openmls already resolves (1.1.0), so nothing new enters the
+# graph and THIRD_PARTY_NOTICES.txt does not move. openmls asks for it with
+# `features = ["serde"]`; that is not named here because this crate does not
+# use it, and feature unification supplies it anyway on the builds where
+# openmls's `js` feature is on.
+web-time = "1.1"
 wasm-bindgen = "0.2"
 wasm-bindgen-futures = "0.4"
 js-sys = "0.3"

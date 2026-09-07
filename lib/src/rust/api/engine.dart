@@ -39,6 +39,61 @@ String mlsMessageContentType({required List<int> messageBytes}) => RustLib
     .api
     .crateApiEngineMlsMessageContentType(messageBytes: messageBytes);
 
+/// Reads the validity window out of a key package.
+///
+/// Pair this with `checkLifetimeAt` to judge a key package by a clock other
+/// than the device's — a timestamp from a server, say — before offering it to
+/// `addMembers`.
+///
+/// ⚠ **The device's own clock still gates this call.** Getting at the window
+/// means validating the key package, and OpenMLS's validation checks
+/// signatures, protocol version, extensions *and* the lifetime, that last one
+/// against `SystemTime::now()` on this device. There is no way to ask it to
+/// skip that from outside the crate. So a key package this device believes is
+/// expired, or not yet valid, fails here and never yields its bounds: the pair
+/// of functions can apply an authority stricter than the local clock, not
+/// rescue a package the local clock has already rejected.
+KeyPackageLifetime keyPackageLifetime({required List<int> keyPackageBytes}) =>
+    RustLib.instance.api.crateApiEngineKeyPackageLifetime(
+      keyPackageBytes: keyPackageBytes,
+    );
+
+/// Checks a validity window against a supplied instant instead of this
+/// device's clock.
+///
+/// Takes the two bounds rather than key package bytes, so that this half of
+/// the check has no dependency on the local clock at all: `keyPackageLifetime`
+/// is the only way to read bounds *out of* a key package and it does consult
+/// the local clock, but a caller that already holds bounds — from its own
+/// directory, from an earlier reading, from a server that publishes them — can
+/// apply this on its own.
+///
+/// The comparison is OpenMLS's (`Lifetime::validate_with_time`), not a
+/// re-implementation, so the boundaries match what a peer will decide about
+/// the same package: `notAfter` is exclusive — an instant equal to it counts
+/// as expired — while `notBefore` is inclusive.
+///
+/// Returns an error only when `nowUnixSeconds` names no instant a calendar
+/// could mean — anything past 9999-12-31T23:59:59Z. An instant outside the
+/// window is a verdict, not an error, and below that cap every platform this
+/// package ships for answers a given argument the same way.
+///
+/// That cap also catches the likeliest way to call this wrongly. Dart has no
+/// `secondsSinceEpoch`, so a caller reaching for `DateTime` meets
+/// `millisecondsSinceEpoch` first, and a present-day millisecond count is
+/// roughly a thousand times too large — comfortably past the cap, so it fails
+/// loudly here instead of returning a confident verdict about a date tens of
+/// thousands of years out.
+LifetimeVerdict checkLifetimeAt({
+  required BigInt notBefore,
+  required BigInt notAfter,
+  required BigInt nowUnixSeconds,
+}) => RustLib.instance.api.crateApiEngineCheckLifetimeAt(
+  notBefore: notBefore,
+  notAfter: notAfter,
+  nowUnixSeconds: nowUnixSeconds,
+);
+
 // Rust type: RustOpaqueNom<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<MlsEngine>>
 abstract class MlsEngine implements RustOpaqueInterface {
   Future<AddMembersResult> addMembers({
@@ -197,6 +252,42 @@ abstract class MlsEngine implements RustOpaqueInterface {
 
   Future<Uint8List> exportSecret({
     required List<int> groupIdBytes,
+    required String label,
+    required List<int> context,
+    required int keyLength,
+  });
+
+  /// Derives a secret from the epoch a Welcome invites this client into,
+  /// **without joining the group**.
+  ///
+  /// This is `exportSecret` one step earlier: same derivation, same
+  /// `label`/`context`/`keyLength` meaning, but reachable while the
+  /// invitation is still only an invitation. It is what lets a client agree
+  /// a key with the inviter — or prove to a third party that it can read the
+  /// epoch — before it decides whether to accept.
+  ///
+  /// Like `inspectWelcome`, this writes nothing, and that is load-bearing
+  /// rather than incidental. Processing a Welcome consumes the key package
+  /// it was addressed to: OpenMLS deletes it from storage unless it is
+  /// marked last-resort. Here that delete lands in this call's snapshot and
+  /// is discarded with it, because neither this function nor `inspectWelcome`
+  /// commits — so a later `joinGroupFromWelcome` on the same Welcome still
+  /// finds its key package. Committing from either would silently burn the
+  /// invitation.
+  ///
+  /// The secret comes from the unverified group info in the Welcome. The
+  /// confirmation tag is only checked when the Welcome is staged into a
+  /// group, which happens in `joinGroupFromWelcome` and not here.
+  ///
+  /// It sees exactly the storage the real join sees:
+  /// `joinGroupFromWelcome` loads the same global scope, and pre-shared keys
+  /// live in it (they are stored ungrouped, like key packages and signature
+  /// keys). So a Welcome that carries PSKs resolves them here or fails here
+  /// for the same reason it would there — this function is never the narrower
+  /// of the two.
+  Future<Uint8List> exportWelcomeSecret({
+    required MlsGroupConfig config,
+    required List<int> welcomeBytes,
     required String label,
     required List<int> context,
     required int keyLength,
@@ -363,6 +454,48 @@ abstract class MlsEngine implements RustOpaqueInterface {
   Future<ProposalResult> proposeSelfUpdate({
     required List<int> groupIdBytes,
     required List<int> signerBytes,
+    MlsCapabilities? leafNodeCapabilities,
+    List<MlsExtension>? leafNodeExtensions,
+  });
+
+  /// Proposes a self-update that also rotates this member's signature key.
+  ///
+  /// The proposal form of `selfUpdateWithNewSigner`: the same key rotation,
+  /// queued as a proposal instead of committed, so it can be carried by
+  /// somebody else's commit.
+  ///
+  /// Two signers are needed because the message and its payload are
+  /// authenticated against different keys. The envelope is signed with
+  /// `oldSignerBytes`, since this member's leaf in the group tree still
+  /// carries the old signature key at the time the proposal is sent; the new
+  /// leaf inside the proposal is self-signed by `newSignerBytes` so that it
+  /// verifies against the `signatureKey` it announces. Both must therefore be
+  /// real key pairs with private keys.
+  ///
+  /// Upstream requires that a credential set in the leaf-node parameters
+  /// equal the new signer's credential. This wrapper cannot violate that: it
+  /// builds leaf-node parameters from `leafNodeCapabilities` and
+  /// `leafNodeExtensions` only and never sets a credential there, so the
+  /// credential built from `newCredentialIdentity` /
+  /// `newSignerPublicKey` / `newCredentialBytes` is always the one that gets
+  /// folded in.
+  ///
+  /// The new signer is stored before the proposal is created, matching
+  /// `selfUpdateWithNewSigner`, so the key is available to sign with once the
+  /// proposal is committed. Fails if a commit is already pending.
+  ///
+  /// Availability rests on this crate not enabling openmls's
+  /// `virtual-clients-draft` feature. Upstream gates this function on
+  /// `not(virtual-clients-draft)`, its own `test-utils`, or `test` — and that
+  /// `test-utils` was deliberately dropped from the shipped binary in 3.0.0,
+  /// so `not(virtual-clients-draft)` is the only arm holding it open here.
+  Future<ProposalResult> proposeSelfUpdateWithNewSigner({
+    required List<int> groupIdBytes,
+    required List<int> oldSignerBytes,
+    required List<int> newSignerBytes,
+    required List<int> newCredentialIdentity,
+    required List<int> newSignerPublicKey,
+    Uint8List? newCredentialBytes,
     MlsCapabilities? leafNodeCapabilities,
     List<MlsExtension>? leafNodeExtensions,
   });
@@ -569,6 +702,31 @@ class JoinGroupResult {
           groupId == other.groupId;
 }
 
+/// The window during which a key package may be used, as seconds since the
+/// Unix epoch.
+class KeyPackageLifetime {
+  /// Start of the window. A client must not use the key package before this
+  /// instant; an instant equal to it is already inside the window.
+  final BigInt notBefore;
+
+  /// End of the window. A client must not use the key package at or after
+  /// this instant.
+  final BigInt notAfter;
+
+  const KeyPackageLifetime({required this.notBefore, required this.notAfter});
+
+  @override
+  int get hashCode => notBefore.hashCode ^ notAfter.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is KeyPackageLifetime &&
+          runtimeType == other.runtimeType &&
+          notBefore == other.notBefore &&
+          notAfter == other.notAfter;
+}
+
 class KeyPackageResult {
   final Uint8List keyPackageBytes;
 
@@ -599,6 +757,29 @@ class LeaveGroupResult {
       other is LeaveGroupResult &&
           runtimeType == other.runtimeType &&
           message == other.message;
+}
+
+/// Whether a validity window admits some instant, and OpenMLS's reason when it
+/// does not.
+class LifetimeVerdict {
+  /// True when the instant falls inside the window.
+  final bool valid;
+
+  /// Why not, when `valid` is false. Null when it is true.
+  final String? reason;
+
+  const LifetimeVerdict({required this.valid, this.reason});
+
+  @override
+  int get hashCode => valid.hashCode ^ reason.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is LifetimeVerdict &&
+          runtimeType == other.runtimeType &&
+          valid == other.valid &&
+          reason == other.reason;
 }
 
 class ProcessedMessageInspectResult {

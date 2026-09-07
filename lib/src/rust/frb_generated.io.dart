@@ -152,6 +152,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   JoinGroupResult dco_decode_join_group_result(dynamic raw);
 
   @protected
+  KeyPackageLifetime dco_decode_key_package_lifetime(dynamic raw);
+
+  @protected
   KeyPackageOptions dco_decode_key_package_options(dynamic raw);
 
   @protected
@@ -159,6 +162,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   LeaveGroupResult dco_decode_leave_group_result(dynamic raw);
+
+  @protected
+  LifetimeVerdict dco_decode_lifetime_verdict(dynamic raw);
 
   @protected
   List<Uint8List> dco_decode_list_list_prim_u_8_strict(dynamic raw);
@@ -221,6 +227,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   MlsWireFormatPolicy dco_decode_mls_wire_format_policy(dynamic raw);
+
+  @protected
+  String? dco_decode_opt_String(dynamic raw);
 
   @protected
   MlsCapabilities? dco_decode_opt_box_autoadd_mls_capabilities(dynamic raw);
@@ -423,6 +432,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   JoinGroupResult sse_decode_join_group_result(SseDeserializer deserializer);
 
   @protected
+  KeyPackageLifetime sse_decode_key_package_lifetime(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   KeyPackageOptions sse_decode_key_package_options(
     SseDeserializer deserializer,
   );
@@ -432,6 +446,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   LeaveGroupResult sse_decode_leave_group_result(SseDeserializer deserializer);
+
+  @protected
+  LifetimeVerdict sse_decode_lifetime_verdict(SseDeserializer deserializer);
 
   @protected
   List<Uint8List> sse_decode_list_list_prim_u_8_strict(
@@ -508,6 +525,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   MlsWireFormatPolicy sse_decode_mls_wire_format_policy(
     SseDeserializer deserializer,
   );
+
+  @protected
+  String? sse_decode_opt_String(SseDeserializer deserializer);
 
   @protected
   MlsCapabilities? sse_decode_opt_box_autoadd_mls_capabilities(
@@ -779,6 +799,14 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   }
 
   @protected
+  ffi.Pointer<wire_cst_list_prim_u_8_strict> cst_encode_opt_String(
+    String? raw,
+  ) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return raw == null ? ffi.nullptr : cst_encode_String(raw);
+  }
+
+  @protected
   ffi.Pointer<wire_cst_mls_capabilities>
   cst_encode_opt_box_autoadd_mls_capabilities(MlsCapabilities? raw) {
     // Codec=Cst (C-struct based), see doc to use other codecs
@@ -1000,6 +1028,15 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   }
 
   @protected
+  void cst_api_fill_to_wire_key_package_lifetime(
+    KeyPackageLifetime apiObj,
+    wire_cst_key_package_lifetime wireObj,
+  ) {
+    wireObj.not_before = cst_encode_u_64(apiObj.notBefore);
+    wireObj.not_after = cst_encode_u_64(apiObj.notAfter);
+  }
+
+  @protected
   void cst_api_fill_to_wire_key_package_options(
     KeyPackageOptions apiObj,
     wire_cst_key_package_options wireObj,
@@ -1035,6 +1072,15 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
     wire_cst_leave_group_result wireObj,
   ) {
     wireObj.message = cst_encode_list_prim_u_8_strict(apiObj.message);
+  }
+
+  @protected
+  void cst_api_fill_to_wire_lifetime_verdict(
+    LifetimeVerdict apiObj,
+    wire_cst_lifetime_verdict wireObj,
+  ) {
+    wireObj.valid = cst_encode_bool(apiObj.valid);
+    wireObj.reason = cst_encode_opt_String(apiObj.reason);
   }
 
   @protected
@@ -1468,6 +1514,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_key_package_lifetime(
+    KeyPackageLifetime self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_key_package_options(
     KeyPackageOptions self,
     SseSerializer serializer,
@@ -1482,6 +1534,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_leave_group_result(
     LeaveGroupResult self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_lifetime_verdict(
+    LifetimeVerdict self,
     SseSerializer serializer,
   );
 
@@ -1595,6 +1653,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
     MlsWireFormatPolicy self,
     SseSerializer serializer,
   );
+
+  @protected
+  void sse_encode_opt_String(String? self, SseSerializer serializer);
 
   @protected
   void sse_encode_opt_box_autoadd_mls_capabilities(
@@ -2553,6 +2614,56 @@ class RustLibWire implements BaseWire {
             void Function(
               int,
               int,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              ffi.Pointer<wire_cst_list_prim_u_8_strict>,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              int,
+            )
+          >();
+
+  void wire__crate__api__engine__MlsEngine_export_welcome_secret(
+    int port_,
+    int that,
+    ffi.Pointer<wire_cst_mls_group_config> config,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> welcome_bytes,
+    ffi.Pointer<wire_cst_list_prim_u_8_strict> label,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> context,
+    int key_length,
+  ) {
+    return _wire__crate__api__engine__MlsEngine_export_welcome_secret(
+      port_,
+      that,
+      config,
+      welcome_bytes,
+      label,
+      context,
+      key_length,
+    );
+  }
+
+  late final _wire__crate__api__engine__MlsEngine_export_welcome_secretPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Int64,
+            ffi.UintPtr,
+            ffi.Pointer<wire_cst_mls_group_config>,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Pointer<wire_cst_list_prim_u_8_strict>,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Uint32,
+          )
+        >
+      >(
+        'frbgen_openmls_wire__crate__api__engine__MlsEngine_export_welcome_secret',
+      );
+  late final _wire__crate__api__engine__MlsEngine_export_welcome_secret =
+      _wire__crate__api__engine__MlsEngine_export_welcome_secretPtr
+          .asFunction<
+            void Function(
+              int,
+              int,
+              ffi.Pointer<wire_cst_mls_group_config>,
               ffi.Pointer<wire_cst_list_prim_u_8_loose>,
               ffi.Pointer<wire_cst_list_prim_u_8_strict>,
               ffi.Pointer<wire_cst_list_prim_u_8_loose>,
@@ -3864,6 +3975,68 @@ class RustLibWire implements BaseWire {
             )
           >();
 
+  void wire__crate__api__engine__MlsEngine_propose_self_update_with_new_signer(
+    int port_,
+    int that,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> group_id_bytes,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> old_signer_bytes,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> new_signer_bytes,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> new_credential_identity,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> new_signer_public_key,
+    ffi.Pointer<wire_cst_list_prim_u_8_strict> new_credential_bytes,
+    ffi.Pointer<wire_cst_mls_capabilities> leaf_node_capabilities,
+    ffi.Pointer<wire_cst_list_mls_extension> leaf_node_extensions,
+  ) {
+    return _wire__crate__api__engine__MlsEngine_propose_self_update_with_new_signer(
+      port_,
+      that,
+      group_id_bytes,
+      old_signer_bytes,
+      new_signer_bytes,
+      new_credential_identity,
+      new_signer_public_key,
+      new_credential_bytes,
+      leaf_node_capabilities,
+      leaf_node_extensions,
+    );
+  }
+
+  late final _wire__crate__api__engine__MlsEngine_propose_self_update_with_new_signerPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Int64,
+            ffi.UintPtr,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Pointer<wire_cst_list_prim_u_8_strict>,
+            ffi.Pointer<wire_cst_mls_capabilities>,
+            ffi.Pointer<wire_cst_list_mls_extension>,
+          )
+        >
+      >(
+        'frbgen_openmls_wire__crate__api__engine__MlsEngine_propose_self_update_with_new_signer',
+      );
+  late final _wire__crate__api__engine__MlsEngine_propose_self_update_with_new_signer =
+      _wire__crate__api__engine__MlsEngine_propose_self_update_with_new_signerPtr
+          .asFunction<
+            void Function(
+              int,
+              int,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              ffi.Pointer<wire_cst_list_prim_u_8_strict>,
+              ffi.Pointer<wire_cst_mls_capabilities>,
+              ffi.Pointer<wire_cst_list_mls_extension>,
+            )
+          >();
+
   void wire__crate__api__engine__MlsEngine_remove_members(
     int port_,
     int that,
@@ -4296,6 +4469,28 @@ class RustLibWire implements BaseWire {
       _wire__crate__api__keys__MlsSignatureKeyPair_signature_schemePtr
           .asFunction<WireSyncRust2DartDco Function(int)>();
 
+  WireSyncRust2DartDco wire__crate__api__engine__check_lifetime_at(
+    int not_before,
+    int not_after,
+    int now_unix_seconds,
+  ) {
+    return _wire__crate__api__engine__check_lifetime_at(
+      not_before,
+      not_after,
+      now_unix_seconds,
+    );
+  }
+
+  late final _wire__crate__api__engine__check_lifetime_atPtr =
+      _lookup<
+        ffi.NativeFunction<
+          WireSyncRust2DartDco Function(ffi.Uint64, ffi.Uint64, ffi.Uint64)
+        >
+      >('frbgen_openmls_wire__crate__api__engine__check_lifetime_at');
+  late final _wire__crate__api__engine__check_lifetime_at =
+      _wire__crate__api__engine__check_lifetime_atPtr
+          .asFunction<WireSyncRust2DartDco Function(int, int, int)>();
+
   WireSyncRust2DartDco wire__crate__api__init__init_openmls(
     ffi.Pointer<wire_cst_list_prim_u_8_strict> _library_path,
   ) {
@@ -4329,6 +4524,28 @@ class RustLibWire implements BaseWire {
   late final _wire__crate__api__init__is_openmls_initialized =
       _wire__crate__api__init__is_openmls_initializedPtr
           .asFunction<WireSyncRust2DartDco Function()>();
+
+  WireSyncRust2DartDco wire__crate__api__engine__key_package_lifetime(
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> key_package_bytes,
+  ) {
+    return _wire__crate__api__engine__key_package_lifetime(key_package_bytes);
+  }
+
+  late final _wire__crate__api__engine__key_package_lifetimePtr =
+      _lookup<
+        ffi.NativeFunction<
+          WireSyncRust2DartDco Function(
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+          )
+        >
+      >('frbgen_openmls_wire__crate__api__engine__key_package_lifetime');
+  late final _wire__crate__api__engine__key_package_lifetime =
+      _wire__crate__api__engine__key_package_lifetimePtr
+          .asFunction<
+            WireSyncRust2DartDco Function(
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            )
+          >();
 
   WireSyncRust2DartDco
   wire__crate__api__config__mls_group_config_default_config(int ciphersuite) {
@@ -5085,12 +5302,27 @@ final class wire_cst_join_group_result extends ffi.Struct {
   external ffi.Pointer<wire_cst_list_prim_u_8_strict> group_id;
 }
 
+final class wire_cst_key_package_lifetime extends ffi.Struct {
+  @ffi.Uint64()
+  external int not_before;
+
+  @ffi.Uint64()
+  external int not_after;
+}
+
 final class wire_cst_key_package_result extends ffi.Struct {
   external ffi.Pointer<wire_cst_list_prim_u_8_strict> key_package_bytes;
 }
 
 final class wire_cst_leave_group_result extends ffi.Struct {
   external ffi.Pointer<wire_cst_list_prim_u_8_strict> message;
+}
+
+final class wire_cst_lifetime_verdict extends ffi.Struct {
+  @ffi.Bool()
+  external bool valid;
+
+  external ffi.Pointer<wire_cst_list_prim_u_8_strict> reason;
 }
 
 final class wire_cst_mls_group_context_info extends ffi.Struct {

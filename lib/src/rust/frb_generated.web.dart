@@ -154,6 +154,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   JoinGroupResult dco_decode_join_group_result(dynamic raw);
 
   @protected
+  KeyPackageLifetime dco_decode_key_package_lifetime(dynamic raw);
+
+  @protected
   KeyPackageOptions dco_decode_key_package_options(dynamic raw);
 
   @protected
@@ -161,6 +164,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   LeaveGroupResult dco_decode_leave_group_result(dynamic raw);
+
+  @protected
+  LifetimeVerdict dco_decode_lifetime_verdict(dynamic raw);
 
   @protected
   List<Uint8List> dco_decode_list_list_prim_u_8_strict(dynamic raw);
@@ -223,6 +229,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   MlsWireFormatPolicy dco_decode_mls_wire_format_policy(dynamic raw);
+
+  @protected
+  String? dco_decode_opt_String(dynamic raw);
 
   @protected
   MlsCapabilities? dco_decode_opt_box_autoadd_mls_capabilities(dynamic raw);
@@ -425,6 +434,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   JoinGroupResult sse_decode_join_group_result(SseDeserializer deserializer);
 
   @protected
+  KeyPackageLifetime sse_decode_key_package_lifetime(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   KeyPackageOptions sse_decode_key_package_options(
     SseDeserializer deserializer,
   );
@@ -434,6 +448,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   LeaveGroupResult sse_decode_leave_group_result(SseDeserializer deserializer);
+
+  @protected
+  LifetimeVerdict sse_decode_lifetime_verdict(SseDeserializer deserializer);
 
   @protected
   List<Uint8List> sse_decode_list_list_prim_u_8_strict(
@@ -510,6 +527,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   MlsWireFormatPolicy sse_decode_mls_wire_format_policy(
     SseDeserializer deserializer,
   );
+
+  @protected
+  String? sse_decode_opt_String(SseDeserializer deserializer);
 
   @protected
   MlsCapabilities? sse_decode_opt_box_autoadd_mls_capabilities(
@@ -727,6 +747,15 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   }
 
   @protected
+  JSAny cst_encode_key_package_lifetime(KeyPackageLifetime raw) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return [
+      cst_encode_u_64(raw.notBefore),
+      cst_encode_u_64(raw.notAfter),
+    ].jsify()!;
+  }
+
+  @protected
   JSAny cst_encode_key_package_options(KeyPackageOptions raw) {
     // Codec=Cst (C-struct based), see doc to use other codecs
     return [
@@ -748,6 +777,15 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   JSAny cst_encode_leave_group_result(LeaveGroupResult raw) {
     // Codec=Cst (C-struct based), see doc to use other codecs
     return [cst_encode_list_prim_u_8_strict(raw.message)].jsify()!;
+  }
+
+  @protected
+  JSAny cst_encode_lifetime_verdict(LifetimeVerdict raw) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return [
+      cst_encode_bool(raw.valid),
+      cst_encode_opt_String(raw.reason),
+    ].jsify()!;
   }
 
   @protected
@@ -890,6 +928,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
       cst_encode_mls_proposal_type(raw.proposalType),
       cst_encode_opt_box_autoadd_u_32(raw.senderIndex),
     ].jsify()!;
+  }
+
+  @protected
+  String? cst_encode_opt_String(String? raw) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return raw == null ? null : cst_encode_String(raw);
   }
 
   @protected
@@ -1260,6 +1304,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_key_package_lifetime(
+    KeyPackageLifetime self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_key_package_options(
     KeyPackageOptions self,
     SseSerializer serializer,
@@ -1274,6 +1324,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_leave_group_result(
     LeaveGroupResult self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_lifetime_verdict(
+    LifetimeVerdict self,
     SseSerializer serializer,
   );
 
@@ -1387,6 +1443,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
     MlsWireFormatPolicy self,
     SseSerializer serializer,
   );
+
+  @protected
+  void sse_encode_opt_String(String? self, SseSerializer serializer);
 
   @protected
   void sse_encode_opt_box_autoadd_mls_capabilities(
@@ -1771,6 +1830,24 @@ class RustLibWire implements BaseWire {
     port_,
     that,
     group_id_bytes,
+    label,
+    context,
+    key_length,
+  );
+
+  void wire__crate__api__engine__MlsEngine_export_welcome_secret(
+    NativePortType port_,
+    int that,
+    JSAny config,
+    JSAny welcome_bytes,
+    String label,
+    JSAny context,
+    int key_length,
+  ) => wasmModule.wire__crate__api__engine__MlsEngine_export_welcome_secret(
+    port_,
+    that,
+    config,
+    welcome_bytes,
     label,
     context,
     key_length,
@@ -2234,6 +2311,31 @@ class RustLibWire implements BaseWire {
     leaf_node_extensions,
   );
 
+  void wire__crate__api__engine__MlsEngine_propose_self_update_with_new_signer(
+    NativePortType port_,
+    int that,
+    JSAny group_id_bytes,
+    JSAny old_signer_bytes,
+    JSAny new_signer_bytes,
+    JSAny new_credential_identity,
+    JSAny new_signer_public_key,
+    JSAny? new_credential_bytes,
+    JSAny? leaf_node_capabilities,
+    JSAny? leaf_node_extensions,
+  ) => wasmModule
+      .wire__crate__api__engine__MlsEngine_propose_self_update_with_new_signer(
+        port_,
+        that,
+        group_id_bytes,
+        old_signer_bytes,
+        new_signer_bytes,
+        new_credential_identity,
+        new_signer_public_key,
+        new_credential_bytes,
+        leaf_node_capabilities,
+        leaf_node_extensions,
+      );
+
   void wire__crate__api__engine__MlsEngine_remove_members(
     NativePortType port_,
     int that,
@@ -2382,12 +2484,29 @@ class RustLibWire implements BaseWire {
       );
 
   JSAny? /* flutter_rust_bridge::for_generated::WireSyncRust2DartDco */
+  wire__crate__api__engine__check_lifetime_at(
+    JSAny not_before,
+    JSAny not_after,
+    JSAny now_unix_seconds,
+  ) => wasmModule.wire__crate__api__engine__check_lifetime_at(
+    not_before,
+    not_after,
+    now_unix_seconds,
+  );
+
+  JSAny? /* flutter_rust_bridge::for_generated::WireSyncRust2DartDco */
   wire__crate__api__init__init_openmls(String _library_path) =>
       wasmModule.wire__crate__api__init__init_openmls(_library_path);
 
   JSAny? /* flutter_rust_bridge::for_generated::WireSyncRust2DartDco */
   wire__crate__api__init__is_openmls_initialized() =>
       wasmModule.wire__crate__api__init__is_openmls_initialized();
+
+  JSAny? /* flutter_rust_bridge::for_generated::WireSyncRust2DartDco */
+  wire__crate__api__engine__key_package_lifetime(JSAny key_package_bytes) =>
+      wasmModule.wire__crate__api__engine__key_package_lifetime(
+        key_package_bytes,
+      );
 
   JSAny? /* flutter_rust_bridge::for_generated::WireSyncRust2DartDco */
   wire__crate__api__config__mls_group_config_default_config(int ciphersuite) =>
@@ -2645,6 +2764,16 @@ extension type RustLibWasmModule._(JSObject _) implements JSObject {
     NativePortType port_,
     int that,
     JSAny group_id_bytes,
+    String label,
+    JSAny context,
+    int key_length,
+  );
+
+  external void wire__crate__api__engine__MlsEngine_export_welcome_secret(
+    NativePortType port_,
+    int that,
+    JSAny config,
+    JSAny welcome_bytes,
     String label,
     JSAny context,
     int key_length,
@@ -2916,6 +3045,20 @@ extension type RustLibWasmModule._(JSObject _) implements JSObject {
     JSAny? leaf_node_extensions,
   );
 
+  external void
+  wire__crate__api__engine__MlsEngine_propose_self_update_with_new_signer(
+    NativePortType port_,
+    int that,
+    JSAny group_id_bytes,
+    JSAny old_signer_bytes,
+    JSAny new_signer_bytes,
+    JSAny new_credential_identity,
+    JSAny new_signer_public_key,
+    JSAny? new_credential_bytes,
+    JSAny? leaf_node_capabilities,
+    JSAny? leaf_node_extensions,
+  );
+
   external void wire__crate__api__engine__MlsEngine_remove_members(
     NativePortType port_,
     int that,
@@ -3003,10 +3146,20 @@ extension type RustLibWasmModule._(JSObject _) implements JSObject {
   wire__crate__api__keys__MlsSignatureKeyPair_signature_scheme(int that);
 
   external JSAny? /* flutter_rust_bridge::for_generated::WireSyncRust2DartDco */
+  wire__crate__api__engine__check_lifetime_at(
+    JSAny not_before,
+    JSAny not_after,
+    JSAny now_unix_seconds,
+  );
+
+  external JSAny? /* flutter_rust_bridge::for_generated::WireSyncRust2DartDco */
   wire__crate__api__init__init_openmls(String _library_path);
 
   external JSAny? /* flutter_rust_bridge::for_generated::WireSyncRust2DartDco */
   wire__crate__api__init__is_openmls_initialized();
+
+  external JSAny? /* flutter_rust_bridge::for_generated::WireSyncRust2DartDco */
+  wire__crate__api__engine__key_package_lifetime(JSAny key_package_bytes);
 
   external JSAny? /* flutter_rust_bridge::for_generated::WireSyncRust2DartDco */
   wire__crate__api__config__mls_group_config_default_config(int ciphersuite);

@@ -69,7 +69,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.13.0';
 
   @override
-  int get rustContentHash => 585923240;
+  int get rustContentHash => -722731269;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -230,6 +230,15 @@ abstract class RustLibApi extends BaseApi {
   Future<Uint8List> crateApiEngineMlsEngineExportSecret({
     required MlsEngine that,
     required List<int> groupIdBytes,
+    required String label,
+    required List<int> context,
+    required int keyLength,
+  });
+
+  Future<Uint8List> crateApiEngineMlsEngineExportWelcomeSecret({
+    required MlsEngine that,
+    required MlsGroupConfig config,
+    required List<int> welcomeBytes,
     required String label,
     required List<int> context,
     required int keyLength,
@@ -464,6 +473,18 @@ abstract class RustLibApi extends BaseApi {
     List<MlsExtension>? leafNodeExtensions,
   });
 
+  Future<ProposalResult> crateApiEngineMlsEngineProposeSelfUpdateWithNewSigner({
+    required MlsEngine that,
+    required List<int> groupIdBytes,
+    required List<int> oldSignerBytes,
+    required List<int> newSignerBytes,
+    required List<int> newCredentialIdentity,
+    required List<int> newSignerPublicKey,
+    Uint8List? newCredentialBytes,
+    MlsCapabilities? leafNodeCapabilities,
+    List<MlsExtension>? leafNodeExtensions,
+  });
+
   Future<CommitResult> crateApiEngineMlsEngineRemoveMembers({
     required MlsEngine that,
     required List<int> groupIdBytes,
@@ -546,9 +567,19 @@ abstract class RustLibApi extends BaseApi {
     required MlsSignatureKeyPair that,
   });
 
+  LifetimeVerdict crateApiEngineCheckLifetimeAt({
+    required BigInt notBefore,
+    required BigInt notAfter,
+    required BigInt nowUnixSeconds,
+  });
+
   void crateApiInitInitOpenmls({required String libraryPath});
 
   bool crateApiInitIsOpenmlsInitialized();
+
+  KeyPackageLifetime crateApiEngineKeyPackageLifetime({
+    required List<int> keyPackageBytes,
+  });
 
   MlsGroupConfig crateApiConfigMlsGroupConfigDefaultConfig({
     required MlsCiphersuite ciphersuite,
@@ -1670,6 +1701,61 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       const TaskConstMeta(
         debugName: "MlsEngine_export_secret",
         argNames: ["that", "groupIdBytes", "label", "context", "keyLength"],
+      );
+
+  @override
+  Future<Uint8List> crateApiEngineMlsEngineExportWelcomeSecret({
+    required MlsEngine that,
+    required MlsGroupConfig config,
+    required List<int> welcomeBytes,
+    required String label,
+    required List<int> context,
+    required int keyLength,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 =
+              cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsEngine(
+                that,
+              );
+          var arg1 = cst_encode_box_autoadd_mls_group_config(config);
+          var arg2 = cst_encode_list_prim_u_8_loose(welcomeBytes);
+          var arg3 = cst_encode_String(label);
+          var arg4 = cst_encode_list_prim_u_8_loose(context);
+          var arg5 = cst_encode_u_32(keyLength);
+          return wire.wire__crate__api__engine__MlsEngine_export_welcome_secret(
+            port_,
+            arg0,
+            arg1,
+            arg2,
+            arg3,
+            arg4,
+            arg5,
+          );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_list_prim_u_8_strict,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiEngineMlsEngineExportWelcomeSecretConstMeta,
+        argValues: [that, config, welcomeBytes, label, context, keyLength],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiEngineMlsEngineExportWelcomeSecretConstMeta =>
+      const TaskConstMeta(
+        debugName: "MlsEngine_export_welcome_secret",
+        argNames: [
+          "that",
+          "config",
+          "welcomeBytes",
+          "label",
+          "context",
+          "keyLength",
+        ],
       );
 
   @override
@@ -3209,6 +3295,88 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
+  Future<ProposalResult> crateApiEngineMlsEngineProposeSelfUpdateWithNewSigner({
+    required MlsEngine that,
+    required List<int> groupIdBytes,
+    required List<int> oldSignerBytes,
+    required List<int> newSignerBytes,
+    required List<int> newCredentialIdentity,
+    required List<int> newSignerPublicKey,
+    Uint8List? newCredentialBytes,
+    MlsCapabilities? leafNodeCapabilities,
+    List<MlsExtension>? leafNodeExtensions,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 =
+              cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsEngine(
+                that,
+              );
+          var arg1 = cst_encode_list_prim_u_8_loose(groupIdBytes);
+          var arg2 = cst_encode_list_prim_u_8_loose(oldSignerBytes);
+          var arg3 = cst_encode_list_prim_u_8_loose(newSignerBytes);
+          var arg4 = cst_encode_list_prim_u_8_loose(newCredentialIdentity);
+          var arg5 = cst_encode_list_prim_u_8_loose(newSignerPublicKey);
+          var arg6 = cst_encode_opt_list_prim_u_8_strict(newCredentialBytes);
+          var arg7 = cst_encode_opt_box_autoadd_mls_capabilities(
+            leafNodeCapabilities,
+          );
+          var arg8 = cst_encode_opt_list_mls_extension(leafNodeExtensions);
+          return wire
+              .wire__crate__api__engine__MlsEngine_propose_self_update_with_new_signer(
+                port_,
+                arg0,
+                arg1,
+                arg2,
+                arg3,
+                arg4,
+                arg5,
+                arg6,
+                arg7,
+                arg8,
+              );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_proposal_result,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta:
+            kCrateApiEngineMlsEngineProposeSelfUpdateWithNewSignerConstMeta,
+        argValues: [
+          that,
+          groupIdBytes,
+          oldSignerBytes,
+          newSignerBytes,
+          newCredentialIdentity,
+          newSignerPublicKey,
+          newCredentialBytes,
+          leafNodeCapabilities,
+          leafNodeExtensions,
+        ],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta
+  get kCrateApiEngineMlsEngineProposeSelfUpdateWithNewSignerConstMeta =>
+      const TaskConstMeta(
+        debugName: "MlsEngine_propose_self_update_with_new_signer",
+        argNames: [
+          "that",
+          "groupIdBytes",
+          "oldSignerBytes",
+          "newSignerBytes",
+          "newCredentialIdentity",
+          "newSignerPublicKey",
+          "newCredentialBytes",
+          "leafNodeCapabilities",
+          "leafNodeExtensions",
+        ],
+      );
+
+  @override
   Future<CommitResult> crateApiEngineMlsEngineRemoveMembers({
     required MlsEngine that,
     required List<int> groupIdBytes,
@@ -3794,6 +3962,41 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
+  LifetimeVerdict crateApiEngineCheckLifetimeAt({
+    required BigInt notBefore,
+    required BigInt notAfter,
+    required BigInt nowUnixSeconds,
+  }) {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          var arg0 = cst_encode_u_64(notBefore);
+          var arg1 = cst_encode_u_64(notAfter);
+          var arg2 = cst_encode_u_64(nowUnixSeconds);
+          return wire.wire__crate__api__engine__check_lifetime_at(
+            arg0,
+            arg1,
+            arg2,
+          );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_lifetime_verdict,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiEngineCheckLifetimeAtConstMeta,
+        argValues: [notBefore, notAfter, nowUnixSeconds],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiEngineCheckLifetimeAtConstMeta =>
+      const TaskConstMeta(
+        debugName: "check_lifetime_at",
+        argNames: ["notBefore", "notAfter", "nowUnixSeconds"],
+      );
+
+  @override
   void crateApiInitInitOpenmls({required String libraryPath}) {
     return handler.executeSync(
       SyncTask(
@@ -3835,6 +4038,33 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   TaskConstMeta get kCrateApiInitIsOpenmlsInitializedConstMeta =>
       const TaskConstMeta(debugName: "is_openmls_initialized", argNames: []);
+
+  @override
+  KeyPackageLifetime crateApiEngineKeyPackageLifetime({
+    required List<int> keyPackageBytes,
+  }) {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          var arg0 = cst_encode_list_prim_u_8_loose(keyPackageBytes);
+          return wire.wire__crate__api__engine__key_package_lifetime(arg0);
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_key_package_lifetime,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiEngineKeyPackageLifetimeConstMeta,
+        argValues: [keyPackageBytes],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiEngineKeyPackageLifetimeConstMeta =>
+      const TaskConstMeta(
+        debugName: "key_package_lifetime",
+        argNames: ["keyPackageBytes"],
+      );
 
   @override
   MlsGroupConfig crateApiConfigMlsGroupConfigDefaultConfig({
@@ -4285,6 +4515,18 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  KeyPackageLifetime dco_decode_key_package_lifetime(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 2)
+      throw Exception('unexpected arr length: expect 2 but see ${arr.length}');
+    return KeyPackageLifetime(
+      notBefore: dco_decode_u_64(arr[0]),
+      notAfter: dco_decode_u_64(arr[1]),
+    );
+  }
+
+  @protected
   KeyPackageOptions dco_decode_key_package_options(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
@@ -4317,6 +4559,18 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     if (arr.length != 1)
       throw Exception('unexpected arr length: expect 1 but see ${arr.length}');
     return LeaveGroupResult(message: dco_decode_list_prim_u_8_strict(arr[0]));
+  }
+
+  @protected
+  LifetimeVerdict dco_decode_lifetime_verdict(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 2)
+      throw Exception('unexpected arr length: expect 2 but see ${arr.length}');
+    return LifetimeVerdict(
+      valid: dco_decode_bool(arr[0]),
+      reason: dco_decode_opt_String(arr[1]),
+    );
   }
 
   @protected
@@ -4500,6 +4754,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   MlsWireFormatPolicy dco_decode_mls_wire_format_policy(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return MlsWireFormatPolicy.values[raw as int];
+  }
+
+  @protected
+  String? dco_decode_opt_String(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw == null ? null : dco_decode_String(raw);
   }
 
   @protected
@@ -4975,6 +5235,16 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  KeyPackageLifetime sse_decode_key_package_lifetime(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_notBefore = sse_decode_u_64(deserializer);
+    var var_notAfter = sse_decode_u_64(deserializer);
+    return KeyPackageLifetime(notBefore: var_notBefore, notAfter: var_notAfter);
+  }
+
+  @protected
   KeyPackageOptions sse_decode_key_package_options(
     SseDeserializer deserializer,
   ) {
@@ -5011,6 +5281,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var var_message = sse_decode_list_prim_u_8_strict(deserializer);
     return LeaveGroupResult(message: var_message);
+  }
+
+  @protected
+  LifetimeVerdict sse_decode_lifetime_verdict(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_valid = sse_decode_bool(deserializer);
+    var var_reason = sse_decode_opt_String(deserializer);
+    return LifetimeVerdict(valid: var_valid, reason: var_reason);
   }
 
   @protected
@@ -5253,6 +5531,17 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var inner = sse_decode_i_32(deserializer);
     return MlsWireFormatPolicy.values[inner];
+  }
+
+  @protected
+  String? sse_decode_opt_String(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    if (sse_decode_bool(deserializer)) {
+      return (sse_decode_String(deserializer));
+    } else {
+      return null;
+    }
   }
 
   @protected
@@ -5939,6 +6228,16 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_key_package_lifetime(
+    KeyPackageLifetime self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_u_64(self.notBefore, serializer);
+    sse_encode_u_64(self.notAfter, serializer);
+  }
+
+  @protected
   void sse_encode_key_package_options(
     KeyPackageOptions self,
     SseSerializer serializer,
@@ -5967,6 +6266,16 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_list_prim_u_8_strict(self.message, serializer);
+  }
+
+  @protected
+  void sse_encode_lifetime_verdict(
+    LifetimeVerdict self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_bool(self.valid, serializer);
+    sse_encode_opt_String(self.reason, serializer);
   }
 
   @protected
@@ -6192,6 +6501,16 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_i_32(self.index, serializer);
+  }
+
+  @protected
+  void sse_encode_opt_String(String? self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    sse_encode_bool(self != null, serializer);
+    if (self != null) {
+      sse_encode_String(self, serializer);
+    }
   }
 
   @protected
@@ -6674,6 +6993,49 @@ class MlsEngineImpl extends RustOpaque implements MlsEngine {
     keyLength: keyLength,
   );
 
+  /// Derives a secret from the epoch a Welcome invites this client into,
+  /// **without joining the group**.
+  ///
+  /// This is `exportSecret` one step earlier: same derivation, same
+  /// `label`/`context`/`keyLength` meaning, but reachable while the
+  /// invitation is still only an invitation. It is what lets a client agree
+  /// a key with the inviter — or prove to a third party that it can read the
+  /// epoch — before it decides whether to accept.
+  ///
+  /// Like `inspectWelcome`, this writes nothing, and that is load-bearing
+  /// rather than incidental. Processing a Welcome consumes the key package
+  /// it was addressed to: OpenMLS deletes it from storage unless it is
+  /// marked last-resort. Here that delete lands in this call's snapshot and
+  /// is discarded with it, because neither this function nor `inspectWelcome`
+  /// commits — so a later `joinGroupFromWelcome` on the same Welcome still
+  /// finds its key package. Committing from either would silently burn the
+  /// invitation.
+  ///
+  /// The secret comes from the unverified group info in the Welcome. The
+  /// confirmation tag is only checked when the Welcome is staged into a
+  /// group, which happens in `joinGroupFromWelcome` and not here.
+  ///
+  /// It sees exactly the storage the real join sees:
+  /// `joinGroupFromWelcome` loads the same global scope, and pre-shared keys
+  /// live in it (they are stored ungrouped, like key packages and signature
+  /// keys). So a Welcome that carries PSKs resolves them here or fails here
+  /// for the same reason it would there — this function is never the narrower
+  /// of the two.
+  Future<Uint8List> exportWelcomeSecret({
+    required MlsGroupConfig config,
+    required List<int> welcomeBytes,
+    required String label,
+    required List<int> context,
+    required int keyLength,
+  }) => RustLib.instance.api.crateApiEngineMlsEngineExportWelcomeSecret(
+    that: this,
+    config: config,
+    welcomeBytes: welcomeBytes,
+    label: label,
+    context: context,
+    keyLength: keyLength,
+  );
+
   Future<CommitResult> flexibleCommit({
     required List<int> groupIdBytes,
     required List<int> signerBytes,
@@ -7008,6 +7370,59 @@ class MlsEngineImpl extends RustOpaque implements MlsEngine {
     leafNodeCapabilities: leafNodeCapabilities,
     leafNodeExtensions: leafNodeExtensions,
   );
+
+  /// Proposes a self-update that also rotates this member's signature key.
+  ///
+  /// The proposal form of `selfUpdateWithNewSigner`: the same key rotation,
+  /// queued as a proposal instead of committed, so it can be carried by
+  /// somebody else's commit.
+  ///
+  /// Two signers are needed because the message and its payload are
+  /// authenticated against different keys. The envelope is signed with
+  /// `oldSignerBytes`, since this member's leaf in the group tree still
+  /// carries the old signature key at the time the proposal is sent; the new
+  /// leaf inside the proposal is self-signed by `newSignerBytes` so that it
+  /// verifies against the `signatureKey` it announces. Both must therefore be
+  /// real key pairs with private keys.
+  ///
+  /// Upstream requires that a credential set in the leaf-node parameters
+  /// equal the new signer's credential. This wrapper cannot violate that: it
+  /// builds leaf-node parameters from `leafNodeCapabilities` and
+  /// `leafNodeExtensions` only and never sets a credential there, so the
+  /// credential built from `newCredentialIdentity` /
+  /// `newSignerPublicKey` / `newCredentialBytes` is always the one that gets
+  /// folded in.
+  ///
+  /// The new signer is stored before the proposal is created, matching
+  /// `selfUpdateWithNewSigner`, so the key is available to sign with once the
+  /// proposal is committed. Fails if a commit is already pending.
+  ///
+  /// Availability rests on this crate not enabling openmls's
+  /// `virtual-clients-draft` feature. Upstream gates this function on
+  /// `not(virtual-clients-draft)`, its own `test-utils`, or `test` — and that
+  /// `test-utils` was deliberately dropped from the shipped binary in 3.0.0,
+  /// so `not(virtual-clients-draft)` is the only arm holding it open here.
+  Future<ProposalResult> proposeSelfUpdateWithNewSigner({
+    required List<int> groupIdBytes,
+    required List<int> oldSignerBytes,
+    required List<int> newSignerBytes,
+    required List<int> newCredentialIdentity,
+    required List<int> newSignerPublicKey,
+    Uint8List? newCredentialBytes,
+    MlsCapabilities? leafNodeCapabilities,
+    List<MlsExtension>? leafNodeExtensions,
+  }) => RustLib.instance.api
+      .crateApiEngineMlsEngineProposeSelfUpdateWithNewSigner(
+        that: this,
+        groupIdBytes: groupIdBytes,
+        oldSignerBytes: oldSignerBytes,
+        newSignerBytes: newSignerBytes,
+        newCredentialIdentity: newCredentialIdentity,
+        newSignerPublicKey: newSignerPublicKey,
+        newCredentialBytes: newCredentialBytes,
+        leafNodeCapabilities: leafNodeCapabilities,
+        leafNodeExtensions: leafNodeExtensions,
+      );
 
   Future<CommitResult> removeMembers({
     required List<int> groupIdBytes,

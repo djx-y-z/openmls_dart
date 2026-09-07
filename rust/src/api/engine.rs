@@ -7,6 +7,16 @@
 //! Functions are `async` because DB I/O is async (SQLCipher on native,
 //! IndexedDB on WASM).
 
+use std::time::Duration;
+// `Lifetime::validate_with_time` takes a `SystemTime`, and *which* `SystemTime`
+// that is depends on the target: openmls picks `web_time`'s under
+// `cfg(target_arch = "wasm32")` and `std`'s everywhere else. The two are
+// unrelated types, so the epoch we add to has to be selected the same way.
+#[cfg(not(target_arch = "wasm32"))]
+use std::time::UNIX_EPOCH;
+#[cfg(target_arch = "wasm32")]
+use web_time::UNIX_EPOCH;
+
 use openmls::prelude::*;
 use openmls::prelude::tls_codec::{
     DeserializeBytes as TlsDeserializeBytes, Serialize as TlsSerialize,
@@ -621,6 +631,60 @@ impl MlsEngine {
             psk_count: processed.psks().len() as u32,
             epoch: vgi.epoch().as_u64(),
         })
+    }
+
+    /// Derives a secret from the epoch a Welcome invites this client into,
+    /// **without joining the group**.
+    ///
+    /// This is `exportSecret` one step earlier: same derivation, same
+    /// `label`/`context`/`keyLength` meaning, but reachable while the
+    /// invitation is still only an invitation. It is what lets a client agree
+    /// a key with the inviter — or prove to a third party that it can read the
+    /// epoch — before it decides whether to accept.
+    ///
+    /// Like `inspectWelcome`, this writes nothing, and that is load-bearing
+    /// rather than incidental. Processing a Welcome consumes the key package
+    /// it was addressed to: OpenMLS deletes it from storage unless it is
+    /// marked last-resort. Here that delete lands in this call's snapshot and
+    /// is discarded with it, because neither this function nor `inspectWelcome`
+    /// commits — so a later `joinGroupFromWelcome` on the same Welcome still
+    /// finds its key package. Committing from either would silently burn the
+    /// invitation.
+    ///
+    /// The secret comes from the unverified group info in the Welcome. The
+    /// confirmation tag is only checked when the Welcome is staged into a
+    /// group, which happens in `joinGroupFromWelcome` and not here.
+    ///
+    /// It sees exactly the storage the real join sees:
+    /// `joinGroupFromWelcome` loads the same global scope, and pre-shared keys
+    /// live in it (they are stored ungrouped, like key packages and signature
+    /// keys). So a Welcome that carries PSKs resolves them here or fails here
+    /// for the same reason it would there — this function is never the narrower
+    /// of the two.
+    pub async fn export_welcome_secret(
+        &self,
+        config: MlsGroupConfig,
+        welcome_bytes: Vec<u8>,
+        label: String,
+        context: Vec<u8>,
+        key_length: u32,
+    ) -> Result<Vec<u8>, String> {
+        let provider = self.load_global().await?;
+
+        let welcome_msg = MlsMessageIn::tls_deserialize_exact_bytes(&welcome_bytes)
+            .map_err(|e| format!("Failed to deserialize welcome: {}", e))?;
+        let welcome = match welcome_msg.extract() {
+            MlsMessageBodyIn::Welcome(w) => w,
+            _ => return Err("Message is not a Welcome".to_string()),
+        };
+
+        let join_config = config.to_join_config();
+        let processed = ProcessedWelcome::new_from_welcome(&provider, &join_config, welcome)
+            .map_err(|e| format!("Failed to process welcome: {}", e))?;
+
+        processed
+            .export_secret(provider.crypto(), &label, &context, key_length as usize)
+            .map_err(|e| format!("Failed to export secret from welcome: {}", e))
     }
 
     #[allow(deprecated)]
@@ -1369,6 +1433,82 @@ impl MlsEngine {
         Ok(ProposalResult { proposal_message: msg_bytes })
     }
 
+    /// Proposes a self-update that also rotates this member's signature key.
+    ///
+    /// The proposal form of `selfUpdateWithNewSigner`: the same key rotation,
+    /// queued as a proposal instead of committed, so it can be carried by
+    /// somebody else's commit.
+    ///
+    /// Two signers are needed because the message and its payload are
+    /// authenticated against different keys. The envelope is signed with
+    /// `oldSignerBytes`, since this member's leaf in the group tree still
+    /// carries the old signature key at the time the proposal is sent; the new
+    /// leaf inside the proposal is self-signed by `newSignerBytes` so that it
+    /// verifies against the `signatureKey` it announces. Both must therefore be
+    /// real key pairs with private keys.
+    ///
+    /// Upstream requires that a credential set in the leaf-node parameters
+    /// equal the new signer's credential. This wrapper cannot violate that: it
+    /// builds leaf-node parameters from `leafNodeCapabilities` and
+    /// `leafNodeExtensions` only and never sets a credential there, so the
+    /// credential built from `newCredentialIdentity` /
+    /// `newSignerPublicKey` / `newCredentialBytes` is always the one that gets
+    /// folded in.
+    ///
+    /// The new signer is stored before the proposal is created, matching
+    /// `selfUpdateWithNewSigner`, so the key is available to sign with once the
+    /// proposal is committed. Fails if a commit is already pending.
+    ///
+    /// Availability rests on this crate not enabling openmls's
+    /// `virtual-clients-draft` feature. Upstream gates this function on
+    /// `not(virtual-clients-draft)`, its own `test-utils`, or `test` — and that
+    /// `test-utils` was deliberately dropped from the shipped binary in 3.0.0,
+    /// so `not(virtual-clients-draft)` is the only arm holding it open here.
+    #[allow(clippy::too_many_arguments)]
+    pub async fn propose_self_update_with_new_signer(
+        &self,
+        group_id_bytes: Vec<u8>,
+        old_signer_bytes: Vec<u8>,
+        new_signer_bytes: Vec<u8>,
+        new_credential_identity: Vec<u8>,
+        new_signer_public_key: Vec<u8>,
+        new_credential_bytes: Option<Vec<u8>>,
+        leaf_node_capabilities: Option<MlsCapabilities>,
+        leaf_node_extensions: Option<Vec<MlsExtension>>,
+    ) -> Result<ProposalResult, String> {
+        let old_signer = signer_from_bytes(old_signer_bytes)?;
+        let new_signer = signer_from_bytes(new_signer_bytes)?;
+        let provider = self.load_for_group(&group_id_bytes).await?;
+        let mut group = load_group(&group_id_bytes, &provider)?;
+
+        new_signer.store(provider.storage()).map_err(|e| format!("Failed to store new signer: {}", e))?;
+
+        let credential_with_key = build_credential_with_key(
+            &new_credential_identity, &new_signer_public_key, new_credential_bytes.as_deref(),
+        )?;
+        let new_signer_bundle = NewSignerBundle { signer: &new_signer, credential_with_key };
+
+        let mut ln_builder = LeafNodeParameters::builder();
+        if let Some(ref caps) = leaf_node_capabilities {
+            ln_builder = ln_builder.with_capabilities(capabilities_to_native(caps)?);
+        }
+        if let Some(ref exts) = leaf_node_extensions {
+            let extensions = Extensions::from_vec(extensions_from_mls(exts))
+                .map_err(|e| format!("Failed to create leaf node extensions: {}", e))?;
+            ln_builder = ln_builder.with_extensions(extensions);
+        }
+        let leaf_node_params = ln_builder.build();
+
+        let (proposal_out, _) = group
+            .propose_self_update_with_new_signer(&provider, &old_signer, new_signer_bundle, leaf_node_params)
+            .map_err(|e| format!("Failed to propose self-update with new signer: {}", e))?;
+        let msg_bytes = proposal_out.tls_serialize_detached().map_err(|e| format!("Failed to serialize proposal: {}", e))?;
+
+        self.commit(provider, Some(&group_id_bytes)).await?;
+
+        Ok(ProposalResult { proposal_message: msg_bytes })
+    }
+
     pub async fn propose_external_psk(
         &self,
         group_id_bytes: Vec<u8>,
@@ -1998,4 +2138,135 @@ pub fn mls_message_content_type(message_bytes: Vec<u8>) -> Result<String, String
         ContentType::Commit => "commit",
     };
     Ok(ct.to_string())
+}
+
+
+// ═══════════════════════════════════════════════════════════════
+// KEY PACKAGE UTILITIES (standalone, no storage needed)
+// ═══════════════════════════════════════════════════════════════
+
+/// The window during which a key package may be used, as seconds since the
+/// Unix epoch.
+pub struct KeyPackageLifetime {
+    /// Start of the window. A client must not use the key package before this
+    /// instant; an instant equal to it is already inside the window.
+    pub not_before: u64,
+    /// End of the window. A client must not use the key package at or after
+    /// this instant.
+    pub not_after: u64,
+}
+
+/// Whether a validity window admits some instant, and OpenMLS's reason when it
+/// does not.
+pub struct LifetimeVerdict {
+    /// True when the instant falls inside the window.
+    pub valid: bool,
+    /// Why not, when `valid` is false. Null when it is true.
+    pub reason: Option<String>,
+}
+
+/// Reads the validity window out of a key package.
+///
+/// Pair this with `checkLifetimeAt` to judge a key package by a clock other
+/// than the device's — a timestamp from a server, say — before offering it to
+/// `addMembers`.
+///
+/// ⚠ **The device's own clock still gates this call.** Getting at the window
+/// means validating the key package, and OpenMLS's validation checks
+/// signatures, protocol version, extensions *and* the lifetime, that last one
+/// against `SystemTime::now()` on this device. There is no way to ask it to
+/// skip that from outside the crate. So a key package this device believes is
+/// expired, or not yet valid, fails here and never yields its bounds: the pair
+/// of functions can apply an authority stricter than the local clock, not
+/// rescue a package the local clock has already rejected.
+#[flutter_rust_bridge::frb(sync)]
+pub fn key_package_lifetime(key_package_bytes: Vec<u8>) -> Result<KeyPackageLifetime, String> {
+    let kp_in = KeyPackageIn::tls_deserialize_exact_bytes(&key_package_bytes)
+        .map_err(|e| format!("Failed to deserialize key package: {}", e))?;
+    let crypto = crate::hybrid_crypto::HybridCrypto::new();
+    let kp = kp_in
+        .validate(&crypto, ProtocolVersion::Mls10)
+        .map_err(|e| format!("Failed to validate key package: {}", e))?;
+    let lifetime = kp.life_time();
+    Ok(KeyPackageLifetime {
+        not_before: lifetime.not_before(),
+        not_after: lifetime.not_after(),
+    })
+}
+
+/// The largest instant `checkLifetimeAt` accepts: 9999-12-31T23:59:59Z.
+///
+/// A cap is needed because the platforms disagree about what a `SystemTime`
+/// can hold, and without one the same call would answer differently depending
+/// on where it ran. `web_time::SystemTime` on wasm32 is a bare `Duration`
+/// since the epoch — its `checked_add` is `Duration::checked_add` — so it
+/// accepts every `u64` of seconds; native `std::time::SystemTime` does not,
+/// and `u64::MAX` is an error there. Measured on both: the same argument was
+/// a verdict on one target and an error on the other.
+///
+/// The cap sits where no calendar can mean a larger value rather than at any
+/// platform's limit, which is what keeps it correct without a survey of the
+/// platforms: rejecting past the end of year 9999 costs no caller anything,
+/// and below it every target this crate builds for answers a given argument
+/// the same way.
+const MAX_UNIX_SECONDS: u64 = 253_402_300_799;
+
+/// Checks a validity window against a supplied instant instead of this
+/// device's clock.
+///
+/// Takes the two bounds rather than key package bytes, so that this half of
+/// the check has no dependency on the local clock at all: `keyPackageLifetime`
+/// is the only way to read bounds *out of* a key package and it does consult
+/// the local clock, but a caller that already holds bounds — from its own
+/// directory, from an earlier reading, from a server that publishes them — can
+/// apply this on its own.
+///
+/// The comparison is OpenMLS's (`Lifetime::validate_with_time`), not a
+/// re-implementation, so the boundaries match what a peer will decide about
+/// the same package: `notAfter` is exclusive — an instant equal to it counts
+/// as expired — while `notBefore` is inclusive.
+///
+/// Returns an error only when `nowUnixSeconds` names no instant a calendar
+/// could mean — anything past 9999-12-31T23:59:59Z. An instant outside the
+/// window is a verdict, not an error, and below that cap every platform this
+/// package ships for answers a given argument the same way.
+///
+/// That cap also catches the likeliest way to call this wrongly. Dart has no
+/// `secondsSinceEpoch`, so a caller reaching for `DateTime` meets
+/// `millisecondsSinceEpoch` first, and a present-day millisecond count is
+/// roughly a thousand times too large — comfortably past the cap, so it fails
+/// loudly here instead of returning a confident verdict about a date tens of
+/// thousands of years out.
+#[flutter_rust_bridge::frb(sync)]
+pub fn check_lifetime_at(
+    not_before: u64,
+    not_after: u64,
+    now_unix_seconds: u64,
+) -> Result<LifetimeVerdict, String> {
+    if now_unix_seconds > MAX_UNIX_SECONDS {
+        return Err(format!(
+            "Not a representable instant: {} seconds after the Unix epoch is past \
+             9999-12-31T23:59:59Z",
+            now_unix_seconds
+        ));
+    }
+    // Nothing under the cap overflows on any target this crate is built for,
+    // so this arm is unreachable today. It stays because `checked_add` returns
+    // an `Option` either way, and because a narrower platform added later
+    // should produce an error here rather than depend on the survey above
+    // still being complete.
+    let now = UNIX_EPOCH
+        .checked_add(Duration::from_secs(now_unix_seconds))
+        .ok_or_else(|| {
+            format!(
+                "Not a representable instant: {} seconds after the Unix epoch",
+                now_unix_seconds
+            )
+        })?;
+    Ok(
+        match Lifetime::init(not_before, not_after).validate_with_time(now) {
+            Ok(()) => LifetimeVerdict { valid: true, reason: None },
+            Err(e) => LifetimeVerdict { valid: false, reason: Some(e.to_string()) },
+        },
+    )
 }
