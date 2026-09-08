@@ -10,6 +10,7 @@
   can be read out and judged against a clock other than the device's. All three
   are additive: no existing signature moves.
 - **openmls v0.9.0** — unchanged this release
+- **openmls_frb v2.2.0** — Rust FFI bindings
 
 #### Added
 

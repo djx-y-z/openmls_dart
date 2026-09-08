@@ -1,6 +1,6 @@
 [package]
 name = "openmls_frb"
-version = "2.1.1"
+version = "2.2.0"
 edition = "2024"
 # 1.91 is openmls 0.9.0's floor (its workspace declares it), and that is what
 # sets this now. The previous 1.89 was ours: `std::fs::File::try_lock`, the
