@@ -287,6 +287,28 @@ This runs `flutter_rust_bridge_codegen generate` using `flutter_rust_bridge.yaml
 | Config types | `rust/src/api/config.rs` |
 | Credential types | `rust/src/api/credential.rs` |
 
+### `rust/src/api/` is the scanned directory — helpers belong outside it
+
+Codegen walks `rust/src/api/` and turns what it finds there into FFI surface.
+That makes the directory a declaration of intent, not just a folder: a module
+put there for tidiness becomes part of the published bridge, and a type it
+mentions has to be transferable.
+
+So a helper that exists only to serve the bridge — a test double, a wrapper that
+records what an upstream call actually did, anything a consumer should never
+reach — goes at the **crate root** (`rust/src/<name>.rs`, declared in
+`rust/src/lib.rs`), never in the `api` module tree. `flutter_rust_bridge.yaml`
+names `rust_input` as a **module path** (`crate::api`), so what decides is
+whether the module is reachable from that root — being declared in
+`api/mod.rs` is what puts it in scope, not merely sitting in the folder.
+
+The failure is quiet in the worst way. Codegen does not refuse the module — it
+generates bindings for it, `lib/src/rust/` grows an API nobody designed, and
+`rustContentHash` moves, so the change also looks like a deliberate FFI-surface
+bump to every version check downstream. Whether it then compiles depends on the
+helper's types, which means the mistake can ship as an accidental public API
+rather than as a build error.
+
 ## Common Issues
 
 ### "method not found" after codegen

@@ -56,43 +56,13 @@ new trigger pattern.) `update`+`deletion` make tags immutable;
 already sign tags). If GitHub ever rejects `required_signatures` on a tag target,
 drop that one rule.
 
-### Required status checks, and why exactly one is required
+### Required status checks
 
-`protect-main.json` requires one check, **`FRB bindings were regenerated`** —
-the job in `codegen-guard.yml`. That is not the first instalment of a longer
-list. It is the only check a generated project can require as it stands.
-
-A required check is satisfied by a check run reporting on the head commit. A job
-that runs and is skipped by a job-level `if:` still reports, as `skipped`, and
-that counts as satisfied. A workflow that never starts reports **nothing**, and
-the pull request then waits for it forever — there is no setting that reads a
-missing check as passed. `test.yml` filters its `pull_request` trigger by
-`paths:`, so a pull request touching only `README.md`, `CHANGELOG.md`,
-`CONTRIBUTING.md` or `SECURITY.md` starts no run at all, and requiring any
-`test / …` context would block exactly those pull requests permanently, with
-nothing to fix. `codegen-guard.yml` has no path filter and no job-level
-condition on the job that reports, so it always does.
-
-`integration_id: 15368` is GitHub Actions. Without it the context is satisfied
-by *any* status of that name, including one posted through the API by a token
-holding `repo:status`.
-
-`strict_required_status_checks_policy` is `false` deliberately: `true` requires
-every open pull request to be re-tested against the tip of the default branch
-after each merge, which against a weekly grouped Dependabot batch is a rebase
-treadmill and not a safety property.
-
-Read this rule together with `bypass_actors` above. Admin is `always`, so it
-turns a red check into something an admin has to click past on purpose — worth
-having, but it is not "red CI can no longer merge".
-
-**To require the test matrix as well**, the path filter has to go first: drop
-`paths:` from `test.yml`'s `pull_request` trigger (keep it on `push`, where it
-guards the cache scope — a pull-request run can read the base branch's cache
-scope but never the reverse), let one pull request report under the new trigger,
-then add the contexts
+`protect-main.json` requires twelve checks — **`FRB bindings were regenerated`**,
+the job in `codegen-guard.yml`, plus the whole test matrix:
 
 ```
+FRB bindings were regenerated
 test / Test (Linux x86_64)
 test / Test (Linux ARM64)
 test / Test (macOS ARM64)
@@ -106,26 +76,108 @@ test / Cross-compile (Android armeabi-v7a)
 test / Cross-compile (Android x86_64)
 ```
 
-Two cautions. The `test / ` prefix is part of the context and comes from the
-**job id** in `test.yml` that calls the reusable workflow — rename that job and
-every context here stops matching silently, which shows up as "waiting for
-status" rather than as an error. And leave out any leg this project has found to
-be flaky: a required check that fails by itself teaches people to merge past
-required checks, which costs more than the leg is worth. `test / Update Coverage
-Badge` belongs in neither list — it is skipped on pull requests, so it would be
-satisfied, and requiring a badge job asserts nothing.
+#### The asymmetry the list rests on
+
+A required check is satisfied by a check run reporting on the pull request's head
+commit. There are two ways a job can fail to run and they are **not** equivalent:
+
+- a job excluded by a **job-level `if:`** still reports, as `skipped`, and that
+  counts as satisfied;
+- a workflow excluded by a **workflow-level `paths:`** reports **nothing**, and
+  the pull request then waits for it forever — no setting reads a missing check
+  as passed.
+
+That is why `test.yml`'s `pull_request` trigger carries no `paths:` filter, and
+why it must not regain one: every `test / …` leg above would otherwise block —
+permanently, and with nothing to fix — exactly the pull requests that touch only
+documentation. The filter stays on `push`, where it guards the cache scope rather
+than a gate. If the whole matrix on a docs-only pull request ever becomes a real
+cost, the fix is a job-level `if:` on the expensive legs, never the path filter
+back. `codegen-guard.yml` has never had one, for the same reason, and no
+job-level condition on the job that reports.
+
+#### Drop any leg this project finds flaky
+
+A required check that fails by itself teaches people to merge past required
+checks, which costs more than the leg is worth. Remove such a leg from
+`protect-main.json` — leaving it in the workflow, where it still reports — and
+put it back the moment it is fixed, not before.
+
+Two cautions before deciding which leg that is. **Count, do not rank on
+reputation** — a flake gets attached to one leg early and stays attached; count
+isolated failures (one leg red, the rest green) over recent runs instead. Expect
+the count to be small and to prove less than it looks: three events spread over
+four legs cannot tell a platform problem from chance, and the plausible
+explanations are worth checking against the numbers rather than assumed — "the
+slowest runner flakes" is the usual one, and in the project this comes from it
+was false, the slowest leg by wall clock being the one that never flaked.
+
+**Choose by what the absence costs**, which is knowable even when the cause is
+not: a leg whose platform another required leg already covers is cheap to drop,
+while the only leg covering its platform is not, however often it flakes.
+Diagnosing the flake beats either exclusion.
+
+`test / Update Coverage Badge` belongs in neither list — it is skipped on pull
+requests, so it would be satisfied without asserting anything.
+
+#### Field notes
+
+The `test / ` prefix is part of the context and comes from the **job id** in
+`test.yml` that calls the reusable workflow; the half after it is the called
+job's `name:` in `test-reusable.yml`, matrix legs included. Rename either and
+every context here stops matching silently, which surfaces as "waiting for
+status" rather than as an error.
 
 `Workflow Lint (actionlint)` is worth requiring for a reason the other legs do
-not share: it is the only check that reads the workflows themselves, so it is
-the one that can still report on a pull request whose other jobs never start
-because the file that defines them does not parse.
+not share: it is the only check that reads the workflows themselves, so it is the
+one that can still report on a pull request whose other jobs never start because
+the file that defines them does not parse.
 
-The three `Cross-compile (Android …)` contexts are the newest entries and the
-easiest to forget, because nothing else in a generated project cross-compiles
-Android: leaving them out is how the gap they were added to close comes back
-with the ruleset saying CI is required. They also run under `publish.yml`, which
-calls the same reusable workflow — so they sit between "start publishing" and
-"published", not only on pull requests.
+The three `Cross-compile (Android …)` contexts are the easiest to forget, because
+nothing else in a generated project cross-compiles Android: leaving them out is
+how the gap they were added to close comes back with the ruleset saying CI is
+required. They also run under `publish.yml`, which calls the same reusable
+workflow — so they sit between "start publishing" and "published", not only on
+pull requests.
+
+`integration_id: 15368` is GitHub Actions. Without it the context is satisfied by
+*any* status of that name, including one posted through the API by a token
+holding `repo:status`.
+
+`strict_required_status_checks_policy` is `false` deliberately: `true` requires
+every open pull request to be re-tested against the tip of the default branch
+after each merge, which against a weekly grouped Dependabot batch is a rebase
+treadmill and not a safety property.
+
+Read this rule together with `bypass_actors` above. Admin is `always`, so it
+turns a red — or an unreported — check into something an admin has to click past
+on purpose. Worth having, and worth knowing which way it cuts: this is not "red
+CI can no longer merge", and a context that stops being reported is recoverable
+rather than a lockout. `make release-frb` / `make release` push their commit to
+`main` directly and pass on the same bypass.
+
+#### Changing the list
+
+Verify a context string against a real **pull request** before requiring it. A
+name read off a push to `main` is not proof, because the two triggers do not
+produce the same set of check runs — `test / Update Coverage Badge` is the
+example, reporting on a push and `skipped` on a pull request — and it is the
+pull-request set a merge gate is measured against.
+
+```bash
+SHA=$(gh api repos/djx-y-z/openmls_dart/pulls/<N> --jq .head.sha)
+gh api "repos/djx-y-z/openmls_dart/commits/$SHA/check-runs" \
+  --jq '.check_runs[].name' | sort
+```
+
+Then apply with `make setup-repo-protections ARGS="--update"`: plain
+`make setup-repo-protections` **skips** a ruleset that already exists, so the
+edit would land in the file and nowhere else. `--update` PUTs the whole ruleset,
+so diff the live one against the file first (see *Verify / roll back* below) —
+anything changed in the UI and not written back here is overwritten. GitHub adds
+its own defaults to what it stores (`do_not_enforce_on_create`,
+`require_extra_approval_for_unattributed_changes`, `required_reviewers`), so
+expect those three back in the response; they are not UI edits.
 
 ### Why Dependabot branches are excluded
 

@@ -1,3 +1,36 @@
+## [Unreleased]
+
+### For Contributors
+
+#### Changed
+
+- **copier template adopted: v4.9.0 -> v4.10.0** — the generated project now documents the FFI scan boundary and makes the pull-request gate report the full test matrix instead of disappearing behind a path filter.
+
+  `.claude/skills/frb-patterns/SKILL.md` now says that `rust/src/api/` is a
+  scanned directory, not a general-purpose folder. Because
+  `flutter_rust_bridge.yaml` scans from `crate::api`, a module declared under
+  `api/mod.rs` becomes part of the generated FFI surface. Helpers intended only
+  for the crate therefore belong at the crate root and must be declared from
+  `rust/src/lib.rs`; otherwise code generation can silently publish an API and
+  change `rustContentHash`.
+
+  `.github/rulesets/protect-main.json` now requires the complete generated
+  check set, including `FRB bindings were regenerated` and the test matrix.
+  `.github/workflows/test.yml` removes the `pull_request` path filter that
+  would otherwise make required checks report nothing for documentation-only
+  pull requests; the filter remains on `push` for cache-scope control. The
+  existing `.github/workflows/codegen-guard.yml` is updated with the generated
+  workflow set, and its binding-regeneration check is already an existing
+  project capability rather than a new one in this adoption.
+
+  `.github/rulesets/README.md` now explains the required-check model and how to
+  change it safely: context names must be taken from a real pull-request run,
+  `make setup-repo-protections ARGS="--update"` must be used to apply an
+  existing ruleset edit, and flaky legs should be removed from the required
+  list while remaining in the workflow. It also records the job-level `if:`
+  approach for an expensive leg, since a skipped job still reports and can
+  satisfy the gate. `.copier-answers.yml` records the new template version.
+
 ## [3.1.0] - 2026-09-08
 
 ### For Users

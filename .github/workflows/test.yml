@@ -3,10 +3,10 @@
 # Triggers:
 # - Manual dispatch (workflow_dispatch)
 # - Push to main branch (relevant files)
-# - Pull requests (relevant files) - skipped for native-version update PRs
+# - Pull requests (all of them, deliberately unfiltered - see below)
 # - After successful build-openmls workflow
 #
-# The path filters carry THIRD_PARTY_NOTICES.txt and .gitattributes because
+# The push filter carries THIRD_PARTY_NOTICES.txt and .gitattributes because
 # `make verify-third-party-notices` runs here: the notices file is the artefact
 # being checked, and .gitattributes decides which bytes a checkout materialises
 # for it. .copier-answers.yml is there for the same reason one gate later —
@@ -16,17 +16,26 @@
 # also the one commit that does not run it, so a stale inventory reaches main
 # unverified and only surfaces in the release preflight of both stages.
 #
-# They carry all of .github/** for the same reason, one level up: this workflow
+# It carries all of .github/** for the same reason, one level up: this workflow
 # and the composite actions it calls are themselves only exercised here. Listing
 # just this file and test-reusable.yml left the actions unwatched, so a change to
-# setup-fvm or setup-rust could not be validated before merge — and a
-# pull_request run resolves them from the merge ref, so the PR's own versions are
-# what execute. The release-only workflows (publish, build-openmls) are in scope
-# too: they run once, at a moment when a failure is expensive.
+# setup-fvm or setup-rust reached main without ever having been run. The
+# release-only workflows (publish, build-openmls) are in scope too:
+# they run once, at a moment when a failure is expensive.
 #
-# The same filter has to be on push, not just pull_request: a PR run can read the
-# base branch's cache scope but never the reverse, so a CI change that lands
-# without a main-branch run leaves every later PR starting from a cold cache.
+# Why the filter is on push and NOT on pull_request. On push it guards the cache
+# scope: a pull-request run can read the base branch's cache scope but never the
+# reverse, so a CI change that lands without a main-branch run leaves every later
+# pull request starting from a cold cache. On pull_request there must be no
+# filter at all, because these jobs are required status checks
+# (.github/rulesets/protect-main.json). A workflow filtered out by path reports
+# NOTHING, and a required context with no report is indistinguishable from one
+# that never finishes — the pull request waits forever, with nothing to fix.
+#
+# If a docs-only pull request burning the whole matrix ever becomes a real cost,
+# the fix is a job-level `if:` on the expensive legs: a job skipped that way
+# still reports, as `skipped`, and still satisfies the requirement. Never a
+# workflow-level `paths:` — that asymmetry is the whole invariant.
 #
 # Platforms: Linux x86_64, Linux ARM64, macOS ARM64, Windows x86_64
 
@@ -56,25 +65,6 @@ on:
       - '.copier-answers.yml'
       - '.github/**'
   pull_request:
-    paths:
-      - 'lib/**'
-      - 'test/**'
-      - 'rust/**'
-      - 'hook/**'
-      - 'scripts/**'
-      - 'Makefile'
-      - 'pubspec.yaml'
-      # The doc gate lives in this file: without it `make doc` stops promoting
-      # unresolved references to errors and the CI step passes silently.
-      - 'dartdoc_options.yaml'
-      # Same reasoning one gate over: this file decides what `make analyze`
-      # reports, so a commit that changes only the lint configuration is
-      # precisely the one that must re-run it.
-      - 'analysis_options.yaml'
-      - 'THIRD_PARTY_NOTICES.txt'
-      - '.gitattributes'
-      - '.copier-answers.yml'
-      - '.github/**'
   workflow_run:
     workflows: ["Build openmls FRB Libraries"]
     types:
