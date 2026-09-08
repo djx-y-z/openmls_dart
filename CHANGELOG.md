@@ -18,10 +18,13 @@
   check set, including `FRB bindings were regenerated` and the test matrix.
   `.github/workflows/test.yml` removes the `pull_request` path filter that
   would otherwise make required checks report nothing for documentation-only
-  pull requests; the filter remains on `push` for cache-scope control. The
-  existing `.github/workflows/codegen-guard.yml` is updated with the generated
-  workflow set, and its binding-regeneration check is already an existing
-  project capability rather than a new one in this adoption.
+  pull requests; the filter remains on `push` for cache-scope control.
+
+  `.github/workflows/codegen-guard.yml` changes in a comment only — the
+  paragraph explaining why the job's `name:` is load-bearing now says that name
+  is *one of* the required contexts rather than *the* one. Its job, trigger and
+  steps are byte-identical: measured on the diff, every changed line is a
+  comment line.
 
   `.github/rulesets/README.md` now explains the required-check model and how to
   change it safely: context names must be taken from a real pull-request run,
