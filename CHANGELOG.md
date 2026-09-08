@@ -1,4 +1,4 @@
-## [Unreleased]
+## [3.1.0] - 2026-09-08
 
 ### For Users
 
@@ -2030,7 +2030,8 @@
 
 [gh-rrmv]: https://github.com/openmls/openmls/security/advisories/GHSA-rrmv-c79f-cf5r
 [om-2116]: https://github.com/openmls/openmls/issues/2116
-[Unreleased]: https://github.com/djx-y-z/openmls_dart/compare/v3.0.0...HEAD
+[Unreleased]: https://github.com/djx-y-z/openmls_dart/compare/v3.1.0...HEAD
+[3.1.0]: https://github.com/djx-y-z/openmls_dart/compare/v3.0.0...v3.1.0
 [3.0.0]: https://github.com/djx-y-z/openmls_dart/compare/v2.0.1...v3.0.0
 [2.0.1]: https://github.com/djx-y-z/openmls_dart/compare/v2.0.0...v2.0.1
 [2.0.0]: https://github.com/djx-y-z/openmls_dart/compare/v1.4.2...v2.0.0
