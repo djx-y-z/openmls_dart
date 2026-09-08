@@ -93,6 +93,178 @@ void main() {
       expect(info.ciphersuite, equals(ciphersuite));
       expect(info.epoch, equals(BigInt.from(1)));
     });
+
+    test('export a secret from a welcome without joining', () async {
+      final groupResult = await alice.createGroup(
+        config: defaultConfig(),
+        signerBytes: aliceId.signerBytes,
+        credentialIdentity: aliceId.credentialIdentity,
+        signerPublicKey: aliceId.publicKey,
+      );
+      final bobKp = await bob.createKeyPackage(
+        ciphersuite: ciphersuite,
+        signerBytes: bobId.signerBytes,
+        credentialIdentity: bobId.credentialIdentity,
+        signerPublicKey: bobId.publicKey,
+      );
+      final addResult = await alice.addMembers(
+        groupIdBytes: groupResult.groupId,
+        signerBytes: aliceId.signerBytes,
+        keyPackagesBytes: [bobKp.keyPackageBytes],
+      );
+      await alice.mergePendingCommit(groupIdBytes: groupResult.groupId);
+
+      final secret = await bob.exportWelcomeSecret(
+        config: defaultConfig(),
+        welcomeBytes: addResult.welcome,
+        label: 'welcome-handshake',
+        context: utf8.encode('ctx'),
+        keyLength: 32,
+      );
+      expect(secret, hasLength(32));
+      expect(secret.any((b) => b != 0), isTrue);
+
+      // Same label and context, different length: a different derivation, so
+      // the shorter one must not simply be a prefix of the longer.
+      final shorter = await bob.exportWelcomeSecret(
+        config: defaultConfig(),
+        welcomeBytes: addResult.welcome,
+        label: 'welcome-handshake',
+        context: utf8.encode('ctx'),
+        keyLength: 16,
+      );
+      expect(shorter, hasLength(16));
+      expect(shorter, isNot(equals(secret.sublist(0, 16))));
+    });
+
+    test('the welcome secret equals the joined group secret', () async {
+      final groupResult = await alice.createGroup(
+        config: defaultConfig(),
+        signerBytes: aliceId.signerBytes,
+        credentialIdentity: aliceId.credentialIdentity,
+        signerPublicKey: aliceId.publicKey,
+      );
+      final bobKp = await bob.createKeyPackage(
+        ciphersuite: ciphersuite,
+        signerBytes: bobId.signerBytes,
+        credentialIdentity: bobId.credentialIdentity,
+        signerPublicKey: bobId.publicKey,
+      );
+      final addResult = await alice.addMembers(
+        groupIdBytes: groupResult.groupId,
+        signerBytes: aliceId.signerBytes,
+        keyPackagesBytes: [bobKp.keyPackageBytes],
+      );
+      await alice.mergePendingCommit(groupIdBytes: groupResult.groupId);
+
+      final fromWelcome = await bob.exportWelcomeSecret(
+        config: defaultConfig(),
+        welcomeBytes: addResult.welcome,
+        label: 'same-label',
+        context: utf8.encode('same-context'),
+        keyLength: 32,
+      );
+
+      await bob.joinGroupFromWelcome(
+        config: defaultConfig(),
+        welcomeBytes: addResult.welcome,
+        signerBytes: bobId.signerBytes,
+      );
+      final fromGroup = await bob.exportSecret(
+        groupIdBytes: groupResult.groupId,
+        label: 'same-label',
+        context: utf8.encode('same-context'),
+        keyLength: 32,
+      );
+
+      // Both derive from the exporter secret of the same epoch, so the
+      // invitation and the joined group must agree.
+      expect(fromWelcome, equals(fromGroup));
+
+      // And Alice, already in that epoch, derives the same value.
+      final fromAlice = await alice.exportSecret(
+        groupIdBytes: groupResult.groupId,
+        label: 'same-label',
+        context: utf8.encode('same-context'),
+        keyLength: 32,
+      );
+      expect(fromWelcome, equals(fromAlice));
+    });
+
+    test('inspecting and exporting do not consume the key package', () async {
+      final groupResult = await alice.createGroup(
+        config: defaultConfig(),
+        signerBytes: aliceId.signerBytes,
+        credentialIdentity: aliceId.credentialIdentity,
+        signerPublicKey: aliceId.publicKey,
+      );
+      final bobKp = await bob.createKeyPackage(
+        ciphersuite: ciphersuite,
+        signerBytes: bobId.signerBytes,
+        credentialIdentity: bobId.credentialIdentity,
+        signerPublicKey: bobId.publicKey,
+      );
+      final addResult = await alice.addMembers(
+        groupIdBytes: groupResult.groupId,
+        signerBytes: aliceId.signerBytes,
+        keyPackagesBytes: [bobKp.keyPackageBytes],
+      );
+      await alice.mergePendingCommit(groupIdBytes: groupResult.groupId);
+
+      // Processing a Welcome consumes the key package it was addressed to —
+      // OpenMLS deletes it from storage. Neither of these two commits, so the
+      // delete stays inside the call's snapshot and the join below still finds
+      // the key package. If either ever starts committing, this fails with
+      // NoMatchingKeyPackage.
+      await bob.inspectWelcome(
+        config: defaultConfig(),
+        welcomeBytes: addResult.welcome,
+      );
+      await bob.exportWelcomeSecret(
+        config: defaultConfig(),
+        welcomeBytes: addResult.welcome,
+        label: 'probe',
+        context: const <int>[],
+        keyLength: 32,
+      );
+
+      final joined = await bob.joinGroupFromWelcome(
+        config: defaultConfig(),
+        welcomeBytes: addResult.welcome,
+        signerBytes: bobId.signerBytes,
+      );
+      expect(joined.groupId, equals(groupResult.groupId));
+      expect(
+        await bob.groupMembers(groupIdBytes: groupResult.groupId),
+        hasLength(2),
+      );
+    });
+
+    test(
+      'exportWelcomeSecret rejects a message that is not a Welcome',
+      () async {
+        final groupResult = await alice.createGroup(
+          config: defaultConfig(),
+          signerBytes: aliceId.signerBytes,
+          credentialIdentity: aliceId.credentialIdentity,
+          signerPublicKey: aliceId.publicKey,
+        );
+        final groupInfo = await alice.exportGroupInfo(
+          groupIdBytes: groupResult.groupId,
+          signerBytes: aliceId.signerBytes,
+        );
+        expect(
+          () => bob.exportWelcomeSecret(
+            config: defaultConfig(),
+            welcomeBytes: groupInfo,
+            label: 'l',
+            context: const <int>[],
+            keyLength: 32,
+          ),
+          throwsA(isA<Object>()),
+        );
+      },
+    );
   });
 
   group('join group from welcome with options', () {

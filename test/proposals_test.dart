@@ -150,6 +150,118 @@ void main() {
       );
       expect(proposal.proposalMessage, isNotEmpty);
     });
+
+    test('propose self-update with a new signer', () async {
+      final rotated = TestIdentity.create('alice-rotated');
+
+      final proposal = await alice.proposeSelfUpdateWithNewSigner(
+        groupIdBytes: groupIdBytes,
+        oldSignerBytes: aliceId.signerBytes,
+        newSignerBytes: rotated.signerBytes,
+        newCredentialIdentity: rotated.credentialIdentity,
+        newSignerPublicKey: rotated.publicKey,
+      );
+      expect(proposal.proposalMessage, isNotEmpty);
+
+      final proposals = await alice.groupPendingProposals(
+        groupIdBytes: groupIdBytes,
+      );
+      expect(proposals, hasLength(1));
+      expect(proposals.first.proposalType, MlsProposalType.update);
+    });
+
+    test('a committed new-signer proposal rotates the leaf key', () async {
+      final rotated = TestIdentity.create('alice-rotated');
+
+      final proposal = await alice.proposeSelfUpdateWithNewSigner(
+        groupIdBytes: groupIdBytes,
+        oldSignerBytes: aliceId.signerBytes,
+        newSignerBytes: rotated.signerBytes,
+        newCredentialIdentity: rotated.credentialIdentity,
+        newSignerPublicKey: rotated.publicKey,
+      );
+
+      // Bob is the one who commits it: an Update proposal has to be carried by
+      // somebody else's commit, which is the whole reason the proposal form of
+      // the key rotation exists next to selfUpdateWithNewSigner.
+      final received = await bob.processMessage(
+        groupIdBytes: groupIdBytes,
+        messageBytes: proposal.proposalMessage,
+      );
+      expect(received.messageType, ProcessedMessageType.proposal);
+      expect(received.proposalType, MlsProposalType.update);
+
+      final commit = await bob.commitToPendingProposals(
+        groupIdBytes: groupIdBytes,
+        signerBytes: bobId.signerBytes,
+      );
+      await alice.processMessage(
+        groupIdBytes: groupIdBytes,
+        messageBytes: commit.commit,
+      );
+
+      // The envelope was signed by the old key, the leaf inside it by the new
+      // one. After the commit, Alice's leaf carries the new key and credential.
+      final leaf = await alice.groupOwnLeafNode(groupIdBytes: groupIdBytes);
+      expect(leaf.signatureKey, equals(rotated.publicKey));
+      expect(
+        identityFromCredential(leaf.credential),
+        equals(rotated.credentialIdentity),
+      );
+
+      // And the new signer is the one that works from here on.
+      final msg = await alice.createMessage(
+        groupIdBytes: groupIdBytes,
+        signerBytes: rotated.signerBytes,
+        message: utf8.encode('after rotation'),
+      );
+      final decoded = await bob.processMessage(
+        groupIdBytes: groupIdBytes,
+        messageBytes: msg.ciphertext,
+      );
+      expect(
+        utf8.decode(decoded.applicationMessage!),
+        equals('after rotation'),
+      );
+    });
+
+    test('propose self-update with a new signer and leaf parameters', () async {
+      final rotated = TestIdentity.create('alice-rotated');
+      final cred = MlsCredential.basic(identity: rotated.credentialIdentity);
+
+      final proposal = await alice.proposeSelfUpdateWithNewSigner(
+        groupIdBytes: groupIdBytes,
+        oldSignerBytes: aliceId.signerBytes,
+        newSignerBytes: rotated.signerBytes,
+        newCredentialIdentity: rotated.credentialIdentity,
+        newSignerPublicKey: rotated.publicKey,
+        newCredentialBytes: cred.serialize(),
+        leafNodeCapabilities: MlsCapabilities(
+          versions: Uint16List.fromList([1]),
+          ciphersuites: Uint16List.fromList([1]),
+          extensions: Uint16List(0),
+          proposals: Uint16List(0),
+          credentials: Uint16List(0),
+        ),
+      );
+      expect(proposal.proposalMessage, isNotEmpty);
+    });
+
+    test(
+      'proposeSelfUpdateWithNewSigner rejects a malformed new signer',
+      () async {
+        expect(
+          () => alice.proposeSelfUpdateWithNewSigner(
+            groupIdBytes: groupIdBytes,
+            oldSignerBytes: aliceId.signerBytes,
+            newSignerBytes: Uint8List.fromList([0xFF, 0xFF]),
+            newCredentialIdentity: utf8.encode('x'),
+            newSignerPublicKey: aliceId.publicKey,
+          ),
+          throwsA(isA<Object>()),
+        );
+      },
+    );
   });
 
   group('clear operations', () {

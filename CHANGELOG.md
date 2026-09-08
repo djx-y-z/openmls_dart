@@ -2,20 +2,101 @@
 
 ### For Users
 
-#### Changed
+#### ✨ Highlights
 
-- **The README names a Flutter behaviour that leaves `web/pkg/` empty** — the
-  build hook provisions the WASM module into an app's `web/pkg/`, and
-  `flutter build web` always reaches it, but `flutter run -d chrome` reaches it
-  only while Flutter considers its `dart_build` target out of date. That
-  target's cache key does not include the platform, so a debug run for *another*
-  platform leaves a stamp the Chrome run accepts, logs `Skipping target:
-  dart_build`, and never invokes the hook — `RustLib.init()` then fails on a 404
-  for `pkg/openmls_frb.js`. No hook can defend against it: the skip happens
-  above `hooks_runner`, where nothing the hook declares is read. *Known
-  Limitations* now names the three escapes (`flutter build web`,
-  `rm -f build/*/dart_build.stamp`, `flutter clean`). Behaviour is unchanged —
-  this was always true and was undocumented.
+- **Three bindings taken from openmls 0.9.0** — a secret can now be exported
+  from a Welcome before deciding whether to join, a signature-key rotation can
+  be sent as a proposal instead of a commit, and a key package's validity window
+  can be read out and judged against a clock other than the device's. All three
+  are additive: no existing signature moves.
+- **openmls v0.9.0** — unchanged this release
+
+#### Added
+
+- **`exportWelcomeSecret`** (`rust/src/api/engine.rs`) — `exportSecret` one step
+  earlier in the join. It takes the same `label`, `context` and `keyLength` and
+  derives from the exporter secret of the epoch the Welcome invites you into, so
+  an invitee can agree a key with the inviter, or prove it can read the epoch,
+  before it accepts. The value is identical to what `exportSecret` returns after
+  joining that epoch, which the tests assert against both the joiner and a
+  member already in the group.
+
+  Like `inspectWelcome`, it commits nothing, and that is load-bearing rather
+  than incidental: processing a Welcome makes OpenMLS delete the key package it
+  was addressed to unless that package is last-resort. Here the delete lands in
+  the call's snapshot and is discarded with it, so a later
+  `joinGroupFromWelcome` on the same Welcome still finds its key package. A test
+  now pins that behaviour end to end — inspect, export, then join — because a
+  commit added to either function would silently burn the invitation instead of
+  failing loudly.
+
+  It reads the *unverified* group info, the same as `inspectWelcome`: the
+  confirmation tag is only checked when the Welcome is staged into a group.
+
+- **`proposeSelfUpdateWithNewSigner`** (`rust/src/api/engine.rs`) — the proposal
+  form of `selfUpdateWithNewSigner`, filling the one gap in that pair. An Update
+  proposal has to be carried by somebody else's commit, so this is what a member
+  sends when it wants its signature key rotated by the next committer rather
+  than committing itself.
+
+  Two signers are required because the message and its payload are authenticated
+  against different keys: the envelope by `oldSignerBytes`, since the sender's
+  leaf in the tree still carries the old key, and the new leaf inside the
+  proposal by `newSignerBytes`, so it verifies against the key it announces.
+  Upstream additionally requires that a credential set in the leaf-node
+  parameters equal the new signer's; this wrapper builds leaf-node parameters
+  from `leafNodeCapabilities` and `leafNodeExtensions` only and never sets a
+  credential there, so the new signer's credential is always the one folded in
+  and the precondition cannot be violated from the Dart surface.
+
+  Availability rests on this crate not enabling openmls's
+  `virtual-clients-draft` feature. Upstream gates the function on
+  `not(virtual-clients-draft)`, its own `test-utils`, or `test` — and that
+  `test-utils` was deliberately dropped from the shipped binary in 3.0.0, so
+  `not(virtual-clients-draft)` is the only arm holding it open.
+
+- **`keyPackageLifetime` and `checkLifetimeAt`** (`rust/src/api/engine.rs`) —
+  two synchronous helpers that expose a key package's validity window and let it
+  be judged against a supplied instant, such as a timestamp from a server,
+  rather than the device's clock. `checkLifetimeAt` calls OpenMLS's own
+  `Lifetime::validate_with_time` rather than re-implementing the comparison, so
+  the boundaries match what a peer will decide about the same package:
+  `notAfter` is exclusive — an instant equal to it is already expired — while
+  `notBefore` is inclusive. Neither bound is adjusted here: OpenMLS's hour of
+  clock-skew margin is added by `Lifetime::new` when a key package is *created*
+  (`lifetime.rs`, `not_before = now - 1h`), so it is already inside the
+  `notBefore` that `keyPackageLifetime` reads back, and `checkLifetimeAt`
+  compares whatever bounds it is handed unmodified — it reaches OpenMLS through
+  `Lifetime::init`, which upstream documents as "raw lifetime without skew".
+
+  **The device's clock still gates the reading half, and the split of these into
+  two functions is what says so.** Getting at the window means validating the
+  key package, and OpenMLS's validation checks signatures, protocol version,
+  extensions *and* the lifetime, that last one against this device's clock;
+  there is no way to skip it from outside the crate. So `keyPackageLifetime`
+  fails on a package this device believes is expired and never yields its
+  bounds — measured here, not inferred, by a test that builds an already-expired
+  key package and asserts on the error OpenMLS reports. The pair can therefore
+  apply an authority *stricter* than the local clock, which is the useful
+  direction when choosing among a user's key packages, but cannot rescue one the
+  local clock has already rejected. `checkLifetimeAt` takes the two bounds
+  rather than key package bytes precisely so that half of the check has no local
+  clock in it at all, for a caller that holds bounds from elsewhere.
+
+  An instant past the year 9999 is an error rather than a verdict, and the cap
+  is explicit rather than left to the platform. The platforms do not agree about
+  what a `SystemTime` can hold: `web_time`'s on wasm32 is a bare `Duration`
+  since the epoch and accepts every `u64` of seconds, while native
+  `std::time::SystemTime` does not — so the same call with `u64::MAX` was a
+  verdict on one target and an error on the other, measured on both. The cap is
+  set where no calendar can mean a larger value rather than at any platform's
+  limit, which is what keeps it correct without a survey of the platforms:
+  9999-12-31T23:59:59Z costs no caller anything, and below it every target this
+  package ships for answers a given argument the same way. It also catches the
+  likeliest way to call this wrongly — Dart has no `secondsSinceEpoch`, so a
+  caller reaching for `DateTime` meets `millisecondsSinceEpoch` first, and a
+  present-day millisecond count sits far past the cap, failing loudly instead
+  of returning a confident verdict about a date tens of thousands of years out.
 
 #### Security
 
@@ -52,9 +133,39 @@
   there. All three of those checks were confirmed to fail on a deliberately
   broken tree that still compiles.
 
+#### Documentation
+
+- **The README names a Flutter behaviour that leaves `web/pkg/` empty** — the
+  build hook provisions the WASM module into an app's `web/pkg/`, and
+  `flutter build web` always reaches it, but `flutter run -d chrome` reaches it
+  only while Flutter considers its `dart_build` target out of date. That
+  target's cache key does not include the platform, so a debug run for *another*
+  platform leaves a stamp the Chrome run accepts, logs `Skipping target:
+  dart_build`, and never invokes the hook — `RustLib.init()` then fails on a 404
+  for `pkg/openmls_frb.js`. No hook can defend against it: the skip happens
+  above `hooks_runner`, where nothing the hook declares is read. *Known
+  Limitations* now names the three escapes (`flutter build web`,
+  `rm -f build/*/dart_build.stamp`, `flutter clean`). Behaviour is unchanged —
+  this was always true and was undocumented.
+
 ### For Contributors
 
 #### Changed
+
+- **`web-time` is now a direct wasm32 dependency of the native crate**
+  (`rust/Cargo.toml`) — `Lifetime::validate_with_time` takes a `SystemTime`, and
+  openmls's `lifetime.rs` chooses which one by `cfg(target_arch)`:
+  `web_time`'s on wasm32 and `std`'s everywhere else. They are unrelated types,
+  so `checkLifetimeAt` cannot name the epoch it adds to without this. Same
+  version openmls already resolves (1.1.0), so no crate enters the graph and
+  `THIRD_PARTY_NOTICES.txt` does not move — confirmed by the gate, not assumed.
+
+  Worth knowing for anyone touching wasm32 code here: **`make rust-doc` does not
+  catch this class of error.** Its `--target wasm32-unknown-unknown` pass went
+  green on a deliberately wrong `SystemTime`, because rustdoc does not type-check
+  function bodies. `make build-web` rejected the same tree with `expected
+  web_time::time::system_time::SystemTime, found SystemTime`, so it is the only
+  local gate that compiles wasm32 bodies at all.
 
 - **copier template adopted: v4.8.0 → v4.9.0** (23 files, plus this entry) —
   most of it was
@@ -93,18 +204,51 @@
   **`make actionlint` and a `Workflow Lint (actionlint)` job**, pinned by
   version and by checksum, with the suppressions in `.github/actionlint.yaml` so
   a local run reports what CI reports. It found 93 things across this
-  repository's workflows and none of them was a bug: 81 shellcheck findings,
-  fixed rather than suppressed, and 12 false positives from actionlint's stale
-  copy of `actions/create-github-app-token`'s inputs.
+  repository's workflows and none of them was a bug: 81 shellcheck findings —
+  79 fixed, and two `SC2129`s (style only, on append-to-`$GITHUB_OUTPUT`
+  blocks) suppressed inline with a reason — plus 12 false positives from
+  actionlint's stale copy of `actions/create-github-app-token`'s inputs.
+
+  **`anthropics/claude-code-action` moves from v1.0.213 to v1.0.216** in
+  `ai-review.yml` and `repair-build.yml`, by commit SHA as before. Neither
+  workflow touches the published package; both are pinned by hand, because
+  Dependabot's `github-actions` ecosystem does not reach the template's copy.
+
+  **`make run-example-web` clears the `dart_build` stamp itself** before
+  handing over to `flutter run` — the working half of the Flutter behaviour
+  described under *Documentation* above, which otherwise makes a Chrome run
+  after a desktop run serve no WASM at all. A stamp that does not exist cannot
+  be stale, and an unmatched glob is a no-op under `rm -f`.
 
   **`make verify-frb-pins` reads a sixth source** when `rust/fuzz/Cargo.toml`
   names `flutter_rust_bridge` — a fuzz crate that drifts from the main crate
   does not merely disagree, it stops resolving, and nothing else notices.
 
   ⚠ **`protect-main.json` now carries a required status check, and arriving is
-  not the same as being applied.** The file is in the tree; making GitHub
-  enforce it needs `make setup-repo-protections ARGS="--yes"` as a separate
-  step. Until that runs, `codegen-guard` reports and blocks nothing.
+  not the same as being applied.** The file is in the tree; GitHub does not read
+  it. Applying it takes `make setup-repo-protections ARGS="--update --yes"` as a
+  separate step — and `--update` is the load-bearing half: the script is
+  idempotent by ruleset **name**, so without it an existing `Protect main
+  branch` is skipped with a message and exit 0, which looks exactly like
+  success while changing nothing. Verified before overwriting that the live
+  rulesets carry no hand-edits the file would clobber: `delete-branches` and
+  `signing-commit` match byte for byte, `protect-release-tags` differs only in
+  the order of two bypass actors, and `protect-main` differs only by the new
+  rule plus a `required_reviewers: []` default GitHub echoes back. Until it
+  runs, `codegen-guard` reports nothing and blocks nothing — and it has since
+  been run: the live `Protect main branch` ruleset now carries the
+  `FRB bindings were regenerated` check, matching the file.
+
+- **The scope file and the README name the new surface**
+  (`.github/agent-prompts/changelog-scope.md`, `README.md`) — the scope file is
+  what every future openmls release is classified against, so a binding missing
+  from it is a binding whose upstream changes get reported as invisible to this
+  package's users. It now names `export_welcome_secret`,
+  `propose_self_update_with_new_signer`, and `Lifetime` together with
+  `KeyPackageIn::validate` — the latter because the whole of that validation
+  (signature, protocol version, extensions, lifetime) is on the path
+  `keyPackageLifetime` takes and is therefore user-visible. The README's feature
+  table and full API reference list the four new names.
 
 ## [3.0.0] - 2026-09-06
 

@@ -39,15 +39,25 @@ prefer concrete names over categories: a model can check "does this change touch
   - **Proposals and commits**: propose add / remove / self-update / external PSK
     / group-context-extensions / custom, commit to pending proposals, flexible
     commit, merge or clear a pending commit, clear or remove pending proposals.
+    Signature-key rotation is exposed in both forms — `self_update_with_new_signer`
+    (commit) and `propose_self_update_with_new_signer` (proposal), the latter
+    reachable only while openmls's `virtual-clients-draft` feature stays off.
   - **Messages**: `create_message`, `process_message`,
     `process_message_with_inspect`, and the three sync helpers that read a
     serialized `MlsMessage` without a group — group id, epoch, content type.
   - **Key material and exports**: key packages (create, delete), signature keys,
-    credentials, `export_secret`, `export_ratchet_tree`, `export_group_info`,
-    `export_group_context`, `group_epoch_authenticator`,
+    credentials, `export_secret`, `export_welcome_secret` (the same derivation
+    on a `ProcessedWelcome`, before joining), `export_ratchet_tree`,
+    `export_group_info`, `export_group_context`, `group_epoch_authenticator`,
     `get_past_resumption_psk`, `group_confirmation_tag`.
   - **Group state and configuration**: epoch, ciphersuite, extensions, active
     flag, `set_configuration`, `update_group_context_extensions`.
+  - **Key package validity**: `Lifetime` — both its bounds
+    (`KeyPackage::life_time`, read out through `key_package_lifetime`) and its
+    comparison against a supplied instant (`Lifetime::validate_with_time`,
+    through `check_lifetime_at`). `KeyPackageIn::validate` is on that path, so
+    its checks — signature, protocol version, extensions, lifetime — are visible
+    to users of this package.
   - **Ciphersuites and crypto types** that appear in those signatures —
     `Ciphersuite`, `HpkeKemType`, credential and extension types. A ciphersuite
     added, removed or renamed upstream is visible here even when nothing else
