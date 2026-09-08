@@ -19,6 +19,50 @@
           {
             "context": "FRB bindings were regenerated",
             "integration_id": 15368
+          },
+          {
+            "context": "test / Test (Linux x86_64)",
+            "integration_id": 15368
+          },
+          {
+            "context": "test / Test (Linux ARM64)",
+            "integration_id": 15368
+          },
+          {
+            "context": "test / Test (macOS ARM64)",
+            "integration_id": 15368
+          },
+          {
+            "context": "test / Test (Windows x86_64)",
+            "integration_id": 15368
+          },
+          {
+            "context": "test / Security Audit (Rust)",
+            "integration_id": 15368
+          },
+          {
+            "context": "test / Dependency Policy (cargo-deny)",
+            "integration_id": 15368
+          },
+          {
+            "context": "test / MSRV (rust-version from Cargo.toml)",
+            "integration_id": 15368
+          },
+          {
+            "context": "test / Workflow Lint (actionlint)",
+            "integration_id": 15368
+          },
+          {
+            "context": "test / Cross-compile (Android arm64-v8a)",
+            "integration_id": 15368
+          },
+          {
+            "context": "test / Cross-compile (Android armeabi-v7a)",
+            "integration_id": 15368
+          },
+          {
+            "context": "test / Cross-compile (Android x86_64)",
+            "integration_id": 15368
           }
         ]
       }

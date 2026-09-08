@@ -39,13 +39,14 @@
 # `.skip_*_hook` marker stranded by a codegen that died halfway is not mistaken
 # for drift.
 #
-# ⚠ The job `name:` is load-bearing. `FRB bindings were regenerated` is the
-# required status check named in `.github/rulesets/protect-main.json`, matched
-# as a string. Rename the job — or split it in two, or give it a matrix, both of
-# which change the context name — and the ruleset silently stops matching: the
-# pull request then waits forever on a context nobody reports, which surfaces as
-# "waiting for status" rather than as an error. Growing the job is the only safe
-# direction, which is why the regeneration steps live inside this one job.
+# ⚠ The job `name:` is load-bearing. `FRB bindings were regenerated` is one of
+# the required status checks named in `.github/rulesets/protect-main.json`,
+# matched as a string. Rename the job — or split it in two, or give it a matrix,
+# both of which change the context name — and the ruleset silently stops
+# matching: the pull request then waits forever on a context nobody reports,
+# which surfaces as "waiting for status" rather than as an error. Growing the
+# job is the only safe direction, which is why the regeneration steps live
+# inside this one job.
 #
 # For the same reason there is no `paths:` filter on the trigger. A workflow
 # filtered out by path reports NOTHING, and a required context with no report is
