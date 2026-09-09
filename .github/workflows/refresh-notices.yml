@@ -105,7 +105,21 @@ jobs:
                     --json number,headRefName,author,state \
                   | jq -c '[.]')
           else
-            raw=$(gh pr list --repo "$REPO" --state open --limit 50 \
+            # Filtered by author server-side so the limit bounds Dependabot's
+            # own pull requests rather than every open one: an unfiltered
+            # `--limit` truncates silently, and a cargo pull request pushed off
+            # the page would simply stay stale with nothing reporting it.
+            # `gh` has no pagination here, so the bound has to be one the list
+            # cannot reach. Dependabot's default is 5 open pull requests per
+            # ecosystem and this repository sets no `open-pull-requests-limit`,
+            # so three ecosystems cannot produce more than 15.
+            #
+            # The `app/` spelling is what `gh` accepts and returns; verified
+            # against this repository. The predicate below still re-checks the
+            # author, because this filter is an optimisation and that one is
+            # the security boundary.
+            raw=$(gh pr list --repo "$REPO" --state open --limit 100 \
+                    --author "app/dependabot" \
                     --json number,headRefName,author,state)
           fi
 
