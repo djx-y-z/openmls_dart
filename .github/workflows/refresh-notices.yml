@@ -218,18 +218,30 @@ jobs:
           # to the job holding the token — only the one file, as an artifact.
           git status --porcelain || true
 
-      # Uploaded unconditionally, even when the inventory did not move. A matrix
-      # job has ONE set of outputs and every leg overwrites it, so a
-      # `needs.generate.outputs.changed` signal would carry whichever pull
-      # request finished last and the commit job would go looking for an
-      # artifact some other leg never produced. Whether there is anything to
-      # commit is decided in the commit job from git's own state, which is
-      # per-branch and cannot be confused between legs.
+      # Staged OUTSIDE the checkout. The commit job unpacks this into the same
+      # place, and anything unpacked inside the work tree would show up as an
+      # untracked file — tripping the very guard there that exists to notice
+      # strays.
+      #
+      # The revision travels with the file because the two jobs check the branch
+      # out at different moments. If anything pushes to it in between, the
+      # inventory describes a lockfile the branch no longer has, and committing
+      # it would leave `verify-third-party-notices` red for exactly as long as
+      # it took to look correct. The commit job compares and steps aside; the
+      # next scheduled run regenerates against whatever the branch became.
+      - name: Stage the file and the revision it came from
+        run: |
+          set -euo pipefail
+          mkdir -p "${RUNNER_TEMP}/notices"
+          cp THIRD_PARTY_NOTICES.txt "${RUNNER_TEMP}/notices/"
+          git rev-parse HEAD > "${RUNNER_TEMP}/notices/generated-from.sha"
+          echo "Generated from $(cat "${RUNNER_TEMP}/notices/generated-from.sha")"
+
       - name: Hand over the regenerated file
         uses: actions/upload-artifact@v4
         with:
           name: notices-${{ matrix.pr.number }}
-          path: THIRD_PARTY_NOTICES.txt
+          path: ${{ runner.temp }}/notices/
           if-no-files-found: error
           retention-days: 1
 
@@ -285,6 +297,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: notices-${{ matrix.pr.number }}
+          path: ${{ runner.temp }}/notices
 
       - name: Commit and push
         env:
@@ -294,6 +307,19 @@ jobs:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
           set -euo pipefail
+
+          # The branch must still be what the inventory was generated against.
+          # `max-parallel: 1` and the concurrency group stop this workflow
+          # racing itself, but neither stops Dependabot — or anyone else with
+          # push access — moving the branch between the two jobs.
+          generated_from=$(cat "${RUNNER_TEMP}/notices/generated-from.sha")
+          head_now=$(git rev-parse HEAD)
+          if [ "$generated_from" != "$head_now" ]; then
+            echo "::notice::#$PR moved from $generated_from to $head_now while the inventory was being generated; leaving it for the next run."
+            exit 0
+          fi
+
+          cp "${RUNNER_TEMP}/notices/THIRD_PARTY_NOTICES.txt" THIRD_PARTY_NOTICES.txt
 
           # The artifact carries one file and the commit stages one path. If
           # anything else in the tree moved, something upstream is wrong and

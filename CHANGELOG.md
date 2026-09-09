@@ -41,6 +41,13 @@
   tree moved. Checking untrusted files out is safe; executing them beside a
   credential is not.
 
+  The revision the inventory was generated from travels with it, because the
+  two jobs check the branch out at different moments and only this workflow's
+  own runs are serialised — nothing stops Dependabot moving the branch in
+  between. The commit job compares, and steps aside when they differ rather
+  than committing an inventory for a lockfile the branch no longer has, which
+  would leave the gate red for exactly as long as it looked fixed.
+
   That hole was found by this repository's own automated reviewer, on the pull
   request adding the workflow — the first finding of its kind it has produced
   here that survived checking.
@@ -48,12 +55,18 @@
   Two things were measured rather than assumed. `.author.login` is
   `app/dependabot` through `gh --json`, not `dependabot[bot]` as the REST API
   spells it, so the obvious `startswith("dependabot")` predicate selects nothing
-  — for ever, while staying green; the check normalises both forms and is
-  exercised against seven fixtures, including an impostor author on a
-  `dependabot/cargo/` branch. And the generator reads licence files out of the
-  cargo registry without fetching them, so the job fetches explicitly: nothing
-  else in it compiles anything, which is why `test-reusable.yml` never needed
-  the step and this would otherwise have been a laptop-only pass.
+  — for ever, while staying green; the check normalises both forms. It was
+  exercised while being written against seven hand-built cases, including an
+  impostor author on a `dependabot/cargo/` branch, a closed pull request and
+  the two non-cargo ecosystems, with the jq program extracted from the workflow
+  so the exercise could not drift from what runs. That was a measurement taken
+  during development, not a committed test: nothing in the repository reruns it,
+  so a later edit to the predicate is guarded by review alone.
+
+  And the generator reads licence files out of the cargo registry without
+  fetching them, so the job fetches explicitly: nothing else in it compiles
+  anything, which is why `test-reusable.yml` never needed the step and this
+  would otherwise have been a laptop-only pass.
 
   ⚠ Pushing to a Dependabot branch stops Dependabot rebasing it. That is wanted
   here — a rebase would discard the notices commit — but it means a stale pull
