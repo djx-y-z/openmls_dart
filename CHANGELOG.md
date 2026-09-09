@@ -29,6 +29,22 @@
   the token, since a branch name is not a credential and anyone who can push can
   create `dependabot/cargo/x`.
 
+  The work is split across two jobs for the same reason `repair-build.yml` is,
+  and the author check is what makes the split necessary rather than optional:
+  it proves Dependabot *opened* the pull request, not that nobody pushed to its
+  branch afterwards — and the signing exclusion above means such a push need not
+  even be signed. So the job that runs branch content — the `Makefile`, the
+  scripts, and the composite actions `uses: ./…` resolves out of the workspace —
+  holds no credential at all and checks out with `persist-credentials: false`;
+  the job holding the App token runs nothing from the tree, taking the one file
+  back as an artifact and refusing to commit if anything else in the working
+  tree moved. Checking untrusted files out is safe; executing them beside a
+  credential is not.
+
+  That hole was found by this repository's own automated reviewer, on the pull
+  request adding the workflow — the first finding of its kind it has produced
+  here that survived checking.
+
   Two things were measured rather than assumed. `.author.login` is
   `app/dependabot` through `gh --json`, not `dependabot[bot]` as the REST API
   spells it, so the obvious `startswith("dependabot")` predicate selects nothing

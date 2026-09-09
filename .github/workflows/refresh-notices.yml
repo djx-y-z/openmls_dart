@@ -136,8 +136,23 @@ jobs:
             exit 1
           fi
 
-  refresh:
-    name: Refresh notices (#${{ matrix.pr.number }})
+  # Split in two, and that is the security design rather than tidiness. This job
+  # executes content from the pull request's branch — the Makefile, the scripts
+  # under scripts/, and the composite actions under .github/actions/ that
+  # `uses: ./…` resolves out of the workspace. So it holds no credential: the
+  # checkout is read-only and `persist-credentials: false` keeps even that out
+  # of `.git/config`.
+  #
+  # The author check in `discover` is not a substitute. It proves Dependabot
+  # OPENED the pull request, not that nobody pushed to its branch afterwards —
+  # and `signing-commit.json` exempts those very branches from needing a
+  # signature, so such a push does not even have to be signed. Anything the
+  # branch can run would otherwise run with an App token in reach, which is a
+  # strictly wider credential than the pusher's own.
+  #
+  # The result therefore leaves this job as a file, and only a file.
+  generate:
+    name: Regenerate notices (#${{ matrix.pr.number }})
     needs: discover
     # No open cargo pull request is the ordinary state on most days, and GitHub
     # errors on an empty matrix rather than skipping it.
@@ -145,6 +160,77 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       # One pull request failing to regenerate says nothing about the others.
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        pr: ${{ fromJson(needs.discover.outputs.prs) }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ matrix.pr.branch }}
+          # No token is persisted into `.git/config`, so nothing this job runs
+          # can find a credential there to reuse.
+          persist-credentials: false
+
+      - name: Setup Rust
+        uses: ./.github/actions/setup-rust
+
+      - name: Setup FVM and Flutter
+        uses: ./.github/actions/setup-fvm
+
+      - name: Get Dart dependencies
+        run: make get
+
+      # The generator reads each crate's license files out of the registry
+      # checkout; it does not fetch them itself, it only says to. Nothing else
+      # in this job compiles anything, so on a cold runner the registry is empty
+      # and the generator fails on crates it cannot find. `test-reusable.yml`
+      # never needed this because `make build` runs earlier in that job.
+      - name: Fetch the cargo registry
+        run: cargo fetch --manifest-path rust/Cargo.toml
+
+      # `make third-party-notices` exits non-zero when it cannot account for a
+      # crate — an unknown license, a package missing from the registry. That is
+      # the fail-closed direction and it must stay one: a failure here leaves
+      # the pull request red and a human reads the log, rather than a partial
+      # inventory being committed as though it were complete.
+      - name: Regenerate the notice inventory
+        run: |
+          set -euo pipefail
+          make third-party-notices
+
+          # Reported for the log alone, so a stray edit made by anything above
+          # is visible rather than silent. Nothing else from this tree travels
+          # to the job holding the token — only the one file, as an artifact.
+          git status --porcelain || true
+
+      # Uploaded unconditionally, even when the inventory did not move. A matrix
+      # job has ONE set of outputs and every leg overwrites it, so a
+      # `needs.generate.outputs.changed` signal would carry whichever pull
+      # request finished last and the commit job would go looking for an
+      # artifact some other leg never produced. Whether there is anything to
+      # commit is decided in the commit job from git's own state, which is
+      # per-branch and cannot be confused between legs.
+      - name: Hand over the regenerated file
+        uses: actions/upload-artifact@v4
+        with:
+          name: notices-${{ matrix.pr.number }}
+          path: THIRD_PARTY_NOTICES.txt
+          if-no-files-found: error
+          retention-days: 1
+
+  # This job holds the App token and runs NOTHING from the pull request's
+  # branch: no `make`, no `uses: ./…`, no script out of the tree. It checks the
+  # branch out only so git has its history to commit against, overwrites the one
+  # path from the artifact, and pushes. Checking untrusted files out is safe;
+  # executing them beside a credential is not, and that is the whole line this
+  # split draws.
+  commit:
+    name: Commit notices (#${{ matrix.pr.number }})
+    needs: [discover, generate]
+    if: needs.discover.outputs.prs != '[]'
+    runs-on: ubuntu-latest
+    strategy:
       fail-fast: false
       max-parallel: 1
       matrix:
@@ -177,36 +263,16 @@ jobs:
         with:
           ref: ${{ matrix.pr.branch }}
           token: ${{ steps.app-token.outputs.token }}
-          # `persist-credentials` defaults to true and is what lets the push
-          # below authenticate as the App rather than as the workflow token.
+          # Persisted deliberately: it is what authenticates the push below.
+          # Safe here only because this job runs nothing out of the tree.
           persist-credentials: true
 
-      - name: Setup Rust
-        uses: ./.github/actions/setup-rust
+      - name: Take back the regenerated file
+        uses: actions/download-artifact@v4
+        with:
+          name: notices-${{ matrix.pr.number }}
 
-      - name: Setup FVM and Flutter
-        uses: ./.github/actions/setup-fvm
-
-      - name: Get Dart dependencies
-        run: make get
-
-      # The generator reads each crate's license files out of the registry
-      # checkout; it does not fetch them itself, it only says to. Nothing else
-      # in this job compiles anything, so on a cold runner the registry is empty
-      # and the generator fails on crates it cannot find. `test-reusable.yml`
-      # never needed this because `make build` runs earlier in that job.
-      - name: Fetch the cargo registry
-        run: cargo fetch --manifest-path rust/Cargo.toml
-
-      # `make third-party-notices` exits non-zero when it cannot account for a
-      # crate — an unknown license, a package missing from the registry. That is
-      # the fail-closed direction and it must stay one: a failure here leaves
-      # the pull request red and a human reads the log, rather than a partial
-      # inventory being committed as though it were complete.
-      - name: Regenerate the notice inventory
-        run: make third-party-notices
-
-      - name: Commit and push if it changed
+      - name: Commit and push
         env:
           BRANCH: ${{ matrix.pr.branch }}
           PR: ${{ matrix.pr.number }}
@@ -215,12 +281,18 @@ jobs:
         run: |
           set -euo pipefail
 
-          # Only this one path, and only when it actually moved. Committing an
-          # unchanged file every day would push a stream of empty commits, and
-          # committing anything else would smuggle unrelated changes into a
-          # dependency pull request.
+          # The artifact carries one file and the commit stages one path. If
+          # anything else in the tree moved, something upstream is wrong and
+          # this stops rather than smuggling it into a dependency pull request.
+          unexpected=$(git status --porcelain | grep -v ' THIRD_PARTY_NOTICES.txt$' || true)
+          if [ -n "$unexpected" ]; then
+            echo "::error::Unexpected changes beside the inventory:"
+            echo "$unexpected"
+            exit 1
+          fi
+
           if [ -z "$(git status --porcelain -- THIRD_PARTY_NOTICES.txt)" ]; then
-            echo "Inventory already matches the lockfile on #$PR — nothing to push."
+            echo "Nothing to push for #$PR — the branch already carries this inventory."
             exit 0
           fi
 
@@ -247,8 +319,3 @@ jobs:
 
           git push origin "HEAD:${BRANCH}"
           echo "Pushed a refreshed inventory to $BRANCH."
-
-      # Proves the thing the pull request is blocked on now passes, using the
-      # same target CI runs rather than trusting that regeneration was enough.
-      - name: Verify the gate the pull request was failing
-        run: make verify-third-party-notices
