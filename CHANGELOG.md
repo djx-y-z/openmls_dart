@@ -2,6 +2,47 @@
 
 ### For Contributors
 
+#### Added
+
+- **`Refresh Dependency Notices` regenerates `THIRD_PARTY_NOTICES.txt` on Dependabot's cargo pull requests** (`.github/workflows/refresh-notices.yml`) — the inventory is generated from the resolved cargo graph, and Dependabot edits `rust/Cargo.toml` and `rust/Cargo.lock` with no way to run `make third-party-notices` afterwards, so every cargo pull request arrived with a stale inventory and failed `verify-third-party-notices`.
+
+  That was cosmetic until the ruleset in v4.10.0 required the whole matrix. The
+  step runs `if: matrix.name == 'Linux x86_64'`, so it fails the job reported as
+  `test / Test (Linux x86_64)` — now one of twelve required contexts. The same
+  redness that used to be ignorable makes every cargo pull request unmergeable
+  by anyone without a ruleset bypass. The fix follows its cause by one day.
+
+  It is a separate workflow rather than a step in `test.yml` because a workflow
+  triggered by a Dependabot pull request gets a read-only `GITHUB_TOKEN` and no
+  Actions secrets — measured, and this repository has no Dependabot secrets
+  either, so such a job can mint no App token and push nothing. `schedule` plus
+  `workflow_dispatch` run in the base repository's context instead;
+  `pull_request_target` was rejected, since it would hand a write token to a job
+  checking out pull-request content.
+
+  An ordinary unsigned `git push` is what lands the commit, and that is only
+  legal because `signing-commit.json` excludes exactly `refs/heads/dependabot/**/*`
+  from the signature requirement — written down in the workflow, because if that
+  exclusion is ever narrowed the commit has to go through the GitHub API
+  instead. Scoped to `dependabot/cargo/**` and to Dependabot's own authorship,
+  checked twice: once when selecting pull requests and again in the job holding
+  the token, since a branch name is not a credential and anyone who can push can
+  create `dependabot/cargo/x`.
+
+  Two things were measured rather than assumed. `.author.login` is
+  `app/dependabot` through `gh --json`, not `dependabot[bot]` as the REST API
+  spells it, so the obvious `startswith("dependabot")` predicate selects nothing
+  — for ever, while staying green; the check normalises both forms and is
+  exercised against seven fixtures, including an impostor author on a
+  `dependabot/cargo/` branch. And the generator reads licence files out of the
+  cargo registry without fetching them, so the job fetches explicitly: nothing
+  else in it compiles anything, which is why `test-reusable.yml` never needed
+  the step and this would otherwise have been a laptop-only pass.
+
+  ⚠ Pushing to a Dependabot branch stops Dependabot rebasing it. That is wanted
+  here — a rebase would discard the notices commit — but it means a stale pull
+  request needs a human, and `@dependabot rebase` is the wrong repair.
+
 #### Changed
 
 - **copier template adopted: v4.9.0 -> v4.10.0** — the generated project now documents the FFI scan boundary and makes the pull-request gate report the full test matrix instead of disappearing behind a path filter.

@@ -1,0 +1,254 @@
+# Regenerate THIRD_PARTY_NOTICES.txt on Dependabot's cargo pull requests.
+#
+# Why this exists. The notice inventory is generated from the resolved cargo
+# graph, so any dependency change invalidates it — and Dependabot edits
+# `rust/Cargo.toml` and `rust/Cargo.lock` directly, with no way to run
+# `make third-party-notices` afterwards. Every cargo pull request therefore
+# arrives with a stale inventory and fails `verify-third-party-notices`.
+#
+# That used to be cosmetic: `protect-main.json` required one status check, so a
+# red notices step did not stop a merge. It is not cosmetic any more. The step
+# runs `if: matrix.name == 'Linux x86_64'`, so it fails the job reported as
+# `test / Test (Linux x86_64)` — one of the twelve contexts now required. Every
+# cargo pull request is unmergeable until the inventory is refreshed, and the
+# only people who can merge past it are those with a ruleset bypass.
+#
+# Why a separate workflow rather than a step in `test.yml`. A workflow triggered
+# by a Dependabot pull request gets a read-only `GITHUB_TOKEN` and no access to
+# Actions secrets — measured: this repository has no Dependabot secrets either
+# (`gh api repos/OWNER/REPO/dependabot/secrets` is empty), so such a job can
+# mint no App token and push nothing. This workflow runs on `schedule` and
+# `workflow_dispatch` instead, both of which execute in the base repository's
+# own context with its secrets.
+#
+# `pull_request_target` would also have the credential, and is deliberately not
+# used: it would hand a write token to a job checking out pull-request content.
+#
+# ⚠ Pushing to a Dependabot branch makes Dependabot stop managing that pull
+# request — it will not rebase it afterwards. That is mostly what we want, since
+# a rebase would discard the notices commit. The tail is that a long-lived pull
+# request no longer follows `main`, so if it goes stale a human rebases it. Do
+# NOT reach for `@dependabot rebase` to fix that: it discards this workflow's
+# commit and puts the pull request straight back to red.
+#
+# Signing. `signing-commit.json` requires signed commits on `~ALL` branches and
+# excludes exactly `refs/heads/dependabot/**/*`, which is why an ordinary
+# unsigned `git push` is accepted here and would be rejected anywhere else. The
+# exclusion exists because Dependabot's own commits are unsigned. If that
+# exclusion is ever narrowed, this workflow has to create its commit through the
+# GitHub API instead, which signs.
+#
+# Host agreement is an assumption this rests on: the inventory is generated here
+# on Linux x86_64 and verified by CI on Linux x86_64, so the two agree by
+# construction. `.gitattributes` marks the file `-text` so git round-trips it
+# byte-for-byte rather than translating line endings.
+
+name: Refresh Dependency Notices
+
+on:
+  # Dependabot's cargo schedule is weekly (Monday 06:00 UTC); daily is well
+  # inside that and keeps the fix within a day of the pull request opening.
+  schedule:
+    - cron: '0 7 * * *'
+  workflow_dispatch:
+    inputs:
+      pr:
+        description: >-
+          Pull request number to refresh. Empty means every open pull request on
+          a dependabot/cargo/** branch.
+        required: false
+        default: ''
+
+# Least privilege for the whole file: every write is made with the App token
+# minted in the job that needs it.
+permissions:
+  contents: read
+
+# Two runs pushing to the same branch would race each other, and nothing here is
+# urgent enough to cancel a run that is mid-push.
+concurrency:
+  group: refresh-dependency-notices
+  cancel-in-progress: false
+
+jobs:
+  discover:
+    name: Find stale cargo pull requests
+    runs-on: ubuntu-latest
+    outputs:
+      prs: ${{ steps.find.outputs.prs }}
+    steps:
+      # Only `dependabot/cargo/**`, not `dependabot/**`. The inventory is
+      # generated from the cargo graph, so a pub or github-actions bump cannot
+      # invalidate it — including those branches would regenerate an unchanged
+      # file and push nothing, every day, for nothing.
+      #
+      # The author is checked as well as the branch prefix. A branch name is not
+      # a credential: anyone who can push can create `dependabot/cargo/x`, and
+      # this workflow would then commit to it.
+      - name: Find pull requests
+        id: find
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          ONLY_PR: ${{ inputs.pr }}
+        run: |
+          set -euo pipefail
+
+          if [ -n "$ONLY_PR" ]; then
+            case "$ONLY_PR" in
+              ''|*[!0-9]*)
+                echo "::error::pr input must be a number, got '$ONLY_PR'."
+                exit 1
+                ;;
+            esac
+            raw=$(gh pr view "$ONLY_PR" --repo "$REPO" \
+                    --json number,headRefName,author,state \
+                  | jq -c '[.]')
+          else
+            raw=$(gh pr list --repo "$REPO" --state open --limit 50 \
+                    --json number,headRefName,author,state)
+          fi
+
+          # `select` rather than a `--search` filter so the same predicate
+          # applies to both branches above, including a hand-dispatched number.
+          #
+          # The author is normalised before comparison because the two APIs
+          # spell the same bot differently: `gh --json author` reports
+          # `app/dependabot`, while the REST API reports `dependabot[bot]`.
+          # Measured on #21 and #24, both of which report `app/dependabot` —
+          # a bare `startswith("dependabot")` matches neither form and would
+          # leave this workflow selecting nothing, for ever, while staying
+          # green.
+          prs=$(jq -c '
+            def canon: ascii_downcase | sub("^app/"; "") | sub("\\[bot\\]$"; "");
+            map(select(
+              .state == "OPEN"
+              and ((.author.login | canon) == "dependabot")
+              and (.headRefName | startswith("dependabot/cargo/"))
+            ) | {number, branch: .headRefName})
+          ' <<<"$raw")
+
+          echo "prs=$prs" >> "$GITHUB_OUTPUT"
+          echo "Selected: $prs"
+
+          if [ -n "$ONLY_PR" ] && [ "$prs" = "[]" ]; then
+            echo "::error::#$ONLY_PR is not an open Dependabot cargo pull request; refusing to touch it."
+            exit 1
+          fi
+
+  refresh:
+    name: Refresh notices (#${{ matrix.pr.number }})
+    needs: discover
+    # No open cargo pull request is the ordinary state on most days, and GitHub
+    # errors on an empty matrix rather than skipping it.
+    if: needs.discover.outputs.prs != '[]'
+    runs-on: ubuntu-latest
+    strategy:
+      # One pull request failing to regenerate says nothing about the others.
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        pr: ${{ fromJson(needs.discover.outputs.prs) }}
+    steps:
+      - name: Generate GitHub App Token
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ vars.APP_CLIENT_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+
+      # Fail closed on the branch name a second time, in the job that actually
+      # holds the token. `discover` already filtered, but this step is what
+      # stands between a bad matrix value and a push onto an arbitrary ref.
+      - name: Refuse anything that is not a Dependabot cargo branch
+        env:
+          BRANCH: ${{ matrix.pr.branch }}
+        run: |
+          set -euo pipefail
+          case "$BRANCH" in
+            dependabot/cargo/*) echo "Branch '$BRANCH' accepted." ;;
+            *)
+              echo "::error::Refusing to touch '$BRANCH' — not a dependabot/cargo/** branch."
+              exit 1
+              ;;
+          esac
+
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ matrix.pr.branch }}
+          token: ${{ steps.app-token.outputs.token }}
+          # `persist-credentials` defaults to true and is what lets the push
+          # below authenticate as the App rather than as the workflow token.
+          persist-credentials: true
+
+      - name: Setup Rust
+        uses: ./.github/actions/setup-rust
+
+      - name: Setup FVM and Flutter
+        uses: ./.github/actions/setup-fvm
+
+      - name: Get Dart dependencies
+        run: make get
+
+      # The generator reads each crate's license files out of the registry
+      # checkout; it does not fetch them itself, it only says to. Nothing else
+      # in this job compiles anything, so on a cold runner the registry is empty
+      # and the generator fails on crates it cannot find. `test-reusable.yml`
+      # never needed this because `make build` runs earlier in that job.
+      - name: Fetch the cargo registry
+        run: cargo fetch --manifest-path rust/Cargo.toml
+
+      # `make third-party-notices` exits non-zero when it cannot account for a
+      # crate — an unknown license, a package missing from the registry. That is
+      # the fail-closed direction and it must stay one: a failure here leaves
+      # the pull request red and a human reads the log, rather than a partial
+      # inventory being committed as though it were complete.
+      - name: Regenerate the notice inventory
+        run: make third-party-notices
+
+      - name: Commit and push if it changed
+        env:
+          BRANCH: ${{ matrix.pr.branch }}
+          PR: ${{ matrix.pr.number }}
+          APP_SLUG: ${{ steps.app-token.outputs.app-slug }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          set -euo pipefail
+
+          # Only this one path, and only when it actually moved. Committing an
+          # unchanged file every day would push a stream of empty commits, and
+          # committing anything else would smuggle unrelated changes into a
+          # dependency pull request.
+          if [ -z "$(git status --porcelain -- THIRD_PARTY_NOTICES.txt)" ]; then
+            echo "Inventory already matches the lockfile on #$PR — nothing to push."
+            exit 0
+          fi
+
+          # Attributed to the App, not to `github.actor`. On a `schedule` run
+          # the actor is the repository owner, so using it would credit a person
+          # for a commit they did not make. The numeric id is looked up rather
+          # than hardcoded so this stays portable to every project that renders
+          # this workflow with a different App.
+          bot="${APP_SLUG}[bot]"
+          bot_id=$(gh api "/users/${bot}" --jq '.id')
+          git config user.name  "$bot"
+          git config user.email "${bot_id}+${bot}@users.noreply.github.com"
+
+          git add -- THIRD_PARTY_NOTICES.txt
+
+          # Built with repeated -m rather than one multi-line string: this whole
+          # block is indented inside the YAML, so a quoted newline would carry
+          # ten leading spaces into the commit message body. Each -m becomes its
+          # own paragraph, already separated by a blank line.
+          git commit \
+            -m "chore(notices): regenerate for #${PR}" \
+            -m "The inventory is generated from the resolved cargo graph, which this pull request changes. Regenerated by the Refresh Dependency Notices workflow so \`make verify-third-party-notices\` passes." \
+            -m "Dependabot no longer rebases this branch now that it has been pushed to; \`@dependabot rebase\` would discard this commit."
+
+          git push origin "HEAD:${BRANCH}"
+          echo "Pushed a refreshed inventory to $BRANCH."
+
+      # Proves the thing the pull request is blocked on now passes, using the
+      # same target CI runs rather than trusting that regeneration was enough.
+      - name: Verify the gate the pull request was failing
+        run: make verify-third-party-notices
