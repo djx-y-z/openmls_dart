@@ -74,6 +74,21 @@
 
 #### Changed
 
+- **copier template adopted: v4.10.0 -> v4.11.0** — adopts the notices repair.
+  The `.github/workflows/refresh-notices.yml` portion is byte-identical to the
+  Dependabot cargo-notices workflow already present here, so this adoption does
+  not introduce a second implementation or a new workflow behaviour.
+
+  `.github/rulesets/README.md` now documents why
+  `refs/heads/dependabot/**/*` is excluded from required signatures: the repair
+  uses an ordinary unsigned push, and restoring signatures would require the
+  workflow to create its commit through the GitHub API instead. This records the
+  constraint beside the ruleset guidance so narrowing the exclusion does not
+  silently make cargo pull requests unmergeable.
+
+  `.copier-answers.yml` records template version `v4.11.0`, keeping subsequent
+  copier updates based on the version actually adopted.
+
 - **copier template adopted: v4.9.0 -> v4.10.0** — the generated project now documents the FFI scan boundary and makes the pull-request gate report the full test matrix instead of disappearing behind a path filter.
 
   `.claude/skills/frb-patterns/SKILL.md` now says that `rust/src/api/` is a
