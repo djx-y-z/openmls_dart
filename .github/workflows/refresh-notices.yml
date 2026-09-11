@@ -15,8 +15,15 @@
 #
 # Why a separate workflow rather than a step in `test.yml`. A workflow triggered
 # by a Dependabot pull request gets a read-only `GITHUB_TOKEN` and no access to
+<<<<<<< before updating
 # Actions secrets — measured: this repository has no Dependabot secrets either
 # (`gh api repos/OWNER/REPO/dependabot/secrets` is empty), so such a job can
+=======
+# Actions secrets. The separate Dependabot secret store is the only place such
+# a job could still reach a credential, and nothing in this template populates
+# it — `gh api repos/OWNER/REPO/dependabot/secrets` is how to confirm that for
+# a given project before assuming otherwise. So a Dependabot-triggered job can
+>>>>>>> after updating
 # mint no App token and push nothing. This workflow runs on `schedule` and
 # `workflow_dispatch` instead, both of which execute in the base repository's
 # own context with its secrets.
@@ -111,6 +118,7 @@ jobs:
             # the page would simply stay stale with nothing reporting it.
             # `gh` has no pagination here, so the bound has to be one the list
             # cannot reach. Dependabot's default is 5 open pull requests per
+<<<<<<< before updating
             # ecosystem and this repository sets no `open-pull-requests-limit`,
             # so three ecosystems cannot produce more than 15.
             #
@@ -118,6 +126,16 @@ jobs:
             # against this repository. The predicate below still re-checks the
             # author, because this filter is an optimisation and that one is
             # the security boundary.
+=======
+            # ecosystem and the generated `dependabot.yml` sets no
+            # `open-pull-requests-limit`, so its three ecosystems cannot
+            # produce more than 15.
+            #
+            # The `app/` spelling is what `gh` accepts and returns, measured
+            # against real Dependabot pull requests. The predicate below still
+            # re-checks the author, because this filter is an optimisation and
+            # that one is the security boundary.
+>>>>>>> after updating
             raw=$(gh pr list --repo "$REPO" --state open --limit 100 \
                     --author "app/dependabot" \
                     --json number,headRefName,author,state)
@@ -129,10 +147,17 @@ jobs:
           # The author is normalised before comparison because the two APIs
           # spell the same bot differently: `gh --json author` reports
           # `app/dependabot`, while the REST API reports `dependabot[bot]`.
+<<<<<<< before updating
           # Measured on #21 and #24, both of which report `app/dependabot` —
           # a bare `startswith("dependabot")` matches neither form and would
           # leave this workflow selecting nothing, for ever, while staying
           # green.
+=======
+          # Measured on real Dependabot pull requests, which report
+          # `app/dependabot` — a bare `startswith("dependabot")` matches
+          # neither form and would leave this workflow selecting nothing, for
+          # ever, while staying green.
+>>>>>>> after updating
           prs=$(jq -c '
             def canon: ascii_downcase | sub("^app/"; "") | sub("\\[bot\\]$"; "");
             map(select(
@@ -189,6 +214,26 @@ jobs:
       - name: Setup Rust
         uses: ./.github/actions/setup-rust
 
+<<<<<<< before updating
+=======
+      # There is deliberately no `Setup Protoc` step, and the absence is a
+      # measurement rather than an oversight — a project whose build scripts
+      # need `protoc` sets it up in every other job that touches Rust, so a
+      # reader who does not find it here will eventually put it back.
+      #
+      # Nothing in this job compiles. The generator shells out to `cargo tree`
+      # and `cargo metadata`, which resolve the dependency graph and read
+      # manifests without running a single build script, and `protoc` is
+      # reached for from a build script.
+      #
+      # Measured on a project that does need it, with `protoc` removed from
+      # `PATH` for both runs: `make third-party-notices` exited 0 and wrote a
+      # byte-identical inventory, while `make rust-check` on that same `PATH`
+      # failed with "Could not find `protoc`" out of a `prost-build` build
+      # script. So the distinction holding this up is compiling versus reading
+      # metadata, and it is the second one that happens here.
+
+>>>>>>> after updating
       - name: Setup FVM and Flutter
         uses: ./.github/actions/setup-fvm
 
@@ -238,7 +283,11 @@ jobs:
           echo "Generated from $(cat "${RUNNER_TEMP}/notices/generated-from.sha")"
 
       - name: Hand over the regenerated file
+<<<<<<< before updating
         uses: actions/upload-artifact@v4
+=======
+        uses: actions/upload-artifact@v7
+>>>>>>> after updating
         with:
           name: notices-${{ matrix.pr.number }}
           path: ${{ runner.temp }}/notices/
@@ -294,7 +343,11 @@ jobs:
           persist-credentials: true
 
       - name: Take back the regenerated file
+<<<<<<< before updating
         uses: actions/download-artifact@v4
+=======
+        uses: actions/download-artifact@v8
+>>>>>>> after updating
         with:
           name: notices-${{ matrix.pr.number }}
           path: ${{ runner.temp }}/notices
