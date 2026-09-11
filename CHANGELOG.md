@@ -74,6 +74,33 @@
 
 #### Changed
 
+- **copier template adopted: v4.10.0 -> v4.12.0** — tightens prompts
+
+  `.copier-answers.yml` now records template version `v4.12.0`.
+
+  The v4.11.0 `Refresh Dependency Notices` workflow is already present in
+  `.github/workflows/refresh-notices.yml`; it arrives byte-identically here,
+  so this adoption does not add new notice-generation behavior. The related
+  `.github/rulesets/README.md` change documents why its unsigned push is
+  permitted: `refs/heads/dependabot/**/*` is excluded from
+  `required_signatures`, and restoring that requirement would require the
+  workflow to create the commit through the GitHub API instead of `git push`.
+
+  `scripts/src/update_changelog.dart` now gives the dependency-bump changelog
+  prompt a checkable scope argument. Rule 1 asks for the documented bold
+  summary and em-dash format instead of fixing a title as the first line.
+  Rule 2 requires both where an upstream change landed and why that location
+  is outside this package's resolved dependency graph, rejecting a bare
+  out-of-scope verdict or a location without its reason.
+
+  Rule 4 continues to require the exact no-impact phrase, but the phrase is
+  now shared as `noImpactPhrase` with `breakingContradictsNoImpact`, so the
+  prompt and its guard cannot silently drift apart. The prompt also requires
+  the conclusion to appear once in a sentence rather than as a detached
+  `Note:` line. Its concrete example has been replaced by an abstract answer
+  shape and an explicit anti-example, making the failure modes inspectable
+  without teaching the model one project-specific response.
+
 - **copier template adopted: v4.9.0 -> v4.10.0** — the generated project now documents the FFI scan boundary and makes the pull-request gate report the full test matrix instead of disappearing behind a path filter.
 
   `.claude/skills/frb-patterns/SKILL.md` now says that `rust/src/api/` is a
