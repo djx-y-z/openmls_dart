@@ -246,6 +246,19 @@ String readChangelogScope({Directory? packageDir}) {
       '$surface';
 }
 
+/// The exact phrase an entry uses to state that this update leaves the
+/// package's public API untouched.
+///
+/// Interpolated into rule 4 of the prompt AND matched by
+/// [breakingContradictsNoImpact], so the two cannot drift apart: rewording the
+/// rule rewords the check with it. That coupling is the point. The check reads
+/// one literal phrase, so an entry that paraphrases the conclusion — "does not
+/// affect", "no public-API impact" — walks straight past it, and nothing would
+/// report that the guard had stopped guarding: its tests feed the function a
+/// string directly and would keep passing while the prompt no longer produced
+/// one it recognises.
+const noImpactPhrase = "do not affect this library's public API";
+
 /// The fields the model must return, and what each one is.
 ///
 /// Doubles as the schema every provider enforces natively, so the JSON contract
@@ -344,24 +357,38 @@ Return a JSON object with EXACTLY two string fields:
    "**openmls $version** — internal/dependency update, no public-API impact".
 
 ## Rules for "changed" (THIS IS THE IMPORTANT PART — match the house style)
-1. First line exactly: "- Update openmls native library to $version ($sourceLink)".
+1. Write ONE bullet in the house format every bullet in the entries above
+   follows: "- **<summary>** — <detail>". The summary is a short sentence
+   saying what this update means FOR THIS PACKAGE, written fresh each release;
+   it is never a fixed string, and "Update <library> to <version>" is a title,
+   not a summary. Put $sourceLink in the detail so a reader can reach the range.
+   Longer entries continue in paragraphs indented two spaces and separated by a
+   blank line — use those, not nested sub-bullets.
 2. Classify EVERY upstream change against the scope section above:
-   - Changes OUTSIDE our exposed surface: do NOT give them their own feature
-     bullets. Summarize them together in ONE bullet that ends with
-     "— none of which this library exposes".
    - A change earns its own bullet only when BOTH hold: (a) it lands in a crate
      we bind, AND (b) it changes something named under "Exposed surface" above.
      Landing in a bound crate is NOT sufficient on its own — most of what those
-     crates contain is never reached from this package.
-     If you cannot name the specific item from "Exposed surface" that the change
-     touches, treat it as invisible and fold it into the
-     "— none of which this library exposes" bullet.
+     crates contain is never reached from this package. If you cannot name the
+     specific item from "Exposed surface" that the change touches, it is out of
+     scope.
+   - Out-of-scope work is excluded BY MECHANISM, never by caption. Do not name
+     the areas and append a verdict — "none of which this library exposes", "not
+     relevant here", "internal only". A verdict reads the same whatever the
+     release contains, so it gives a reader nothing to check, and it is the one
+     failure this prompt exists to prevent. Say instead WHERE the change landed
+     (the crate, module or bridge) and WHY that place is out of reach: the crate
+     is absent from this package's dependency graph, or the symbol is not on the
+     exposed surface. Both halves are required — a location with no reason is
+     still a caption.
+   - Group rather than enumerate: areas that miss for the SAME reason belong in
+     one sentence that gives that reason once. Length is not the goal; a reader
+     being able to verify the exclusion is.
    - Prefix a bullet with "**BREAKING:**" only when a caller of THIS package
      would have to change their code. A symbol removed or altered upstream that
      this package never calls is not breaking here, whatever upstream calls it.
-   - Never emit a "**BREAKING:**" bullet together with the rule-4 note: if
+   - Never emit a "**BREAKING:**" bullet together with the rule-4 sentence: if
      something genuinely broke, the update by definition DOES affect this
-     package's public API, and the note must be omitted.
+     package's public API, and that sentence must be omitted.
 3. When the crates we bind had no change reaching our exposed surface, say so
    explicitly. Default wording, which is true whenever (b) in rule 2 failed:
    "The crates we bind (`openmls`, `openmls_rust_crypto`, `openmls_basic_credential`, `openmls_traits`, `openmls_libcrux_crypto`) have no changes reaching the surface this package exposes".
@@ -371,8 +398,19 @@ Return a JSON object with EXACTLY two string fields:
    even one this package never calls — it is FALSE and must not be written.
    Naming such a symbol and saying why it does not reach us is better than
    claiming nothing changed.
-4. End with "Note: These changes do not affect this library's public API" when
-   true.
+4. When it is true, state that conclusion ONCE, and in these exact words:
+       $noImpactPhrase
+   Write that phrase verbatim, as the close of a sentence you are already
+   making ("... so these changes do not affect this library's public API") —
+   not as a detached trailing "Note:" line. The wording is load-bearing: a check
+   in this script reads that exact phrase to catch an entry which claims a
+   breaking change and no API impact at the same time, and any paraphrase
+   ("does not affect", "no public-API impact", "the public API is untouched")
+   defeats that check silently.
+   ONCE means once. The Highlights line, the mechanism you gave under rule 2 and
+   this conclusion are three different statements; repeating the same verdict in
+   more than one of them is padding, and it is what makes these entries read as
+   filled-in boilerplate. Omit the phrase entirely when it is not true.
 5. Judge relevance from the release notes AND the commit list, NOT from the
    version numbers.
 6. Claim only what the material above supports. Where a "Binding
@@ -382,15 +420,43 @@ Return a JSON object with EXACTLY two string fields:
    above mention them: a human ran those and you did not. Copy the style, never
    a finding.
 
-## Example output (house style — follow this SHAPE, not this wording):
-```json
-{
-  "openmls_highlight": "**openmls $version** — internal/dependency update, no public-API impact",
-  "changed": "- Update openmls native library to $version ($sourceLink)\\n  - Upstream changes are limited to <name the areas, from the \\"Not bound or exposed\\" list above> — none of which this library exposes\\n  - The crates we bind (`openmls`, `openmls_rust_crypto`, `openmls_basic_credential`, `openmls_traits`, `openmls_libcrux_crypto`) have no changes reaching the surface this package exposes\\n  - Note: These changes do not affect this library's public API"
-}
-```
+## The shape of "changed" (the SHAPE is fixed; the wording is yours every time)
 
-Return ONLY valid JSON, no markdown code blocks.
+One house-format bullet, continued in indented paragraphs when it needs them:
+
+  - **<what this update means for this package>** — <the range, with
+    $sourceLink, then the mechanism: where the out-of-scope work landed and why
+    that place is out of reach>
+
+    <continuation: what the crates we bind did and did not change; the
+    binding-regeneration result, if one is given above; and the rule-4
+    conclusion, if it is true>
+
+Inside the JSON string a newline is written \\n, and a continuation paragraph is
+a blank line followed by two spaces of indent.
+
+## What NOT to write
+
+This is the shape that keeps reaching pull requests. Every line of it is a
+verdict with nothing behind it:
+
+  - Update openmls native library to $version ($sourceLink)
+    - Upstream changes cover <areas> — none of which this library exposes
+    - The crates we bind (`openmls`, `openmls_rust_crypto`, `openmls_basic_credential`, `openmls_traits`, `openmls_libcrux_crypto`) have no changes reaching the surface this package exposes
+    - Note: These changes do not affect this library's public API
+
+Four things are wrong with it. The first line is a title, not the house
+"**summary** — detail" bullet (rule 1). The areas are named and then dismissed
+by caption instead of by location and reason (rule 2). The same no-impact
+verdict is stated three times over (rule 4). And it comes out word for word
+identical release after release, which is the tell that no release was read.
+
+The rule-4 phrase itself is still REQUIRED when true. What is wrong above is
+that it arrives as a detached trailing line rather than as the conclusion of an
+argument you actually made.
+
+Return ONLY valid JSON with the two fields named under "Your task", no markdown
+code blocks.
 ''';
 
   final response = await callAi(
@@ -458,7 +524,7 @@ Return ONLY valid JSON, no markdown code blocks.
 bool breakingContradictsNoImpact(String changed) {
   final lower = changed.toLowerCase().replaceAll(RegExp('[‘’ʼ]'), "'");
   return lower.contains('**breaking:**') &&
-      lower.contains("do not affect this library's public api");
+      lower.contains(noImpactPhrase.toLowerCase());
 }
 
 /// Insert the new changelog entry in the correct location. Pure; exposed for

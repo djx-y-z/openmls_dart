@@ -196,6 +196,17 @@ still have to pass `~DEFAULT_BRANCH`'s `pull_request` gate plus `main`'s own
 with a bypass actor — the rulesets target `~ALL`, so a bypass actor would also
 be exempt on `main` itself, which is the opposite of what is wanted.
 
+It is no longer only a convenience, though, and that matters when narrowing it.
+`refresh-notices.yml` regenerates `THIRD_PARTY_NOTICES.txt` on Dependabot's
+cargo pull requests and pushes an ordinary **unsigned** commit to those
+branches — legal only because `required_signatures` does not reach them. Keeping
+the force-push and deletion exclusions while requiring signatures again would
+put every cargo pull request back to unmergeable with nothing saying why: the
+workflow's push is rejected, and the stale inventory then fails
+`test / Test (Linux x86_64)`, one of the required contexts above. If signatures
+are ever wanted on these branches, that workflow has to create its commit
+through the GitHub API — which signs — rather than with `git push`.
+
 Mind the pattern's trailing `/*`. These are `fnmatch` patterns in pathname mode,
 where a bare `**` does **not** cross a `/`: `refs/heads/dependabot/**` matches
 `dependabot/foo` but *not* `dependabot/github_actions/github-actions-1f84650690`,

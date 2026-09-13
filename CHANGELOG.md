@@ -74,6 +74,50 @@
 
 #### Changed
 
+- **copier template adopted: v4.10.0 -> v4.12.0** — two template releases at
+  once: the notices workflow this project contributed comes back carrying the
+  edits the template made to it, and the dependency-bump changelog prompt is
+  rewritten.
+
+  `.github/workflows/refresh-notices.yml` is **not** byte-identical to the copy
+  that went up. `actions/upload-artifact` moves v4 -> v7 and
+  `actions/download-artifact` v4 -> v8; those two lines are the only difference
+  that can change what the job does, and they put the file on the pins every
+  other workflow here already uses, clearing a Node 20 deprecation warning.
+  Measured before moving them: the extraction-layout break in
+  `download-artifact` v5 applies to downloads **by ID**, this one downloads by
+  name, and a v7 -> v8 round trip by name read from a flat path is already
+  green in this repository — `ai-review.yml` does exactly that. Every other
+  difference is a comment: four passages that recorded measurements about this
+  repository by name, reworded to say the same thing without naming it, plus a
+  new block recording why the job deliberately has no `Setup Protoc` step —
+  nothing in it compiles, so no build script runs, so nothing reaches for
+  `protoc`.
+
+  `.github/rulesets/README.md` now says the `refs/heads/dependabot/**/*`
+  exclusion from required signatures is load-bearing rather than merely
+  convenient: the workflow pushes an ordinary unsigned commit, so restoring
+  signatures on those branches while keeping the force-push and deletion
+  exclusions would put every cargo pull request back to unmergeable with
+  nothing saying why.
+
+  `scripts/src/update_changelog.dart` now gives the dependency-bump changelog
+  prompt a checkable scope argument. Rule 1 asks for the documented bold
+  summary and em-dash format instead of fixing a title as the first line.
+  Rule 2 requires both where an upstream change landed and why that location
+  is outside this package's resolved dependency graph, rejecting a bare
+  out-of-scope verdict or a location without its reason.
+
+  Rule 4 continues to require the exact no-impact phrase, but the phrase is
+  now shared as `noImpactPhrase` with `breakingContradictsNoImpact`, so the
+  prompt and its guard cannot silently drift apart. The prompt also requires
+  the conclusion to appear once in a sentence rather than as a detached
+  `Note:` line. Its concrete example has been replaced by an abstract answer
+  shape and an explicit anti-example, making the failure modes inspectable
+  without teaching the model one project-specific response.
+
+  `.copier-answers.yml` records template version `v4.12.0`.
+
 - **copier template adopted: v4.9.0 -> v4.10.0** — the generated project now documents the FFI scan boundary and makes the pull-request gate report the full test matrix instead of disappearing behind a path filter.
 
   `.claude/skills/frb-patterns/SKILL.md` now says that `rust/src/api/` is a
