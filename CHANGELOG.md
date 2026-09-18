@@ -24,6 +24,12 @@
   degradation is deliberate: the alternative is failing every operation on an
   origin where the Web build used to work.
 
+  ⚠ A panic inside a guarded operation does not release the lock. wasm32 aborts
+  on panic, so `Drop` never runs, while the instance itself keeps working — so
+  every later operation on that database reports "Database is busy" until the
+  page is reloaded. The escape is a reload, not a retry. Native unwinds and
+  releases.
+
   Native is unchanged and was never exposed: its sidecar lock file has refused
   a second opener outright since 2.0.0. This closes the same hole on the one
   platform whose processes are tabs.

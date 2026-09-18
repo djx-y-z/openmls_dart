@@ -22,6 +22,16 @@
 //! span needs — has to keep that promise pending and resolve it on `Drop`.
 //! That is what `held`/`release` below are; there is no "unlock" call to make.
 //!
+//! ⚠ **A panic inside the guarded span wedges that database until the page is
+//! reloaded.** wasm32 aborts on panic — it is the target default, and no
+//! profile key changes it (SECURITY.md #12) — so `Drop` does not run and the
+//! promise holding the lock stays pending. The instance itself survives the
+//! trap: `wasm_bindgen_test` reports a panicking test and then runs the rest in
+//! the same module, which is how this is known rather than assumed. So the tab
+//! keeps working while every operation on that database times out with
+//! "Database is busy", and the escape is a reload, not a retry. Native has no
+//! counterpart: there a panic unwinds, `Drop` runs, and the lock is released.
+//!
 //! ⚠ **Web Locks need a secure context.** `navigator.locks` is undefined on a
 //! plain-`http` origin that is not `localhost`, and in that case this module
 //! degrades to no cross-tab lock at all rather than failing the operation —
@@ -91,15 +101,16 @@ impl Drop for WebLockGuard {
 
 /// Take the exclusive Web Lock called `name`, waiting at most `timeout_ms`.
 pub(crate) async fn acquire(name: &str, timeout_ms: u32) -> Result<WebLockGuard, String> {
-    acquire_with(lock_manager(), name, timeout_ms).await
+    acquire_with(lock_manager(), name, abort_after(timeout_ms)).await
 }
 
-/// [`acquire`] against an explicit `LockManager`, so the absent-API path can be
-/// exercised by a test instead of argued about.
+/// [`acquire`] against an explicit `LockManager` and an explicit signal, so the
+/// absent-API path and each way of building the timeout can be exercised by a
+/// test instead of argued about.
 async fn acquire_with(
     manager: JsValue,
     name: &str,
-    timeout_ms: u32,
+    signal: Option<JsValue>,
 ) -> Result<WebLockGuard, String> {
     if manager.is_undefined() || manager.is_null() {
         return Ok(WebLockGuard::unheld());
@@ -136,7 +147,7 @@ async fn acquire_with(
 
     let options = Object::new();
     set(&options, "mode", &JsValue::from_str("exclusive"))?;
-    if let Some(signal) = abort_after(timeout_ms) {
+    if let Some(signal) = signal {
         set(&options, "signal", &signal)?;
     }
 
@@ -174,10 +185,24 @@ fn lock_manager() -> JsValue {
     Reflect::get(&navigator, &JsValue::from_str("locks")).unwrap_or(JsValue::UNDEFINED)
 }
 
-/// An `AbortSignal` that fires after `ms`, or `None` where the constructor is
-/// missing — in which case the request waits indefinitely, which is what the
-/// API does without a signal.
+/// An `AbortSignal` that fires after `ms`.
+///
+/// ⚠ **The bound is a promise this module makes in README and SECURITY.md, so
+/// it may not quietly lapse.** `AbortSignal.timeout` is one call but it is also
+/// younger than `navigator.locks`, so a browser that has the lock and not the
+/// constructor exists — and there the earlier version of this returned `None`,
+/// meaning an unbounded wait: exactly the wedged-tab hang the timeout is for,
+/// in the browsers least able to report it. `AbortController` and `setTimeout`
+/// are older than both, so the same signal is assembled from them instead.
+///
+/// `None` is now only for a context with neither, where the request does what
+/// the API does without a signal and waits.
 fn abort_after(ms: u32) -> Option<JsValue> {
+    signal_from_timeout(ms).or_else(|| signal_from_controller(ms))
+}
+
+/// `AbortSignal.timeout(ms)`, where that constructor exists.
+fn signal_from_timeout(ms: u32) -> Option<JsValue> {
     let global = js_sys::global();
     let ctor = Reflect::get(&global, &JsValue::from_str("AbortSignal")).ok()?;
     if ctor.is_undefined() || ctor.is_null() {
@@ -188,6 +213,41 @@ fn abort_after(ms: u32) -> Option<JsValue> {
         .dyn_into()
         .ok()?;
     timeout.call1(&ctor, &JsValue::from_f64(f64::from(ms))).ok()
+}
+
+/// The same signal built by hand: an `AbortController` aborted by `setTimeout`.
+///
+/// The timer fires whether or not the lock was granted first, and that is
+/// harmless: a signal aborts a lock request only while it is still queued, so
+/// aborting a granted one does nothing. Which is why nothing here cancels the
+/// timer — a `clearTimeout` would buy one freed callback and another thing to
+/// keep in step.
+fn signal_from_controller(ms: u32) -> Option<JsValue> {
+    let global = js_sys::global();
+    let ctor: Function = Reflect::get(&global, &JsValue::from_str("AbortController"))
+        .ok()?
+        .dyn_into()
+        .ok()?;
+    let controller = Reflect::construct(&ctor, &Array::new()).ok()?;
+    let signal = Reflect::get(&controller, &JsValue::from_str("signal")).ok()?;
+    let abort: Function = Reflect::get(&controller, &JsValue::from_str("abort"))
+        .ok()?
+        .dyn_into()
+        .ok()?;
+    let set_timeout: Function = Reflect::get(&global, &JsValue::from_str("setTimeout"))
+        .ok()?
+        .dyn_into()
+        .ok()?;
+
+    let fire_on = controller.clone();
+    let callback = Closure::once_into_js(move || {
+        let _ = abort.call0(&fire_on);
+    });
+    set_timeout
+        .call2(&global, &callback, &JsValue::from_f64(f64::from(ms)))
+        .ok()?;
+
+    Some(signal)
 }
 
 fn set(target: &Object, key: &str, value: &JsValue) -> Result<(), String> {
@@ -268,12 +328,37 @@ mod web_tests {
         assert!(a.is_held() && b.is_held());
     }
 
+    /// The five-second bound must hold on the fallback path as well.
+    ///
+    /// Not through [`acquire`]: that picks `AbortSignal.timeout`, which every
+    /// browser this suite can run in has. The branch under test is the other
+    /// one — what a browser with `navigator.locks` and without that constructor
+    /// takes — and before the fallback existed it was an UNBOUNDED wait, which
+    /// is the hang the timeout is there to prevent.
+    #[wasm_bindgen_test]
+    async fn a_controller_built_signal_bounds_the_wait_too() {
+        let name = unique_name("fallback");
+
+        let held = acquire(&name, WEB_LOCK_TIMEOUT_MS).await.expect("first taker gets the lock");
+        assert!(held.is_held());
+
+        let signal = signal_from_controller(150)
+            .expect("AbortController and setTimeout exist wherever this test runs");
+        let blocked = acquire_with(lock_manager(), &name, Some(signal)).await;
+
+        let message = blocked.err().expect("the fallback signal must abort the queued request");
+        assert!(
+            message.contains("Database is busy"),
+            "a contended lock must say so on this path too, got: {message}"
+        );
+    }
+
     /// Where the API is absent the operation proceeds unlocked instead of
     /// failing. Exercised through `acquire_with` because the property being
     /// tested is "no LockManager", which a browser that has one cannot show.
     #[wasm_bindgen_test]
     async fn an_absent_lock_manager_degrades_instead_of_failing() {
-        let guard = acquire_with(JsValue::UNDEFINED, "openmls_frb_test:absent", 150)
+        let guard = acquire_with(JsValue::UNDEFINED, "openmls_frb_test:absent", None)
             .await
             .expect("an absent API must not fail the operation");
         assert!(!guard.is_held(), "nothing is held when there is no LockManager");

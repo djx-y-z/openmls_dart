@@ -161,6 +161,7 @@ A tab is opened and closed by the person using the application rather than by th
 
 - **It needs a secure context.** `navigator.locks` exists on `https`, and on `http` at `localhost`; nowhere else. Served over plain `http` from any other host the API is absent, and operations run without the cross-tab guarantee instead of failing — which is where the Web build stood before the lock existed. Serve the application from a secure origin, or you have no protection against a second tab.
 - **A tab that dies releases the lock.** The browser owns it, so a crashed or closed tab cannot strand the database the way a stale lock file could.
+- **A panic does not.** wasm32 aborts on panic (see [Known Limitations](#known-limitations) #12), so `Drop` never runs and the promise holding the lock stays pending — while the instance itself keeps working. Every later operation on that database then fails with *"Database is busy"* until the page is reloaded. Reloading is the escape; retrying is not. On native the same panic unwinds and releases the lock.
 - **It does not exclude a non-engine writer.** Anything else with the key that opens the same IndexedDB database is outside the lock — the same statement as `sqlite3` on native.
 
 **Anti-rollback storage (deployment requirement).** Encryption at rest does not protect *freshness*. Anyone who can replace the database file with an older copy of itself — a snapshot restore, a backup rollback, a filesystem-level attacker — makes the engine reuse MLS state it has already spent.
