@@ -74,6 +74,49 @@
 
 #### Changed
 
+- **copier template adopted: v4.12.0 -> v4.13.0** — the generated workflows now use the current Claude action and no longer request the deleted Android SDK Tools package, while the changelog generator gains stricter upstream and highlight handling.
+
+  `.github/workflows/ai-review.yml` and `.github/workflows/repair-build.yml` move
+  `anthropics/claude-code-action` from `v1.0.216` to `v1.0.222`. The pin is
+  updated in both callers so review and automated repair do not drift onto
+  different action releases.
+
+  `.github/workflows/test-reusable.yml` and
+  `.github/workflows/build-openmls.yml` now pass `packages: platform-tools` to
+  `android-actions/setup-android`. Its default also asks `sdkmanager` for the
+  obsolete `tools` package, which Google removed; leaving that name in place
+  fails the Android job before it reaches the pinned NDK installation. The
+  NDK step remains responsible for installing the version the builds need.
+
+  `scripts/src/update_changelog.dart` now normalises a model-supplied list
+  marker before writing a Highlights line, and shares the default highlight
+  text between the prompt and the logic that recognises and supersedes it.
+  Rewritten, multi-line highlights are left intact, while an old generated
+  default can be replaced so successive dependency bumps do not accumulate
+  contradictory native-library versions. The prompt also distinguishes the
+  fetched upstream inputs from facts about a release, preventing an absent
+  release body from being reported as a release-level claim.
+
+  When release notes are empty, the generator makes a best-effort request for
+  the upstream repository's `RELEASE_NOTES.md`. It accepts that fallback only
+  when its first line names the requested tag, avoiding reuse of a file left
+  over from an earlier release. The placeholder for missing notes is now a
+  shared constant, so this case can be handled consistently.
+
+  The upstream dependency summary now uses the compare response's commits and
+  changed files together. `scripts/src/update_changelog.dart` separates those
+  two inputs and tells the model whether the file list is complete: GitHub's
+  300-file limit and the generator's 12000-character prompt limit are treated
+  as truncation rather than evidence that no other files changed. With a
+  complete list, the prompt asks for the actual files changed by the bound
+  crates instead of relying on a generic out-of-scope sentence.
+
+  `test/scripts/update_changelog_test.dart` adds coverage for these cases,
+  including marker normalisation, release-notes fallback and tag checking,
+  default-versus-rewritten highlight handling, and complete versus truncated
+  upstream file lists. `.copier-answers.yml` records template version
+  `v4.13.0`.
+
 - **copier template adopted: v4.10.0 -> v4.12.0** — two template releases at
   once: the notices workflow this project contributed comes back carrying the
   edits the template made to it, and the dependency-bump changelog prompt is

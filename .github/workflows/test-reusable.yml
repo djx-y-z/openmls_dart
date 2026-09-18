@@ -211,8 +211,19 @@ jobs:
         with:
           targets: ${{ matrix.rust_target }}
 
+      # ⚠ `packages:` is set because the action's DEFAULT is
+      # `tools platform-tools`, and `tools` — the legacy SDK Tools package — was
+      # removed from Google's repository index. The action then fails outright
+      # (`Failed to find package 'tools'`, sdkmanager exit 1) before this job
+      # reaches anything of its own, so every Android leg went red at once on
+      # 2026-09-15 with no change on our side. Upstream has no fixed release:
+      # v4.0.1 is the latest and android-actions/setup-android#537 is open
+      # against exactly this. Dropping the dead name is the whole fix; the NDK
+      # this job actually needs is installed by the step below, by version.
       - name: Setup Android NDK
         uses: android-actions/setup-android@40fd30fb8d7440372e1316f5d1809ec01dcd3699 # v4.0.1
+        with:
+          packages: platform-tools
 
       - name: Install NDK
         run: |
