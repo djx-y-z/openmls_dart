@@ -8,8 +8,8 @@ import 'config.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 import 'types.dart';
 
-// These functions are ignored because they are not marked as `pub`: `build_credential_with_key`, `commit`, `db`, `load_for_group`, `load_global`, `load_group`
-// These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `OpSession`
+// These functions are ignored because they are not marked as `pub`: `acquire_locks`, `build_credential_with_key`, `commit`, `db`, `load_for_group`, `load_global`, `load_group`
+// These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `OpLocks`, `OpSession`
 // These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `crypto`, `rand`, `storage`
 
 /// Extract the group ID from an MLS protocol message.
@@ -158,6 +158,20 @@ abstract class MlsEngine implements RustOpaqueInterface {
   /// `<db_path>.lock`, which the engine creates and never deletes. An empty
   /// file beside the database is expected; deleting it while an engine is
   /// running removes the protection.
+  ///
+  /// On the Web the shape is different, because the unit is a browser tab and
+  /// not a process: tabs are opened and closed by the person using the
+  /// application, so a second one is not refused. Every operation takes an
+  /// exclusive Web Lock named after the IndexedDB database instead, which
+  /// serializes the load → operate → save cycles of every tab and worker on
+  /// the origin. One that cannot get in within five seconds fails with
+  /// "Database is busy" rather than waiting behind a wedged tab forever.
+  ///
+  /// That guarantee needs a secure context, which is where `navigator.locks`
+  /// exists at all: `https`, or `http` on `localhost`. Served over plain
+  /// `http` from any other host the API is absent, and operations run exactly
+  /// as they did before it was used — without the cross-tab guarantee, never
+  /// with an error.
   ///
   /// Calls on one engine are safe to make concurrently: each runs its
   /// load → operate → save cycle under an engine-wide lock.
