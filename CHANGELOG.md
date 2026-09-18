@@ -1,5 +1,40 @@
 ## [Unreleased]
 
+### For Users
+
+#### Security
+
+- **Every operation on the Web now takes a cross-tab lock** (`rust/src/web_lock.rs`, `rust/src/api/engine.rs`) — a second browser tab was an unguarded second writer to the same IndexedDB database. Each tab runs its own WASM instance with its own engine, so the engine-wide mutex that serializes overlapping calls could not see it: two tabs could load the same snapshot, operate on it, and write back in turn, and the later write-back would drop what the first had saved — a merged commit, an advanced ratchet, a stored proposal — desynchronizing the group.
+
+  Every load → operate → save cycle now runs under an exclusive Web Lock named
+  after the IndexedDB database, so the tabs and workers of an origin queue
+  instead of overwriting each other. They are not refused the way a second
+  native process is, because a tab is opened and closed by the person using the
+  application rather than by the application: a contending operation waits, for
+  at most five seconds, and then fails with "Database is busy" rather than
+  waiting behind a wedged tab forever. That failure is retryable and leaves
+  nothing behind: the lock is taken before any snapshot is read, so an
+  operation that cannot get in has loaded no state and released the
+  engine-wide mutex on its way out.
+
+  ⚠ The guarantee needs a secure context, which is where `navigator.locks`
+  exists at all: `https`, or `http` on `localhost`. Served over plain `http`
+  from any other host the API is absent, and operations run exactly as they did
+  before — without the cross-tab guarantee, never with an error. The
+  degradation is deliberate: the alternative is failing every operation on an
+  origin where the Web build used to work.
+
+  Native is unchanged and was never exposed: its sidecar lock file has refused
+  a second opener outright since 2.0.0. This closes the same hole on the one
+  platform whose processes are tabs.
+
+  Shown by execution rather than by construction, which on wasm32 is the only
+  kind of evidence that counts — a wasm32 body is a different implementation of
+  the same function, so nothing that runs on the host touches a line of it.
+  Three browser tests (`make test-web`) cover exclusivity, the busy error on
+  contention, release on drop, independence of unrelated database names, and
+  the absent-API fallback.
+
 ### For Contributors
 
 #### Added

@@ -167,8 +167,26 @@ pub struct MlsEngine {
 /// that only reads), which keeps the whole load → operate → save span
 /// serialized.
 struct OpSession<'a> {
-    _guard: futures::lock::MutexGuard<'a, ()>,
+    locks: OpLocks<'a>,
     provider: SnapshotOpenMlsProvider,
+}
+
+/// Everything an [`OpSession`] holds besides its snapshot.
+///
+/// Kept as one value so a method that has to move the provider out of the
+/// session can bind the locks in the same `let` and keep them alive across the
+/// write-back. Destructuring with `..` instead would drop them right there,
+/// releasing the lock while the save is still running — which is the exact
+/// interleaving this guards against.
+struct OpLocks<'a> {
+    /// Serializes operations on THIS engine — see [`MlsEngine::op_lock`].
+    _guard: futures::lock::MutexGuard<'a, ()>,
+    /// Serializes operations across browsing contexts of one origin, which the
+    /// mutex above cannot see: another tab is another WASM instance with
+    /// another engine, addressing the same IndexedDB database. Native needs no
+    /// counterpart — its sidecar lock file refuses the second opener outright.
+    #[cfg(target_arch = "wasm32")]
+    _web_lock: crate::web_lock::WebLockGuard,
 }
 
 /// Delegates to the wrapped snapshot provider so `OpSession` can be handed to
@@ -232,6 +250,20 @@ impl MlsEngine {
     /// file beside the database is expected; deleting it while an engine is
     /// running removes the protection.
     ///
+    /// On the Web the shape is different, because the unit is a browser tab and
+    /// not a process: tabs are opened and closed by the person using the
+    /// application, so a second one is not refused. Every operation takes an
+    /// exclusive Web Lock named after the IndexedDB database instead, which
+    /// serializes the load → operate → save cycles of every tab and worker on
+    /// the origin. One that cannot get in within five seconds fails with
+    /// "Database is busy" rather than waiting behind a wedged tab forever.
+    ///
+    /// That guarantee needs a secure context, which is where `navigator.locks`
+    /// exists at all: `https`, or `http` on `localhost`. Served over plain
+    /// `http` from any other host the API is absent, and operations run exactly
+    /// as they did before it was used — without the cross-tab guarantee, never
+    /// with an error.
+    ///
     /// Calls on one engine are safe to make concurrently: each runs its
     /// load → operate → save cycle under an engine-wide lock.
     pub async fn create(db_path: String, encryption_key: Vec<u8>) -> Result<MlsEngine, String> {
@@ -250,23 +282,45 @@ impl MlsEngine {
         self.db.read().as_ref().cloned().ok_or_else(|| "MlsEngine is closed".to_string())
     }
 
-    /// Take the operation lock and load a group's snapshot under it.
-    async fn load_for_group(&self, group_id: &[u8]) -> Result<OpSession<'_>, String> {
+    /// Take every lock an operation needs, in one order everywhere.
+    ///
+    /// Engine-wide mutex first, cross-context lock second. The order is what
+    /// keeps it deadlock-free: taking them the other way round in one of the
+    /// two callers would be enough for two operations to hold one each.
+    #[cfg(not(target_arch = "wasm32"))]
+    async fn acquire_locks(&self) -> Result<OpLocks<'_>, String> {
+        Ok(OpLocks { _guard: self.op_lock.lock().await })
+    }
+
+    /// See the native twin above. The Web build adds the cross-tab lock, whose
+    /// wait can time out — which is why this returns a `Result` on both
+    /// targets rather than only here.
+    #[cfg(target_arch = "wasm32")]
+    async fn acquire_locks(&self) -> Result<OpLocks<'_>, String> {
         let guard = self.op_lock.lock().await;
+        let name = self.db()?.lock_name();
+        let web_lock =
+            crate::web_lock::acquire(&name, crate::web_lock::WEB_LOCK_TIMEOUT_MS).await?;
+        Ok(OpLocks { _guard: guard, _web_lock: web_lock })
+    }
+
+    /// Take the operation locks and load a group's snapshot under them.
+    async fn load_for_group(&self, group_id: &[u8]) -> Result<OpSession<'_>, String> {
+        let locks = self.acquire_locks().await?;
         let entries = self.db()?.load_for_group(group_id).await?;
         Ok(OpSession {
-            _guard: guard,
+            locks,
             provider: SnapshotOpenMlsProvider::new(SnapshotStorageProvider::from_entries(entries)),
         })
     }
 
-    /// Take the operation lock and load the global (group-independent)
-    /// snapshot under it.
+    /// Take the operation locks and load the global (group-independent)
+    /// snapshot under them.
     async fn load_global(&self) -> Result<OpSession<'_>, String> {
-        let guard = self.op_lock.lock().await;
+        let locks = self.acquire_locks().await?;
         let entries = self.db()?.load_global().await?;
         Ok(OpSession {
-            _guard: guard,
+            locks,
             provider: SnapshotOpenMlsProvider::new(SnapshotStorageProvider::from_entries(entries)),
         })
     }
@@ -274,9 +328,9 @@ impl MlsEngine {
     /// Diff a session's snapshot, write it back, and release the operation
     /// lock.
     async fn commit(&self, session: OpSession<'_>, group_id: Option<&[u8]>) -> Result<(), String> {
-        // Destructuring keeps the guard alive until this function returns, so
-        // the write-back still happens under the lock.
-        let OpSession { _guard, provider } = session;
+        // Binding the locks keeps them alive until this function returns, so
+        // the write-back still happens under them.
+        let OpSession { locks: _locks, provider } = session;
         let updates = provider.into_storage().into_updates();
         if updates.upserts.is_empty() && updates.deletes.is_empty() {
             return Ok(());
@@ -1980,7 +2034,7 @@ impl MlsEngine {
 
         // One transaction for the final state and the purge of whatever rows
         // OpenMLS left behind, so a crash cannot half-delete the group.
-        let OpSession { _guard, provider } = session;
+        let OpSession { locks: _locks, provider } = session;
         let updates = provider.into_storage().into_updates();
         self.db()?
             .save_updates_and_purge_group(updates, &group_id_bytes)

@@ -15,6 +15,10 @@ mod snapshot_storage;
 #[allow(unsafe_code)]
 mod frb_generated;
 mod utils;
+// Cross-tab single-writer lock. Web-only: the native build takes a sidecar
+// lock file instead (`encrypted_db::acquire_single_writer_lock`).
+#[cfg(target_arch = "wasm32")]
+mod web_lock;
 mod wire_decode;
 
 pub mod api;

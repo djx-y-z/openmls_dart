@@ -643,6 +643,17 @@ fn acquire_single_writer_lock(db_path: &str) -> Result<Option<std::fs::File>, St
 
 #[cfg(target_arch = "wasm32")]
 impl EncryptedDb {
+    /// Name of the cross-tab Web Lock that guards this database.
+    ///
+    /// Derived from the IndexedDB database name, which is what two tabs of the
+    /// same origin actually share — including the random name `":memory:"`
+    /// generates, so two ephemeral engines do not queue behind each other. The
+    /// prefix keeps the name out of the way of any lock the host application
+    /// takes for its own reasons.
+    pub(crate) fn lock_name(&self) -> String {
+        format!("openmls_frb:{}", self.db_name)
+    }
+
     /// Open or create an encrypted database.
     ///
     /// - `db_path`: Used as the IndexedDB database name. If `":memory:"`, a unique
@@ -697,6 +708,24 @@ impl EncryptedDb {
     }
 
     async fn run_migrations(&self) -> Result<(), String> {
+        // Under the same cross-tab lock the operations take, for the same
+        // reason one level down: two tabs opening at the same moment both read
+        // the stored schema version before either writes it, and both then run
+        // the migrations between it and `LATEST_SCHEMA_VERSION`. Phase A is
+        // safe on its own — IndexedDB serializes `versionchange` transactions —
+        // but Phase B is ours, and a data migration applied twice is a
+        // migration applied to its own output.
+        //
+        // Today's only migration writes a version and transforms nothing, so
+        // this guards the framework rather than a live defect. That is the
+        // point: the next migration is written against `/add-db-migration`,
+        // not against this file.
+        let _lock = crate::web_lock::acquire(
+            &self.lock_name(),
+            crate::web_lock::WEB_MIGRATION_TIMEOUT_MS,
+        )
+        .await?;
+
         // Phase A: Structural changes (create/delete object stores).
         self.idb_ensure_stores().await?;
 
@@ -1559,5 +1588,43 @@ mod tests {
             .mode()
             & 0o777;
         assert_eq!(mode, 0o600, "database file mode is {mode:o}");
+    }
+}
+
+#[cfg(all(test, target_arch = "wasm32"))]
+mod web_tests {
+    use super::*;
+    use wasm_bindgen_test::{wasm_bindgen_test, wasm_bindgen_test_configure};
+
+    wasm_bindgen_test_configure!(run_in_browser);
+
+    /// Two engines opening the same database at the same moment — the
+    /// two-tab startup, in one page.
+    ///
+    /// `run_migrations` holds the cross-tab lock, so this is the shape that
+    /// would deadlock if the lock were taken twice on one path or never
+    /// released: the second open queues behind the first and must still
+    /// finish. It also executes the whole Web open path — `crypto.subtle`
+    /// key import, the round-trip key validation, the IndexedDB upgrade and
+    /// both migration phases — none of which any host-side test can reach.
+    #[wasm_bindgen_test]
+    async fn concurrent_opens_of_one_database_both_finish() {
+        let name = format!("openmls_frb_test_db_{}", js_sys::Date::now() as u64);
+
+        let first = EncryptedDb::open(name.clone(), vec![7u8; 32]);
+        let second = EncryptedDb::open(name.clone(), vec![7u8; 32]);
+        let (first, second) = futures::future::join(first, second).await;
+
+        first.expect("first open");
+        second.expect("second open must not deadlock behind the first one's migration lock");
+
+        // And the lock is free again: a migration lock that outlived `open`
+        // would block every operation on this database for the rest of the
+        // session. The short wait makes a still-held lock fail here rather
+        // than sit out the production timeout.
+        let after = crate::web_lock::acquire(&format!("openmls_frb:{name}"), 150)
+            .await
+            .expect("the migration lock must be released when open returns");
+        assert!(after.is_held(), "this browser must expose navigator.locks");
     }
 }

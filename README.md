@@ -282,6 +282,21 @@ rm -f build/*/dart_build.stamp    # drop the stale stamp, then run again
 flutter clean                     # the blunt version of the same thing
 ```
 
+### Web: protection against a second tab needs a secure context
+
+Every tab of an origin runs its own WASM instance against one IndexedDB
+database, so two of them can interleave their load → operate → save cycles and
+lose each other's group state. Every operation therefore takes an exclusive
+[Web Lock](https://developer.mozilla.org/en-US/docs/Web/API/Web_Locks_API) named
+after the database, and the tabs queue instead — one that cannot get in within
+five seconds fails with *"Database is busy"*.
+
+`navigator.locks` exists only in a **secure context**: `https`, or `http` at
+`localhost`. Served over plain `http` from any other host the API is absent and
+operations run without the guarantee rather than failing, which is what a second
+tab was exposed to before the lock existed. Serve the application from a secure
+origin. See [SECURITY.md](SECURITY.md) for the full statement.
+
 ## Building from Source
 
 ### For End Users
