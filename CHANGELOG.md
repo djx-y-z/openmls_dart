@@ -115,6 +115,16 @@
 
 #### Changed
 
+- **The wasm32 half of the crate is now clean under clippy** (`rust/src/encrypted_db.rs`) — `make rust-clippy` runs under the host target only, so every `cfg(target_arch = "wasm32")` body in the crate had never been linted, here or in CI. A wasm32 body is a different implementation of the same function, so nothing the host lints touches a line of it.
+
+  Measured with `--target wasm32-unknown-unknown --all-targets -- -D warnings`:
+  one finding, a `collapsible_if` in the IndexedDB structural migration, now
+  collapsed. Nothing changes at runtime — the two conditions were already
+  evaluated one after the other — but a lint gate for that target cannot be
+  added while the crate fails it, so this is the half of that gate which
+  belongs to this repository rather than to the template that owns the
+  Makefile.
+
 - **copier template adopted: v4.12.0 -> v4.13.0** — the generated workflows now use the current Claude action and no longer request the deleted Android SDK Tools package, while the changelog generator gains stricter upstream and highlight handling.
 
   `.github/workflows/ai-review.yml` and `.github/workflows/repair-build.yml` move
