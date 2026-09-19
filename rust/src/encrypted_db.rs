@@ -768,11 +768,9 @@ impl EncryptedDb {
             let db = event.database().unwrap();
             let old_version = event.old_version().unwrap_or(0);
 
-            if old_version < 1 {
-                if !db.store_names().contains(&"mls_storage".to_string()) {
-                    let params = ObjectStoreParams::new();
-                    db.create_object_store("mls_storage", params).unwrap();
-                }
+            if old_version < 1 && !db.store_names().contains(&"mls_storage".to_string()) {
+                let params = ObjectStoreParams::new();
+                db.create_object_store("mls_storage", params).unwrap();
             }
 
             // Future structural changes:
