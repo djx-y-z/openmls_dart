@@ -69,7 +69,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.13.0';
 
   @override
-  int get rustContentHash => -722731269;
+  int get rustContentHash => -734665338;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -201,6 +201,11 @@ abstract class RustLibApi extends BaseApi {
     Uint8List? aad,
   });
 
+  Future<void> crateApiEngineMlsEngineDeleteAllPastEpochSecrets({
+    required MlsEngine that,
+    required List<int> groupIdBytes,
+  });
+
   Future<void> crateApiEngineMlsEngineDeleteGroup({
     required MlsEngine that,
     required List<int> groupIdBytes,
@@ -209,6 +214,26 @@ abstract class RustLibApi extends BaseApi {
   Future<void> crateApiEngineMlsEngineDeleteKeyPackage({
     required MlsEngine that,
     required List<int> keyPackageRefBytes,
+  });
+
+  Future<void> crateApiEngineMlsEngineDeletePastEpochSecretsBefore({
+    required MlsEngine that,
+    required List<int> groupIdBytes,
+    required BigInt unixSeconds,
+    int? maxPastEpochs,
+  });
+
+  Future<void> crateApiEngineMlsEngineDeletePastEpochSecretsOlderThan({
+    required MlsEngine that,
+    required List<int> groupIdBytes,
+    required BigInt seconds,
+    int? maxPastEpochs,
+  });
+
+  Future<void> crateApiEngineMlsEngineDeletePastEpochSecretsWithoutTimestamps({
+    required MlsEngine that,
+    required List<int> groupIdBytes,
+    int? maxPastEpochs,
   });
 
   Future<MlsGroupContextInfo> crateApiEngineMlsEngineExportGroupContext({
@@ -407,6 +432,12 @@ abstract class RustLibApi extends BaseApi {
     required List<int> groupIdBytes,
   });
 
+  Future<PastEpochDeletionPolicyResult>
+  crateApiEngineMlsEnginePastEpochDeletionPolicy({
+    required MlsEngine that,
+    required List<int> groupIdBytes,
+  });
+
   Future<ProcessedMessageResult> crateApiEngineMlsEngineProcessMessage({
     required MlsEngine that,
     required List<int> groupIdBytes,
@@ -520,6 +551,17 @@ abstract class RustLibApi extends BaseApi {
     required MlsEngine that,
     required List<int> groupIdBytes,
     required MlsGroupConfig config,
+  });
+
+  Future<void> crateApiEngineMlsEngineSetPastEpochDeletionPolicyKeepAll({
+    required MlsEngine that,
+    required List<int> groupIdBytes,
+  });
+
+  Future<void> crateApiEngineMlsEngineSetPastEpochDeletionPolicyMaxEpochs({
+    required MlsEngine that,
+    required List<int> groupIdBytes,
+    required int maxEpochs,
   });
 
   Future<AddMembersResult> crateApiEngineMlsEngineSwapMembers({
@@ -1476,6 +1518,44 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
+  Future<void> crateApiEngineMlsEngineDeleteAllPastEpochSecrets({
+    required MlsEngine that,
+    required List<int> groupIdBytes,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 =
+              cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsEngine(
+                that,
+              );
+          var arg1 = cst_encode_list_prim_u_8_loose(groupIdBytes);
+          return wire
+              .wire__crate__api__engine__MlsEngine_delete_all_past_epoch_secrets(
+                port_,
+                arg0,
+                arg1,
+              );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_unit,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiEngineMlsEngineDeleteAllPastEpochSecretsConstMeta,
+        argValues: [that, groupIdBytes],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta
+  get kCrateApiEngineMlsEngineDeleteAllPastEpochSecretsConstMeta =>
+      const TaskConstMeta(
+        debugName: "MlsEngine_delete_all_past_epoch_secrets",
+        argNames: ["that", "groupIdBytes"],
+      );
+
+  @override
   Future<void> crateApiEngineMlsEngineDeleteGroup({
     required MlsEngine that,
     required List<int> groupIdBytes,
@@ -1545,6 +1625,138 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       const TaskConstMeta(
         debugName: "MlsEngine_delete_key_package",
         argNames: ["that", "keyPackageRefBytes"],
+      );
+
+  @override
+  Future<void> crateApiEngineMlsEngineDeletePastEpochSecretsBefore({
+    required MlsEngine that,
+    required List<int> groupIdBytes,
+    required BigInt unixSeconds,
+    int? maxPastEpochs,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 =
+              cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsEngine(
+                that,
+              );
+          var arg1 = cst_encode_list_prim_u_8_loose(groupIdBytes);
+          var arg2 = cst_encode_u_64(unixSeconds);
+          var arg3 = cst_encode_opt_box_autoadd_u_32(maxPastEpochs);
+          return wire
+              .wire__crate__api__engine__MlsEngine_delete_past_epoch_secrets_before(
+                port_,
+                arg0,
+                arg1,
+                arg2,
+                arg3,
+              );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_unit,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta:
+            kCrateApiEngineMlsEngineDeletePastEpochSecretsBeforeConstMeta,
+        argValues: [that, groupIdBytes, unixSeconds, maxPastEpochs],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta
+  get kCrateApiEngineMlsEngineDeletePastEpochSecretsBeforeConstMeta =>
+      const TaskConstMeta(
+        debugName: "MlsEngine_delete_past_epoch_secrets_before",
+        argNames: ["that", "groupIdBytes", "unixSeconds", "maxPastEpochs"],
+      );
+
+  @override
+  Future<void> crateApiEngineMlsEngineDeletePastEpochSecretsOlderThan({
+    required MlsEngine that,
+    required List<int> groupIdBytes,
+    required BigInt seconds,
+    int? maxPastEpochs,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 =
+              cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsEngine(
+                that,
+              );
+          var arg1 = cst_encode_list_prim_u_8_loose(groupIdBytes);
+          var arg2 = cst_encode_u_64(seconds);
+          var arg3 = cst_encode_opt_box_autoadd_u_32(maxPastEpochs);
+          return wire
+              .wire__crate__api__engine__MlsEngine_delete_past_epoch_secrets_older_than(
+                port_,
+                arg0,
+                arg1,
+                arg2,
+                arg3,
+              );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_unit,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta:
+            kCrateApiEngineMlsEngineDeletePastEpochSecretsOlderThanConstMeta,
+        argValues: [that, groupIdBytes, seconds, maxPastEpochs],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta
+  get kCrateApiEngineMlsEngineDeletePastEpochSecretsOlderThanConstMeta =>
+      const TaskConstMeta(
+        debugName: "MlsEngine_delete_past_epoch_secrets_older_than",
+        argNames: ["that", "groupIdBytes", "seconds", "maxPastEpochs"],
+      );
+
+  @override
+  Future<void> crateApiEngineMlsEngineDeletePastEpochSecretsWithoutTimestamps({
+    required MlsEngine that,
+    required List<int> groupIdBytes,
+    int? maxPastEpochs,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 =
+              cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsEngine(
+                that,
+              );
+          var arg1 = cst_encode_list_prim_u_8_loose(groupIdBytes);
+          var arg2 = cst_encode_opt_box_autoadd_u_32(maxPastEpochs);
+          return wire
+              .wire__crate__api__engine__MlsEngine_delete_past_epoch_secrets_without_timestamps(
+                port_,
+                arg0,
+                arg1,
+                arg2,
+              );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_unit,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta:
+            kCrateApiEngineMlsEngineDeletePastEpochSecretsWithoutTimestampsConstMeta,
+        argValues: [that, groupIdBytes, maxPastEpochs],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta
+  get kCrateApiEngineMlsEngineDeletePastEpochSecretsWithoutTimestampsConstMeta =>
+      const TaskConstMeta(
+        debugName: "MlsEngine_delete_past_epoch_secrets_without_timestamps",
+        argNames: ["that", "groupIdBytes", "maxPastEpochs"],
       );
 
   @override
@@ -2883,6 +3095,44 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
+  Future<PastEpochDeletionPolicyResult>
+  crateApiEngineMlsEnginePastEpochDeletionPolicy({
+    required MlsEngine that,
+    required List<int> groupIdBytes,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 =
+              cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsEngine(
+                that,
+              );
+          var arg1 = cst_encode_list_prim_u_8_loose(groupIdBytes);
+          return wire
+              .wire__crate__api__engine__MlsEngine_past_epoch_deletion_policy(
+                port_,
+                arg0,
+                arg1,
+              );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_past_epoch_deletion_policy_result,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiEngineMlsEnginePastEpochDeletionPolicyConstMeta,
+        argValues: [that, groupIdBytes],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiEngineMlsEnginePastEpochDeletionPolicyConstMeta =>
+      const TaskConstMeta(
+        debugName: "MlsEngine_past_epoch_deletion_policy",
+        argNames: ["that", "groupIdBytes"],
+      );
+
+  @override
   Future<ProcessedMessageResult> crateApiEngineMlsEngineProcessMessage({
     required MlsEngine that,
     required List<int> groupIdBytes,
@@ -3630,6 +3880,87 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       const TaskConstMeta(
         debugName: "MlsEngine_set_configuration",
         argNames: ["that", "groupIdBytes", "config"],
+      );
+
+  @override
+  Future<void> crateApiEngineMlsEngineSetPastEpochDeletionPolicyKeepAll({
+    required MlsEngine that,
+    required List<int> groupIdBytes,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 =
+              cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsEngine(
+                that,
+              );
+          var arg1 = cst_encode_list_prim_u_8_loose(groupIdBytes);
+          return wire
+              .wire__crate__api__engine__MlsEngine_set_past_epoch_deletion_policy_keep_all(
+                port_,
+                arg0,
+                arg1,
+              );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_unit,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta:
+            kCrateApiEngineMlsEngineSetPastEpochDeletionPolicyKeepAllConstMeta,
+        argValues: [that, groupIdBytes],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta
+  get kCrateApiEngineMlsEngineSetPastEpochDeletionPolicyKeepAllConstMeta =>
+      const TaskConstMeta(
+        debugName: "MlsEngine_set_past_epoch_deletion_policy_keep_all",
+        argNames: ["that", "groupIdBytes"],
+      );
+
+  @override
+  Future<void> crateApiEngineMlsEngineSetPastEpochDeletionPolicyMaxEpochs({
+    required MlsEngine that,
+    required List<int> groupIdBytes,
+    required int maxEpochs,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 =
+              cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsEngine(
+                that,
+              );
+          var arg1 = cst_encode_list_prim_u_8_loose(groupIdBytes);
+          var arg2 = cst_encode_u_32(maxEpochs);
+          return wire
+              .wire__crate__api__engine__MlsEngine_set_past_epoch_deletion_policy_max_epochs(
+                port_,
+                arg0,
+                arg1,
+                arg2,
+              );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_unit,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta:
+            kCrateApiEngineMlsEngineSetPastEpochDeletionPolicyMaxEpochsConstMeta,
+        argValues: [that, groupIdBytes, maxEpochs],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta
+  get kCrateApiEngineMlsEngineSetPastEpochDeletionPolicyMaxEpochsConstMeta =>
+      const TaskConstMeta(
+        debugName: "MlsEngine_set_past_epoch_deletion_policy_max_epochs",
+        argNames: ["that", "groupIdBytes", "maxEpochs"],
       );
 
   @override
@@ -4811,6 +5142,20 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  PastEpochDeletionPolicyResult dco_decode_past_epoch_deletion_policy_result(
+    dynamic raw,
+  ) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 2)
+      throw Exception('unexpected arr length: expect 2 but see ${arr.length}');
+    return PastEpochDeletionPolicyResult(
+      keepAll: dco_decode_bool(arr[0]),
+      maxEpochs: dco_decode_u_32(arr[1]),
+    );
+  }
+
+  @protected
   ProcessedMessageInspectResult dco_decode_processed_message_inspect_result(
     dynamic raw,
   ) {
@@ -5640,6 +5985,19 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     } else {
       return null;
     }
+  }
+
+  @protected
+  PastEpochDeletionPolicyResult sse_decode_past_epoch_deletion_policy_result(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_keepAll = sse_decode_bool(deserializer);
+    var var_maxEpochs = sse_decode_u_32(deserializer);
+    return PastEpochDeletionPolicyResult(
+      keepAll: var_keepAll,
+      maxEpochs: var_maxEpochs,
+    );
   }
 
   @protected
@@ -6612,6 +6970,16 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_past_epoch_deletion_policy_result(
+    PastEpochDeletionPolicyResult self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_bool(self.keepAll, serializer);
+    sse_encode_u_32(self.maxEpochs, serializer);
+  }
+
+  @protected
   void sse_encode_processed_message_inspect_result(
     ProcessedMessageInspectResult self,
     SseSerializer serializer,
@@ -6946,6 +7314,17 @@ class MlsEngineImpl extends RustOpaque implements MlsEngine {
     aad: aad,
   );
 
+  /// Delete the message secrets of every past epoch, keeping the policy as
+  /// it is.
+  ///
+  /// The group's current epoch is untouched: messages of the current epoch
+  /// keep decrypting. Everything older stops, irreversibly.
+  Future<void> deleteAllPastEpochSecrets({required List<int> groupIdBytes}) =>
+      RustLib.instance.api.crateApiEngineMlsEngineDeleteAllPastEpochSecrets(
+        that: this,
+        groupIdBytes: groupIdBytes,
+      );
+
   Future<void> deleteGroup({required List<int> groupIdBytes}) =>
       RustLib.instance.api.crateApiEngineMlsEngineDeleteGroup(
         that: this,
@@ -6956,6 +7335,80 @@ class MlsEngineImpl extends RustOpaque implements MlsEngine {
       RustLib.instance.api.crateApiEngineMlsEngineDeleteKeyPackage(
         that: this,
         keyPackageRefBytes: keyPackageRefBytes,
+      );
+
+  /// Delete the message secrets of past epochs recorded before
+  /// `unixSeconds`, counted from the Unix epoch, keeping the policy as it is.
+  ///
+  /// `maxPastEpochs` additionally caps what survives at that many of the
+  /// newest past epochs; omit it to apply no cap. Undated entries are
+  /// skipped here too — see `deletePastEpochSecretsOlderThan`.
+  ///
+  /// ⚠ Seconds, not milliseconds. Dart offers `millisecondsSinceEpoch`
+  /// first, and a present-day millisecond count is about a thousand times
+  /// too large: that lands past the year 9999 and is refused here, rather
+  /// than quietly deleting every past epoch the group has.
+  Future<void> deletePastEpochSecretsBefore({
+    required List<int> groupIdBytes,
+    required BigInt unixSeconds,
+    int? maxPastEpochs,
+  }) =>
+      RustLib.instance.api.crateApiEngineMlsEngineDeletePastEpochSecretsBefore(
+        that: this,
+        groupIdBytes: groupIdBytes,
+        unixSeconds: unixSeconds,
+        maxPastEpochs: maxPastEpochs,
+      );
+
+  /// Delete the message secrets of past epochs recorded more than `seconds`
+  /// ago, keeping the policy as it is.
+  ///
+  /// Age is measured from when the secrets were stored, by this device's
+  /// clock, not from anything in the protocol. `maxPastEpochs` additionally
+  /// caps what survives at that many of the newest past epochs; omit it to
+  /// apply no cap.
+  ///
+  /// ⚠ **Entries that carry no timestamp are skipped in silence** — the
+  /// store cannot tell how old an undated one is. Such entries exist only
+  /// where an application ran a version of this package built on OpenMLS
+  /// 0.8.1 or earlier *and* had `maxPastEpochs` above zero, since the
+  /// default records no past epochs at all; in a group that outlived that
+  /// upgrade they sit alongside dated ones and a retention window built only
+  /// out of this method keeps them forever.
+  /// `deletePastEpochSecretsWithoutTimestamps` is the step that clears them.
+  Future<void> deletePastEpochSecretsOlderThan({
+    required List<int> groupIdBytes,
+    required BigInt seconds,
+    int? maxPastEpochs,
+  }) => RustLib.instance.api
+      .crateApiEngineMlsEngineDeletePastEpochSecretsOlderThan(
+        that: this,
+        groupIdBytes: groupIdBytes,
+        seconds: seconds,
+        maxPastEpochs: maxPastEpochs,
+      );
+
+  /// Delete the message secrets of past epochs that carry no timestamp,
+  /// keeping the policy as it is.
+  ///
+  /// This is a migration step, not an exotic option. Secrets recorded by a
+  /// version of this package built on OpenMLS 0.8.1 or earlier have no
+  /// timestamp, so neither `deletePastEpochSecretsOlderThan` nor
+  /// `deletePastEpochSecretsBefore` will ever remove them; a deployment that
+  /// keeps past epochs and has upgraded across that boundary should run this
+  /// once. Where `maxPastEpochs` was left at its default of zero, no past
+  /// epochs were recorded at all and there is nothing here to clear.
+  ///
+  /// `maxPastEpochs` additionally caps what survives at that many of the
+  /// newest past epochs; omit it to apply no cap.
+  Future<void> deletePastEpochSecretsWithoutTimestamps({
+    required List<int> groupIdBytes,
+    int? maxPastEpochs,
+  }) => RustLib.instance.api
+      .crateApiEngineMlsEngineDeletePastEpochSecretsWithoutTimestamps(
+        that: this,
+        groupIdBytes: groupIdBytes,
+        maxPastEpochs: maxPastEpochs,
       );
 
   Future<MlsGroupContextInfo> exportGroupContext({
@@ -7268,6 +7721,18 @@ class MlsEngineImpl extends RustOpaque implements MlsEngine {
         groupIdBytes: groupIdBytes,
       );
 
+  /// Read how many past epochs' message secrets this group keeps.
+  ///
+  /// A group that was never told otherwise reports the `maxPastEpochs` its
+  /// `MlsGroupConfig` carried when it was created or joined — the two are
+  /// the same setting.
+  Future<PastEpochDeletionPolicyResult> pastEpochDeletionPolicy({
+    required List<int> groupIdBytes,
+  }) => RustLib.instance.api.crateApiEngineMlsEnginePastEpochDeletionPolicy(
+    that: this,
+    groupIdBytes: groupIdBytes,
+  );
+
   Future<ProcessedMessageResult> processMessage({
     required List<int> groupIdBytes,
     required List<int> messageBytes,
@@ -7477,6 +7942,17 @@ class MlsEngineImpl extends RustOpaque implements MlsEngine {
     newCredentialBytes: newCredentialBytes,
   );
 
+  /// Replace the group's runtime configuration.
+  ///
+  /// Every field of `MlsGroupConfig` is written, including the ones this
+  /// call was not made for — the struct carries no "leave as is".
+  ///
+  /// ⚠ **This resets the past epoch deletion policy.** `maxPastEpochs` is
+  /// the same setting as `setPastEpochDeletionPolicyMaxEpochs`, so passing a
+  /// config here writes that number as the policy — silently undoing a
+  /// `setPastEpochDeletionPolicyKeepAll` made earlier, along with the past
+  /// epoch secrets the lower number no longer admits. When both are used,
+  /// set the policy after the configuration, not before.
   Future<void> setConfiguration({
     required List<int> groupIdBytes,
     required MlsGroupConfig config,
@@ -7485,6 +7961,56 @@ class MlsEngineImpl extends RustOpaque implements MlsEngine {
     groupIdBytes: groupIdBytes,
     config: config,
   );
+
+  /// Keep every past epoch's message secrets, deleting none automatically.
+  ///
+  /// ⚠ **Deletion becomes the application's job.** Nothing in this package
+  /// removes past epoch secrets while this is set, so the group's stored
+  /// state grows with every commit for as long as the group lives, and every
+  /// epoch it ever had stays decryptable by anyone who obtains that store.
+  /// Pair it with one of the `deletePastEpochSecrets…` methods on a schedule
+  /// of your own — a retention window with
+  /// `deletePastEpochSecretsOlderThan`, say — or this is a leak rather than
+  /// a feature.
+  ///
+  /// It does not bring back what an earlier policy already discarded, and
+  /// like the one above it is reset by `setConfiguration`.
+  Future<void> setPastEpochDeletionPolicyKeepAll({
+    required List<int> groupIdBytes,
+  }) => RustLib.instance.api
+      .crateApiEngineMlsEngineSetPastEpochDeletionPolicyKeepAll(
+        that: this,
+        groupIdBytes: groupIdBytes,
+      );
+
+  /// Keep the message secrets of at most `maxEpochs` past epochs, deleting
+  /// the oldest as newer ones arrive.
+  ///
+  /// Takes effect at once: a number below what the group already holds
+  /// deletes the surplus inside this call rather than at the next commit.
+  ///
+  /// ⚠ Above 0 this keeps material that decrypts past traffic — see
+  /// `PastEpochDeletionPolicyResult` for the trade-off. Zero, the default
+  /// for a new group, keeps none.
+  ///
+  /// ⚠ **`setConfiguration` resets this**, because `MlsGroupConfig` carries
+  /// the same setting as `maxPastEpochs`. When both are used, set the policy
+  /// after the configuration, not before.
+  ///
+  /// Errors when `maxEpochs` is 4294967295. That one value is refused rather
+  /// than stored because it is what OpenMLS writes to mean keep-all where
+  /// `usize` is 32 bits — the Web and 32-bit Android — so accepting it would
+  /// make two settings one stored value there and two everywhere else. Use
+  /// `setPastEpochDeletionPolicyKeepAll` if that is what you mean.
+  Future<void> setPastEpochDeletionPolicyMaxEpochs({
+    required List<int> groupIdBytes,
+    required int maxEpochs,
+  }) => RustLib.instance.api
+      .crateApiEngineMlsEngineSetPastEpochDeletionPolicyMaxEpochs(
+        that: this,
+        groupIdBytes: groupIdBytes,
+        maxEpochs: maxEpochs,
+      );
 
   Future<AddMembersResult> swapMembers({
     required List<int> groupIdBytes,

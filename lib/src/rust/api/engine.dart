@@ -8,7 +8,7 @@ import 'config.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 import 'types.dart';
 
-// These functions are ignored because they are not marked as `pub`: `acquire_locks`, `build_credential_with_key`, `commit`, `db`, `load_for_group`, `load_global`, `load_group`
+// These functions are ignored because they are not marked as `pub`: `acquire_locks`, `apply_past_epoch_deletion`, `apply_past_epoch_policy`, `build_credential_with_key`, `commit`, `db`, `load_for_group`, `load_global`, `load_group`, `max_epochs_to_native`, `native_to_past_epoch_policy`, `unix_seconds_to_system_time`, `with_cap`
 // These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `OpLocks`, `OpSession`
 // These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `crypto`, `rand`, `storage`
 
@@ -249,9 +249,73 @@ abstract class MlsEngine implements RustOpaqueInterface {
     Uint8List? aad,
   });
 
+  /// Delete the message secrets of every past epoch, keeping the policy as
+  /// it is.
+  ///
+  /// The group's current epoch is untouched: messages of the current epoch
+  /// keep decrypting. Everything older stops, irreversibly.
+  Future<void> deleteAllPastEpochSecrets({required List<int> groupIdBytes});
+
   Future<void> deleteGroup({required List<int> groupIdBytes});
 
   Future<void> deleteKeyPackage({required List<int> keyPackageRefBytes});
+
+  /// Delete the message secrets of past epochs recorded before
+  /// `unixSeconds`, counted from the Unix epoch, keeping the policy as it is.
+  ///
+  /// `maxPastEpochs` additionally caps what survives at that many of the
+  /// newest past epochs; omit it to apply no cap. Undated entries are
+  /// skipped here too — see `deletePastEpochSecretsOlderThan`.
+  ///
+  /// ⚠ Seconds, not milliseconds. Dart offers `millisecondsSinceEpoch`
+  /// first, and a present-day millisecond count is about a thousand times
+  /// too large: that lands past the year 9999 and is refused here, rather
+  /// than quietly deleting every past epoch the group has.
+  Future<void> deletePastEpochSecretsBefore({
+    required List<int> groupIdBytes,
+    required BigInt unixSeconds,
+    int? maxPastEpochs,
+  });
+
+  /// Delete the message secrets of past epochs recorded more than `seconds`
+  /// ago, keeping the policy as it is.
+  ///
+  /// Age is measured from when the secrets were stored, by this device's
+  /// clock, not from anything in the protocol. `maxPastEpochs` additionally
+  /// caps what survives at that many of the newest past epochs; omit it to
+  /// apply no cap.
+  ///
+  /// ⚠ **Entries that carry no timestamp are skipped in silence** — the
+  /// store cannot tell how old an undated one is. Such entries exist only
+  /// where an application ran a version of this package built on OpenMLS
+  /// 0.8.1 or earlier *and* had `maxPastEpochs` above zero, since the
+  /// default records no past epochs at all; in a group that outlived that
+  /// upgrade they sit alongside dated ones and a retention window built only
+  /// out of this method keeps them forever.
+  /// `deletePastEpochSecretsWithoutTimestamps` is the step that clears them.
+  Future<void> deletePastEpochSecretsOlderThan({
+    required List<int> groupIdBytes,
+    required BigInt seconds,
+    int? maxPastEpochs,
+  });
+
+  /// Delete the message secrets of past epochs that carry no timestamp,
+  /// keeping the policy as it is.
+  ///
+  /// This is a migration step, not an exotic option. Secrets recorded by a
+  /// version of this package built on OpenMLS 0.8.1 or earlier have no
+  /// timestamp, so neither `deletePastEpochSecretsOlderThan` nor
+  /// `deletePastEpochSecretsBefore` will ever remove them; a deployment that
+  /// keeps past epochs and has upgraded across that boundary should run this
+  /// once. Where `maxPastEpochs` was left at its default of zero, no past
+  /// epochs were recorded at all and there is nothing here to clear.
+  ///
+  /// `maxPastEpochs` additionally caps what survives at that many of the
+  /// newest past epochs; omit it to apply no cap.
+  Future<void> deletePastEpochSecretsWithoutTimestamps({
+    required List<int> groupIdBytes,
+    int? maxPastEpochs,
+  });
 
   Future<MlsGroupContextInfo> exportGroupContext({
     required List<int> groupIdBytes,
@@ -417,6 +481,15 @@ abstract class MlsEngine implements RustOpaqueInterface {
 
   Future<void> mergePendingCommit({required List<int> groupIdBytes});
 
+  /// Read how many past epochs' message secrets this group keeps.
+  ///
+  /// A group that was never told otherwise reports the `maxPastEpochs` its
+  /// `MlsGroupConfig` carried when it was created or joined — the two are
+  /// the same setting.
+  Future<PastEpochDeletionPolicyResult> pastEpochDeletionPolicy({
+    required List<int> groupIdBytes,
+  });
+
   Future<ProcessedMessageResult> processMessage({
     required List<int> groupIdBytes,
     required List<int> messageBytes,
@@ -545,9 +618,61 @@ abstract class MlsEngine implements RustOpaqueInterface {
     Uint8List? newCredentialBytes,
   });
 
+  /// Replace the group's runtime configuration.
+  ///
+  /// Every field of `MlsGroupConfig` is written, including the ones this
+  /// call was not made for — the struct carries no "leave as is".
+  ///
+  /// ⚠ **This resets the past epoch deletion policy.** `maxPastEpochs` is
+  /// the same setting as `setPastEpochDeletionPolicyMaxEpochs`, so passing a
+  /// config here writes that number as the policy — silently undoing a
+  /// `setPastEpochDeletionPolicyKeepAll` made earlier, along with the past
+  /// epoch secrets the lower number no longer admits. When both are used,
+  /// set the policy after the configuration, not before.
   Future<void> setConfiguration({
     required List<int> groupIdBytes,
     required MlsGroupConfig config,
+  });
+
+  /// Keep every past epoch's message secrets, deleting none automatically.
+  ///
+  /// ⚠ **Deletion becomes the application's job.** Nothing in this package
+  /// removes past epoch secrets while this is set, so the group's stored
+  /// state grows with every commit for as long as the group lives, and every
+  /// epoch it ever had stays decryptable by anyone who obtains that store.
+  /// Pair it with one of the `deletePastEpochSecrets…` methods on a schedule
+  /// of your own — a retention window with
+  /// `deletePastEpochSecretsOlderThan`, say — or this is a leak rather than
+  /// a feature.
+  ///
+  /// It does not bring back what an earlier policy already discarded, and
+  /// like the one above it is reset by `setConfiguration`.
+  Future<void> setPastEpochDeletionPolicyKeepAll({
+    required List<int> groupIdBytes,
+  });
+
+  /// Keep the message secrets of at most `maxEpochs` past epochs, deleting
+  /// the oldest as newer ones arrive.
+  ///
+  /// Takes effect at once: a number below what the group already holds
+  /// deletes the surplus inside this call rather than at the next commit.
+  ///
+  /// ⚠ Above 0 this keeps material that decrypts past traffic — see
+  /// `PastEpochDeletionPolicyResult` for the trade-off. Zero, the default
+  /// for a new group, keeps none.
+  ///
+  /// ⚠ **`setConfiguration` resets this**, because `MlsGroupConfig` carries
+  /// the same setting as `maxPastEpochs`. When both are used, set the policy
+  /// after the configuration, not before.
+  ///
+  /// Errors when `maxEpochs` is 4294967295. That one value is refused rather
+  /// than stored because it is what OpenMLS writes to mean keep-all where
+  /// `usize` is 32 bits — the Web and 32-bit Android — so accepting it would
+  /// make two settings one stored value there and two everywhere else. Use
+  /// `setPastEpochDeletionPolicyKeepAll` if that is what you mean.
+  Future<void> setPastEpochDeletionPolicyMaxEpochs({
+    required List<int> groupIdBytes,
+    required int maxEpochs,
   });
 
   Future<AddMembersResult> swapMembers({
@@ -794,6 +919,47 @@ class LifetimeVerdict {
           runtimeType == other.runtimeType &&
           valid == other.valid &&
           reason == other.reason;
+}
+
+/// How many past epochs' message secrets a group keeps, as
+/// `pastEpochDeletionPolicy` reports it.
+///
+/// An application message is encrypted under the epoch its sender was in. Once
+/// a commit advances the group, a message that was already in flight can only
+/// be read from the secrets of the epoch it was sent in — so a group that
+/// keeps none of them discards such a message. Keeping a few is what lets a
+/// delivery service reorder or delay messages across a commit.
+///
+/// ⚠ **Keeping any is a forward-secrecy trade-off, not a tuning knob.** The
+/// secrets of a past epoch decrypt every message of that epoch, including ones
+/// an attacker recorded earlier, for as long as they remain stored. OpenMLS
+/// asks for the number to be as low as the delivery service allows; the
+/// default keeps none.
+class PastEpochDeletionPolicyResult {
+  /// True when the group keeps every past epoch's secrets — the state
+  /// `setPastEpochDeletionPolicyKeepAll` puts it in. `maxEpochs` says
+  /// nothing then.
+  final bool keepAll;
+
+  /// How many past epochs' secrets are kept, when `keepAll` is false. Zero
+  /// — the default for a new group — keeps none.
+  final int maxEpochs;
+
+  const PastEpochDeletionPolicyResult({
+    required this.keepAll,
+    required this.maxEpochs,
+  });
+
+  @override
+  int get hashCode => keepAll.hashCode ^ maxEpochs.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is PastEpochDeletionPolicyResult &&
+          runtimeType == other.runtimeType &&
+          keepAll == other.keepAll &&
+          maxEpochs == other.maxEpochs;
 }
 
 class ProcessedMessageInspectResult {

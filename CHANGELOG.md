@@ -2,6 +2,60 @@
 
 ### For Users
 
+#### Added
+
+- **Past epoch message secrets can now be retained and deleted on demand** (`rust/src/api/engine.rs`) — `pastEpochDeletionPolicy` reads how many past epochs a group keeps, `setPastEpochDeletionPolicyMaxEpochs` and `setPastEpochDeletionPolicyKeepAll` set it, and four `delete…` methods remove what is kept: `deleteAllPastEpochSecrets`, `deletePastEpochSecretsOlderThan`, `deletePastEpochSecretsBefore` and `deletePastEpochSecretsWithoutTimestamps`.
+
+  An application message is encrypted under the epoch its sender was in, so a
+  message still in flight when a commit advances the group can only be read
+  from that epoch's secrets. `MlsGroupConfig.maxPastEpochs` could already keep
+  a fixed number of them, but only at creation, and it cannot express "keep
+  all" at any number — nor could anything delete them before their turn came.
+
+  ⚠ Retaining them is a forward-secrecy trade-off rather than a tuning knob:
+  the secrets of a past epoch decrypt every message of that epoch, including
+  traffic recorded earlier, for as long as they are stored. The default keeps
+  none, and `keepAll` keeps them forever unless the application deletes them —
+  which is what the four `delete…` methods are for. SECURITY.md says so where
+  it discusses group state.
+
+  ⚠ `setConfiguration` resets the policy, because `MlsGroupConfig` carries the
+  same setting as `maxPastEpochs` and the struct has no "leave as is". Set the
+  policy after the configuration, not before. Documented on the setter, on
+  `setConfiguration` and on the field, and pinned by a test.
+
+  `deleteAllPastEpochSecrets` deliberately takes no `maxPastEpochs` cap, unlike
+  the other three: OpenMLS applies that modifier only to the selective
+  deletions, so "delete everything but keep a few" would delete everything. The
+  combination is absent from the API rather than documented as a trap. It is
+  also a sweep rather than a switch — under `keepAll` the next commit starts
+  recording past epochs again, so stopping accumulation means setting a
+  `maxEpochs` policy, not deleting.
+
+  `setPastEpochDeletionPolicyMaxEpochs` refuses 4294967295 and names `keepAll`
+  in the error. That single value is what OpenMLS writes to mean keep-all where
+  `usize` is 32 bits — the Web and 32-bit Android — so accepting it would make
+  two settings one stored value there and two everywhere else.
+
+  ⚠ Secrets recorded by a version of this package built on OpenMLS 0.8.1 or
+  earlier (that is, before 3.0.0) carry no timestamp, and the two time-based
+  deletions skip them in silence. `deletePastEpochSecretsWithoutTimestamps` is
+  the step that clears them. It applies only where `maxPastEpochs` was above
+  zero back then, since the default recorded no past epochs at all. No database
+  migration is involved: OpenMLS reads the older encoding through a serde alias
+  and a defaulted field, and the schema version does not move.
+
+  Shown by execution on both platforms, because the storage encoding of
+  keep-all is written in terms of `usize::MAX` and therefore differs by target.
+  Measured in a browser: a stored keep-all comes back from IndexedDB as
+  `MaxEpochs(4294967295)` on wasm32 and is normalised so that Dart sees the
+  same answer everywhere. 17 Dart tests cover the native path, and five Rust
+  tests the conversions, one of them driving a real IndexedDB group. Negative
+  controls: removing the normalisation fails three browser tests while the
+  whole Dart suite stays green, and dropping the `maxPastEpochs` cap from its
+  test makes a deleted epoch decrypt again.
+
+
 #### Security
 
 - **Every operation on the Web now takes a cross-tab lock** (`rust/src/web_lock.rs`, `rust/src/api/engine.rs`) — a second browser tab was an unguarded second writer to the same IndexedDB database. Each tab runs its own WASM instance with its own engine, so the engine-wide mutex that serializes overlapping calls could not see it: two tabs could load the same snapshot, operate on it, and write back in turn, and the later write-back would drop what the first had saved — a merged commit, an advanced ratchet, a stored proposal — desynchronizing the group.
