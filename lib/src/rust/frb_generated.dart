@@ -7319,6 +7319,11 @@ class MlsEngineImpl extends RustOpaque implements MlsEngine {
   ///
   /// The group's current epoch is untouched: messages of the current epoch
   /// keep decrypting. Everything older stops, irreversibly.
+  ///
+  /// ⚠ It clears what has accumulated; it does not stop accumulation. Under
+  /// `setPastEpochDeletionPolicyKeepAll` the next commit starts recording
+  /// past epochs again, so this is a sweep to be repeated rather than a
+  /// switch. To stop it, set a `maxEpochs` policy.
   Future<void> deleteAllPastEpochSecrets({required List<int> groupIdBytes}) =>
       RustLib.instance.api.crateApiEngineMlsEngineDeleteAllPastEpochSecrets(
         that: this,
