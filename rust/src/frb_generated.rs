@@ -42,7 +42,7 @@ flutter_rust_bridge::frb_generated_boilerplate!(
     default_rust_auto_opaque = RustAutoOpaqueNom,
 );
 pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.13.0";
-pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -722731269;
+pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -734665338;
 
 // Section: executor
 
@@ -935,6 +935,56 @@ fn wire__crate__api__engine__MlsEngine_create_message_impl(
         },
     )
 }
+fn wire__crate__api__engine__MlsEngine_delete_all_past_epoch_secrets_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    that: impl CstDecode<
+        RustOpaqueNom<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<MlsEngine>>,
+    >,
+    group_id_bytes: impl CstDecode<Vec<u8>>,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::DcoCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "MlsEngine_delete_all_past_epoch_secrets",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let api_that = that.cst_decode();
+            let api_group_id_bytes = group_id_bytes.cst_decode();
+            move |context| async move {
+                transform_result_dco::<_, _, String>(
+                    (move || async move {
+                        let mut api_that_guard = None;
+                        let decode_indices_ =
+                            flutter_rust_bridge::for_generated::lockable_compute_decode_order(
+                                vec![flutter_rust_bridge::for_generated::LockableOrderInfo::new(
+                                    &api_that, 0, false,
+                                )],
+                            );
+                        for i in decode_indices_ {
+                            match i {
+                                0 => {
+                                    api_that_guard =
+                                        Some(api_that.lockable_decode_async_ref().await)
+                                }
+                                _ => unreachable!(),
+                            }
+                        }
+                        let api_that_guard = api_that_guard.unwrap();
+                        let output_ok =
+                            crate::api::engine::MlsEngine::delete_all_past_epoch_secrets(
+                                &*api_that_guard,
+                                api_group_id_bytes,
+                            )
+                            .await?;
+                        std::result::Result::Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
 fn wire__crate__api__engine__MlsEngine_delete_group_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     that: impl CstDecode<
@@ -1032,6 +1082,141 @@ fn wire__crate__api__engine__MlsEngine_delete_key_package_impl(
             }
         },
     )
+}
+fn wire__crate__api__engine__MlsEngine_delete_past_epoch_secrets_before_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    that: impl CstDecode<
+        RustOpaqueNom<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<MlsEngine>>,
+    >,
+    group_id_bytes: impl CstDecode<Vec<u8>>,
+    unix_seconds: impl CstDecode<u64>,
+    max_past_epochs: impl CstDecode<Option<u32>>,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::DcoCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "MlsEngine_delete_past_epoch_secrets_before",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let api_that = that.cst_decode();
+            let api_group_id_bytes = group_id_bytes.cst_decode();
+            let api_unix_seconds = unix_seconds.cst_decode();
+            let api_max_past_epochs = max_past_epochs.cst_decode();
+            move |context| async move {
+                transform_result_dco::<_, _, String>(
+                    (move || async move {
+                        let mut api_that_guard = None;
+                        let decode_indices_ =
+                            flutter_rust_bridge::for_generated::lockable_compute_decode_order(
+                                vec![flutter_rust_bridge::for_generated::LockableOrderInfo::new(
+                                    &api_that, 0, false,
+                                )],
+                            );
+                        for i in decode_indices_ {
+                            match i {
+                                0 => {
+                                    api_that_guard =
+                                        Some(api_that.lockable_decode_async_ref().await)
+                                }
+                                _ => unreachable!(),
+                            }
+                        }
+                        let api_that_guard = api_that_guard.unwrap();
+                        let output_ok =
+                            crate::api::engine::MlsEngine::delete_past_epoch_secrets_before(
+                                &*api_that_guard,
+                                api_group_id_bytes,
+                                api_unix_seconds,
+                                api_max_past_epochs,
+                            )
+                            .await?;
+                        std::result::Result::Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
+fn wire__crate__api__engine__MlsEngine_delete_past_epoch_secrets_older_than_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    that: impl CstDecode<
+        RustOpaqueNom<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<MlsEngine>>,
+    >,
+    group_id_bytes: impl CstDecode<Vec<u8>>,
+    seconds: impl CstDecode<u64>,
+    max_past_epochs: impl CstDecode<Option<u32>>,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::DcoCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "MlsEngine_delete_past_epoch_secrets_older_than",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let api_that = that.cst_decode();
+            let api_group_id_bytes = group_id_bytes.cst_decode();
+            let api_seconds = seconds.cst_decode();
+            let api_max_past_epochs = max_past_epochs.cst_decode();
+            move |context| async move {
+                transform_result_dco::<_, _, String>(
+                    (move || async move {
+                        let mut api_that_guard = None;
+                        let decode_indices_ =
+                            flutter_rust_bridge::for_generated::lockable_compute_decode_order(
+                                vec![flutter_rust_bridge::for_generated::LockableOrderInfo::new(
+                                    &api_that, 0, false,
+                                )],
+                            );
+                        for i in decode_indices_ {
+                            match i {
+                                0 => {
+                                    api_that_guard =
+                                        Some(api_that.lockable_decode_async_ref().await)
+                                }
+                                _ => unreachable!(),
+                            }
+                        }
+                        let api_that_guard = api_that_guard.unwrap();
+                        let output_ok =
+                            crate::api::engine::MlsEngine::delete_past_epoch_secrets_older_than(
+                                &*api_that_guard,
+                                api_group_id_bytes,
+                                api_seconds,
+                                api_max_past_epochs,
+                            )
+                            .await?;
+                        std::result::Result::Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
+fn wire__crate__api__engine__MlsEngine_delete_past_epoch_secrets_without_timestamps_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    that: impl CstDecode<
+        RustOpaqueNom<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<MlsEngine>>,
+    >,
+    group_id_bytes: impl CstDecode<Vec<u8>>,
+    max_past_epochs: impl CstDecode<Option<u32>>,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::DcoCodec,_,_,_>(flutter_rust_bridge::for_generated::TaskInfo{ debug_name: "MlsEngine_delete_past_epoch_secrets_without_timestamps", port: Some(port_), mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal }, move || {let api_that = that.cst_decode();let api_group_id_bytes = group_id_bytes.cst_decode();let api_max_past_epochs = max_past_epochs.cst_decode(); move |context| async move {
+                    transform_result_dco::<_, _, String>((move || async move {
+                        let mut api_that_guard = None;
+let decode_indices_ = flutter_rust_bridge::for_generated::lockable_compute_decode_order(vec![flutter_rust_bridge::for_generated::LockableOrderInfo::new(&api_that, 0, false)]);
+        for i in decode_indices_ {
+            match i {
+                0 => api_that_guard = Some(api_that.lockable_decode_async_ref().await),
+                _ => unreachable!(),
+            }
+        }
+        let api_that_guard = api_that_guard.unwrap();
+ let output_ok = crate::api::engine::MlsEngine::delete_past_epoch_secrets_without_timestamps(&*api_that_guard, api_group_id_bytes, api_max_past_epochs).await?;   std::result::Result::Ok(output_ok)
+                    })().await)
+                } })
 }
 fn wire__crate__api__engine__MlsEngine_export_group_context_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
@@ -2700,6 +2885,55 @@ fn wire__crate__api__engine__MlsEngine_merge_pending_commit_impl(
         },
     )
 }
+fn wire__crate__api__engine__MlsEngine_past_epoch_deletion_policy_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    that: impl CstDecode<
+        RustOpaqueNom<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<MlsEngine>>,
+    >,
+    group_id_bytes: impl CstDecode<Vec<u8>>,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::DcoCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "MlsEngine_past_epoch_deletion_policy",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let api_that = that.cst_decode();
+            let api_group_id_bytes = group_id_bytes.cst_decode();
+            move |context| async move {
+                transform_result_dco::<_, _, String>(
+                    (move || async move {
+                        let mut api_that_guard = None;
+                        let decode_indices_ =
+                            flutter_rust_bridge::for_generated::lockable_compute_decode_order(
+                                vec![flutter_rust_bridge::for_generated::LockableOrderInfo::new(
+                                    &api_that, 0, false,
+                                )],
+                            );
+                        for i in decode_indices_ {
+                            match i {
+                                0 => {
+                                    api_that_guard =
+                                        Some(api_that.lockable_decode_async_ref().await)
+                                }
+                                _ => unreachable!(),
+                            }
+                        }
+                        let api_that_guard = api_that_guard.unwrap();
+                        let output_ok = crate::api::engine::MlsEngine::past_epoch_deletion_policy(
+                            &*api_that_guard,
+                            api_group_id_bytes,
+                        )
+                        .await?;
+                        std::result::Result::Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
 fn wire__crate__api__engine__MlsEngine_process_message_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     that: impl CstDecode<
@@ -3582,6 +3816,79 @@ fn wire__crate__api__engine__MlsEngine_set_configuration_impl(
             }
         },
     )
+}
+fn wire__crate__api__engine__MlsEngine_set_past_epoch_deletion_policy_keep_all_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    that: impl CstDecode<
+        RustOpaqueNom<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<MlsEngine>>,
+    >,
+    group_id_bytes: impl CstDecode<Vec<u8>>,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::DcoCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "MlsEngine_set_past_epoch_deletion_policy_keep_all",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let api_that = that.cst_decode();
+            let api_group_id_bytes = group_id_bytes.cst_decode();
+            move |context| async move {
+                transform_result_dco::<_, _, String>(
+                    (move || async move {
+                        let mut api_that_guard = None;
+                        let decode_indices_ =
+                            flutter_rust_bridge::for_generated::lockable_compute_decode_order(
+                                vec![flutter_rust_bridge::for_generated::LockableOrderInfo::new(
+                                    &api_that, 0, false,
+                                )],
+                            );
+                        for i in decode_indices_ {
+                            match i {
+                                0 => {
+                                    api_that_guard =
+                                        Some(api_that.lockable_decode_async_ref().await)
+                                }
+                                _ => unreachable!(),
+                            }
+                        }
+                        let api_that_guard = api_that_guard.unwrap();
+                        let output_ok =
+                            crate::api::engine::MlsEngine::set_past_epoch_deletion_policy_keep_all(
+                                &*api_that_guard,
+                                api_group_id_bytes,
+                            )
+                            .await?;
+                        std::result::Result::Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
+fn wire__crate__api__engine__MlsEngine_set_past_epoch_deletion_policy_max_epochs_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    that: impl CstDecode<
+        RustOpaqueNom<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<MlsEngine>>,
+    >,
+    group_id_bytes: impl CstDecode<Vec<u8>>,
+    max_epochs: impl CstDecode<u32>,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::DcoCodec,_,_,_>(flutter_rust_bridge::for_generated::TaskInfo{ debug_name: "MlsEngine_set_past_epoch_deletion_policy_max_epochs", port: Some(port_), mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal }, move || {let api_that = that.cst_decode();let api_group_id_bytes = group_id_bytes.cst_decode();let api_max_epochs = max_epochs.cst_decode(); move |context| async move {
+                    transform_result_dco::<_, _, String>((move || async move {
+                        let mut api_that_guard = None;
+let decode_indices_ = flutter_rust_bridge::for_generated::lockable_compute_decode_order(vec![flutter_rust_bridge::for_generated::LockableOrderInfo::new(&api_that, 0, false)]);
+        for i in decode_indices_ {
+            match i {
+                0 => api_that_guard = Some(api_that.lockable_decode_async_ref().await),
+                _ => unreachable!(),
+            }
+        }
+        let api_that_guard = api_that_guard.unwrap();
+ let output_ok = crate::api::engine::MlsEngine::set_past_epoch_deletion_policy_max_epochs(&*api_that_guard, api_group_id_bytes, api_max_epochs).await?;   std::result::Result::Ok(output_ok)
+                    })().await)
+                } })
 }
 fn wire__crate__api__engine__MlsEngine_swap_members_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
@@ -4846,6 +5153,18 @@ impl SseDecode for Option<Vec<u8>> {
     }
 }
 
+impl SseDecode for crate::api::engine::PastEpochDeletionPolicyResult {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_keepAll = <bool>::sse_decode(deserializer);
+        let mut var_maxEpochs = <u32>::sse_decode(deserializer);
+        return crate::api::engine::PastEpochDeletionPolicyResult {
+            keep_all: var_keepAll,
+            max_epochs: var_maxEpochs,
+        };
+    }
+}
+
 impl SseDecode for crate::api::engine::ProcessedMessageInspectResult {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -5586,6 +5905,27 @@ impl flutter_rust_bridge::IntoIntoDart<crate::api::types::MlsWireFormatPolicy>
     }
 }
 // Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::api::engine::PastEpochDeletionPolicyResult {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.keep_all.into_into_dart().into_dart(),
+            self.max_epochs.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::api::engine::PastEpochDeletionPolicyResult
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::api::engine::PastEpochDeletionPolicyResult>
+    for crate::api::engine::PastEpochDeletionPolicyResult
+{
+    fn into_into_dart(self) -> crate::api::engine::PastEpochDeletionPolicyResult {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
 impl flutter_rust_bridge::IntoDart for crate::api::engine::ProcessedMessageInspectResult {
     fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
         [
@@ -6222,6 +6562,14 @@ impl SseEncode for Option<Vec<u8>> {
     }
 }
 
+impl SseEncode for crate::api::engine::PastEpochDeletionPolicyResult {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <bool>::sse_encode(self.keep_all, serializer);
+        <u32>::sse_encode(self.max_epochs, serializer);
+    }
+}
+
 impl SseEncode for crate::api::engine::ProcessedMessageInspectResult {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -6814,6 +7162,17 @@ mod io {
             }
         }
     }
+    impl CstDecode<crate::api::engine::PastEpochDeletionPolicyResult>
+        for wire_cst_past_epoch_deletion_policy_result
+    {
+        // Codec=Cst (C-struct based), see doc to use other codecs
+        fn cst_decode(self) -> crate::api::engine::PastEpochDeletionPolicyResult {
+            crate::api::engine::PastEpochDeletionPolicyResult {
+                keep_all: self.keep_all.cst_decode(),
+                max_epochs: self.max_epochs.cst_decode(),
+            }
+        }
+    }
     impl CstDecode<crate::api::engine::ProcessedMessageInspectResult>
         for wire_cst_processed_message_inspect_result
     {
@@ -7161,6 +7520,19 @@ mod io {
             Self::new_with_null_ptr()
         }
     }
+    impl NewWithNullPtr for wire_cst_past_epoch_deletion_policy_result {
+        fn new_with_null_ptr() -> Self {
+            Self {
+                keep_all: Default::default(),
+                max_epochs: Default::default(),
+            }
+        }
+    }
+    impl Default for wire_cst_past_epoch_deletion_policy_result {
+        fn default() -> Self {
+            Self::new_with_null_ptr()
+        }
+    }
     impl NewWithNullPtr for wire_cst_processed_message_inspect_result {
         fn new_with_null_ptr() -> Self {
             Self {
@@ -7502,6 +7874,19 @@ mod io {
     }
 
     #[unsafe(no_mangle)]
+    pub extern "C" fn frbgen_openmls_wire__crate__api__engine__MlsEngine_delete_all_past_epoch_secrets(
+        port_: i64,
+        that: usize,
+        group_id_bytes: *mut wire_cst_list_prim_u_8_loose,
+    ) {
+        wire__crate__api__engine__MlsEngine_delete_all_past_epoch_secrets_impl(
+            port_,
+            that,
+            group_id_bytes,
+        )
+    }
+
+    #[unsafe(no_mangle)]
     pub extern "C" fn frbgen_openmls_wire__crate__api__engine__MlsEngine_delete_group(
         port_: i64,
         that: usize,
@@ -7520,6 +7905,55 @@ mod io {
             port_,
             that,
             key_package_ref_bytes,
+        )
+    }
+
+    #[unsafe(no_mangle)]
+    pub extern "C" fn frbgen_openmls_wire__crate__api__engine__MlsEngine_delete_past_epoch_secrets_before(
+        port_: i64,
+        that: usize,
+        group_id_bytes: *mut wire_cst_list_prim_u_8_loose,
+        unix_seconds: u64,
+        max_past_epochs: *mut u32,
+    ) {
+        wire__crate__api__engine__MlsEngine_delete_past_epoch_secrets_before_impl(
+            port_,
+            that,
+            group_id_bytes,
+            unix_seconds,
+            max_past_epochs,
+        )
+    }
+
+    #[unsafe(no_mangle)]
+    pub extern "C" fn frbgen_openmls_wire__crate__api__engine__MlsEngine_delete_past_epoch_secrets_older_than(
+        port_: i64,
+        that: usize,
+        group_id_bytes: *mut wire_cst_list_prim_u_8_loose,
+        seconds: u64,
+        max_past_epochs: *mut u32,
+    ) {
+        wire__crate__api__engine__MlsEngine_delete_past_epoch_secrets_older_than_impl(
+            port_,
+            that,
+            group_id_bytes,
+            seconds,
+            max_past_epochs,
+        )
+    }
+
+    #[unsafe(no_mangle)]
+    pub extern "C" fn frbgen_openmls_wire__crate__api__engine__MlsEngine_delete_past_epoch_secrets_without_timestamps(
+        port_: i64,
+        that: usize,
+        group_id_bytes: *mut wire_cst_list_prim_u_8_loose,
+        max_past_epochs: *mut u32,
+    ) {
+        wire__crate__api__engine__MlsEngine_delete_past_epoch_secrets_without_timestamps_impl(
+            port_,
+            that,
+            group_id_bytes,
+            max_past_epochs,
         )
     }
 
@@ -7947,6 +8381,19 @@ mod io {
     }
 
     #[unsafe(no_mangle)]
+    pub extern "C" fn frbgen_openmls_wire__crate__api__engine__MlsEngine_past_epoch_deletion_policy(
+        port_: i64,
+        that: usize,
+        group_id_bytes: *mut wire_cst_list_prim_u_8_loose,
+    ) {
+        wire__crate__api__engine__MlsEngine_past_epoch_deletion_policy_impl(
+            port_,
+            that,
+            group_id_bytes,
+        )
+    }
+
+    #[unsafe(no_mangle)]
     pub extern "C" fn frbgen_openmls_wire__crate__api__engine__MlsEngine_process_message(
         port_: i64,
         that: usize,
@@ -8217,6 +8664,34 @@ mod io {
             that,
             group_id_bytes,
             config,
+        )
+    }
+
+    #[unsafe(no_mangle)]
+    pub extern "C" fn frbgen_openmls_wire__crate__api__engine__MlsEngine_set_past_epoch_deletion_policy_keep_all(
+        port_: i64,
+        that: usize,
+        group_id_bytes: *mut wire_cst_list_prim_u_8_loose,
+    ) {
+        wire__crate__api__engine__MlsEngine_set_past_epoch_deletion_policy_keep_all_impl(
+            port_,
+            that,
+            group_id_bytes,
+        )
+    }
+
+    #[unsafe(no_mangle)]
+    pub extern "C" fn frbgen_openmls_wire__crate__api__engine__MlsEngine_set_past_epoch_deletion_policy_max_epochs(
+        port_: i64,
+        that: usize,
+        group_id_bytes: *mut wire_cst_list_prim_u_8_loose,
+        max_epochs: u32,
+    ) {
+        wire__crate__api__engine__MlsEngine_set_past_epoch_deletion_policy_max_epochs_impl(
+            port_,
+            that,
+            group_id_bytes,
+            max_epochs,
         )
     }
 
@@ -8831,6 +9306,12 @@ mod io {
     }
     #[repr(C)]
     #[derive(Clone, Copy)]
+    pub struct wire_cst_past_epoch_deletion_policy_result {
+        keep_all: bool,
+        max_epochs: u32,
+    }
+    #[repr(C)]
+    #[derive(Clone, Copy)]
     pub struct wire_cst_processed_message_inspect_result {
         message_type: i32,
         sender_index: *mut u32,
@@ -9423,6 +9904,26 @@ mod web {
             self.map(CstDecode::cst_decode)
         }
     }
+    impl CstDecode<crate::api::engine::PastEpochDeletionPolicyResult>
+        for flutter_rust_bridge::for_generated::wasm_bindgen::JsValue
+    {
+        // Codec=Cst (C-struct based), see doc to use other codecs
+        fn cst_decode(self) -> crate::api::engine::PastEpochDeletionPolicyResult {
+            let self_ = self
+                .dyn_into::<flutter_rust_bridge::for_generated::js_sys::Array>()
+                .unwrap();
+            assert_eq!(
+                self_.length(),
+                2,
+                "Expected 2 elements, got {}",
+                self_.length()
+            );
+            crate::api::engine::PastEpochDeletionPolicyResult {
+                keep_all: self_.get(0).cst_decode(),
+                max_epochs: self_.get(1).cst_decode(),
+            }
+        }
+    }
     impl CstDecode<crate::api::engine::ProcessedMessageInspectResult>
         for flutter_rust_bridge::for_generated::wasm_bindgen::JsValue
     {
@@ -9990,6 +10491,19 @@ mod web {
     }
 
     #[wasm_bindgen]
+    pub fn wire__crate__api__engine__MlsEngine_delete_all_past_epoch_secrets(
+        port_: flutter_rust_bridge::for_generated::MessagePort,
+        that: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
+        group_id_bytes: Box<[u8]>,
+    ) {
+        wire__crate__api__engine__MlsEngine_delete_all_past_epoch_secrets_impl(
+            port_,
+            that,
+            group_id_bytes,
+        )
+    }
+
+    #[wasm_bindgen]
     pub fn wire__crate__api__engine__MlsEngine_delete_group(
         port_: flutter_rust_bridge::for_generated::MessagePort,
         that: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
@@ -10008,6 +10522,55 @@ mod web {
             port_,
             that,
             key_package_ref_bytes,
+        )
+    }
+
+    #[wasm_bindgen]
+    pub fn wire__crate__api__engine__MlsEngine_delete_past_epoch_secrets_before(
+        port_: flutter_rust_bridge::for_generated::MessagePort,
+        that: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
+        group_id_bytes: Box<[u8]>,
+        unix_seconds: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
+        max_past_epochs: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
+    ) {
+        wire__crate__api__engine__MlsEngine_delete_past_epoch_secrets_before_impl(
+            port_,
+            that,
+            group_id_bytes,
+            unix_seconds,
+            max_past_epochs,
+        )
+    }
+
+    #[wasm_bindgen]
+    pub fn wire__crate__api__engine__MlsEngine_delete_past_epoch_secrets_older_than(
+        port_: flutter_rust_bridge::for_generated::MessagePort,
+        that: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
+        group_id_bytes: Box<[u8]>,
+        seconds: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
+        max_past_epochs: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
+    ) {
+        wire__crate__api__engine__MlsEngine_delete_past_epoch_secrets_older_than_impl(
+            port_,
+            that,
+            group_id_bytes,
+            seconds,
+            max_past_epochs,
+        )
+    }
+
+    #[wasm_bindgen]
+    pub fn wire__crate__api__engine__MlsEngine_delete_past_epoch_secrets_without_timestamps(
+        port_: flutter_rust_bridge::for_generated::MessagePort,
+        that: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
+        group_id_bytes: Box<[u8]>,
+        max_past_epochs: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
+    ) {
+        wire__crate__api__engine__MlsEngine_delete_past_epoch_secrets_without_timestamps_impl(
+            port_,
+            that,
+            group_id_bytes,
+            max_past_epochs,
         )
     }
 
@@ -10435,6 +10998,19 @@ mod web {
     }
 
     #[wasm_bindgen]
+    pub fn wire__crate__api__engine__MlsEngine_past_epoch_deletion_policy(
+        port_: flutter_rust_bridge::for_generated::MessagePort,
+        that: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
+        group_id_bytes: Box<[u8]>,
+    ) {
+        wire__crate__api__engine__MlsEngine_past_epoch_deletion_policy_impl(
+            port_,
+            that,
+            group_id_bytes,
+        )
+    }
+
+    #[wasm_bindgen]
     pub fn wire__crate__api__engine__MlsEngine_process_message(
         port_: flutter_rust_bridge::for_generated::MessagePort,
         that: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
@@ -10705,6 +11281,34 @@ mod web {
             that,
             group_id_bytes,
             config,
+        )
+    }
+
+    #[wasm_bindgen]
+    pub fn wire__crate__api__engine__MlsEngine_set_past_epoch_deletion_policy_keep_all(
+        port_: flutter_rust_bridge::for_generated::MessagePort,
+        that: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
+        group_id_bytes: Box<[u8]>,
+    ) {
+        wire__crate__api__engine__MlsEngine_set_past_epoch_deletion_policy_keep_all_impl(
+            port_,
+            that,
+            group_id_bytes,
+        )
+    }
+
+    #[wasm_bindgen]
+    pub fn wire__crate__api__engine__MlsEngine_set_past_epoch_deletion_policy_max_epochs(
+        port_: flutter_rust_bridge::for_generated::MessagePort,
+        that: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
+        group_id_bytes: Box<[u8]>,
+        max_epochs: u32,
+    ) {
+        wire__crate__api__engine__MlsEngine_set_past_epoch_deletion_policy_max_epochs_impl(
+            port_,
+            that,
+            group_id_bytes,
+            max_epochs,
         )
     }
 

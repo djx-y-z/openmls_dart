@@ -258,6 +258,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   Uint8List? dco_decode_opt_list_prim_u_8_strict(dynamic raw);
 
   @protected
+  PastEpochDeletionPolicyResult dco_decode_past_epoch_deletion_policy_result(
+    dynamic raw,
+  );
+
+  @protected
   ProcessedMessageInspectResult dco_decode_processed_message_inspect_result(
     dynamic raw,
   );
@@ -564,6 +569,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   Uint8List? sse_decode_opt_list_prim_u_8_strict(SseDeserializer deserializer);
+
+  @protected
+  PastEpochDeletionPolicyResult sse_decode_past_epoch_deletion_policy_result(
+    SseDeserializer deserializer,
+  );
 
   @protected
   ProcessedMessageInspectResult sse_decode_processed_message_inspect_result(
@@ -982,6 +992,17 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   JSAny? cst_encode_opt_list_prim_u_8_strict(Uint8List? raw) {
     // Codec=Cst (C-struct based), see doc to use other codecs
     return raw == null ? null : cst_encode_list_prim_u_8_strict(raw);
+  }
+
+  @protected
+  JSAny cst_encode_past_epoch_deletion_policy_result(
+    PastEpochDeletionPolicyResult raw,
+  ) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return [
+      cst_encode_bool(raw.keepAll),
+      cst_encode_u_32(raw.maxEpochs),
+    ].jsify()!;
   }
 
   @protected
@@ -1490,6 +1511,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_past_epoch_deletion_policy_result(
+    PastEpochDeletionPolicyResult self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_processed_message_inspect_result(
     ProcessedMessageInspectResult self,
     SseSerializer serializer,
@@ -1767,6 +1794,17 @@ class RustLibWire implements BaseWire {
     aad,
   );
 
+  void wire__crate__api__engine__MlsEngine_delete_all_past_epoch_secrets(
+    NativePortType port_,
+    int that,
+    JSAny group_id_bytes,
+  ) => wasmModule
+      .wire__crate__api__engine__MlsEngine_delete_all_past_epoch_secrets(
+        port_,
+        that,
+        group_id_bytes,
+      );
+
   void wire__crate__api__engine__MlsEngine_delete_group(
     NativePortType port_,
     int that,
@@ -1786,6 +1824,50 @@ class RustLibWire implements BaseWire {
     that,
     key_package_ref_bytes,
   );
+
+  void wire__crate__api__engine__MlsEngine_delete_past_epoch_secrets_before(
+    NativePortType port_,
+    int that,
+    JSAny group_id_bytes,
+    JSAny unix_seconds,
+    int? max_past_epochs,
+  ) => wasmModule
+      .wire__crate__api__engine__MlsEngine_delete_past_epoch_secrets_before(
+        port_,
+        that,
+        group_id_bytes,
+        unix_seconds,
+        max_past_epochs,
+      );
+
+  void wire__crate__api__engine__MlsEngine_delete_past_epoch_secrets_older_than(
+    NativePortType port_,
+    int that,
+    JSAny group_id_bytes,
+    JSAny seconds,
+    int? max_past_epochs,
+  ) => wasmModule
+      .wire__crate__api__engine__MlsEngine_delete_past_epoch_secrets_older_than(
+        port_,
+        that,
+        group_id_bytes,
+        seconds,
+        max_past_epochs,
+      );
+
+  void
+  wire__crate__api__engine__MlsEngine_delete_past_epoch_secrets_without_timestamps(
+    NativePortType port_,
+    int that,
+    JSAny group_id_bytes,
+    int? max_past_epochs,
+  ) => wasmModule
+      .wire__crate__api__engine__MlsEngine_delete_past_epoch_secrets_without_timestamps(
+        port_,
+        that,
+        group_id_bytes,
+        max_past_epochs,
+      );
 
   void wire__crate__api__engine__MlsEngine_export_group_context(
     NativePortType port_,
@@ -2180,6 +2262,17 @@ class RustLibWire implements BaseWire {
     group_id_bytes,
   );
 
+  void wire__crate__api__engine__MlsEngine_past_epoch_deletion_policy(
+    NativePortType port_,
+    int that,
+    JSAny group_id_bytes,
+  ) =>
+      wasmModule.wire__crate__api__engine__MlsEngine_past_epoch_deletion_policy(
+        port_,
+        that,
+        group_id_bytes,
+      );
+
   void wire__crate__api__engine__MlsEngine_process_message(
     NativePortType port_,
     int that,
@@ -2410,6 +2503,32 @@ class RustLibWire implements BaseWire {
     group_id_bytes,
     config,
   );
+
+  void
+  wire__crate__api__engine__MlsEngine_set_past_epoch_deletion_policy_keep_all(
+    NativePortType port_,
+    int that,
+    JSAny group_id_bytes,
+  ) => wasmModule
+      .wire__crate__api__engine__MlsEngine_set_past_epoch_deletion_policy_keep_all(
+        port_,
+        that,
+        group_id_bytes,
+      );
+
+  void
+  wire__crate__api__engine__MlsEngine_set_past_epoch_deletion_policy_max_epochs(
+    NativePortType port_,
+    int that,
+    JSAny group_id_bytes,
+    int max_epochs,
+  ) => wasmModule
+      .wire__crate__api__engine__MlsEngine_set_past_epoch_deletion_policy_max_epochs(
+        port_,
+        that,
+        group_id_bytes,
+        max_epochs,
+      );
 
   void wire__crate__api__engine__MlsEngine_swap_members(
     NativePortType port_,
@@ -2729,6 +2848,13 @@ extension type RustLibWasmModule._(JSObject _) implements JSObject {
     JSAny? aad,
   );
 
+  external void
+  wire__crate__api__engine__MlsEngine_delete_all_past_epoch_secrets(
+    NativePortType port_,
+    int that,
+    JSAny group_id_bytes,
+  );
+
   external void wire__crate__api__engine__MlsEngine_delete_group(
     NativePortType port_,
     int that,
@@ -2739,6 +2865,32 @@ extension type RustLibWasmModule._(JSObject _) implements JSObject {
     NativePortType port_,
     int that,
     JSAny key_package_ref_bytes,
+  );
+
+  external void
+  wire__crate__api__engine__MlsEngine_delete_past_epoch_secrets_before(
+    NativePortType port_,
+    int that,
+    JSAny group_id_bytes,
+    JSAny unix_seconds,
+    int? max_past_epochs,
+  );
+
+  external void
+  wire__crate__api__engine__MlsEngine_delete_past_epoch_secrets_older_than(
+    NativePortType port_,
+    int that,
+    JSAny group_id_bytes,
+    JSAny seconds,
+    int? max_past_epochs,
+  );
+
+  external void
+  wire__crate__api__engine__MlsEngine_delete_past_epoch_secrets_without_timestamps(
+    NativePortType port_,
+    int that,
+    JSAny group_id_bytes,
+    int? max_past_epochs,
   );
 
   external void wire__crate__api__engine__MlsEngine_export_group_context(
@@ -2969,6 +3121,12 @@ extension type RustLibWasmModule._(JSObject _) implements JSObject {
     JSAny group_id_bytes,
   );
 
+  external void wire__crate__api__engine__MlsEngine_past_epoch_deletion_policy(
+    NativePortType port_,
+    int that,
+    JSAny group_id_bytes,
+  );
+
   external void wire__crate__api__engine__MlsEngine_process_message(
     NativePortType port_,
     int that,
@@ -3100,6 +3258,21 @@ extension type RustLibWasmModule._(JSObject _) implements JSObject {
     int that,
     JSAny group_id_bytes,
     JSAny config,
+  );
+
+  external void
+  wire__crate__api__engine__MlsEngine_set_past_epoch_deletion_policy_keep_all(
+    NativePortType port_,
+    int that,
+    JSAny group_id_bytes,
+  );
+
+  external void
+  wire__crate__api__engine__MlsEngine_set_past_epoch_deletion_policy_max_epochs(
+    NativePortType port_,
+    int that,
+    JSAny group_id_bytes,
+    int max_epochs,
   );
 
   external void wire__crate__api__engine__MlsEngine_swap_members(

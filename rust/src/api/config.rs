@@ -11,6 +11,17 @@ pub struct MlsGroupConfig {
     pub ciphersuite: MlsCiphersuite,
     pub wire_format_policy: MlsWireFormatPolicy,
     pub use_ratchet_tree_extension: bool,
+    /// How many past epochs' message secrets the group keeps (0 = none).
+    ///
+    /// This is the same setting as
+    /// `MlsEngine.setPastEpochDeletionPolicyMaxEpochs`, and whichever is
+    /// applied last wins: `createGroup`, `joinGroupFromWelcome` and
+    /// `setConfiguration` all write this number as the group's policy,
+    /// replacing anything set through those methods — including the keep-all
+    /// state, which no number here can express.
+    ///
+    /// ⚠ Above 0 this keeps material that decrypts past traffic; see
+    /// `PastEpochDeletionPolicyResult` for the forward-secrecy trade-off.
     pub max_past_epochs: u32,
     pub padding_size: u32,
     pub sender_ratchet_max_out_of_order: u32,

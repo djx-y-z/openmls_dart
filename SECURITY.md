@@ -192,6 +192,22 @@ MLS group state must be consistent. Avoid:
 
 The library returns errors for protocol violations. Handle them appropriately rather than silently ignoring.
 
+**Past epoch secrets are retained material, and retaining them is a choice.** A
+group keeps none by default (`maxPastEpochs: 0`). Above that — and unboundedly
+under `setPastEpochDeletionPolicyKeepAll` — the secrets of past epochs stay in
+the encrypted store, and they decrypt every application message of those
+epochs, including traffic an attacker recorded before the commit that ended
+them. That is what buys tolerance for a delivery service that reorders or
+delays messages across a commit; it is paid for in forward secrecy. Keep the
+number as low as the delivery service allows, and pair `keepAll` with a
+retention schedule of your own (`deletePastEpochSecretsOlderThan`) — nothing
+deletes them for you while it is set.
+
+Secrets recorded by a version of this package built on OpenMLS 0.8.1 or earlier
+carry no timestamp, so time-based deletion skips them in silence.
+`deletePastEpochSecretsWithoutTimestamps` clears those; a deployment that kept
+past epochs across that upgrade should run it once.
+
 Concurrent Dart calls on one `MlsEngine` are safe: each operation loads its snapshot, runs, and writes back under an engine-wide lock, so overlapping calls queue instead of overwriting each other's state. Ordering across the *protocol* is still yours to get right — the lock decides who goes first, not what the correct order is.
 
 ## Supply Chain Security

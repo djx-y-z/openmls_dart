@@ -13,9 +13,9 @@ use std::time::Duration;
 // `cfg(target_arch = "wasm32")` and `std`'s everywhere else. The two are
 // unrelated types, so the epoch we add to has to be selected the same way.
 #[cfg(not(target_arch = "wasm32"))]
-use std::time::UNIX_EPOCH;
+use std::time::{SystemTime, UNIX_EPOCH};
 #[cfg(target_arch = "wasm32")]
-use web_time::UNIX_EPOCH;
+use web_time::{SystemTime, UNIX_EPOCH};
 
 use openmls::prelude::*;
 use openmls::prelude::tls_codec::{
@@ -137,6 +137,94 @@ pub struct GroupConfigurationResult {
     pub padding_size: u32,
     pub sender_ratchet_max_out_of_order: u32,
     pub sender_ratchet_max_forward_distance: u32,
+}
+
+// ═══════════════════════════════════════════════════════════════
+// PAST EPOCH SECRETS
+// ═══════════════════════════════════════════════════════════════
+
+/// How many past epochs' message secrets a group keeps, as
+/// `pastEpochDeletionPolicy` reports it.
+///
+/// An application message is encrypted under the epoch its sender was in. Once
+/// a commit advances the group, a message that was already in flight can only
+/// be read from the secrets of the epoch it was sent in — so a group that
+/// keeps none of them discards such a message. Keeping a few is what lets a
+/// delivery service reorder or delay messages across a commit.
+///
+/// ⚠ **Keeping any is a forward-secrecy trade-off, not a tuning knob.** The
+/// secrets of a past epoch decrypt every message of that epoch, including ones
+/// an attacker recorded earlier, for as long as they remain stored. OpenMLS
+/// asks for the number to be as low as the delivery service allows; the
+/// default keeps none.
+pub struct PastEpochDeletionPolicyResult {
+    /// True when the group keeps every past epoch's secrets — the state
+    /// `setPastEpochDeletionPolicyKeepAll` puts it in. `maxEpochs` says
+    /// nothing then.
+    pub keep_all: bool,
+    /// How many past epochs' secrets are kept, when `keepAll` is false. Zero
+    /// — the default for a new group — keeps none.
+    pub max_epochs: u32,
+}
+
+/// Reads OpenMLS's policy into the pair Dart sees.
+///
+/// Everything this cannot report as a number is reported as keep-all, which
+/// keeps the surface total in both directions: the number that comes out is
+/// always one `max_epochs_to_native` would take back in.
+///
+/// Two quite different inputs land in that arm.
+///
+/// ⚠ The first is not an edge case on every target. OpenMLS serializes
+/// `KeepAll` as `usize::MAX` and deserializes only `u64::MAX` back into it, so
+/// where `usize` is 32 bits — the Web, 32-bit Android — a stored `KeepAll`
+/// comes back as `MaxEpochs(usize::MAX)` instead. Mapping it here is what makes
+/// the Dart surface answer the same way on every platform.
+///
+/// The second is a number too large to be one of ours: everything this crate
+/// writes came through `max_epochs_to_native` and so fits a `u32` with room to
+/// spare, and a store written by another OpenMLS application could hold more.
+/// Keep-all is the honest summary of such a value — it is more epochs than
+/// anything will ever hold — and it beats reporting a number the setter would
+/// refuse.
+fn native_to_past_epoch_policy(policy: &PastEpochDeletionPolicy) -> PastEpochDeletionPolicyResult {
+    let keep_all = PastEpochDeletionPolicyResult { keep_all: true, max_epochs: 0 };
+    match policy {
+        PastEpochDeletionPolicy::KeepAll => keep_all,
+        PastEpochDeletionPolicy::MaxEpochs(n) => match u32::try_from(*n) {
+            Ok(max_epochs) if max_epochs < u32::MAX => PastEpochDeletionPolicyResult {
+                keep_all: false,
+                max_epochs,
+            },
+            _ => keep_all,
+        },
+    }
+}
+
+fn max_epochs_to_native(max_epochs: u32) -> Result<PastEpochDeletionPolicy, String> {
+    if max_epochs == u32::MAX {
+        return Err(format!(
+            "maxEpochs must be below {}: that value is what OpenMLS stores to mean \
+             keep-all on a 32-bit target, so the two settings would be one stored \
+             value there and two everywhere else. Use \
+             setPastEpochDeletionPolicyKeepAll instead.",
+            u32::MAX
+        ));
+    }
+    Ok(PastEpochDeletionPolicy::MaxEpochs(max_epochs as usize))
+}
+
+/// Applies the optional "and keep at most this many" modifier.
+///
+/// Only the three selective deletions take it. `PastEpochDeletion::delete_all`
+/// carries no time config, and OpenMLS applies the modifier only to requests
+/// that have one — so `delete_all().max_past_epochs(n)` deletes everything and
+/// ignores `n`. `deleteAllPastEpochSecrets` therefore does not offer it.
+fn with_cap(deletion: PastEpochDeletion, max_past_epochs: Option<u32>) -> PastEpochDeletion {
+    match max_past_epochs {
+        Some(n) => deletion.max_past_epochs(n as usize),
+        None => deletion,
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -1708,6 +1796,17 @@ impl MlsEngine {
         self.commit(provider, Some(&group_id_bytes)).await
     }
 
+    /// Replace the group's runtime configuration.
+    ///
+    /// Every field of `MlsGroupConfig` is written, including the ones this
+    /// call was not made for — the struct carries no "leave as is".
+    ///
+    /// ⚠ **This resets the past epoch deletion policy.** `maxPastEpochs` is
+    /// the same setting as `setPastEpochDeletionPolicyMaxEpochs`, so passing a
+    /// config here writes that number as the policy — silently undoing a
+    /// `setPastEpochDeletionPolicyKeepAll` made earlier, along with the past
+    /// epoch secrets the lower number no longer admits. When both are used,
+    /// set the policy after the configuration, not before.
     pub async fn set_configuration(
         &self,
         group_id_bytes: Vec<u8>,
@@ -2106,6 +2205,209 @@ impl MlsEngine {
     }
 
     // ═══════════════════════════════════════════════════════════
+    // PAST EPOCH SECRETS
+    // ═══════════════════════════════════════════════════════════
+
+    /// Read how many past epochs' message secrets this group keeps.
+    ///
+    /// A group that was never told otherwise reports the `maxPastEpochs` its
+    /// `MlsGroupConfig` carried when it was created or joined — the two are
+    /// the same setting.
+    pub async fn past_epoch_deletion_policy(
+        &self,
+        group_id_bytes: Vec<u8>,
+    ) -> Result<PastEpochDeletionPolicyResult, String> {
+        let provider = self.load_for_group(&group_id_bytes).await?;
+        let group = load_group(&group_id_bytes, &provider)?;
+        Ok(native_to_past_epoch_policy(group.past_epoch_deletion_policy()))
+    }
+
+    /// Keep the message secrets of at most `maxEpochs` past epochs, deleting
+    /// the oldest as newer ones arrive.
+    ///
+    /// Takes effect at once: a number below what the group already holds
+    /// deletes the surplus inside this call rather than at the next commit.
+    ///
+    /// ⚠ Above 0 this keeps material that decrypts past traffic — see
+    /// `PastEpochDeletionPolicyResult` for the trade-off. Zero, the default
+    /// for a new group, keeps none.
+    ///
+    /// ⚠ **`setConfiguration` resets this**, because `MlsGroupConfig` carries
+    /// the same setting as `maxPastEpochs`. When both are used, set the policy
+    /// after the configuration, not before.
+    ///
+    /// Errors when `maxEpochs` is 4294967295. That one value is refused rather
+    /// than stored because it is what OpenMLS writes to mean keep-all where
+    /// `usize` is 32 bits — the Web and 32-bit Android — so accepting it would
+    /// make two settings one stored value there and two everywhere else. Use
+    /// `setPastEpochDeletionPolicyKeepAll` if that is what you mean.
+    pub async fn set_past_epoch_deletion_policy_max_epochs(
+        &self,
+        group_id_bytes: Vec<u8>,
+        max_epochs: u32,
+    ) -> Result<(), String> {
+        // Validated before the snapshot is loaded, so a rejected value costs no
+        // database work and holds no lock.
+        let policy = max_epochs_to_native(max_epochs)?;
+        self.apply_past_epoch_policy(group_id_bytes, policy).await
+    }
+
+    /// Keep every past epoch's message secrets, deleting none automatically.
+    ///
+    /// ⚠ **Deletion becomes the application's job.** Nothing in this package
+    /// removes past epoch secrets while this is set, so the group's stored
+    /// state grows with every commit for as long as the group lives, and every
+    /// epoch it ever had stays decryptable by anyone who obtains that store.
+    /// Pair it with one of the `deletePastEpochSecrets…` methods on a schedule
+    /// of your own — a retention window with
+    /// `deletePastEpochSecretsOlderThan`, say — or this is a leak rather than
+    /// a feature.
+    ///
+    /// It does not bring back what an earlier policy already discarded, and
+    /// like the one above it is reset by `setConfiguration`.
+    pub async fn set_past_epoch_deletion_policy_keep_all(
+        &self,
+        group_id_bytes: Vec<u8>,
+    ) -> Result<(), String> {
+        self.apply_past_epoch_policy(group_id_bytes, PastEpochDeletionPolicy::KeepAll)
+            .await
+    }
+
+    /// Delete the message secrets of every past epoch, keeping the policy as
+    /// it is.
+    ///
+    /// The group's current epoch is untouched: messages of the current epoch
+    /// keep decrypting. Everything older stops, irreversibly.
+    ///
+    /// ⚠ It clears what has accumulated; it does not stop accumulation. Under
+    /// `setPastEpochDeletionPolicyKeepAll` the next commit starts recording
+    /// past epochs again, so this is a sweep to be repeated rather than a
+    /// switch. To stop it, set a `maxEpochs` policy.
+    pub async fn delete_all_past_epoch_secrets(
+        &self,
+        group_id_bytes: Vec<u8>,
+    ) -> Result<(), String> {
+        self.apply_past_epoch_deletion(group_id_bytes, PastEpochDeletion::delete_all())
+            .await
+    }
+
+    /// Delete the message secrets of past epochs recorded more than `seconds`
+    /// ago, keeping the policy as it is.
+    ///
+    /// Age is measured from when the secrets were stored, by this device's
+    /// clock, not from anything in the protocol. `maxPastEpochs` additionally
+    /// caps what survives at that many of the newest past epochs; omit it to
+    /// apply no cap.
+    ///
+    /// ⚠ **Entries that carry no timestamp are skipped in silence** — the
+    /// store cannot tell how old an undated one is. Such entries exist only
+    /// where an application ran a version of this package built on OpenMLS
+    /// 0.8.1 or earlier *and* had `maxPastEpochs` above zero, since the
+    /// default records no past epochs at all; in a group that outlived that
+    /// upgrade they sit alongside dated ones and a retention window built only
+    /// out of this method keeps them forever.
+    /// `deletePastEpochSecretsWithoutTimestamps` is the step that clears them.
+    pub async fn delete_past_epoch_secrets_older_than(
+        &self,
+        group_id_bytes: Vec<u8>,
+        seconds: u64,
+        max_past_epochs: Option<u32>,
+    ) -> Result<(), String> {
+        self.apply_past_epoch_deletion(
+            group_id_bytes,
+            with_cap(
+                PastEpochDeletion::older_than_duration(Duration::from_secs(seconds)),
+                max_past_epochs,
+            ),
+        )
+        .await
+    }
+
+    /// Delete the message secrets of past epochs recorded before
+    /// `unixSeconds`, counted from the Unix epoch, keeping the policy as it is.
+    ///
+    /// `maxPastEpochs` additionally caps what survives at that many of the
+    /// newest past epochs; omit it to apply no cap. Undated entries are
+    /// skipped here too — see `deletePastEpochSecretsOlderThan`.
+    ///
+    /// ⚠ Seconds, not milliseconds. Dart offers `millisecondsSinceEpoch`
+    /// first, and a present-day millisecond count is about a thousand times
+    /// too large: that lands past the year 9999 and is refused here, rather
+    /// than quietly deleting every past epoch the group has.
+    pub async fn delete_past_epoch_secrets_before(
+        &self,
+        group_id_bytes: Vec<u8>,
+        unix_seconds: u64,
+        max_past_epochs: Option<u32>,
+    ) -> Result<(), String> {
+        // Validated before the snapshot is loaded — see above.
+        let cutoff = unix_seconds_to_system_time(unix_seconds)?;
+        self.apply_past_epoch_deletion(
+            group_id_bytes,
+            with_cap(PastEpochDeletion::before_timestamp(cutoff), max_past_epochs),
+        )
+        .await
+    }
+
+    /// Delete the message secrets of past epochs that carry no timestamp,
+    /// keeping the policy as it is.
+    ///
+    /// This is a migration step, not an exotic option. Secrets recorded by a
+    /// version of this package built on OpenMLS 0.8.1 or earlier have no
+    /// timestamp, so neither `deletePastEpochSecretsOlderThan` nor
+    /// `deletePastEpochSecretsBefore` will ever remove them; a deployment that
+    /// keeps past epochs and has upgraded across that boundary should run this
+    /// once. Where `maxPastEpochs` was left at its default of zero, no past
+    /// epochs were recorded at all and there is nothing here to clear.
+    ///
+    /// `maxPastEpochs` additionally caps what survives at that many of the
+    /// newest past epochs; omit it to apply no cap.
+    pub async fn delete_past_epoch_secrets_without_timestamps(
+        &self,
+        group_id_bytes: Vec<u8>,
+        max_past_epochs: Option<u32>,
+    ) -> Result<(), String> {
+        self.apply_past_epoch_deletion(
+            group_id_bytes,
+            with_cap(
+                PastEpochDeletion::delete_all_without_timestamps(),
+                max_past_epochs,
+            ),
+        )
+        .await
+    }
+
+    /// Shared tail of the two policy setters: one load → operate → save cycle.
+    async fn apply_past_epoch_policy(
+        &self,
+        group_id_bytes: Vec<u8>,
+        policy: PastEpochDeletionPolicy,
+    ) -> Result<(), String> {
+        let provider = self.load_for_group(&group_id_bytes).await?;
+        let mut group = load_group(&group_id_bytes, &provider)?;
+        group
+            .set_past_epoch_deletion_policy(&provider, policy)
+            .map_err(|e| format!("Failed to set past epoch deletion policy: {}", e))?;
+
+        self.commit(provider, Some(&group_id_bytes)).await
+    }
+
+    /// Shared tail of the four deletions: one load → operate → save cycle.
+    async fn apply_past_epoch_deletion(
+        &self,
+        group_id_bytes: Vec<u8>,
+        deletion: PastEpochDeletion,
+    ) -> Result<(), String> {
+        let provider = self.load_for_group(&group_id_bytes).await?;
+        let mut group = load_group(&group_id_bytes, &provider)?;
+        group
+            .delete_past_epoch_secrets(&provider, deletion)
+            .map_err(|e| format!("Failed to delete past epoch secrets: {}", e))?;
+
+        self.commit(provider, Some(&group_id_bytes)).await
+    }
+
+    // ═══════════════════════════════════════════════════════════
     // LIFECYCLE
     // ═══════════════════════════════════════════════════════════
 
@@ -2265,6 +2567,35 @@ pub fn key_package_lifetime(key_package_bytes: Vec<u8>) -> Result<KeyPackageLife
 /// the same way.
 const MAX_UNIX_SECONDS: u64 = 253_402_300_799;
 
+/// Turns a count of seconds since the Unix epoch into an instant, refusing
+/// anything no calendar can mean.
+///
+/// Shared by every function here that takes a wall-clock instant from Dart, so
+/// that they agree on the bound and on what happens past it — `checkLifetimeAt`
+/// and `deletePastEpochSecrets` would otherwise each pick their own.
+fn unix_seconds_to_system_time(unix_seconds: u64) -> Result<SystemTime, String> {
+    if unix_seconds > MAX_UNIX_SECONDS {
+        return Err(format!(
+            "Not a representable instant: {} seconds after the Unix epoch is past \
+             9999-12-31T23:59:59Z",
+            unix_seconds
+        ));
+    }
+    // Nothing under the cap overflows on any target this crate is built for,
+    // so this arm is unreachable today. It stays because `checked_add` returns
+    // an `Option` either way, and because a narrower platform added later
+    // should produce an error here rather than depend on the survey above
+    // still being complete.
+    UNIX_EPOCH
+        .checked_add(Duration::from_secs(unix_seconds))
+        .ok_or_else(|| {
+            format!(
+                "Not a representable instant: {} seconds after the Unix epoch",
+                unix_seconds
+            )
+        })
+}
+
 /// Checks a validity window against a supplied instant instead of this
 /// device's clock.
 ///
@@ -2297,30 +2628,167 @@ pub fn check_lifetime_at(
     not_after: u64,
     now_unix_seconds: u64,
 ) -> Result<LifetimeVerdict, String> {
-    if now_unix_seconds > MAX_UNIX_SECONDS {
-        return Err(format!(
-            "Not a representable instant: {} seconds after the Unix epoch is past \
-             9999-12-31T23:59:59Z",
-            now_unix_seconds
-        ));
-    }
-    // Nothing under the cap overflows on any target this crate is built for,
-    // so this arm is unreachable today. It stays because `checked_add` returns
-    // an `Option` either way, and because a narrower platform added later
-    // should produce an error here rather than depend on the survey above
-    // still being complete.
-    let now = UNIX_EPOCH
-        .checked_add(Duration::from_secs(now_unix_seconds))
-        .ok_or_else(|| {
-            format!(
-                "Not a representable instant: {} seconds after the Unix epoch",
-                now_unix_seconds
-            )
-        })?;
+    let now = unix_seconds_to_system_time(now_unix_seconds)?;
     Ok(
         match Lifetime::init(not_before, not_after).validate_with_time(now) {
             Ok(()) => LifetimeVerdict { valid: true, reason: None },
             Err(e) => LifetimeVerdict { valid: false, reason: Some(e.to_string()) },
         },
     )
+}
+
+// ═══════════════════════════════════════════════════════════════
+// TESTS
+// ═══════════════════════════════════════════════════════════════
+
+/// Past epoch policy conversions, run on the host *and* in the browser.
+///
+/// The two are not the same measurement: `usize` is 64 bits on the host and 32
+/// on wasm32, and OpenMLS's encoding of the keep-all policy is written in
+/// terms of `usize::MAX`. Everything here that mentions a pointer width is
+/// therefore a different assertion on each target, and the browser run is the
+/// only one that sees the branch the Web actually takes.
+#[cfg(test)]
+mod past_epoch_policy_tests {
+    use super::*;
+
+    #[cfg(target_arch = "wasm32")]
+    use wasm_bindgen_test::{wasm_bindgen_test, wasm_bindgen_test_configure};
+
+    #[cfg(target_arch = "wasm32")]
+    wasm_bindgen_test_configure!(run_in_browser);
+
+    #[cfg_attr(not(target_arch = "wasm32"), test)]
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test)]
+    fn keep_all_is_reported_however_openmls_stored_it() {
+        assert!(native_to_past_epoch_policy(&PastEpochDeletionPolicy::KeepAll).keep_all);
+
+        // The shape a 32-bit target reads back — see the test below. On the
+        // host this arm is unreachable through storage, which is exactly why
+        // it is asserted directly rather than left to the round trip.
+        assert!(
+            native_to_past_epoch_policy(&PastEpochDeletionPolicy::MaxEpochs(usize::MAX)).keep_all,
+            "MaxEpochs(usize::MAX) is OpenMLS's own encoding of keep-all"
+        );
+    }
+
+    #[cfg_attr(not(target_arch = "wasm32"), test)]
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test)]
+    fn the_storage_codec_preserves_keep_all_only_where_usize_is_64_bits() {
+        // serde_json is the codec `SnapshotStorageProvider` writes values with,
+        // so this is the round trip a stored join config really takes.
+        let json = serde_json::to_string(&PastEpochDeletionPolicy::KeepAll).unwrap();
+        let back: PastEpochDeletionPolicy = serde_json::from_str(&json).unwrap();
+
+        // OpenMLS serializes KeepAll as `usize::MAX` and deserializes only
+        // `u64::MAX` back into it, so the value survives on a 64-bit target and
+        // lands on MaxEpochs everywhere else.
+        #[cfg(target_pointer_width = "64")]
+        assert_eq!(back, PastEpochDeletionPolicy::KeepAll);
+        #[cfg(target_pointer_width = "32")]
+        assert_eq!(back, PastEpochDeletionPolicy::MaxEpochs(usize::MAX));
+
+        // Either way this is what Dart is told, which is the point of the
+        // normalization: the surface does not change shape with the target.
+        assert!(native_to_past_epoch_policy(&back).keep_all);
+    }
+
+    #[cfg_attr(not(target_arch = "wasm32"), test)]
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test)]
+    fn every_number_reported_is_one_the_setter_would_take_back() {
+        // A store written by another OpenMLS application can hold a number
+        // larger than anything this crate writes. Reporting it verbatim would
+        // hand Dart a value its own setter refuses, so it reads as keep-all.
+        assert!(native_to_past_epoch_policy(&PastEpochDeletionPolicy::MaxEpochs(
+            u32::MAX as usize
+        ))
+        .keep_all);
+
+        let ordinary =
+            native_to_past_epoch_policy(&PastEpochDeletionPolicy::MaxEpochs(u32::MAX as usize - 1));
+        assert!(!ordinary.keep_all);
+        assert_eq!(ordinary.max_epochs, u32::MAX - 1);
+        assert!(max_epochs_to_native(ordinary.max_epochs).is_ok());
+    }
+
+    #[cfg_attr(not(target_arch = "wasm32"), test)]
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen_test)]
+    fn the_one_ambiguous_number_is_refused() {
+        // u32::MAX is `usize::MAX` where usize is 32 bits, so storing it would
+        // be storing keep-all under another name on those targets only.
+        assert!(max_epochs_to_native(u32::MAX).is_err());
+        assert!(max_epochs_to_native(u32::MAX - 1).is_ok());
+        assert!(max_epochs_to_native(0).is_ok());
+    }
+}
+
+/// The policy against the real Web storage path.
+///
+/// The Dart suite covers this on native SQLCipher, where `usize` is 64 bits
+/// and the keep-all encoding round-trips by itself. Only here does the
+/// normalization above carry the result, and only execution can show it: a
+/// wasm32 body is a different implementation of the same function.
+#[cfg(all(test, target_arch = "wasm32"))]
+mod past_epoch_web_tests {
+    use super::*;
+    use wasm_bindgen_test::{wasm_bindgen_test, wasm_bindgen_test_configure};
+
+    wasm_bindgen_test_configure!(run_in_browser);
+
+    #[wasm_bindgen_test]
+    async fn keep_all_round_trips_through_indexeddb() {
+        let name = format!("openmls_frb_policy_test_{}", js_sys::Date::now() as u64);
+        let engine = MlsEngine::create(name, vec![7u8; 32])
+            .await
+            .expect("engine opens");
+
+        let keys = crate::api::keys::MlsSignatureKeyPair::generate(
+            MlsCiphersuite::Mls128DhkemX25519Aes128gcmSha256Ed25519,
+        )
+        .expect("signature key pair");
+        let signer = crate::api::keys::serialize_signer(
+            MlsCiphersuite::Mls128DhkemX25519Aes128gcmSha256Ed25519,
+            keys.private_key(),
+            keys.public_key(),
+        )
+        .expect("serialized signer");
+
+        let group = engine
+            .create_group(
+                MlsGroupConfig::default_config(
+                    MlsCiphersuite::Mls128DhkemX25519Aes128gcmSha256Ed25519,
+                ),
+                signer,
+                b"alice".to_vec(),
+                keys.public_key(),
+                None,
+                None,
+            )
+            .await
+            .expect("group is created");
+
+        // A fresh group keeps nothing, as on native.
+        let before = engine
+            .past_epoch_deletion_policy(group.group_id.clone())
+            .await
+            .expect("policy reads back");
+        assert!(!before.keep_all);
+        assert_eq!(before.max_epochs, 0);
+
+        engine
+            .set_past_epoch_deletion_policy_keep_all(group.group_id.clone())
+            .await
+            .expect("policy is set");
+
+        // Read back from IndexedDB, not from memory: every call reloads the
+        // group. Without the normalization this is `MaxEpochs(4294967295)`.
+        let after = engine
+            .past_epoch_deletion_policy(group.group_id)
+            .await
+            .expect("policy reads back");
+        assert!(
+            after.keep_all,
+            "keep-all must survive the Web storage round trip"
+        );
+    }
 }

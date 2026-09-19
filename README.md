@@ -122,6 +122,7 @@ that one too.
 | Key Packages | Done | Create with options (lifetime, last-resort), read and check the validity window |
 | Credentials | Done | Basic and X.509 credential types |
 | State Queries | Done | Members, epoch, extensions, ratchet tree, group info, PSK export |
+| Past Epoch Secrets | Done | Retention policy for past epochs' message secrets, and deletion on demand |
 | Storage | Done | Encrypted at rest via `MlsEngine` (SQLCipher / Web Crypto) |
 
 <details>
@@ -140,6 +141,8 @@ that one too.
 **Commit/Merge**: `commitToPendingProposals`, `mergePendingCommit`, `clearPendingCommit`, `clearPendingProposals`, `setConfiguration`, `updateGroupContextExtensions`, `flexibleCommit`
 
 **Messages**: `createMessage`, `processMessage`, `processMessageWithInspect`, `mlsMessageExtractGroupId`, `mlsMessageExtractEpoch`, `mlsMessageContentType`
+
+**Past Epoch Secrets**: `pastEpochDeletionPolicy`, `setPastEpochDeletionPolicyMaxEpochs`, `setPastEpochDeletionPolicyKeepAll`, `deleteAllPastEpochSecrets`, `deletePastEpochSecretsOlderThan`, `deletePastEpochSecretsBefore`, `deletePastEpochSecretsWithoutTimestamps`
 
 **Engine & Storage**: `close`, `isClosed`, `schemaVersion`, `deleteGroup`, `deleteKeyPackage`
 
