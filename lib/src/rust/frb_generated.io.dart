@@ -256,6 +256,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   Uint8List? dco_decode_opt_list_prim_u_8_strict(dynamic raw);
 
   @protected
+  PastEpochDeletionPolicyResult dco_decode_past_epoch_deletion_policy_result(
+    dynamic raw,
+  );
+
+  @protected
   ProcessedMessageInspectResult dco_decode_processed_message_inspect_result(
     dynamic raw,
   );
@@ -562,6 +567,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   Uint8List? sse_decode_opt_list_prim_u_8_strict(SseDeserializer deserializer);
+
+  @protected
+  PastEpochDeletionPolicyResult sse_decode_past_epoch_deletion_policy_result(
+    SseDeserializer deserializer,
+  );
 
   @protected
   ProcessedMessageInspectResult sse_decode_processed_message_inspect_result(
@@ -1187,6 +1197,15 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   }
 
   @protected
+  void cst_api_fill_to_wire_past_epoch_deletion_policy_result(
+    PastEpochDeletionPolicyResult apiObj,
+    wire_cst_past_epoch_deletion_policy_result wireObj,
+  ) {
+    wireObj.keep_all = cst_encode_bool(apiObj.keepAll);
+    wireObj.max_epochs = cst_encode_u_32(apiObj.maxEpochs);
+  }
+
+  @protected
   void cst_api_fill_to_wire_processed_message_inspect_result(
     ProcessedMessageInspectResult apiObj,
     wire_cst_processed_message_inspect_result wireObj,
@@ -1696,6 +1715,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_opt_list_prim_u_8_strict(
     Uint8List? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_past_epoch_deletion_policy_result(
+    PastEpochDeletionPolicyResult self,
     SseSerializer serializer,
   );
 
@@ -2423,6 +2448,36 @@ class RustLibWire implements BaseWire {
             )
           >();
 
+  void wire__crate__api__engine__MlsEngine_delete_all_past_epoch_secrets(
+    int port_,
+    int that,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> group_id_bytes,
+  ) {
+    return _wire__crate__api__engine__MlsEngine_delete_all_past_epoch_secrets(
+      port_,
+      that,
+      group_id_bytes,
+    );
+  }
+
+  late final _wire__crate__api__engine__MlsEngine_delete_all_past_epoch_secretsPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Int64,
+            ffi.UintPtr,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+          )
+        >
+      >(
+        'frbgen_openmls_wire__crate__api__engine__MlsEngine_delete_all_past_epoch_secrets',
+      );
+  late final _wire__crate__api__engine__MlsEngine_delete_all_past_epoch_secrets =
+      _wire__crate__api__engine__MlsEngine_delete_all_past_epoch_secretsPtr
+          .asFunction<
+            void Function(int, int, ffi.Pointer<wire_cst_list_prim_u_8_loose>)
+          >();
+
   void wire__crate__api__engine__MlsEngine_delete_group(
     int port_,
     int that,
@@ -2479,6 +2534,129 @@ class RustLibWire implements BaseWire {
       _wire__crate__api__engine__MlsEngine_delete_key_packagePtr
           .asFunction<
             void Function(int, int, ffi.Pointer<wire_cst_list_prim_u_8_loose>)
+          >();
+
+  void wire__crate__api__engine__MlsEngine_delete_past_epoch_secrets_before(
+    int port_,
+    int that,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> group_id_bytes,
+    int unix_seconds,
+    ffi.Pointer<ffi.Uint32> max_past_epochs,
+  ) {
+    return _wire__crate__api__engine__MlsEngine_delete_past_epoch_secrets_before(
+      port_,
+      that,
+      group_id_bytes,
+      unix_seconds,
+      max_past_epochs,
+    );
+  }
+
+  late final _wire__crate__api__engine__MlsEngine_delete_past_epoch_secrets_beforePtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Int64,
+            ffi.UintPtr,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Uint64,
+            ffi.Pointer<ffi.Uint32>,
+          )
+        >
+      >(
+        'frbgen_openmls_wire__crate__api__engine__MlsEngine_delete_past_epoch_secrets_before',
+      );
+  late final _wire__crate__api__engine__MlsEngine_delete_past_epoch_secrets_before =
+      _wire__crate__api__engine__MlsEngine_delete_past_epoch_secrets_beforePtr
+          .asFunction<
+            void Function(
+              int,
+              int,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              int,
+              ffi.Pointer<ffi.Uint32>,
+            )
+          >();
+
+  void wire__crate__api__engine__MlsEngine_delete_past_epoch_secrets_older_than(
+    int port_,
+    int that,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> group_id_bytes,
+    int seconds,
+    ffi.Pointer<ffi.Uint32> max_past_epochs,
+  ) {
+    return _wire__crate__api__engine__MlsEngine_delete_past_epoch_secrets_older_than(
+      port_,
+      that,
+      group_id_bytes,
+      seconds,
+      max_past_epochs,
+    );
+  }
+
+  late final _wire__crate__api__engine__MlsEngine_delete_past_epoch_secrets_older_thanPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Int64,
+            ffi.UintPtr,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Uint64,
+            ffi.Pointer<ffi.Uint32>,
+          )
+        >
+      >(
+        'frbgen_openmls_wire__crate__api__engine__MlsEngine_delete_past_epoch_secrets_older_than',
+      );
+  late final _wire__crate__api__engine__MlsEngine_delete_past_epoch_secrets_older_than =
+      _wire__crate__api__engine__MlsEngine_delete_past_epoch_secrets_older_thanPtr
+          .asFunction<
+            void Function(
+              int,
+              int,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              int,
+              ffi.Pointer<ffi.Uint32>,
+            )
+          >();
+
+  void
+  wire__crate__api__engine__MlsEngine_delete_past_epoch_secrets_without_timestamps(
+    int port_,
+    int that,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> group_id_bytes,
+    ffi.Pointer<ffi.Uint32> max_past_epochs,
+  ) {
+    return _wire__crate__api__engine__MlsEngine_delete_past_epoch_secrets_without_timestamps(
+      port_,
+      that,
+      group_id_bytes,
+      max_past_epochs,
+    );
+  }
+
+  late final _wire__crate__api__engine__MlsEngine_delete_past_epoch_secrets_without_timestampsPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Int64,
+            ffi.UintPtr,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Pointer<ffi.Uint32>,
+          )
+        >
+      >(
+        'frbgen_openmls_wire__crate__api__engine__MlsEngine_delete_past_epoch_secrets_without_timestamps',
+      );
+  late final _wire__crate__api__engine__MlsEngine_delete_past_epoch_secrets_without_timestamps =
+      _wire__crate__api__engine__MlsEngine_delete_past_epoch_secrets_without_timestampsPtr
+          .asFunction<
+            void Function(
+              int,
+              int,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              ffi.Pointer<ffi.Uint32>,
+            )
           >();
 
   void wire__crate__api__engine__MlsEngine_export_group_context(
@@ -3599,6 +3777,36 @@ class RustLibWire implements BaseWire {
             void Function(int, int, ffi.Pointer<wire_cst_list_prim_u_8_loose>)
           >();
 
+  void wire__crate__api__engine__MlsEngine_past_epoch_deletion_policy(
+    int port_,
+    int that,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> group_id_bytes,
+  ) {
+    return _wire__crate__api__engine__MlsEngine_past_epoch_deletion_policy(
+      port_,
+      that,
+      group_id_bytes,
+    );
+  }
+
+  late final _wire__crate__api__engine__MlsEngine_past_epoch_deletion_policyPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Int64,
+            ffi.UintPtr,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+          )
+        >
+      >(
+        'frbgen_openmls_wire__crate__api__engine__MlsEngine_past_epoch_deletion_policy',
+      );
+  late final _wire__crate__api__engine__MlsEngine_past_epoch_deletion_policy =
+      _wire__crate__api__engine__MlsEngine_past_epoch_deletion_policyPtr
+          .asFunction<
+            void Function(int, int, ffi.Pointer<wire_cst_list_prim_u_8_loose>)
+          >();
+
   void wire__crate__api__engine__MlsEngine_process_message(
     int port_,
     int that,
@@ -4252,6 +4460,76 @@ class RustLibWire implements BaseWire {
               int,
               ffi.Pointer<wire_cst_list_prim_u_8_loose>,
               ffi.Pointer<wire_cst_mls_group_config>,
+            )
+          >();
+
+  void
+  wire__crate__api__engine__MlsEngine_set_past_epoch_deletion_policy_keep_all(
+    int port_,
+    int that,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> group_id_bytes,
+  ) {
+    return _wire__crate__api__engine__MlsEngine_set_past_epoch_deletion_policy_keep_all(
+      port_,
+      that,
+      group_id_bytes,
+    );
+  }
+
+  late final _wire__crate__api__engine__MlsEngine_set_past_epoch_deletion_policy_keep_allPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Int64,
+            ffi.UintPtr,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+          )
+        >
+      >(
+        'frbgen_openmls_wire__crate__api__engine__MlsEngine_set_past_epoch_deletion_policy_keep_all',
+      );
+  late final _wire__crate__api__engine__MlsEngine_set_past_epoch_deletion_policy_keep_all =
+      _wire__crate__api__engine__MlsEngine_set_past_epoch_deletion_policy_keep_allPtr
+          .asFunction<
+            void Function(int, int, ffi.Pointer<wire_cst_list_prim_u_8_loose>)
+          >();
+
+  void
+  wire__crate__api__engine__MlsEngine_set_past_epoch_deletion_policy_max_epochs(
+    int port_,
+    int that,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> group_id_bytes,
+    int max_epochs,
+  ) {
+    return _wire__crate__api__engine__MlsEngine_set_past_epoch_deletion_policy_max_epochs(
+      port_,
+      that,
+      group_id_bytes,
+      max_epochs,
+    );
+  }
+
+  late final _wire__crate__api__engine__MlsEngine_set_past_epoch_deletion_policy_max_epochsPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Int64,
+            ffi.UintPtr,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Uint32,
+          )
+        >
+      >(
+        'frbgen_openmls_wire__crate__api__engine__MlsEngine_set_past_epoch_deletion_policy_max_epochs',
+      );
+  late final _wire__crate__api__engine__MlsEngine_set_past_epoch_deletion_policy_max_epochs =
+      _wire__crate__api__engine__MlsEngine_set_past_epoch_deletion_policy_max_epochsPtr
+          .asFunction<
+            void Function(
+              int,
+              int,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              int,
             )
           >();
 
@@ -5351,6 +5629,14 @@ final class wire_cst_mls_leaf_node_info extends ffi.Struct {
   external wire_cst_mls_capabilities capabilities;
 
   external ffi.Pointer<wire_cst_list_mls_extension> extensions;
+}
+
+final class wire_cst_past_epoch_deletion_policy_result extends ffi.Struct {
+  @ffi.Bool()
+  external bool keep_all;
+
+  @ffi.Uint32()
+  external int max_epochs;
 }
 
 final class wire_cst_processed_message_inspect_result extends ffi.Struct {
