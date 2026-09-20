@@ -355,28 +355,33 @@ Files that need manual update:
 
 ## Breaking Changes to Watch For
 
-### API Changes
-- New functions in upstream crate
-- Removed functions
-- Changed function signatures
-- New struct fields
+**Step 2 and Step 2b above are the list.** What a compiler can tell you —
+removed traits, changed signatures, renamed types, an item moved behind a cargo
+feature — is there, together with what to check before concluding that
+something was removed. Step 2b covers the kind that compiles cleanly and still
+reaches a consumer: a feature that changes what error *values* carry.
 
-### Behavior Changes
-- Protocol version updates
-- New cryptographic algorithms
-- Changed error types
+What neither step can see, because nothing in this repository fails when it
+changes, is the upstream's own semantics:
+
+- a protocol version the upstream now speaks, or stops speaking
+- a cryptographic algorithm added, deprecated or given a new code point
+- a default that moved while its signature did not
+
+Those are read out of the upstream release notes, not out of a build, and they
+belong in the changelog entry whether or not this package's API moved.
 
 ### Binding Regeneration
 
-After updating, if API changed, run:
+After updating, run:
 ```bash
 make codegen
 ```
 
-Then check for:
-- Compilation errors in `rust/src/api/` files
-- Missing functions that your code depends on
-- Changed function signatures
+An empty diff under `lib/src/rust/` is itself the answer: the FFI surface did
+not move, which is what decides whether the next release is a minor. A
+non-empty one has to be read — `codegen-guard` refuses bindings that do not
+match `rust/src/api/`, so committing what it generates is not optional.
 
 ## Troubleshooting
 

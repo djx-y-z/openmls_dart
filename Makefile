@@ -8,7 +8,7 @@
 # On Windows CI (Git Bash), use cmd to run fvm.bat from PATH:
 # Example: make build ARGS="--target x86_64-pc-windows-msvc" FVM="cmd //c fvm"
 
-.PHONY: help setup setup-fvm setup-rust-tools setup-frb-codegen setup-android setup-web setup-fuzz codegen regen build build-android build-web run-example-web test-web test coverage analyze format format-check get clean version get-version check-new-openmls-version check-exists-openmls-frb-release check-template-updates update-template check-targets third-party-notices verify-third-party-notices verify-frb-pins verify-android-alignment actionlint rust-audit rust-deny rust-check rust-test rust-clippy rust-doc rust-geiger fuzz fuzz-list fuzz-seed doc publish publish-dry-run rust-update update-changelog release-frb release setup-repo-protections
+.PHONY: help setup setup-fvm setup-rust-tools setup-frb-codegen setup-android setup-web setup-fuzz codegen regen build build-android build-web run-example-web test-web test coverage analyze format format-check get clean version get-version check-new-openmls-version check-exists-openmls-frb-release check-template-updates update-template check-targets third-party-notices verify-third-party-notices verify-frb-pins verify-android-alignment verify-release-artifacts verify-library-loads actionlint rust-audit rust-deny rust-check rust-test rust-clippy rust-clippy-web rust-doc rust-geiger fuzz fuzz-list fuzz-seed doc publish publish-dry-run rust-update update-changelog release-frb release setup-repo-protections
 
 # FVM command - can be overridden to provide full path on Windows CI
 FVM ?= fvm
@@ -65,6 +65,10 @@ help:
 	@echo "    make verify-third-party-notices   - Verify THIRD_PARTY_NOTICES.txt is up to date"
 	@echo "    make verify-frb-pins              - Verify every file names the same flutter_rust_bridge version"
 	@echo "    make verify-android-alignment     - Verify built Android libraries are 16 KB-aligned"
+	@echo "    make verify-release-artifacts     - Verify release archives hold what their names say"
+	@echo "                                        Example: make verify-release-artifacts ARGS=release-archives"
+	@echo "    make verify-library-loads         - Load a built native library and check the FRB runtime is in it"
+	@echo "                                        Example: make verify-library-loads ARGS=rust/target/release/libopenmls_frb.dylib"
 	@echo "    make actionlint                   - Lint the GitHub Actions workflows (actionlint)"
 	@echo "    make check-targets                - Check deployment target consistency (iOS/macOS/Android)"
 	@echo "                                        Example: make check-targets ARGS=\"--ios --set 14.0\""
@@ -78,6 +82,7 @@ help:
 	@echo "    make test-web                     - Run the crate's browser tests (headless Chrome)"
 	@echo "                                        Example: make test-web CHROMEDRIVER=/path/to/chromedriver"
 	@echo "    make rust-clippy                  - Lint Rust code with clippy (warnings = errors)"
+	@echo "    make rust-clippy-web              - The same lint over the wasm32 half of the crate"
 	@echo "    make rust-doc                     - Rustdoc gate over the crate (-D warnings)"
 	@echo "    make rust-geiger                  - Unsafe-expression census (diagnostic, not a gate)"
 	@echo "    make rust-audit                   - Audit Rust dependencies for vulnerabilities"
@@ -379,6 +384,28 @@ rust-test:
 rust-clippy:
 	cargo clippy --manifest-path rust/Cargo.toml --all-targets -- -D warnings
 
+# The same lint over the OTHER half of the crate, and a second gate rather than
+# a thoroughness setting.
+#
+# `make rust-clippy` above runs under the HOST target, and that is not a matter
+# of degree: a `cfg(target_arch = "wasm32")` body is a DIFFERENT IMPLEMENTATION
+# of the same function, so the host pass reads none of its lines. Without this
+# target the wasm32 half of the crate is linted by nothing — not locally and
+# not in CI — while the green from the host pass reads as if it were.
+# `make rust-doc` already runs a second leg under wasm32 for exactly this
+# reason; this is its counterpart for lints.
+#
+# ⚠ `cd rust`, NOT --manifest-path, for the same reason rust-doc gives below:
+# cargo discovers .cargo/config.toml relative to the CWD, so invoking this from
+# the repository root silently drops rust/.cargo/config.toml — the file
+# carrying the wasm32 rustflags — and the lint then runs over a configuration
+# the crate never builds under. Measured: the two forms differ in what they
+# compile, not merely in where the paths in the output start.
+#
+# The wasm32 target comes from `make setup-web`.
+rust-clippy-web:
+	cd rust && cargo clippy --target wasm32-unknown-unknown --all-targets -- -D warnings
+
 # Rustdoc over the hand-written crate, and a GATE: it fails the build on a
 # broken intra-doc link rather than reporting one.
 #
@@ -547,6 +574,40 @@ verify-frb-pins:
 # every Android library present and fails when there are none.
 verify-android-alignment:
 	@python3 scripts/verify_android_alignment.py $(ARGS)
+
+# Refuse a release archive that does not hold what its name says it holds. The
+# build workflow ends in a hand-written list of `tar` lines, one per platform,
+# and nothing checks that each names the directory it means to — a slip there
+# is invisible until a consumer downloads their platform's archive and gets
+# somebody else's library.
+#
+# ⚠ Checking the ARCHITECTURE is not enough, which is the whole reason this
+# parses headers instead of calling `file`: a Linux arm64 and an Android arm64
+# `.so` share an ELF header, and a macOS, an iOS and an iOS-simulator `.dylib`
+# share a Mach-O cputype. Those are exactly the pairs a copy-paste slip
+# produces. It reads the libc in DT_NEEDED and the platform in
+# LC_BUILD_VERSION, which do tell them apart.
+#
+# Takes the directory as ARGS — either release archives or the tree
+# `download-artifact` unpacked. The release workflow runs it over both.
+verify-release-artifacts:
+	@python3 scripts/verify_release_artifacts.py --crate-name openmls_frb $(ARGS)
+
+# Load a built native library and look up one symbol. Small, and it covers the
+# failure every other check here is blind to: a library that compiles, packs,
+# checksums and attests, and then does not load.
+#
+# `ctypes.CDLL` is the check — loading runs the library's initialisers,
+# resolves its dependencies and refuses a wrong architecture. The symbol is
+# `frb_init_frb_dart_api_dl`, which flutter_rust_bridge exports from its own
+# runtime rather than from generated code, so a library without it is not an
+# FRB library whatever else it is.
+#
+# ⚠ Only on a host that IS the target: a cross-compiled artefact cannot be
+# loaded by the machine that built it. The release workflow runs this on the
+# legs whose runner matches, and nowhere else.
+verify-library-loads:
+	@python3 scripts/verify_library_loads.py $(ARGS)
 
 # Updating the lockfile changes the dependency graph, which invalidates the
 # third-party notice inventory. Regenerating here keeps the two in lockstep

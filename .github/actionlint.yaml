@@ -8,7 +8,7 @@
 #
 # `ignore` entries are regular expressions matched against the message text.
 #
-# There is exactly one suppression, and it is an actionlint bug rather than a
+# There are two suppressions, both for one actionlint bug rather than for a
 # workflow one. actionlint carries a compiled-in copy of popular actions' input
 # schemas, and its copy of `actions/create-github-app-token` predates v3: it
 # still believes `app-id` is required and `client-id` does not exist. The

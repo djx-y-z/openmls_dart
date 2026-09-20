@@ -53,6 +53,13 @@ updates:
     # that dependency's constraint while it edits the file for other reasons.
     # `increase-if-necessary` leaves a constraint alone when it already admits
     # the new version, so an untouched dependency stays untouched.
+    #
+    # ⚠ That is only the half that goes well. The constraint Dependabot IS
+    # bumping gets its own idiomatic form, which is a caret — so a pin capped on
+    # purpose comes back UNCAPPED once the new version is outside the cap, and
+    # narrowing it again is the reviewer's job. Measured, with the strategy
+    # already active; `pubspec.yaml` carries the measurement beside the pin it
+    # happened to.
     versioning-strategy: increase-if-necessary
     schedule:
       interval: "weekly"
