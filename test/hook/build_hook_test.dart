@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:code_assets/code_assets.dart';
 import 'package:test/test.dart';
 
@@ -89,6 +91,63 @@ void main() {
         ),
         '1.5.0-android-arm64-v8a',
       );
+    });
+  });
+
+  group('local WASM crate stamp', () {
+    // The hook prefers a local `rust/target/wasm32/` build over the released
+    // module, so this stamp is the only thing standing between a developer and
+    // a silently stale module on the web. `rustContentHash` does not cover it:
+    // that value compares the FFI surface, which a patch release leaves
+    // byte-identical while the vendored native code moves underneath it.
+    test('accepts a build stamped with the same crate version', () {
+      expect(
+        build_hook.localWasmMatchesCrate(stamped: '1.5.0', version: '1.5.0'),
+        isTrue,
+      );
+    });
+
+    test('rejects a build stamped with another crate version', () {
+      expect(
+        build_hook.localWasmMatchesCrate(stamped: '1.4.0', version: '1.5.0'),
+        isFalse,
+      );
+    });
+
+    test(
+      'rejects an UNSTAMPED build, which is every one built before this',
+      () {
+        // The case that motivated the check: a wasm directory that predates the
+        // stamp carries no version at all and used to be served regardless.
+        expect(
+          build_hook.localWasmMatchesCrate(stamped: null, version: '1.5.0'),
+          isFalse,
+        );
+      },
+    );
+
+    test('tolerates the trailing newline `make build-web` actually writes', () {
+      // The target stamps with `grep | sed > file`, which terminates the line.
+      // A check that compared raw contents would reject every real build.
+      expect(
+        build_hook.localWasmMatchesCrate(stamped: '1.5.0\n', version: '1.5.0'),
+        isTrue,
+      );
+    });
+
+    test('readLocalWasmStamp returns null when the stamp is absent', () {
+      final dir = Directory.systemTemp.createTempSync('wasm_stamp_test');
+      addTearDown(() => dir.deleteSync(recursive: true));
+      expect(build_hook.readLocalWasmStamp(dir), isNull);
+    });
+
+    test('readLocalWasmStamp reads and trims the stamp', () {
+      final dir = Directory.systemTemp.createTempSync('wasm_stamp_test');
+      addTearDown(() => dir.deleteSync(recursive: true));
+      File(
+        '${dir.path}/${build_hook.localWasmStampName}',
+      ).writeAsStringSync('1.5.0\n');
+      expect(build_hook.readLocalWasmStamp(dir), equals('1.5.0'));
     });
   });
 }

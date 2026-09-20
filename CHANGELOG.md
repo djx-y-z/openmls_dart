@@ -1,3 +1,31 @@
+## [Unreleased]
+
+### For Contributors
+
+#### Changed
+
+- **copier template adopted: v4.14.0 -> v4.14.1** — `make build-web` now
+  stamps local WASM builds with the Rust crate version, and `hook/build.dart`
+  rejects a missing or stale stamp instead of serving an older module.
+
+  `Makefile` writes `rust/target/wasm32/.crate-version` from the version in
+  `rust/Cargo.toml`. The web build hook compares that stamp with the current
+  crate before it copies a local module into `web/pkg/`; a directory built
+  before this change has no stamp and is rejected. This matters because a
+  local `rust/target/wasm32/` build can otherwise outlive a crate bump while
+  still satisfying the old existence-only check. The stamp is also a build
+  dependency, so changing it invalidates the cached hook result.
+
+  `test/hook/build_hook_test.dart` adds the regression cases for the missing
+  and mismatched version stamps. `.copier-answers.yml` records the new
+  template revision.
+
+  The workflow changes in v4.14.1 are byte-identical in this project and
+  produce no diff: the `actions/checkout@v7` update in
+  `.github/workflows/release.yml` and the `anthropics/claude-code-action` and
+  `android-actions/setup-android` pins in the generated workflow files were
+  already present here.
+
 ## [3.2.0] - 2026-09-20
 
 ### For Users
