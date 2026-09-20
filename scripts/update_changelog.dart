@@ -121,7 +121,7 @@ void main(List<String> args) async {
   }
 
   try {
-    final model = await updateChangelog(
+    final update = await updateChangelog(
       version: version,
       fromVersion: fromVersion,
       models: resolution.usable,
@@ -132,14 +132,21 @@ void main(List<String> args) async {
     // Published so the pull request can say which model wrote the entry.
     // Without it, a silently failing first provider shows up only as a change
     // in house style that nobody attributes to a provider switch.
+    //
+    // `highlights_stacked` travels the same channel for the same reason: the
+    // condition is observable only in this run, and a warning that reaches the
+    // run log alone reaches nobody — the pull request looks clean. It is not
+    // cosmetic either, because `make release` finalizes `[Unreleased]` by
+    // renaming the heading in place, so a section left naming two upstream
+    // versions is frozen into an immutable released one.
     if (ciOutputPath != null) {
       File(
         ciOutputPath,
-      ).writeAsStringSync('ai_provider=$model\n', mode: FileMode.append);
+      ).writeAsStringSync(ciOutputsFor(update), mode: FileMode.append);
     }
 
     print('');
-    print('CHANGELOG.md updated successfully by $model!');
+    print('CHANGELOG.md updated successfully by ${update.model}!');
   } catch (e) {
     print('Error: $e');
     exit(2);
@@ -165,7 +172,10 @@ Options:
                       state the result; omitted, it must not mention codegen at
                       all rather than infer it from the house style
   --ci-output <path>  Append key=value outputs to a file (writes
-                      `ai_provider=<provider/model>`)
+                      `ai_provider=<provider/model>` and
+                      `highlights_stacked=<true|false>`, the latter saying
+                      whether [Unreleased] was left naming two upstream
+                      versions and needs its Highlights lines collapsed)
   --help, -h          Show this help
 
 Environment:

@@ -251,6 +251,16 @@ jobs:
         run: |
           if make update-changelog ARGS="--version $LATEST_VERSION --from $CURRENT_VERSION --ci --codegen $BINDINGS --ci-output $GITHUB_OUTPUT"; then
             echo "success=true" >> "$GITHUB_OUTPUT"
+            # The script appends `highlights_stacked` to this same file, so read
+            # it back from there rather than adding a step for it: a step cannot
+            # see its own outputs, and the annotation belongs to the run that
+            # produced the condition. The pull request below says the same thing
+            # where a reviewer will actually meet it. The write has to precede
+            # this read: move the --ci-output write later and the grep finds
+            # nothing, and the warning disappears with nothing to notice.
+            if grep -qx 'highlights_stacked=true' "$GITHUB_OUTPUT"; then
+              echo "::warning::[Unreleased] now names two upstream versions — a rewritten Highlights line was kept beside the new one. Collapse them before releasing: make release renames the heading in place, so the section ships as it stands."
+            fi
           else
             echo "success=false" >> "$GITHUB_OUTPUT"
             echo "::warning::AI changelog update failed. Please update CHANGELOG.md manually."
@@ -286,6 +296,8 @@ jobs:
 
             ${{ steps.changelog.outputs.success == 'false' && '> **Warning**: AI changelog update failed. Please update CHANGELOG.md manually.' || '' }}
 
+            ${{ steps.changelog.outputs.success == 'true' && steps.changelog.outputs.highlights_stacked == 'true' && '> **Warning**: `[Unreleased]` now names two upstream versions. The Highlights line states one per release section, and a rewritten one is never replaced automatically — so this run added its line beside it. Collapse them into one before releasing: `make release` renames the heading in place, freezing the section as it stands.' || '' }}
+
             > **Note**: This PR does NOT bump the `openmls_frb` crate version and does NOT build native binaries. It only updates the openmls dependency. Cut a native release later with `make release-frb` (stage 1), then the Dart release (stage 2). See CLAUDE.md → Release Flow.
 
             ### Files Updated Automatically
@@ -308,7 +320,11 @@ jobs:
             ${{ steps.cargo-lock.outputs.success == 'false' && '1. **RUN `make rust-update`** — Cargo.lock update failed' || '' }}
             1. ${{ steps.codegen.outputs.success == 'false' && '**FIX FRB BINDINGS** — codegen failed, check openmls API changes' || 'Review FRB bindings — check if API changes require Dart code updates' }}
             2. **Review CHANGELOG.md** — ${{ steps.changelog.outputs.success == 'true' && 'verify AI-generated entry is accurate' || '**ADD CHANGELOG ENTRY MANUALLY**' }}
+<<<<<<< before updating
             3. **Check if DB migration needed** — if openmls changed its storage serialization format, add a migration via `/add-db-migration` skill
+=======
+            ${{ steps.changelog.outputs.highlights_stacked == 'true' && '1. **COLLAPSE THE HIGHLIGHTS LINES** — `[Unreleased]` names two upstream versions; that line states one per release section' || '' }}
+>>>>>>> after updating
 
             ### After Merge
 
@@ -348,6 +364,7 @@ jobs:
           CARGO_LOCK_OK: ${{ steps.cargo-lock.outputs.success }}
           CODEGEN_OK: ${{ steps.codegen.outputs.success }}
           CHANGELOG_OK: ${{ steps.changelog.outputs.success }}
+          HIGHLIGHTS_STACKED: ${{ steps.changelog.outputs.highlights_stacked }}
         run: |
           # Each branch below interleaves its appends with conditionals, so the
           # grouped form shellcheck suggests would put a `{ ... }` around most
@@ -388,6 +405,10 @@ jobs:
             if [ "$CHANGELOG_OK" = "false" ]; then
               echo "" >> "$GITHUB_STEP_SUMMARY"
               echo "> **Warning**: AI changelog update failed. Please update CHANGELOG.md manually." >> "$GITHUB_STEP_SUMMARY"
+            fi
+            if [ "$HIGHLIGHTS_STACKED" = "true" ]; then
+              echo "" >> "$GITHUB_STEP_SUMMARY"
+              echo "> **Warning**: \`[Unreleased]\` names two upstream versions. Collapse the Highlights lines before releasing." >> "$GITHUB_STEP_SUMMARY"
             fi
           else
             echo "## Up to Date" >> "$GITHUB_STEP_SUMMARY"

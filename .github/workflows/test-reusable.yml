@@ -342,6 +342,20 @@ jobs:
         run: make build-web
         shell: bash
 
+      # The other half of the lint, and the half `Rust clippy` above
+      # structurally cannot see: it runs under the host target, and a
+      # `cfg(target_arch = "wasm32")` body is a different implementation of the
+      # same function rather than the same code on another host — so the host
+      # pass reads none of its lines while its green reads as if it had.
+      #
+      # ⚠ It sits inside this block, not beside the host clippy, because the
+      # wasm32 target is the one `make setup-web` installs above — the same
+      # reason `Check Rust documentation` is placed after these steps.
+      - name: Rust clippy (wasm32)
+        if: matrix.name == 'Linux x86_64'
+        run: make rust-clippy-web
+        shell: bash
+
       # The only step in this workflow that EXECUTES web code. Everything else
       # here is the Dart VM or a compile, and a `cfg(target_arch = "wasm32")`
       # body is a different implementation of the same function rather than the

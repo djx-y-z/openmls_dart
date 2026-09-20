@@ -180,12 +180,30 @@
     "bash": {
       "*": "deny",
 
-      // The five gates named in `.github/agent-prompts/repair-build.md`.
+      // The gates named in `.github/agent-prompts/repair-build.md`.
       "make build": "allow",
       "make test": "allow",
       "make analyze ARGS=\"--fatal-infos\"": "allow",
       "make format-check": "allow",
       "make rust-clippy": "allow",
+
+      // The three added when the agent was pointed at an update branch, where
+      // adapting to a new upstream means editing `rust/src/api/` — docstrings
+      // included. All three are required checks on the pull request and none
+      // was reachable before, so the agent could reach a local green that the
+      // matrix then refused:
+      //
+      //   rust-test — carries the differential tests that compare this
+      //               package's output against the upstream implementation's.
+      //               On an upstream adaptation it is the check that can tell
+      //               a correct one from one that merely compiles.
+      //   doc       — a gate, not a generator: Rust docstrings are copied
+      //               verbatim into the generated Dart, so a Rust intra-doc
+      //               link becomes a dead reference there and fails the build.
+      //   rust-doc  — the same gate on the Rust side, warnings as errors.
+      "make rust-test": "allow",
+      "make doc": "allow",
+      "make rust-doc": "allow",
 
       // Supporting targets: dependency fetch, codegen, and the formatter the
       // agent needs to satisfy `make format-check`.
@@ -194,7 +212,6 @@
       "make format": "allow",
       "make analyze": "allow",
       "make rust-check": "allow",
-      "make rust-test": "allow",
 
       // Read-only inspection of its own work. Exact forms only.
       "git status": "allow",

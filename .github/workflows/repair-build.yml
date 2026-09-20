@@ -1,17 +1,47 @@
-# Propose a fix when CI on `main` is red.
+# Propose a fix when CI is red.
 #
-# The shape of this workflow is several jobs rather than one, and that is the
-# security design rather than tidiness:
+# TWO SHAPES OF RED, and the difference between them is the reason this file is
+# as long as it is:
+#
+#   mode=main  the default branch is red. Everybody is blocked. The repair
+#              becomes a new branch and a pull request against `main`.
+#   mode=pr    a BOT'S PULL REQUEST is red — the one that pins a newer version
+#              of the dependency this package wraps, where the new version
+#              changed the shape of an API this code calls. Its failing checks
+#              are required ones, so that pull request can never reach `main`
+#              and the red never appears there. Watching `main` alone left this
+#              entire class invisible, which is what mode=pr exists for. The
+#              repair becomes a COMMIT ON THAT BRANCH; no second pull request
+#              is opened, because the one that matters already exists.
+#
+# The shape is several jobs rather than one, and that is the security design
+# rather than tidiness:
 #
 #   detect   — decides whether there is anything to do, deterministically
-#   repair   — runs the agent, holds NO write credential of any kind
-#   propose  — mints the App token and opens the pull request      (fixed)
-#   report   — mints the App token and files an issue              (cannot-fix)
-#   resolve  — closes those issues once `main` is green again      (housekeeping)
+#   repair   — regenerates, then runs the agent; holds NO write credential
+#   propose  — mints the App token and opens a pull request   (main, fixed)
+#   commit   — mints the App token and commits to the branch  (pr,   fixed)
+#   report   — mints the App token and files an issue         (main, cannot-fix)
+#   remark   — mints the App token and comments on the branch (pr,   cannot-fix)
+#   resolve  — closes those issues once `main` is green again (housekeeping)
 #
-# The last three are the only ones that can write, and none of them runs an
-# agent. Which of `propose` and `report` runs is decided by the agent's verdict,
-# and they are mutually exclusive.
+# The last five are the only ones that can write, and none of them runs an
+# agent. Which one runs is decided by the mode and the agent's verdict, and they
+# are mutually exclusive.
+#
+# In mode=pr the agent is not always reached. The commonest cause of a red bot
+# pull request here is not an upstream API change at all — it is that the update
+# workflow could not RUN the binding generator, so it labelled the pull request
+# `codegen-failed` and left stale bindings behind. Measured on this repository's
+# history: 31 pull requests carried that label and 3 were genuine API changes.
+# So `repair` regenerates first, deterministically, and only calls a model when
+# that fails. A model is for the case where something has to be decided.
+#
+# Note where that leaves the gate: the regeneration is inside the `repair` job,
+# so it runs only where an agent is configured, although it calls no model. That
+# is deliberate and not an oversight — a repository that has not opted into
+# agents has not opted into this workflow writing to its branches either, and
+# "switched off" should mean one thing rather than two.
 #
 # The agent job never has a token that can write to this repository. Not in a
 # later step, not in `.git/config` from the checkout, not in the environment.
@@ -29,8 +59,17 @@ name: Repair Build
 
 on:
   schedule:
-    # Daily, after the nightly window and before the working day.
+    # Daily, after the nightly window and before the working day. This is the
+    # one that serves `main`.
     - cron: '0 5 * * *'
+    # And once more, after the update bot has opened its pull requests and CI
+    # has had time to rule on them. Measured in the project this template came
+    # from: the update workflow runs at 09:00, so a branch broken by an upstream
+    # change would otherwise wait until 05:00 the following day — twenty hours
+    # in which nobody is told. The extra run costs nothing on a quiet day: it
+    # exits in `detect`, and the concurrency group below means the two can never
+    # overlap.
+    - cron: '0 11 * * *'
   # Manual runs only. There is deliberately no issue, comment or pull_request
   # trigger: those carry text written by whoever opened them straight into an
   # agent's context. `workflow_dispatch` is the one manual trigger that requires
@@ -41,9 +80,13 @@ on:
     inputs:
       run_id:
         description: >-
-          Failing Tests run to repair. Empty means the latest completed run on
-          main. Naming an older run is how this workflow gets exercised without
-          waiting for main to break for real.
+          Failing Tests run to repair. Empty means: the latest completed run on
+          main, and failing that, the oldest red bot pull request. Naming a run
+          is how this workflow gets exercised without waiting for something to
+          break for real — a run on a pull-request branch selects mode=pr, and a
+          named run may point at a branch whose pull request is closed, which
+          the scheduled search would never choose. Whenever a named run is not
+          judging the current head of its branch, the dry run is forced.
         required: false
         default: ''
       dry_run:
@@ -92,6 +135,13 @@ jobs:
       contents: read
       actions: read
       pull-requests: read
+      # For the mode=pr deduplication, which asks whether this exact head has
+      # already been answered. A comment on a pull request is an ISSUE comment
+      # as far as the API and its permissions are concerned, so `pull-requests`
+      # alone does not reach it — and the call degrades quietly to "nothing
+      # found", which would make the workflow repeat itself nightly instead of
+      # failing.
+      issues: read
     outputs:
       broken: ${{ steps.failure.outputs.broken }}
       conclusion: ${{ steps.failure.outputs.conclusion }}
@@ -101,6 +151,19 @@ jobs:
       sha: ${{ steps.failure.outputs.sha }}
       branch: ${{ steps.failure.outputs.branch }}
       dry_run: ${{ steps.failure.outputs.dry_run }}
+      # Which of the two shapes of red this run is dealing with; the header of
+      # this file says what each one means. Every job below reads it, because
+      # "what a repair becomes" differs between them and nothing else does.
+      mode: ${{ steps.failure.outputs.mode }}
+      pr_number: ${{ steps.failure.outputs.pr_number }}
+      # Whether the update workflow left the bindings unregenerated. It decides
+      # whether `repair` tries the deterministic route before waking a model,
+      # and it is the one label this workflow may remove.
+      codegen_failed: ${{ steps.failure.outputs.codegen_failed }}
+      # `main`'s own state, regardless of what this run picked. `resolve` closes
+      # the reports filed for a red `main`, so it has to ask about `main` and
+      # not about whichever target was selected.
+      main_conclusion: ${{ steps.failure.outputs.main_conclusion }}
       configured: ${{ steps.config.outputs.configured }}
       engine: ${{ steps.config.outputs.engine }}
       model: ${{ steps.config.outputs.model }}
@@ -169,83 +232,305 @@ jobs:
         run: |
           set -euo pipefail
 
-          if [ -n "$REQUESTED_RUN" ]; then
-            RUN=$(gh run view "$REQUESTED_RUN" --json conclusion,databaseId,headSha,url | jq -c '[.]')
-          else
-            # The latest *completed* run, not the latest failure: an older red
-            # run with a green one after it means main was already fixed, and
-            # asking for `--status=failure` would happily return the stale one
-            # and send an agent to repair something nobody broke.
-            RUN=$(gh run list --workflow=test.yml --branch=main --status=completed \
-                    --limit=1 --json conclusion,databaseId,headSha,url)
-          fi
+          # ------------------------------------------------------------------
+          # One target, one mode, chosen here and nowhere else. The header of
+          # this file says what `main` and `pr` mean; this is where the choice
+          # is made, deterministically, with no model anywhere near it.
+          # ------------------------------------------------------------------
 
-          CONCLUSION=$(jq -r '.[0].conclusion // "none"' <<<"$RUN")
-          echo "conclusion=$CONCLUSION" >> "$GITHUB_OUTPUT"
+          # `main`'s own state, first and unconditionally. `resolve` needs it:
+          # it retires the reports filed for a red `main`, and "the target this
+          # run picked is not broken" stopped being the same question as "main
+          # is green" the moment this step learned to pick a pull request.
+          MAIN_RUN=$(gh run list --workflow=test.yml --branch=main --status=completed \
+                       --limit=1 --json conclusion,databaseId,headSha,url)
+          MAIN_CONCLUSION=$(jq -r '.[0].conclusion // "none"' <<<"$MAIN_RUN")
+          echo "main_conclusion=$MAIN_CONCLUSION" >> "$GITHUB_OUTPUT"
 
-          if [ "$CONCLUSION" != "failure" ]; then
-            echo "broken=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::Run conclusion is '$CONCLUSION' — nothing to repair."
-            exit 0
-          fi
-
-          SHA=$(jq -r '.[0].headSha' <<<"$RUN")
           TIP=$(gh api "repos/$GH_REPO/commits/main" --jq '.sha')
           DRY_RUN="${REQUESTED_DRY_RUN:-false}"
 
-          # The failing run has to be judging main's current tip. If main has
-          # moved on, CI has not yet ruled on what is there now, and repairing
-          # against an older commit is how a pull request ends up quietly
-          # reverting whatever landed in between: the branch would be cut from
-          # the old tree and its diff against main would carry the difference.
-          if [ "$SHA" != "$TIP" ]; then
-            if [ -z "$REQUESTED_RUN" ]; then
+          MODE=""
+          RUN=""
+          PR_NUMBER=""
+          BRANCH=""
+          CODEGEN_FAILED=false
+          CONCLUSION="$MAIN_CONCLUSION"
+
+          # ---------------------------------------------------------------- #
+          # A named run: the rehearsal path, and the manual escape.
+          # ---------------------------------------------------------------- #
+          if [ -n "$REQUESTED_RUN" ]; then
+            RUN=$(gh run view "$REQUESTED_RUN" \
+                    --json conclusion,databaseId,headSha,url,headBranch | jq -c '[.]')
+            CONCLUSION=$(jq -r '.[0].conclusion // "none"' <<<"$RUN")
+            SHA=$(jq -r '.[0].headSha' <<<"$RUN")
+            HEAD_BRANCH=$(jq -r '.[0].headBranch' <<<"$RUN")
+
+            if [ "$CONCLUSION" != "failure" ]; then
               echo "broken=false" >> "$GITHUB_OUTPUT"
-              echo "::notice::The red run judged ${SHA:0:12} but main is now at ${TIP:0:12} — waiting for CI to rule on the current tip."
+              echo "conclusion=$CONCLUSION" >> "$GITHUB_OUTPUT"
+              echo "::notice::Run conclusion is '$CONCLUSION' — nothing to repair."
               exit 0
             fi
-            # Somebody named this run deliberately, which is the rehearsal path.
-            # Let it run, but take the write end off: forcing the dry run is
-            # what stops a rehearsal against an old commit from opening a pull
-            # request that reverts everything since.
-            DRY_RUN=true
-            echo "::warning::Run ${REQUESTED_RUN} judged ${SHA:0:12} but main is at ${TIP:0:12} — forcing a dry run; no pull request will be opened."
+
+            if [ "$HEAD_BRANCH" = "main" ]; then
+              MODE="main"
+              CURRENT="$TIP"
+            else
+              MODE="pr"
+              BRANCH="$HEAD_BRANCH"
+              # Looked up, but NOT required to be open. A named run is the only
+              # way to exercise this path at all, and every red pull-request run
+              # old enough to be safe to rehearse against belongs to one
+              # somebody has since closed. The write end comes off instead —
+              # see the dry-run forcing below, which covers both that and a
+              # branch that has moved on.
+              PR_JSON=$(gh pr list --repo "$GH_REPO" --head "$HEAD_BRANCH" --state all \
+                          --limit 1 --json number,state,labels)
+              PR_NUMBER=$(jq -r '.[0].number // ""' <<<"$PR_JSON")
+              PR_STATE=$(jq -r '.[0].state // "NONE"' <<<"$PR_JSON")
+              CODEGEN_FAILED=$(jq -r '[.[0].labels[]?.name] | index("codegen-failed") != null' <<<"$PR_JSON")
+              CURRENT=$(gh api "repos/$GH_REPO/git/ref/heads/$HEAD_BRANCH" --jq '.object.sha' 2>/dev/null || echo "")
+
+              if [ "$PR_STATE" != "OPEN" ]; then
+                DRY_RUN=true
+                echo "::warning::The pull request for ${HEAD_BRANCH} is ${PR_STATE}, not OPEN — forcing a dry run. A closed pull request is a decision somebody made, and committing to its branch would overrule it."
+              fi
+            fi
+
+            # The guard, asked of whichever branch this is. On `main` the reason
+            # is that a branch cut from an older tree reverts whatever landed in
+            # between. On a pull-request branch nothing is reverted — the commit
+            # is appended — but the question is the same one, "has CI ruled on
+            # what is there NOW", and a repair reasoned about against a
+            # superseded tree is wrong for the same reason.
+            if [ "$SHA" != "$CURRENT" ]; then
+              DRY_RUN=true
+              echo "::warning::Run ${REQUESTED_RUN} judged ${SHA:0:12} but ${HEAD_BRANCH} is at ${CURRENT:0:12} — forcing a dry run; nothing will be written."
+            fi
+
+          else
+            # -------------------------------------------------------------- #
+            # Scheduled. `main` first: a red default branch blocks everybody, a
+            # red update branch blocks one dependency bump.
+            # -------------------------------------------------------------- #
+            RUN="$MAIN_RUN"
+
+            if [ "$MAIN_CONCLUSION" = "failure" ]; then
+              SHA=$(jq -r '.[0].headSha' <<<"$MAIN_RUN")
+              if [ "$SHA" = "$TIP" ]; then
+                MODE="main"
+              else
+                echo "::notice::The red run judged ${SHA:0:12} but main is now at ${TIP:0:12} — waiting for CI to rule on the current tip."
+              fi
+            fi
+
+            # -------------------------------------------------------------- #
+            # Then the bot pull requests. Every condition below is a boundary
+            # rather than a preference:
+            #
+            #   open            — a closed pull request is a decision somebody
+            #                     made; committing to its branch overrules it.
+            #   same repository — a fork's branch cannot be pushed to, and
+            #                     running an agent over a fork's tree in a
+            #                     workflow that later mints an App token is
+            #                     precisely the shape this file is arranged to
+            #                     avoid.
+            #   author is a bot — a person's branch is that person's to fix.
+            #   `automated`     — the label this project's own update workflows
+            #                     apply, and what separates them from any other
+            #                     app that may open pull requests here.
+            #   not dependabot  — its branches are RECREATED rather than
+            #                     rebased, so a commit added here is discarded
+            #                     without warning the next time it refreshes
+            #                     one. `refresh-notices.yml` lives with the same
+            #                     property by force-pushing, which is not
+            #                     available here: `dependabot/**` is the one
+            #                     prefix the signing ruleset's non-fast-forward
+            #                     rule excludes.
+            #
+            # Oldest first. A bot opens a new pull request per upstream release
+            # and the older one is the one a human has been waiting on.
+            # -------------------------------------------------------------- #
+            if [ -z "$MODE" ]; then
+              CANDIDATES=$(gh pr list --repo "$GH_REPO" --state open --label automated \
+                             --limit 50 \
+                             --json number,headRefName,headRefOid,isCrossRepository,author,labels \
+                | jq -c '[ .[]
+                    | select(.isCrossRepository == false)
+                    | select(.author.is_bot == true)
+                    | select(.author.login | ascii_downcase | contains("dependabot") | not)
+                    | {number, head: .headRefName, oid: .headRefOid,
+                       labels: [.labels[].name]} ]
+                    | sort_by(.number)')
+
+              for n in $(jq -r '.[].number' <<<"$CANDIDATES"); do
+                C=$(jq -c --argjson n "$n" '.[] | select(.number == $n)' <<<"$CANDIDATES")
+                HEAD=$(jq -r '.head' <<<"$C")
+                OID=$(jq -r '.oid' <<<"$C")
+                LABELLED=$(jq -r '.labels | index("codegen-failed") != null' <<<"$C")
+
+                PRUN=$(gh run list --workflow=test.yml --branch="$HEAD" --status=completed \
+                         --limit=1 --json conclusion,databaseId,headSha,url)
+                PCONCL=$(jq -r '.[0].conclusion // "none"' <<<"$PRUN")
+                PSHA=$(jq -r '.[0].headSha // ""' <<<"$PRUN")
+
+                # Two independent kinds of evidence, and they are a disjunction.
+                #
+                #   the label — the update workflow could not regenerate the
+                #     bindings, so what is committed under the generated paths
+                #     does not correspond to the pin this branch carries. That
+                #     is true of the TREE and so survives a push; it is also a
+                #     required check failing on its own, whatever Tests says.
+                #   a red run — but only one that judged THIS head. A failure
+                #     against an earlier commit says nothing about this one.
+                RED=false
+                if [ "$PCONCL" = "failure" ] && [ "$PSHA" = "$OID" ]; then
+                  RED=true
+                fi
+
+                if [ "$LABELLED" = "true" ] || [ "$RED" = "true" ]; then
+                  MODE="pr"
+                  PR_NUMBER="$n"
+                  BRANCH="$HEAD"
+                  SHA="$OID"
+                  CODEGEN_FAILED="$LABELLED"
+                  if [ "$RED" = "true" ]; then
+                    RUN="$PRUN"
+                    CONCLUSION="failure"
+                  else
+                    # Labelled but Tests has not failed on this head — there may
+                    # be no failing run to read at all. The regeneration below
+                    # does not need one; it reads the tree.
+                    RUN='[]'
+                    CONCLUSION="codegen-failed"
+                  fi
+                  break
+                fi
+              done
+            fi
+          fi
+
+          if [ -z "$MODE" ]; then
+            echo "broken=false" >> "$GITHUB_OUTPUT"
+            echo "conclusion=$CONCLUSION" >> "$GITHUB_OUTPUT"
+            echo "::notice::Nothing to repair: the latest completed Tests run on main concluded '$MAIN_CONCLUSION', and no bot pull request is red."
+            exit 0
           fi
 
           {
             echo "broken=true"
+            echo "mode=$MODE"
             echo "dry_run=$DRY_RUN"
-            echo "run_id=$(jq -r '.[0].databaseId' <<<"$RUN")"
-            echo "run_url=$(jq -r '.[0].url' <<<"$RUN")"
+            echo "conclusion=$CONCLUSION"
+            echo "pr_number=$PR_NUMBER"
+            echo "codegen_failed=$CODEGEN_FAILED"
+            echo "run_id=$(jq -r '.[0].databaseId // ""' <<<"$RUN")"
+            echo "run_url=$(jq -r '.[0].url // ""' <<<"$RUN")"
             echo "sha=$SHA"
-            # Keyed by the commit that broke, so one failure gets one attempt.
-            echo "branch=repair-build-${SHA:0:12}"
+            # In mode=main this NAMES A BRANCH TO CREATE, keyed by the commit
+            # that broke so one failure gets one attempt. In mode=pr it is the
+            # branch that already exists and will be committed to. Either way it
+            # is "where the repair lands", which is what every job below asks.
+            if [ "$MODE" = "main" ]; then
+              echo "branch=repair-build-${SHA:0:12}"
+            else
+              echo "branch=$BRANCH"
+            fi
           } >> "$GITHUB_OUTPUT"
 
-          echo "::warning::Repairing ${SHA:0:12} — $(jq -r '.[0].url' <<<"$RUN")"
+          if [ "$MODE" = "main" ]; then
+            echo "::warning::Repairing main at ${SHA:0:12} — $(jq -r '.[0].url // "no run"' <<<"$RUN")"
+          else
+            echo "::warning::Repairing #${PR_NUMBER} (${BRANCH}) at ${SHA:0:12} — codegen-failed=${CODEGEN_FAILED}, $(jq -r '.[0].url // "no failing run"' <<<"$RUN")"
+          fi
 
-      # Not consulted on a dry run: there is no pull request to collide with, and
+      # Not consulted on a dry run: there is nothing to collide with, and
       # skipping would defeat the only way to rehearse this workflow twice.
-      - name: Skip if this exact failure already has a pull request
+      - name: Skip what has already been answered
         id: existing
         if: steps.failure.outputs.broken == 'true' && steps.failure.outputs.dry_run != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
+          MODE: ${{ steps.failure.outputs.mode }}
           BRANCH: ${{ steps.failure.outputs.branch }}
+          SHA: ${{ steps.failure.outputs.sha }}
+          PR_NUMBER: ${{ steps.failure.outputs.pr_number }}
         run: |
           set -euo pipefail
-          # `--state all`, not just open. An open one must not be force-pushed
-          # over. A closed one means a human has already seen this exact failure
-          # and declined the fix, and re-proposing it every night is how
-          # automation teaches people to stop reading it.
-          COUNT=$(gh pr list --head "$BRANCH" --state all --json number --jq 'length')
-          if [ "$COUNT" != "0" ]; then
-            echo "skip=true" >> "$GITHUB_OUTPUT"
-            echo "::notice::A pull request for $BRANCH already exists (open or closed) — skipping."
-          else
-            echo "skip=false" >> "$GITHUB_OUTPUT"
+
+          # One write, at the end. `$GITHUB_OUTPUT` takes the last value for a
+          # repeated key, so writing a default first and overwriting it would
+          # work — and would rest a decision about whether to touch anything on
+          # a file-format detail nobody should have to know.
+          SKIP=false
+
+          if [ "$MODE" = "main" ]; then
+            # `--state all`, not just open. An open one must not be force-pushed
+            # over. A closed one means a human has already seen this exact
+            # failure and declined the fix, and re-proposing it every night is
+            # how automation teaches people to stop reading it.
+            COUNT=$(gh pr list --head "$BRANCH" --state all --json number --jq 'length')
+            if [ "$COUNT" != "0" ]; then
+              SKIP=true
+              echo "::notice::A pull request for $BRANCH already exists (open or closed) — skipping."
+            fi
+            echo "skip=$SKIP" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
+
+          # mode=pr has no new pull request to look for, so the two questions
+          # that matter are asked of the branch and of the pull request instead.
+          #
+          # 1. Has an agent already had its turn on this branch? One is the cap.
+          #    A repair is a proposal; a second attempt layered on an unreviewed
+          #    first is how an agent talks itself somewhere nobody followed. The
+          #    deterministic regeneration does not count against it — it decides
+          #    nothing, it can only happen once, and it is how most of these are
+          #    answered.
+          AGENT_COMMITS=$(gh api "repos/$GH_REPO/compare/main...$BRANCH" \
+                            --jq '[.commits[].commit.message | select(test("repair-build: [0-9a-f]+ \\(agent\\)"))] | length' \
+                          2>/dev/null || echo 0)
+          if [ "${AGENT_COMMITS:-0}" -gt 0 ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::${BRANCH} already carries an agent repair — one attempt per branch. Whatever is still red there is a human's call."
+            exit 0
+          fi
+
+
+          # 2. Has a MODEL already answered this exact head? The marker rather
+          #    than the prose, for the reason the issue path gives: prose gets
+          #    edited. Keyed by the head commit, so a push re-arms it.
+          #
+          #    Without this the commonest genuine outcome loops. An upstream
+          #    change the agent declines leaves no commit and does not clear the
+          #    `codegen-failed` label — only a successful repair does — so
+          #    nothing about the branch changes, and it would be selected again
+          #    the next night, and the night after, at a toolchain build and a
+          #    model run each time.
+          #
+          #    `:agent` specifically, because a deterministic regeneration that
+          #    wrote nothing also leaves a comment on an unmoved head, and that
+          #    one must NOT suppress a later model attempt: it decided nothing.
+          #
+          #    `gh pr view`, not `gh api --paginate`: the latter applies the jq
+          #    filter once per page and concatenates, so a pull request past the
+          #    first page of comments answers `0\n0` and the numeric test below
+          #    fails as a non-integer — quietly disabling the guard on exactly
+          #    the long-lived pull request that needs it most.
+          if [ -n "$PR_NUMBER" ]; then
+            SEEN=$(gh pr view "$PR_NUMBER" --repo "$GH_REPO" --json comments \
+                     --jq "[.comments[] | select(.body | contains(\"repair-build:${SHA}:agent\"))] | length" \
+                   2>/dev/null || echo 0)
+            if [ "${SEEN:-0}" -gt 0 ]; then
+              SKIP=true
+              echo "::notice::#${PR_NUMBER} already carries an agent's diagnosis for ${SHA:0:12} — not repeating it."
+            fi
+          fi
+
+          echo "skip=$SKIP" >> "$GITHUB_OUTPUT"
 
       # The other half of the summary in the `repair` job below, and the half
       # that matters more often: most runs of this workflow stop here, and until
@@ -261,9 +546,15 @@ jobs:
           ENGINE: ${{ steps.config.outputs.engine }}
           MODEL: ${{ steps.config.outputs.model }}
           CONCLUSION: ${{ steps.failure.outputs.conclusion }}
+          MAIN_CONCLUSION: ${{ steps.failure.outputs.main_conclusion }}
           SKIP: ${{ steps.existing.outputs.skip }}
           SHA: ${{ steps.failure.outputs.sha }}
           RUN_URL: ${{ steps.failure.outputs.run_url }}
+          MODE: ${{ steps.failure.outputs.mode }}
+          PR_NUMBER: ${{ steps.failure.outputs.pr_number }}
+          BRANCH: ${{ steps.failure.outputs.branch }}
+          CODEGEN_FAILED: ${{ steps.failure.outputs.codegen_failed }}
+          DRY_RUN: ${{ steps.failure.outputs.dry_run }}
         run: |
           set -euo pipefail
           {
@@ -276,14 +567,25 @@ jobs:
               echo "repository is supposed to look like."
             elif [ "${BROKEN:-}" != "true" ]; then
               echo "**Nothing to repair.** The latest completed Tests run on \`main\`"
-              echo "concluded \`${CONCLUSION:-unknown}\`."
+              echo "concluded \`${MAIN_CONCLUSION:-unknown}\`, and no bot pull request is red."
               echo
               echo "Agent that would have run: \`${ENGINE}\` / \`${MODEL}\`."
             elif [ "${SKIP:-}" = "true" ]; then
-              echo "**Already handled.** A pull request for \`${SHA:0:12}\` exists already"
-              echo "(open or closed), so this failure is not being proposed again."
+              echo "**Already handled.** \`${SHA:0:12}\` has been answered once already,"
+              echo "and answering it again every night is how automation teaches people"
+              echo "to stop reading it."
+            elif [ "${MODE:-}" = "pr" ]; then
+              echo "Repairing **#${PR_NUMBER}** (\`${BRANCH}\`) at \`${SHA:0:12}\`."
+              echo
+              echo "| | |"
+              echo "|---|---|"
+              echo "| Mode | \`pr\` — the repair becomes a commit on that branch |"
+              echo "| Bindings unregenerated | \`${CODEGEN_FAILED}\` |"
+              echo "| Failing run | ${RUN_URL:-none — the label is the evidence} |"
+              echo "| Agent | \`${ENGINE}\` / \`${MODEL}\`, if the regeneration does not settle it |"
+              echo "| Dry run | \`${DRY_RUN}\` |"
             else
-              echo "Repairing \`${SHA:0:12}\` with \`${ENGINE}\` / \`${MODEL}\`."
+              echo "Repairing \`main\` at \`${SHA:0:12}\` with \`${ENGINE}\` / \`${MODEL}\`."
               echo
               echo "Failing run: ${RUN_URL:-unknown}"
             fi
@@ -300,11 +602,24 @@ jobs:
       needs.detect.outputs.skip != 'true' &&
       needs.detect.outputs.configured == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    # Longer in mode=pr, because that mode adds work this job did not used to
+    # do: installing the binding generator, running it, and copying the
+    # upstream source the agent reads — all before the agent's own `make build`,
+    # which on a fresh dependency pin is a cold build of the whole tree.
+    timeout-minutes: ${{ needs.detect.outputs.mode == 'pr' && 90 || 60 }}
 
     outputs:
       status: ${{ steps.verdict.outputs.status }}
       changed: ${{ steps.patch.outputs.changed }}
+      # Whether regenerating the bindings settled it without a model. See the
+      # header: most red bot pull requests here are a generator that did not
+      # run, not an upstream that changed shape.
+      recovered: ${{ steps.regenerate.outputs.recovered }}
+      # `moved` when this package's own generated Dart surface gained, lost or
+      # changed a parameter — measured, not asked. The routing downstream reads
+      # this rather than the agent's self-report.
+      surface: ${{ steps.surface.outputs.surface }}
+      surface_disagreed: ${{ steps.surface.outputs.disagreed }}
 
     steps:
       - uses: actions/checkout@v7
@@ -323,16 +638,56 @@ jobs:
           RUN_ID: ${{ needs.detect.outputs.run_id }}
           RUN_URL: ${{ needs.detect.outputs.run_url }}
           SHA: ${{ needs.detect.outputs.sha }}
+          MODE: ${{ needs.detect.outputs.mode }}
+          BRANCH: ${{ needs.detect.outputs.branch }}
+          PR_NUMBER: ${{ needs.detect.outputs.pr_number }}
         run: |
           set -euo pipefail
+
+          # Which branch's history is worth showing. In mode=main `branch` names
+          # a branch that does not exist yet — the one a fix would be proposed
+          # on — so the history to read is the default branch's. In mode=pr it
+          # is the branch under repair, and its own runs are what say whether a
+          # symptom has been striking the same test or a different one.
+          if [ "${MODE:-main}" = "pr" ]; then
+            CTX_BRANCH="$BRANCH"
+          else
+            CTX_BRANCH="main"
+          fi
+
           mkdir -p .agent-scratch
           # Belt and braces with the `rm -rf` after the agent runs: if the
           # directory somehow survives, git still never sees it.
           echo '.agent-scratch/' >> .git/info/exclude
 
+          # Written here, in the step that runs in BOTH modes, because the
+          # prompt states unconditionally that this file says which mode the
+          # agent is in. Writing it only on the mode=pr path would leave the
+          # path that already worked looking for a file that is not there.
+          {
+            echo "MODE=${MODE:-main}"
+            echo "PR_NUMBER=${PR_NUMBER:-}"
+            echo "BRANCH=${BRANCH:-}"
+          } > .agent-scratch/mode.env
+
           # Deterministic, and done here rather than by the agent on purpose.
           # Reads that a script can do cost an agent turns, and turns spent on
           # discovery are turns not spent on the problem.
+          # mode=pr can select a pull request on the strength of the
+          # `codegen-failed` label alone, and a label is attached to a pull
+          # request rather than to a run — so there may be no failing run to
+          # read at all. The regeneration below reads the tree instead, and the
+          # agent, if it is reached, gets the generator's own errors, which are
+          # better evidence than a CI log of the same thing.
+          if [ -z "${RUN_ID:-}" ]; then
+            echo "::notice::No failing run to read — the evidence is the tree."
+            {
+              echo "RUN_URL=${RUN_URL:-none}"
+              echo "SHA=$SHA"
+            } > .agent-scratch/failure.env
+            exit 0
+          fi
+
           gh run view "$RUN_ID" --log-failed > .agent-scratch/build-failure.raw
 
           # Bounded. A pathological log — a dependency looping on a warning —
@@ -393,12 +748,12 @@ jobs:
             gh run view "$RUN_ID" --json jobs \
               --jq '.jobs[] | "- \(.conclusion // "?")\t\(.name)"'
             echo
-            echo "## Recent Tests runs on main, newest first"
+            echo "## Recent Tests runs on ${CTX_BRANCH}, newest first"
             echo
             echo "The same symptom striking a different test each time is a flaky"
             echo "runner. A regression does not move between unrelated tests."
             echo
-            gh run list --workflow=test.yml --branch=main --limit=20 \
+            gh run list --workflow=test.yml --branch="$CTX_BRANCH" --limit=20 \
               --json conclusion,headSha,databaseId,createdAt \
               --jq '.[] | "- \(.conclusion // "running")\t\(.headSha[0:12])\trun \(.databaseId)\t\(.createdAt)"'
           } > .agent-scratch/run-context.md 2>&1 || \
@@ -417,6 +772,147 @@ jobs:
 
       - name: Get dependencies
         run: make get
+
+      # Not preinstalled on runners, and its absence is not a small gap: the
+      # agent is allowed to run `make codegen` and is told never to hand-edit a
+      # generated file, and without this step that command exits 127. The one
+      # pull request this workflow has ever opened did exactly what the missing
+      # binary leaves an agent with — it hand-edited the generated file to make
+      # the complaint go away, and said in its own notes that it could not run
+      # the generator. That was read as a model being careless. It was a
+      # toolchain that was not there.
+      #
+      # Both modes, not just mode=pr: the failure that produced that pull
+      # request was on `main`.
+      - name: Install the binding generator
+        run: make setup-frb-codegen
+
+      # Everything below is mode=pr only and deterministic. It exists so that
+      # the agent — if it is reached at all — starts from the generator's own
+      # errors and from the upstream source, rather than from a CI log and an
+      # inference.
+      - name: Describe the update under repair
+        if: needs.detect.outputs.mode == 'pr'
+        env:
+          BRANCH: ${{ needs.detect.outputs.branch }}
+          PR_NUMBER: ${{ needs.detect.outputs.pr_number }}
+          CODEGEN_FAILED: ${{ needs.detect.outputs.codegen_failed }}
+        run: |
+          set -euo pipefail
+          mkdir -p .agent-scratch
+          grep -qxF '.agent-scratch/' .git/info/exclude 2>/dev/null \
+            || echo '.agent-scratch/' >> .git/info/exclude
+
+          # What the bot changed, from the repository rather than from the pull
+          # request's prose. The body of that pull request is text a workflow
+          # composed and a human may since have edited; the diff is the fact.
+          git fetch --no-tags --depth=200 origin main 2>/dev/null || true
+          BASE=$(git merge-base FETCH_HEAD HEAD 2>/dev/null || echo "")
+
+          {
+            echo "# The update this branch carries"
+            echo
+            echo "Branch \`$BRANCH\`, pull request #$PR_NUMBER."
+            echo "Bindings left unregenerated by the update workflow: \`$CODEGEN_FAILED\`."
+            echo
+            if [ -n "$BASE" ]; then
+              echo "## The pin that moved"
+              echo
+              echo '```diff'
+              git --no-pager diff "$BASE" HEAD -- 'rust/Cargo.toml' | head -c 8000
+              echo '```'
+              echo
+              echo "## Everything the bot changed"
+              echo
+              git --no-pager diff --stat "$BASE" HEAD | head -c 8000
+            else
+              echo "_The merge base could not be resolved, so the bot's own diff is not shown._"
+            fi
+          } > .agent-scratch/update-context.md
+
+      # `Grep` and `Glob` are scoped to the workspace — deliberately, so the
+      # agent cannot read `/proc/self/environ`, where this job's secrets live.
+      # The same scoping puts the vendored dependency under
+      # `~/.cargo/git/checkouts/` out of reach, and that is the one thing the
+      # decision in this mode actually turns on: "is the value available in
+      # scope, or only at the caller?" cannot be answered from an error message,
+      # which says what no longer fits and never what would. So the source is
+      # copied to where the agent can read it, by a step rather than by a grant.
+      #
+      # Only git dependencies, which is what an upstream pinned by tag is here;
+      # registry crates are not what this workflow repairs against. Measured on
+      # this repository: five crates, about a megabyte in total.
+      - name: Vendor the upstream source the agent may read
+        if: needs.detect.outputs.mode == 'pr'
+        run: |
+          set -uo pipefail
+          UP=.agent-scratch/upstream
+          mkdir -p "$UP"
+
+          # No `--locked`: a lockfile that does not match would abort the whole
+          # step, and this is evidence rather than a gate. If it fails, the
+          # agent is told the directory is absent and carries on without it.
+          ( cd rust && cargo metadata --format-version 1 ) 2>/dev/null \
+            | jq -r '.packages[]
+                     | select(.source != null and (.source | startswith("git+")))
+                     | [.name, .manifest_path] | @tsv' > "$RUNNER_TEMP/git-deps.tsv" || true
+
+          COPIED=0
+          while IFS=$'\t' read -r name manifest; do
+            [ -n "${manifest:-}" ] || continue
+            src="$(dirname "$manifest")/src"
+            [ -d "$src" ] || continue
+            mkdir -p "$UP/$name"
+            cp -R "$src" "$UP/$name/" 2>/dev/null && COPIED=$((COPIED + 1))
+          done < "$RUNNER_TEMP/git-deps.tsv"
+
+          if [ "$COPIED" = 0 ]; then
+            rm -rf "$UP"
+            echo "::warning::No git-sourced dependency resolved, so there is no upstream source to read. The agent will be working from error text alone."
+          else
+            echo "Vendored $COPIED upstream crate(s), $(du -sh "$UP" | cut -f1)."
+          fi
+          exit 0
+
+      # The deterministic route, and on this repository's history the one that
+      # answers most of these. `codegen-failed` says the update workflow could
+      # not RUN the generator — which is a different thing from upstream having
+      # changed shape, and far commoner: 31 pull requests here carried that
+      # label and 3 were genuine API changes. When the generator runs now, the
+      # repair is whatever it writes, there is nothing to decide, and no model
+      # is woken. When it does not, its errors are the best evidence that
+      # exists of what upstream did, and they go to the agent.
+      #
+      # `set -e` is deliberately absent: the failure IS the information here.
+      - name: Regenerate the bindings before waking a model
+        id: regenerate
+        if: needs.detect.outputs.mode == 'pr' && needs.detect.outputs.codegen_failed == 'true'
+        run: |
+          set -uo pipefail
+          mkdir -p .agent-scratch
+
+          if make codegen > "$RUNNER_TEMP/codegen.log" 2>&1; then
+            echo "recovered=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::The generator ran. Whatever it wrote is the repair; no model is needed."
+            git --no-pager status --porcelain -- lib/src/rust/ rust/src/frb_generated.rs
+          else
+            echo "recovered=false" >> "$GITHUB_OUTPUT"
+            # Bounded for the reason the CI log is bounded: it is paid for on
+            # every turn of the agent's loop, not once.
+            head -c 120000 "$RUNNER_TEMP/codegen.log" > .agent-scratch/codegen-failure.log
+            echo "::warning::The generator failed against this pin — this is the shape an upstream API change takes here. Handing it to the agent."
+            tail -40 "$RUNNER_TEMP/codegen.log"
+            # Whatever a half-finished generation left behind is not a repair.
+            # The agent starts from the tree as committed.
+            git checkout -- lib/src/rust/ rust/src/frb_generated.rs 2>/dev/null || true
+            git clean -fd -- lib/src/rust/ 2>/dev/null || true
+          fi
+          # A generator killed part-way leaves the marker that suppresses the
+          # build hook at the repository root. It is outside the path allowlist,
+          # so left behind it fails the run several steps later as an
+          # unexplained file rather than as the thing it is.
+          rm -f .skip_*_hook
+          exit 0
 
       # Two engines, one prompt. Which one runs is `vars.AGENT_ENGINE`
       # (`claude-code`, the default, or `opencode`); everything on either side
@@ -437,7 +933,7 @@ jobs:
       # request rather than like a repository setting nobody made. The two
       # engines should be equally clear about the same mistake.
       - name: Check the Claude key is present
-        if: needs.detect.outputs.engine == 'claude-code'
+        if: needs.detect.outputs.engine == 'claude-code' && steps.regenerate.outputs.recovered != 'true'
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
@@ -449,7 +945,7 @@ jobs:
           echo "The Claude key is present."
 
       - name: Run the agent (Claude Code)
-        if: needs.detect.outputs.engine == 'claude-code'
+        if: needs.detect.outputs.engine == 'claude-code' && steps.regenerate.outputs.recovered != 'true'
         uses: anthropics/claude-code-action@56cf60fde42f7b19c3abfd5c9c48b69a1288461f # v1.0.222
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -490,7 +986,7 @@ jobs:
           claude_args: |
             --model ${{ needs.detect.outputs.model }}
             --max-turns 40
-            --allowedTools "Read,Edit,Write,Glob,Grep,Bash(make get),Bash(make build),Bash(make codegen),Bash(make test),Bash(make test:*),Bash(make analyze),Bash(make analyze:*),Bash(make format),Bash(make format-check),Bash(make rust-check),Bash(make rust-clippy),Bash(make rust-test),Bash(cargo check:*),Bash(cargo build:*),Bash(cargo test:*),Bash(cargo clippy:*),Bash(cargo tree:*),Bash(cargo metadata:*),Bash(git log:*),Bash(git status:*)"
+            --allowedTools "Read,Edit,Write,Glob,Grep,Bash(make get),Bash(make build),Bash(make codegen),Bash(make test),Bash(make test:*),Bash(make analyze),Bash(make analyze:*),Bash(make format),Bash(make format-check),Bash(make rust-check),Bash(make rust-clippy),Bash(make rust-test),Bash(make doc),Bash(make rust-doc),Bash(cargo check:*),Bash(cargo build:*),Bash(cargo test:*),Bash(cargo clippy:*),Bash(cargo tree:*),Bash(cargo metadata:*),Bash(git log:*),Bash(git status:*)"
             --disallowedTools "WebFetch,WebSearch"
 
       # Pinned, and `npm` rather than the vendor's curl installer so the version
@@ -498,7 +994,7 @@ jobs:
       # morning. `OPENCODE_DISABLE_AUTOUPDATE` matters for the same reason: an
       # agent that upgrades itself mid-run is not the agent that was reviewed.
       - name: Install OpenCode
-        if: needs.detect.outputs.engine == 'opencode'
+        if: needs.detect.outputs.engine == 'opencode' && steps.regenerate.outputs.recovered != 'true'
         env:
           AGENT_OPENCODE_VERSION: ${{ vars.AGENT_OPENCODE_VERSION || '1.18.15' }}
         run: |
@@ -522,7 +1018,7 @@ jobs:
       # below fails loudly — the same outcome as Claude Code running out of
       # turns, reached by a different route.
       - name: Run the agent (OpenCode)
-        if: needs.detect.outputs.engine == 'opencode'
+        if: needs.detect.outputs.engine == 'opencode' && steps.regenerate.outputs.recovered != 'true'
         env:
           # Which provider the key belongs to is configuration, not code. Every
           # provider OpenCode knows about reads its key from its own environment
@@ -661,9 +1157,10 @@ jobs:
 
           EXPECTED = {
               'make build', 'make test', 'make analyze ARGS="--fatal-infos"',
-              'make format-check', 'make rust-clippy', 'make get',
-              'make codegen', 'make format', 'make analyze', 'make rust-check',
-              'make rust-test', 'git status', 'git diff',
+              'make format-check', 'make rust-clippy', 'make rust-test',
+              'make doc', 'make rust-doc', 'make get', 'make codegen',
+              'make format', 'make analyze', 'make rust-check',
+              'git status', 'git diff',
           }
 
           try:
@@ -723,6 +1220,25 @@ jobs:
              the task it describes. It is the complete specification, including
              which paths you may change and what counts as done."
 
+      # The deterministic route reports in the same shape the agent does, so
+      # that one path runs through the rest of this job instead of two. It has
+      # the same two outcomes — something changed, or nothing did — and the
+      # steps below care only about which.
+      - name: Stand in for the verdict when nothing had to be decided
+        if: steps.regenerate.outputs.recovered == 'true'
+        run: |
+          set -euo pipefail
+          jq -n '{
+            status: "fixed",
+            cause: "The update workflow left this branch labelled codegen-failed: it could not run the binding generator, so what is committed under the generated paths does not correspond to the dependency version this branch pins.",
+            fix: "Ran the generator. Whatever it wrote is the whole of this change; no hand-written code was touched and no model was involved.",
+            surface: "unknown",
+            sources: [],
+            rejected: "",
+            verified: ["make codegen"],
+            notes: "Nothing here was decided. The generator succeeded against the new pin, which is what says the upstream API still fits this code — had it changed shape, the generator would have failed and an agent would have been asked instead. The pull requests checks are the oracle for the result."
+          }' > .agent-scratch/verdict.json
+
       # Turn exhaustion, a crash and "there was nothing to do" all look
       # identical from outside: the job ends, the tree is clean, no pull request
       # appears. Requiring the agent to leave a verdict behind is what separates
@@ -767,9 +1283,105 @@ jobs:
           # below, which used to run only on the way to a pull request.
           cp "$VERDICT" "$RUNNER_TEMP/verdict.json"
 
+      # The check that would have caught the only pull request this workflow
+      # has ever opened. That one made a red build green by editing a GENERATED
+      # file — one line, `codegenVersion`, silencing a consistency check rather
+      # than removing its cause — and it compiled, it passed the tests, and it
+      # reached a human. An AI reviewer caught it; nothing deterministic did.
+      #
+      # This is the same two-line rule `codegen-guard.yml` applies to a human's
+      # pull request, applied here instead to an agent's work, before it leaves
+      # the job. Staging first is what makes it exact: with the agent's tree in
+      # the index, `git diff` against the worktree shows what the GENERATOR
+      # changed and nothing else.
+      #
+      # A generator that now fails is the same finding by a different route —
+      # the agent left the sources in a state nothing can generate from — and
+      # it fails here rather than three platforms later.
+      - name: Refuse generated files that were not generated
+        if: steps.verdict.outputs.status == 'fixed'
+        run: |
+          set -euo pipefail
+          git add -A -- lib/src/rust/ rust/src/frb_generated.rs
+
+          if ! make codegen > "$RUNNER_TEMP/codegen-recheck.log" 2>&1; then
+            tail -60 "$RUNNER_TEMP/codegen-recheck.log"
+            echo "::error::The binding generator fails on the repaired tree. Whatever else is true of this change, nothing can be generated from it — so it cannot be what a reviewer is shown."
+            exit 1
+          fi
+
+          rm -f .skip_*_hook
+          DRIFT=$(git diff --name-only -- lib/src/rust/ rust/src/frb_generated.rs)
+          if [ -n "$DRIFT" ]; then
+            printf '%s\n' "$DRIFT"
+            git --no-pager diff --stat -- lib/src/rust/ rust/src/frb_generated.rs
+            echo "::error::Regenerating moved these files, which means what the agent left there was not what the generator produces. A generated file edited by hand is overwritten by the next codegen run, so a build made green this way was never repaired. Nothing is uploaded."
+            exit 1
+          fi
+          echo "The generated files are what the generator produces."
+
+      # Whether this package's own API moved — measured, not asked.
+      #
+      # The boundary this whole mode turns on is "is the missing value in scope,
+      # or only at the caller?", and the observable half of the answer is
+      # whether a parameter appeared in the generated Dart. The agent states its
+      # own view in `surface`; this step decides what the pull request is
+      # LABELLED, because a rule a script can check should not be left to a
+      # model. The two are compared and a disagreement is reported rather than
+      # resolved silently.
+      #
+      # Line-based, and deliberately. An earlier draft compared whole
+      # declarations and would have been wrong on the very cases it was written
+      # for: the generator writes one parameter per line, so a new required
+      # parameter is a pure ADDITION and no existing declaration line ever
+      # disappears. Comment lines are dropped because a docstring is not a
+      # surface — measured against the three real upstream changes in this
+      # repository's history, that distinction alone is what separates the one
+      # that was not breaking from the two that were.
+      - name: Decide whether this package's own API moved
+        id: surface
+        if: steps.verdict.outputs.status == 'fixed'
+        run: |
+          set -euo pipefail
+
+          git diff HEAD -U0 -- 'lib/src/rust/api/' > "$RUNNER_TEMP/api.diff" 2>/dev/null || true
+
+          MOVED=$( { grep -E '^[+-]' "$RUNNER_TEMP/api.diff" || true; } \
+                   | { grep -Ev '^(\+\+\+|---)' || true; } \
+                   | sed -E 's/^[+-][[:space:]]*//' \
+                   | { grep -Ev '^(///|//|$)' || true; } )
+
+          if [ -n "$MOVED" ]; then
+            echo "surface=moved" >> "$GITHUB_OUTPUT"
+            printf '%s\n' "$MOVED" | head -40 > "$RUNNER_TEMP/surface.txt"
+            echo "::warning::The generated Dart API moved — this repair widens or changes what consumers of this package call."
+            cat "$RUNNER_TEMP/surface.txt"
+          else
+            echo "surface=unchanged" >> "$GITHUB_OUTPUT"
+            : > "$RUNNER_TEMP/surface.txt"
+            echo "The generated Dart API is unchanged apart from comments."
+          fi
+
+          # `unknown` is what the deterministic route writes, and it is not a
+          # disagreement — nothing claimed anything there.
+          CLAIMED=$(jq -r '.surface // "unstated"' "$RUNNER_TEMP/verdict.json")
+          DISAGREED=false
+          case "$CLAIMED" in
+            unknown|unstated) ;;
+            unchanged) [ -n "$MOVED" ] && DISAGREED=true ;;
+            widened)   [ -z "$MOVED" ] && DISAGREED=true ;;
+            *) DISAGREED=true ;;
+          esac
+          echo "disagreed=$DISAGREED" >> "$GITHUB_OUTPUT"
+          if [ "$DISAGREED" = true ]; then
+            echo "::warning::The agent called the surface '${CLAIMED}' and the generated bindings say otherwise. The measurement decides what this is labelled; the disagreement is reported to whoever reads it."
+          fi
+
       - name: Reduce the work to a patch
         id: patch
         if: steps.verdict.outputs.status == 'fixed'
+        env:
+          RECOVERED: ${{ steps.regenerate.outputs.recovered }}
         run: |
           set -euo pipefail
           rm -rf .agent-scratch
@@ -778,6 +1390,18 @@ jobs:
           git diff --cached --binary > "$RUNNER_TEMP/repair.patch"
 
           if [ ! -s "$RUNNER_TEMP/repair.patch" ]; then
+            # The deterministic route is allowed to find nothing: the bindings
+            # were already what the generator produces and the label was simply
+            # never removed. Removing it is then the whole of the repair, and
+            # `commit` still has something to do. An AGENT reporting `fixed`
+            # having changed nothing is the original contradiction and still
+            # fails — one of the two statements is wrong and neither is safe to
+            # act on.
+            if [ "${RECOVERED:-}" = "true" ]; then
+              echo "changed=false" >> "$GITHUB_OUTPUT"
+              echo "::notice::The generator produced nothing new — the bindings were already correct. The stale label is the whole of the repair."
+              exit 0
+            fi
             echo "::error::The agent reported 'fixed' but changed nothing. One of the two is wrong, and neither is safe to act on."
             exit 1
           fi
@@ -805,6 +1429,27 @@ jobs:
             exit 1
           fi
           echo "All changed paths are inside the allowlist."
+
+          # Inside the allowlist by path, and refused anyway. Two reasons, and
+          # the second applies on `main` as much as on an update branch:
+          #
+          #   In mode=pr the new pin is the PREMISE of the failure. Backing it
+          #   out is not a repair; it is a refusal of the update wearing one,
+          #   and it would arrive looking like a fix.
+          #
+          #   In either mode, the notice inventory is generated from the
+          #   resolved dependency graph and `THIRD_PARTY_NOTICES.txt` is outside
+          #   the allowlist — so an agent that moves the graph cannot regenerate
+          #   what verifies it, and produces a change that CANNOT go green. A
+          #   refusal here is a `cannot-fix` with a reason; the alternative is a
+          #   pull request that fails a bookkeeping check nobody can explain.
+          MANIFEST=$(git diff --cached --name-only \
+                     | grep -E '^rust/Cargo\.(toml|lock)$' || true)
+          if [ -n "$MANIFEST" ]; then
+            printf '%s\n' "$MANIFEST"
+            echo "::error::The repair changes the dependency manifest or lockfile. That is not a repair this workflow can complete: the notice inventory generated from the dependency graph is outside the paths an agent may change, so the result could never pass its own checks."
+            exit 1
+          fi
 
       # This repository is public, so its Actions logs, pull-request bodies and
       # issues are public. The verdict is free text an agent wrote after reading
@@ -845,7 +1490,7 @@ jobs:
           for name in SCAN_ANTHROPIC_API_KEY SCAN_AGENT_OPENCODE_API_KEY SCAN_GITHUB_TOKEN; do
             value="${!name}"
             [ -n "$value" ] || continue
-            for file in "$RUNNER_TEMP/verdict.json" "$RUNNER_TEMP/repair.patch"; do
+            for file in "$RUNNER_TEMP/verdict.json" "$RUNNER_TEMP/repair.patch" "$RUNNER_TEMP/surface.txt"; do
               # The patch exists only on the `fixed` path; the verdict always
               # does. Skipping what is absent is what lets one scan serve both
               # outcomes without a second copy of it under a different `if`.
@@ -871,6 +1516,7 @@ jobs:
           path: |
             ${{ runner.temp }}/repair.patch
             ${{ runner.temp }}/verdict.json
+            ${{ runner.temp }}/surface.txt
           retention-days: 7
           if-no-files-found: error
 
@@ -903,6 +1549,11 @@ jobs:
           RUN_URL: ${{ needs.detect.outputs.run_url }}
           SHA: ${{ needs.detect.outputs.sha }}
           STATUS: ${{ steps.verdict.outputs.status }}
+          MODE: ${{ needs.detect.outputs.mode }}
+          PR_NUMBER: ${{ needs.detect.outputs.pr_number }}
+          RECOVERED: ${{ steps.regenerate.outputs.recovered }}
+          SURFACE: ${{ steps.surface.outputs.surface }}
+          DISAGREED: ${{ steps.surface.outputs.disagreed }}
         run: |
           set -euo pipefail
           V="$RUNNER_TEMP/verdict.json"
@@ -912,10 +1563,22 @@ jobs:
             echo
             echo "| | |"
             echo "|---|---|"
+            if [ "${MODE:-main}" = "pr" ]; then
+              echo "| Subject | #${PR_NUMBER}, committing to its own branch |"
+            else
+              echo "| Subject | \`main\`, proposing a pull request |"
+            fi
             echo "| Broken commit | \`${SHA:0:12}\` |"
-            echo "| Failing run | ${RUN_URL:-unknown} |"
-            echo "| Agent | \`${ENGINE:-unknown}\` / \`${MODEL:-unknown}\` |"
+            echo "| Failing run | ${RUN_URL:-none — the tree was the evidence} |"
+            if [ "${RECOVERED:-}" = "true" ]; then
+              echo "| Settled by | regenerating the bindings — no model ran |"
+            else
+              echo "| Agent | \`${ENGINE:-unknown}\` / \`${MODEL:-unknown}\` |"
+            fi
             echo "| Verdict | ${STATUS:-**none — the run did not get that far**} |"
+            if [ -n "${SURFACE:-}" ]; then
+              echo "| This package's Dart API | \`${SURFACE}\`${DISAGREED:+ — and the agent said otherwise} |"
+            fi
             echo
           } >> "$GITHUB_STEP_SUMMARY"
 
@@ -971,7 +1634,12 @@ jobs:
   propose:
     name: Open the pull request
     needs: [detect, repair]
+    # mode=main only. A repair on a bot's branch has a pull request already —
+    # the one that is red — and opening a second one against `main` would
+    # propose the dependency update and the adaptation to it as somebody else's
+    # change, leaving the original still red and still blocked.
     if: >-
+      needs.detect.outputs.mode == 'main' &&
       needs.detect.outputs.dry_run != 'true' &&
       needs.repair.outputs.status == 'fixed' &&
       needs.repair.outputs.changed == 'true'
@@ -1122,12 +1790,445 @@ jobs:
           draft: false
 
   # ==========================================================================
+  # mode=pr's write job: a commit on the branch that is already red, and the
+  # pull request that is already open gets told what happened. No agent here.
+  # ==========================================================================
+  commit:
+    name: Commit the repair to the branch
+    needs: [detect, repair]
+    # Deliberately NOT gated on `changed`. The deterministic route is allowed
+    # to find nothing to write — the bindings were already correct and the
+    # `codegen-failed` label was simply never removed — and removing that label
+    # is then the whole of the repair.
+    if: >-
+      needs.detect.outputs.mode == 'pr' &&
+      needs.detect.outputs.dry_run != 'true' &&
+      needs.repair.outputs.status == 'fixed'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+
+    steps:
+      - name: Generate GitHub App Token
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ vars.APP_CLIENT_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+
+      # The commit the agent reasoned about, not whatever the branch is now.
+      # `detect` established the two were equal and `expectedHeadOid` below
+      # re-asserts it at the moment of writing, so somebody pushing while this
+      # ran loses nothing: this fails instead.
+      #
+      # `persist-credentials: false` although no agent runs here — nothing in
+      # this job needs a credential in `.git/config`, because the commit is
+      # made through the API rather than by pushing.
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.detect.outputs.sha }}
+          persist-credentials: false
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: repair-patch
+          path: ${{ runner.temp }}/repair
+
+      - name: Apply the patch
+        id: apply
+        run: |
+          set -euo pipefail
+          if [ ! -s "$RUNNER_TEMP/repair/repair.patch" ]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Nothing to commit — the stale label is the repair."
+            exit 0
+          fi
+          # Staged, and left staged, for the reason the `propose` job gives:
+          # `git diff --cached --name-only` is then the same question the repair
+          # job answered, asked the same way.
+          git apply --index --whitespace=nowarn "$RUNNER_TEMP/repair/repair.patch"
+          git diff --cached --stat
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+
+      # Re-checked after the round trip, exactly as `propose` re-checks it. Not
+      # a trust boundary — this workflow wrote and read the artifact — but a
+      # cheap assertion that the patch that arrived is the patch that was
+      # vetted, and this is the one path that writes to a branch rather than to
+      # a pull request nobody has merged yet.
+      - name: Re-check the allowlist
+        if: steps.apply.outputs.changed == 'true'
+        env:
+          ALLOWED: '^(rust|lib|test|hook|scripts|example)/|^(Makefile|pubspec\.yaml|analysis_options\.yaml)$'
+        run: |
+          set -euo pipefail
+          OUTSIDE=$(git diff --cached --name-only | grep -Ev "$ALLOWED" || true)
+          if [ -n "$OUTSIDE" ]; then
+            echo "::error::Patch touches files outside the allowlist after apply:"
+            printf '%s\n' "$OUTSIDE"
+            exit 1
+          fi
+          MANIFEST=$(git diff --cached --name-only | grep -E '^rust/Cargo\.(toml|lock)$' || true)
+          if [ -n "$MANIFEST" ]; then
+            echo "::error::Patch touches the dependency manifest or lockfile after apply. On this branch that pin is the premise of the failure, not its cause."
+            exit 1
+          fi
+
+      - name: Commit it, signed, onto the branch
+        id: push
+        if: steps.apply.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GH_REPO: ${{ github.repository }}
+          BRANCH: ${{ needs.detect.outputs.branch }}
+          EXPECTED: ${{ needs.detect.outputs.sha }}
+          RECOVERED: ${{ needs.repair.outputs.recovered }}
+          SURFACE: ${{ needs.repair.outputs.surface }}
+          ENGINE: ${{ needs.detect.outputs.engine }}
+          MODEL: ${{ needs.detect.outputs.model }}
+        run: |
+          set -euo pipefail
+
+          # `createCommitOnBranch`, and neither of the two obvious alternatives.
+          #
+          # Not a push: the signing ruleset covers ~ALL branches with no bypass
+          # actor, so an unsigned commit is rejected wherever this lands, and
+          # nothing in a runner can sign as anybody. Commits made through this
+          # mutation are signed by GitHub itself; ones made through the git-data
+          # API are not.
+          #
+          # Not `peter-evans/create-pull-request`, which was the obvious reuse
+          # and is the wrong tool here: it maintains a branch as "base plus the
+          # diff", so pointing it at an existing branch resets away the commit
+          # the update bot made — the one this entire pull request is about —
+          # and it would need a force push to do it, which the same ruleset
+          # refuses on every branch but `dependabot/**`.
+          #
+          # `expectedHeadOid` is the whole concurrency story: the write is
+          # conditional on the branch still being where the agent found it.
+          if [ "$RECOVERED" = "true" ]; then
+            KIND="regenerate"
+            HEADLINE="chore(bindings): regenerate what the update workflow could not"
+          elif [ "$SURFACE" = "moved" ]; then
+            KIND="agent"
+            HEADLINE="feat(api)!: adapt to the upstream change, widening this package's API"
+          else
+            KIND="agent"
+            HEADLINE="fix(api): adapt to the upstream change this branch pins"
+          fi
+
+          if [ "$KIND" = "regenerate" ]; then
+            WROTE="Generated by \`make codegen\`. No model was involved and no hand-written code was touched."
+          else
+            WROTE="Written by \`${ENGINE}\` / \`${MODEL}\`, unreviewed. Read it as a proposal."
+          fi
+
+          # The marker the deduplication reads, and the one a future
+          # auto-close-superseded-pull-requests job has to read too: a commit
+          # made with the App token is authored by the same bot as the branch's
+          # own commits, so "every commit here is the bot's" stays true and
+          # cannot distinguish a branch an agent has worked on. This line, and
+          # the `agent-repaired` label below, are what can.
+          BODY=$(printf '%s\n\nRepairing the failure recorded against %s.\n\nrepair-build: %s (%s)\n' \
+                   "$WROTE" "$EXPECTED" "$EXPECTED" "$KIND")
+
+          python3 - "$HEADLINE" "$BODY" > "$RUNNER_TEMP/payload.json" <<'PY'
+          import base64, json, os, subprocess, sys
+
+          headline, body = sys.argv[1], sys.argv[2]
+
+          QUERY = (
+              "mutation($input: CreateCommitOnBranchInput!) {"
+              "  createCommitOnBranch(input: $input) { commit { oid url } }"
+              "}"
+          )
+
+          # `--no-renames`: a rename arrives as `R100<TAB>old<TAB>new`, three
+          # fields where every other status has two, and the mutation has no
+          # notion of one anyway. Split into a deletion and an addition it is
+          # unambiguous.
+          out = subprocess.run(
+              ['git', 'diff', '--cached', '--name-status', '--no-renames'],
+              capture_output=True, text=True, check=True).stdout
+
+          additions, deletions = [], []
+          for line in out.splitlines():
+              status, _, path = line.partition('\t')
+              if not path:
+                  continue
+              if status.startswith('D'):
+                  deletions.append({'path': path})
+              else:
+                  with open(path, 'rb') as fh:
+                      additions.append({'path': path,
+                                        'contents': base64.b64encode(fh.read()).decode()})
+
+          print(json.dumps({
+              'query': QUERY,
+              'variables': {'input': {
+                  'branch': {'repositoryNameWithOwner': os.environ['GH_REPO'],
+                             'branchName': os.environ['BRANCH']},
+                  'expectedHeadOid': os.environ['EXPECTED'],
+                  'message': {'headline': headline, 'body': body},
+                  'fileChanges': {'additions': additions, 'deletions': deletions},
+              }},
+          }))
+          PY
+
+          gh api graphql --input "$RUNNER_TEMP/payload.json" > "$RUNNER_TEMP/commit.json"
+
+          # `gh api` exits 0 on a GraphQL response that carries `errors`, so the
+          # status is not the answer. A missing oid is.
+          OID=$(jq -r '.data.createCommitOnBranch.commit.oid // ""' "$RUNNER_TEMP/commit.json")
+          if [ -z "$OID" ]; then
+            jq -r '.errors[]?.message // empty' "$RUNNER_TEMP/commit.json"
+            echo "::error::The commit was not created. If the branch moved while this ran, that is the expected outcome and the next scheduled run will look again."
+            exit 1
+          fi
+          echo "oid=$OID" >> "$GITHUB_OUTPUT"
+          echo "::notice::Committed ${OID:0:12} onto ${BRANCH}."
+
+      # Labels are created before they are applied. `gh pr edit --add-label`
+      # fails on a label the repository does not have, and a repository
+      # generated from this template has neither of these until the first time
+      # this workflow needs one.
+      - name: Make sure the labels exist
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          gh label create agent-repaired --repo "$GH_REPO" --force \
+            --color B60205 \
+            --description "An agent committed to this branch; the change is a proposal nobody has confirmed" > /dev/null
+          gh label create needs-decision --repo "$GH_REPO" --force \
+            --color D93F0B \
+            --description "Waiting on a human decision, not on more work" > /dev/null
+
+      - name: Say what was done, on the pull request
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ needs.detect.outputs.pr_number }}
+          SHA: ${{ needs.detect.outputs.sha }}
+          NEW_OID: ${{ steps.push.outputs.oid }}
+          CHANGED: ${{ steps.apply.outputs.changed }}
+          RECOVERED: ${{ needs.repair.outputs.recovered }}
+          SURFACE: ${{ needs.repair.outputs.surface }}
+          DISAGREED: ${{ needs.repair.outputs.surface_disagreed }}
+          ENGINE: ${{ needs.detect.outputs.engine }}
+          MODEL: ${{ needs.detect.outputs.model }}
+        run: |
+          set -euo pipefail
+          V="$RUNNER_TEMP/repair/verdict.json"
+
+          # Through jq from the file, never through a workflow expression:
+          # these fields are text a model wrote, and an expression is evaluated
+          # by the runner before the shell ever sees it. Bounded for the reason
+          # the pull-request body is bounded — a rehearsal produced ~3500
+          # characters of `notes`.
+          field() {
+            jq -r --arg f "$1" --arg fallback "$2" '
+              ((.[$f] // "") | tostring) as $v
+              | if ($v | length) == 0 then $fallback
+                elif ($v | length) > 4000 then ($v[0:4000] + "\n\n_(truncated)_")
+                else $v end' "$V"
+          }
+
+          # The marker `detect` reads, and the KIND is load-bearing rather than
+          # descriptive: a regeneration that wrote nothing leaves a comment on
+          # an unmoved head, and that must not suppress a later model attempt on
+          # the same commit — it decided nothing.
+          if [ "$RECOVERED" = "true" ]; then
+            KIND="regenerate"
+          else
+            KIND="agent"
+          fi
+
+          {
+            echo "<!-- repair-build:${SHA}:${KIND} -->"
+            if [ "$RECOVERED" = "true" ]; then
+              echo "## The bindings have been regenerated"
+              echo
+              echo "This branch was labelled \`codegen-failed\`: the update workflow could not"
+              echo "run the binding generator, so what was committed under the generated paths"
+              echo "did not correspond to the version this branch pins. **No model was"
+              echo "involved** — the generator ran, and whatever it wrote is the whole of the"
+              echo "change."
+            else
+              echo "## An agent adapted this branch to its own update"
+              echo
+              echo "The failure here is an upstream change of shape, which is the one thing a"
+              echo "dependency update cannot carry by itself. This commit is an agent's"
+              echo "proposal and **nobody has reviewed it**."
+            fi
+            echo
+            echo "| | |"
+            echo "|---|---|"
+            if [ "$CHANGED" = "true" ]; then
+              echo "| Commit | \`${NEW_OID:0:12}\` |"
+            else
+              echo "| Commit | none — nothing needed writing |"
+            fi
+            echo "| Repairing | \`${SHA:0:12}\` |"
+            if [ "$RECOVERED" = "true" ]; then
+              echo "| Written by | \`make codegen\` |"
+            else
+              echo "| Written by | \`${ENGINE}\` / \`${MODEL}\` |"
+            fi
+            echo "| This package's Dart API | \`${SURFACE}\` (measured from the generated bindings) |"
+            echo
+
+            if [ "$SURFACE" = "moved" ]; then
+              echo "### This widens the public API, so it is a breaking change"
+              echo
+              echo "The value this adaptation needed does not exist anywhere inside this"
+              echo "package — it can only come from the caller — so the API has to grow a"
+              echo "parameter, and every consumer's code changes with it. The whole change is"
+              echo "prepared here: the Rust side, the Dart side, the tests, the documentation"
+              echo "and the CHANGELOG entry."
+              echo
+              echo "**Two things are left, and both are yours:** confirm that widening the API"
+              echo "is the right answer, and choose the version number when this is released."
+              echo "Nothing here sets a version, and merging this releases nothing."
+              echo
+              echo "What moved, in the generated bindings:"
+              echo
+              echo '```diff'
+              head -c 3000 "$RUNNER_TEMP/repair/surface.txt" 2>/dev/null || true
+              echo '```'
+              echo
+            fi
+
+            if [ "$DISAGREED" = "true" ]; then
+              echo "> [!WARNING]"
+              echo "> The agent's own account of whether the API moved disagrees with what the"
+              echo "> generated bindings say. The measurement decides the label above; the"
+              echo "> disagreement is left here because which way it went is worth knowing"
+              echo "> before trusting the rest of the account."
+              echo
+            fi
+
+            echo "### What broke"
+            echo
+            field cause "(not stated)"
+            echo
+            echo "### What changed"
+            echo
+            field fix "(not stated)"
+            echo
+            echo "### What was rejected, and why"
+            echo
+            field rejected "_(nothing recorded — read the change the more carefully for it)_"
+            echo
+            echo "### Where each new value came from"
+            echo
+            jq -r '(.sources // []) | if type != "array" or length == 0
+                     then "_(no value had to be supplied)_"
+                     else map("- `" + ((.value // "?") | tostring) + "` ← " + ((.origin // "?") | tostring)) | join("\n")
+                     end' "$V"
+            echo
+            echo "### Verified before committing"
+            echo
+            jq -r '(.verified // []) | if type != "array" or length == 0 then "(nothing reported)" else map("- `" + tostring + "`") | join("\n") end' "$V"
+            echo
+            echo "### Notes"
+            echo
+            field notes "(none)"
+            echo
+            echo "---"
+            echo
+            echo "The checks on this pull request are the oracle; they run against the commit"
+            echo "above exactly as they would against anybody's. A green matrix says the change"
+            echo "compiles and passes, not that the adaptation is the right one — and on this"
+            echo "kind of change those are different questions. The one to ask is whether the"
+            echo "values it threaded through are the values upstream meant."
+          } > "$RUNNER_TEMP/comment.md"
+
+          gh pr comment "$PR_NUMBER" --repo "$GH_REPO" --body-file "$RUNNER_TEMP/comment.md"
+
+      - name: Label what this now is
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ needs.detect.outputs.pr_number }}
+          SURFACE: ${{ needs.repair.outputs.surface }}
+          CODEGEN_FAILED: ${{ needs.detect.outputs.codegen_failed }}
+        run: |
+          set -euo pipefail
+
+          ADD=()
+          # Always, and it is not decoration. A future job that closes bot pull
+          # requests superseded by a newer one is planned to gate on "every
+          # commit here is the bot's" — which a commit made with the App token
+          # satisfies, because it IS the bot's. This label is how that job can
+          # tell a branch an agent has worked on from one it has not, and an
+          # agent-repaired branch carries reasoning nobody has confirmed: it is
+          # exactly the one that must not close itself.
+          ADD+=(--add-label agent-repaired)
+
+          if [ "$SURFACE" = "moved" ]; then
+            ADD+=(--add-label needs-decision)
+          fi
+
+          # Removed only here, and only after the repair job re-ran the
+          # generator and found its output already in the tree. The label means
+          # "the bindings do not correspond to this pin"; dropping it while that
+          # was still true would turn a required check green over a tree nobody
+          # had regenerated.
+          if [ "$CODEGEN_FAILED" = "true" ]; then
+            ADD+=(--remove-label codegen-failed)
+          fi
+
+          gh pr edit "$PR_NUMBER" --repo "$GH_REPO" "${ADD[@]}"
+          echo "::notice::#${PR_NUMBER}: ${ADD[*]}"
+
+      # The permanent record of a breaking change is the commit message that
+      # reaches the default branch, and with a squash merge that message is the
+      # PULL REQUEST TITLE rather than any commit on the branch. A title the
+      # update bot wrote says "update X to vY" and carries no mark, so a change
+      # that alters every consumer's code would land looking like a version
+      # bump. This is the one edit that cannot be made after the fact.
+      #
+      # Conservative on purpose: a title that already marks a breaking change is
+      # left alone, and the mark is inserted into whatever convention the title
+      # already follows rather than a second prefix being stacked in front of it.
+      - name: Mark the title breaking when the API moved
+        if: needs.repair.outputs.surface == 'moved'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ needs.detect.outputs.pr_number }}
+        run: |
+          set -euo pipefail
+          TITLE=$(gh pr view "$PR_NUMBER" --repo "$GH_REPO" --json title --jq '.title')
+
+          case "$TITLE" in
+            *'!:'*)
+              echo "::notice::The title already marks a breaking change — leaving it."
+              exit 0
+              ;;
+          esac
+
+          if printf '%s' "$TITLE" | grep -qE '^[a-z]+(\([^)]*\))?: '; then
+            NEW=$(printf '%s' "$TITLE" | sed -E 's/^([a-z]+(\([^)]*\))?): /\1!: /')
+          else
+            NEW="feat!: $TITLE"
+          fi
+
+          gh pr edit "$PR_NUMBER" --repo "$GH_REPO" --title "$NEW"
+          echo "::notice::Retitled #${PR_NUMBER} to: $NEW"
+
+  # ==========================================================================
   # The other job that can write, for the other outcome. No agent here either.
   # ==========================================================================
   report:
     name: Report a build the agent could not fix
     needs: [detect, repair]
+    # mode=main only. On a bot's branch the same verdict becomes a comment on
+    # the pull request that is already open — see `remark` below.
     if: >-
+      needs.detect.outputs.mode == 'main' &&
       needs.detect.outputs.dry_run != 'true' &&
       needs.repair.outputs.status == 'cannot-fix'
     runs-on: ubuntu-latest
@@ -1253,18 +2354,119 @@ jobs:
           echo "::warning::Filed ${NUMBER}"
 
   # ==========================================================================
+  # mode=pr's other outcome. The agent declined; the pull request is told so,
+  # where the person who will read it already is. No agent here either.
+  # ==========================================================================
+  remark:
+    name: Say why the branch was not repaired
+    needs: [detect, repair]
+    if: >-
+      needs.detect.outputs.mode == 'pr' &&
+      needs.detect.outputs.dry_run != 'true' &&
+      needs.repair.outputs.status == 'cannot-fix'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+
+    # A comment rather than an issue, which is the whole difference from
+    # `report`. A red bot pull request already has a page where somebody will
+    # look, and filing a separate issue about it would split one subject across
+    # two places and leave the issue outliving the branch.
+    #
+    # It is also the deduplication key: `detect` refuses to select a head that
+    # already carries a comment marked with its SHA, so this is said once per
+    # head commit rather than once a night.
+    steps:
+      - name: Generate GitHub App Token
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ vars.APP_CLIENT_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: repair-verdict
+          path: ${{ runner.temp }}/verdict
+
+      - name: Comment on the pull request
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ needs.detect.outputs.pr_number }}
+          SHA: ${{ needs.detect.outputs.sha }}
+          RUN_URL: ${{ needs.detect.outputs.run_url }}
+          ENGINE: ${{ needs.detect.outputs.engine }}
+          MODEL: ${{ needs.detect.outputs.model }}
+        run: |
+          set -euo pipefail
+          V="$RUNNER_TEMP/verdict/verdict.json"
+
+          field() {
+            jq -r --arg f "$1" '((.[$f] // "") | tostring) | if length == 0 then "_(not stated)_" elif length > 4000 then .[0:4000] + "\n\n_(truncated)_" else . end' "$V"
+          }
+
+          {
+            # `:agent` — a model looked at this head and declined. That is what
+            # stops the same commit being handed to a model again tomorrow.
+            echo "<!-- repair-build:${SHA}:agent -->"
+            echo "## This was looked at and not repaired"
+            echo
+            echo "An agent read the failure on \`${SHA:0:12}\` and reported that the fix is not"
+            echo "one it should make. **Nothing was committed to this branch.**"
+            echo
+            echo "| | |"
+            echo "|---|---|"
+            echo "| Failing run | ${RUN_URL:-none — the evidence was the tree} |"
+            echo "| Looked at by | \`${ENGINE:-unknown}\` / \`${MODEL:-unknown}\` |"
+            echo
+            echo "### What it says broke"
+            echo
+            field cause
+            echo
+            echo "### Why it stopped"
+            echo
+            field notes
+            echo
+            echo "### What it considered and rejected"
+            echo
+            field rejected
+            echo
+            echo "---"
+            echo
+            echo "This is a diagnosis, not a conclusion — and on this branch the commonest"
+            echo "honest reason to stop is that the adaptation needs a decision rather than"
+            echo "more work. The other common ones are a flaky runner, in which case"
+            echo "re-running the failed job is the whole of the fix, and a cause that lies"
+            echo "outside the paths an agent may change, which \`.github/**\` deliberately is."
+            echo
+            echo "This will not be repeated for this commit. Pushing to the branch re-arms it."
+          } > "$RUNNER_TEMP/comment.md"
+
+          gh pr comment "$PR_NUMBER" --repo "$GH_REPO" --body-file "$RUNNER_TEMP/comment.md"
+          echo "::notice::Commented on #${PR_NUMBER}."
+
+  # ==========================================================================
   # Housekeeping: retire the reports whose subject has gone away.
   # ==========================================================================
   resolve:
     name: Close reports for a build that is green again
     needs: detect
     # `inputs.dry_run` directly rather than `needs.detect.outputs.dry_run`: that
-    # output is only written on the branch where `main` is broken, so on the
-    # path this job runs on it is always empty. Without this, dispatching a
+    # output is only written on the branch where a target was selected, so on
+    # the path this job runs on it is always empty. Without this, dispatching a
     # rehearsal while `main` is green would quietly close issues — a write
     # nobody asked the rehearsal to make. On a scheduled run `inputs` is empty,
     # so the guard costs nothing there.
-    if: needs.detect.outputs.broken != 'true' && inputs.dry_run != true
+    #
+    # `main_conclusion`, not `broken`. These issues are filed about a red
+    # `main` and are retired when `main` goes green, and "no target was
+    # selected" stopped being the same statement as "main is green" the moment
+    # `detect` learned to select a pull request instead: a run that picks a red
+    # bot branch on a perfectly green `main` would otherwise leave the reports
+    # about `main` open forever.
+    if: needs.detect.outputs.main_conclusion != 'failure' && inputs.dry_run != true
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -1343,7 +2545,7 @@ jobs:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           GH_REPO: ${{ github.repository }}
           NUMBERS: ${{ steps.find.outputs.close }}
-          CONCLUSION: ${{ needs.detect.outputs.conclusion }}
+          CONCLUSION: ${{ needs.detect.outputs.main_conclusion }}
         run: |
           set -euo pipefail
           # Closed with a comment rather than silently: an issue that shuts

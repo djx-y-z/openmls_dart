@@ -20,8 +20,42 @@ import 'common.dart';
 
 /// Update CHANGELOG.md with a new openmls version entry.
 ///
-/// Returns the model that wrote the entry, so a caller can publish it.
-Future<AiModel> updateChangelog({
+/// What [updateChangelog] reports back to its caller.
+///
+/// Two facts, and both exist because only this run can observe them: which
+/// model wrote the entry, and whether the section was left naming two upstream
+/// versions.
+class ChangelogUpdate {
+  /// Creates a result from the two facts a caller needs.
+  const ChangelogUpdate({required this.model, required this.highlightsStacked});
+
+  /// The model that wrote the entry, so a caller can publish it.
+  final AiModel model;
+
+  /// Whether `[Unreleased]` was left naming two upstream versions.
+  ///
+  /// True when a REWRITTEN openmls Highlights line was
+  /// standing and this run's line was therefore added beside it instead of
+  /// superseding it — see [hasRewrittenNativeHighlight] for why a rewritten one
+  /// is never replaced. The condition is legitimate; going unreported is not.
+  final bool highlightsStacked;
+}
+
+/// The `key=value` block [ChangelogUpdate] contributes to a `--ci-output` file.
+///
+/// Separated from the write so the format is checkable without running the
+/// update: this is a GitHub Actions output file, appended to by several
+/// writers, so a missing trailing newline joins this block to the next one and
+/// both keys are lost. Both keys are emitted on BOTH outcomes — a key that
+/// appears only when true cannot be told apart from a script too old to emit
+/// it, and the false case is the one a reader relies on to mean "checked, and
+/// the section is fine".
+String ciOutputsFor(ChangelogUpdate update) =>
+    'ai_provider=${update.model}\n'
+    'highlights_stacked=${update.highlightsStacked}\n';
+
+/// Returns what the caller has to publish — see [ChangelogUpdate].
+Future<ChangelogUpdate> updateChangelog({
   required String version,
   required List<ResolvedAiModel> models,
   String? fromVersion,
@@ -80,7 +114,8 @@ Future<AiModel> updateChangelog({
   // The new Highlights line supersedes this script's own default from an
   // earlier bump, but never a rewritten one — so say when one is left standing.
   // Both then name a version, and the section would ship claiming two.
-  if (hasRewrittenNativeHighlight(currentChangelog)) {
+  final highlightsStacked = hasRewrittenNativeHighlight(currentChangelog);
+  if (highlightsStacked) {
     logWarning(
       '[Unreleased] already carries a rewritten openmls Highlights line. '
       'It was kept, so the section now names two upstream versions — collapse '
@@ -96,7 +131,10 @@ Future<AiModel> updateChangelog({
   await changelogFile.writeAsString(updatedChangelog);
   logInfo('CHANGELOG.md updated');
 
-  return entry.model;
+  return ChangelogUpdate(
+    model: entry.model,
+    highlightsStacked: highlightsStacked,
+  );
 }
 
 /// What [releaseNotesFrom] returns when the release exists but carries no body.
@@ -402,6 +440,15 @@ String readChangelogScope({Directory? packageDir}) {
 /// report that the guard had stopped guarding: its tests feed the function a
 /// string directly and would keep passing while the prompt no longer produced
 /// one it recognises.
+///
+/// Rule 4 carries a second precondition that is NOT checked here: the phrase is
+/// false when the range changed shipped code in a bound crate. Deciding that in
+/// code needs a crate-name-to-path mapping — a crate's name need not be its
+/// directory in the upstream tree — and that is project knowledge this script
+/// does not hold: [changelogScopePath] names the crates, not their paths. A
+/// check that needed a line every existing project's scope file lacks would
+/// silently pass for all of them, which is worse than asking the model, so it
+/// is asked.
 const noImpactPhrase = "do not affect this library's public API";
 
 /// Where [_defaultHighlightTemplate] carries the version.
@@ -577,6 +624,22 @@ updated its openmls native dependency to $version.
 ## What this package binds and exposes (CRITICAL for classification)
 $scope
 
+Read that section for what it is: a statement of what this package can REACH —
+which crates it builds, which surface it exposes — and never a report about the
+release you are writing up. Where it describes what a dependency's changes
+"do", it is naming what such a change is ABLE to touch, not what this version
+touched. Never restate one of those sentences as a finding. If it says a
+dependency can change the bytes on the wire, that is the question to answer
+from the material below; it is not the answer.
+
+Note also what that material cannot settle. The range above covers ONE
+repository. A dependency that lives in a different one leaves a single trace in
+it — a version number in a manifest — and nothing whatever about what changed
+inside it. So where the entry would turn on that, say the material does not
+carry it, and name the version move as the version move it is. Do not infer the
+change from the bump, from the dependency's name, or from what the section
+above says such a change can reach.
+
 ## openmls release notes for $version:
 $releaseNotes
 ${upstreamCommits.isEmpty ? '' : '''
@@ -601,7 +664,16 @@ nothing else, so you may reason from a path's ABSENCE — "the crates we bind
 changed only <file>" is then a checkable statement, and it is a better one than
 any verdict. TRUNCATED means the opposite: the list still proves that what it
 names DID change, and proves nothing at all about what it does not name, so
-write no negative claim from it.'''}
+write no negative claim from it.
+
+What this list does NOT carry is which commit changed which file. It is flat
+across the whole range, and the commit list above carries no file list of its
+own, so nothing here joins the two. Never attribute a file to a named commit,
+and never take the REASON a file changed from a commit subject that happens to
+sound related: a range holds unrelated commits, and pairing one commit's subject
+with another commit's file invents a change nobody made. Write "the range
+changes <file>" and stop there. Where the entry would turn on why a file
+changed, say that this material does not say.'''}
 
 ## Current CHANGELOG.md (match this house style exactly):
 $changelogContext
@@ -678,6 +750,16 @@ Return a JSON object with EXACTLY two string fields:
    this conclusion are three different statements; repeating the same verdict in
    more than one of them is padding, and it is what makes these entries read as
    filled-in boilerplate. Omit the phrase entirely when it is not true.
+   Two things above can make it false, and you can check both. First, a
+   COMPLETE file list in which a crate named under "Crates bound:" has any
+   SOURCE file changed — source meaning a file that is neither a version string
+   nor a test. That is the update reaching this package, whatever you conclude
+   about which surface it reaches. Second, an unchanged FFI surface offered as
+   the ground for the phrase: a signature can stay identical while the
+   behaviour behind it changes, and a caller sees that change, so clean codegen
+   alone never licenses it. What does license it is the file list — a COMPLETE
+   list whose bound crates show nothing but version strings and tests. Where
+   either failing case holds, drop the phrase and say what moved instead.
 5. Judge relevance from the release notes AND the commit list, NOT from the
    version numbers.
 6. Claim only what the material above supports. Where a "Binding
@@ -1003,15 +1085,20 @@ String _insertIntoUnreleased(
       continue;
     }
 
-    // Any other `####` heading inside For Users (`#### Security`,
-    // `#### Fixed`, …) follows `#### Changed` in the documented order, so a
-    // `#### Changed` that has to be created belongs just before the first of
-    // them. `#### Changed (Breaking)` precedes it and so does not anchor.
+    // A `#### Changed` that has to be created belongs just before the first
+    // heading that FOLLOWS it in the documented order (`#### Security`,
+    // `#### Fixed`, `#### Documentation`, …), so that first one anchors it.
+    //
+    // ⚠ [precedesChanged] is therefore not a courtesy list: a subsection that
+    // comes BEFORE `#### Changed` and is missing from it becomes the anchor,
+    // and the created `#### Changed` is then filed above it — out of the order
+    // this script and CLAUDE.md both state. `#### ✨ Highlights` cannot reach
+    // here (it is consumed above), but `#### Added` can, and did.
     if (inForUsers &&
         !insertedChanged &&
         changedAnchorIdx < 0 &&
         line.startsWith('#### ') &&
-        !line.startsWith('#### Changed (')) {
+        !precedesChanged(line)) {
       changedAnchorIdx = trimmedEnd();
     }
 
@@ -1020,6 +1107,18 @@ String _insertIntoUnreleased(
 
   return result.join('\n');
 }
+
+/// Whether `line` is a `### For Users` subsection that precedes `#### Changed`
+/// in the order `CLAUDE.md` documents (Highlights → Added → Changed (Breaking)
+/// → Changed → Security → Fixed → Documentation).
+///
+/// Used to decide what may anchor a created `#### Changed`. Keep it in step
+/// with that order: a subsection added before `#### Changed` and not listed
+/// here silently files new entries above it.
+bool precedesChanged(String line) =>
+    line.startsWith('#### Changed (') ||
+    line.trimRight() == '#### Added' ||
+    line.contains('Highlights');
 
 /// Create a new [Unreleased] section at the top.
 String _createUnreleasedSection(

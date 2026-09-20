@@ -123,6 +123,7 @@ thing; the README's *Known Limitations* names the escapes.
 ```bash
 make rust-check                   # Check Rust code compiles
 make rust-clippy                  # Lint Rust code with clippy (warnings = errors)
+make rust-clippy-web              # The same lint over the wasm32 half (GATE)
 make rust-doc                     # Rustdoc GATE: intra-doc links, -D warnings
 make rust-geiger                  # Unsafe-expression census (DIAGNOSTIC, not gated)
 make rust-audit                   # Audit Rust dependencies for vulnerabilities
@@ -165,6 +166,18 @@ the prose names the right one.
 the parts of `rust/src/` that stay in Rust, which `make doc` cannot see. It is
 also a gate (`RUSTDOCFLAGS=-D warnings`), and CI runs it.
 
+**`make rust-clippy` is host-only, and `make rust-clippy-web` is the other
+half.** Not a thoroughness setting: a `cfg(target_arch = "wasm32")` body is a
+different implementation of the same function, so the host pass reads none of
+its lines while reporting green over the file that contains them. CI runs both.
+
+⚠ The wasm32 leg uses `cd rust`, not `--manifest-path`. Cargo finds
+`.cargo/config.toml` relative to the CWD, so invoking it from the repository
+root drops the wasm32 rustflags and lints a configuration the crate never
+builds under — measured as a different compile, not merely different paths in
+the output.
+
+
 `dartdoc_options.yaml` is `.pubignore`d on purpose — pub.dev runs dartdoc itself
 and would honour the same promotion, which could break documentation generation
 for an already-published version.
@@ -179,6 +192,7 @@ make third-party-notices          # Regenerate THIRD_PARTY_NOTICES.txt
 make verify-third-party-notices   # Check it matches the dependency graph
 make verify-frb-pins              # Check every file names the same FRB version
 make verify-android-alignment     # Check built Android libraries are 16 KB-aligned
+make verify-release-artifacts ARGS=<dir>  # Check release archives hold what their names say
 make actionlint                   # Lint the GitHub Actions workflows
 make check-new-openmls-version  # Check for new upstream openmls version
 make check-new-openmls-version ARGS="--update"  # Apply update
@@ -526,6 +540,10 @@ sections. Keep this structure so entries stay consistent across releases.
 - **openmls vX.Y.Z** — ... (state "unchanged this release" if it didn't move)
 - **openmls_frb vX.Y.Z** — Rust FFI bindings
 
+#### Added
+
+- **<summary>** — new public API or capability a consumer can call
+
 #### Changed (Breaking)
 
 - **<summary>** — what broke. Include an **Action required:** note.
@@ -541,6 +559,10 @@ sections. Keep this structure so entries stay consistent across releases.
 #### Fixed
 
 - **<summary>** — bug fix
+
+#### Documentation
+
+- **<summary>** — documentation a consumer reads (README, API docstrings, SECURITY.md)
 
 ### For Contributors
 
@@ -563,7 +585,10 @@ Rules:
   adoption).
 - Every bullet starts with a **bold summary** + em-dash, then the detail.
 - Omit any section/subsection with no entries. Order subsections as shown
-  (Highlights → Changed (Breaking) → Changed → Security → Fixed).
+  (Highlights → Added → Changed (Breaking) → Changed → Security → Fixed →
+  Documentation). The order is the list, not a subset of it: `update_changelog`
+  anchors on the first `#### ` under `### For Users`, so a subsection filed out
+  of order moves where later entries land.
 - Released sections are immutable; edit the top pending version until release.
 
 ## Publishing Checklist
@@ -582,6 +607,7 @@ make format-check
 make test
 make rust-test
 make rust-clippy
+make rust-clippy-web            # blocking: the wasm32 half, which the above cannot see
 make doc                        # blocking: unresolved doc references
 make rust-doc                   # blocking: intra-doc links, host + wasm32
 make test-web                   # the crate's wasm32 tests, in a real browser

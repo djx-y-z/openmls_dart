@@ -132,6 +132,15 @@ jobs:
           cd rust
           cargo build --release --locked --target ${{ matrix.rust_target }}
 
+      # Both Linux legs run on a runner of their own architecture, so the
+      # library just built can be loaded here — and loading is the only check
+      # in this workflow that would notice one that compiles and then does not.
+      # Called directly rather than through make: these build jobs carry Rust
+      # and nothing else, and Windows has no make at all.
+      - name: Verify the library loads
+        run: python3 scripts/verify_library_loads.py rust/target/${{ matrix.rust_target }}/release/libopenmls_frb.so
+        shell: bash
+
       - name: Upload artifact
         uses: actions/upload-artifact@v7
         with:
@@ -171,6 +180,15 @@ jobs:
         run: |
           cd rust
           cargo build --release --locked --target ${{ matrix.rust_target }}
+
+      # Only the arm64 leg: both build on an Apple-silicon runner, so the
+      # x86_64 artefact is cross-compiled and this machine cannot load it.
+      # Asking it to would report an architecture error about the runner rather
+      # than anything about the build.
+      - name: Verify the library loads
+        if: matrix.arch == 'arm64'
+        run: python3 scripts/verify_library_loads.py rust/target/${{ matrix.rust_target }}/release/libopenmls_frb.dylib
+        shell: bash
 
       - name: Upload artifact
         uses: actions/upload-artifact@v7
@@ -348,6 +366,12 @@ jobs:
             }
           }
 
+      # Native, like the Linux legs. `python` rather than `python3`: that is the
+      # name the Windows runner image puts on PATH.
+      - name: Verify the library loads
+        run: python scripts/verify_library_loads.py rust/target/x86_64-pc-windows-msvc/release/openmls_frb.dll
+        shell: pwsh
+
       - name: Upload artifact
         uses: actions/upload-artifact@v7
         with:
@@ -384,11 +408,43 @@ jobs:
             rust/target/wasm32/openmls_frb_bg.wasm
 
   # ============================================
+  # Verify what the build jobs produced
+  # ============================================
+  #
+  # Deliberately BEFORE create-release and outside its environment, so that a
+  # build that produced the wrong thing is caught without spending a reviewer's
+  # approval on it. It carries no toolchain: a checkout, a download and python3,
+  # which every runner has.
+  verify-artifacts:
+    needs:
+      - build-linux
+      - build-macos
+      - build-ios
+      - build-android
+      - build-windows
+      - build-wasm
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v8
+        with:
+          path: artifacts
+
+      # Reads the headers rather than calling `file`, because architecture
+      # alone cannot tell a Linux arm64 library from an Android one, nor a
+      # macOS dylib from an iOS one — and those are the confusions that matter.
+      - name: Verify every artifact is the platform it claims
+        run: make verify-release-artifacts ARGS=artifacts
+
+  # ============================================
   # Create GitHub Release
   # ============================================
   create-release:
     needs:
       - check-release
+      - verify-artifacts
       - build-linux
       - build-macos
       - build-ios
@@ -484,6 +540,19 @@ jobs:
           cd ..
 
           ls -lh release-archives/
+
+      # The archives above are assembled by a hand-written list of `tar` lines,
+      # one per platform, each naming a source directory. Nothing else checks
+      # that a line names the directory it means to, and the failure a slip
+      # produces is invisible until a consumer downloads their platform's
+      # archive and gets another platform's library. verify-artifacts already
+      # cleared what the build jobs produced; this clears what packaging did
+      # with it, which is the half that only exists after this step.
+      #
+      # It runs before the attestation on purpose: a signed provenance for a
+      # mispacked archive is a mispacked archive that is harder to argue with.
+      - name: Verify every archive holds what its name says
+        run: make verify-release-artifacts ARGS=release-archives
 
       # Sigstore build-provenance attestation (SLSA Build L2) for every release
       # archive. subject-checksums reuses the just-generated SHA256 file, so the
