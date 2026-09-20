@@ -67,6 +67,42 @@ const _wasmVersionMarkerName = '.wasm-version';
 /// so a later switch back to released binaries always forces a refresh.
 const _localWasmMarker = 'local-dev';
 
+/// Name of the stamp `make build-web` writes beside its wasm output, recording
+/// the crate version the module was built from.
+///
+/// It exists because nothing else can answer the question. The local wasm
+/// directory is a build artefact: its files change whenever anyone rebuilds,
+/// and their timestamps move on a checkout, a stash or a no-op rebuild, in
+/// both directions — so neither content nor mtime says which crate version
+/// they came from.
+const localWasmStampName = '.crate-version';
+
+/// Whether a local `rust/target/wasm32/` build may be served for [version].
+///
+/// [stamped] is the trimmed contents of [localWasmStampName], or null when the
+/// file is absent — which is the case for every wasm directory built before
+/// this stamp existed, and is deliberately treated as a mismatch.
+///
+/// ⚠ `rustContentHash` does NOT cover this. That check compares the FFI
+/// *surface*, and the surface can be byte-identical across a release that
+/// moves the vendored native code underneath it, which is exactly what a patch
+/// release looks like. So the one value that already crosses the Dart-to-binary
+/// boundary is blind to a stale local module by construction, and a version
+/// stamp is the check that is not.
+///
+/// Pure so it is testable without a build tree.
+bool localWasmMatchesCrate({
+  required String? stamped,
+  required String version,
+}) => stamped != null && stamped.trim() == version;
+
+/// Reads [localWasmStampName] from a local wasm build directory, or null.
+String? readLocalWasmStamp(Directory wasmDir) {
+  final file = File('${wasmDir.path}/$localWasmStampName');
+  if (!file.existsSync()) return null;
+  return file.readAsStringSync().trim();
+}
+
 /// Marker written into a version-keyed download cache directory as the LAST
 /// step of a successful download+verify+extract. Its absence means the cache
 /// entry is incomplete (e.g. an interrupted extraction left a truncated file),
@@ -312,6 +348,9 @@ Future<void> _handleWebBuild(
       packageRoot.resolve('rust/target/wasm32/$fileName'),
     );
   }
+  output.dependencies.add(
+    packageRoot.resolve('rust/target/wasm32/$localWasmStampName'),
+  );
 
   // Find the Flutter app root first
   final appRoot = _findAppRoot(input.outputDirectoryShared);
@@ -332,6 +371,25 @@ Future<void> _handleWebBuild(
   // over cached/downloaded files to avoid stale content hash mismatches.
   final localWasmDir = _findLocalWasmBuild(packageRoot);
   if (localWasmDir != null) {
+    // A local build wins over the released one, so it must be shown to belong
+    // to THIS crate version. Nothing downstream would notice if it did not:
+    // the marker written below is a sentinel rather than a version, so the
+    // freshness check further down is unreachable on this path, and
+    // `rustContentHash` compares the FFI surface, which a release may leave
+    // byte-identical while replacing the native code behind it. A stale module
+    // would then be served silently, and on the web that means running an
+    // upstream version the rest of the package has already moved past.
+    final stamped = readLocalWasmStamp(localWasmDir);
+    if (!localWasmMatchesCrate(stamped: stamped, version: version)) {
+      throw HookException(
+        'The local WASM build in ${localWasmDir.path} was produced by '
+        '${stamped == null ? 'an unknown crate version' : 'crate $stamped'}, '
+        'but rust/Cargo.toml is at $version. It takes priority over the '
+        'released module, so serving it would run the wrong code. '
+        'Run `make build-web` to rebuild it, or delete '
+        '${localWasmDir.path} to use the released WASM instead.',
+      );
+    }
     // ignore: avoid_print
     print('Using local WASM build from ${localWasmDir.path}');
     await _copyWasmFilesToAppRoot(localWasmDir.uri, webPkgDir);

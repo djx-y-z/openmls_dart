@@ -274,8 +274,20 @@ build-web:
 	cd rust && wasm-pack build --target no-modules --release \
 		--out-dir target/wasm32 --out-name openmls_frb --no-typescript
 	@rm -f rust/target/wasm32/.gitignore rust/target/wasm32/package.json
+# Stamp the crate version beside the module. The build hook prefers this local
+# build over the released one, so it needs a way to tell WHICH crate version
+# produced it — and nothing else here can say. The files change on every
+# rebuild and their timestamps move on a checkout or a stash, in both
+# directions, so neither content nor mtime answers it. Without the stamp a
+# wasm directory left over from an earlier version is served silently, and
+# `rustContentHash` does not catch that: it compares the FFI surface, which a
+# patch release leaves byte-identical while replacing the native code behind
+# it. The same first-`version` match the hook's own parser uses.
+	@grep -m1 -E '^version[[:space:]]*=' rust/Cargo.toml \
+		| sed -E 's/^version[[:space:]]*=[[:space:]]*"([^"]+)".*/\1/' \
+		> rust/target/wasm32/.crate-version
 	@echo ""
-	@echo "Build complete! WASM files at: rust/target/wasm32/"
+	@echo "Build complete! WASM files at: rust/target/wasm32/ (crate $$(cat rust/target/wasm32/.crate-version))"
 
 # Run the example app in a browser against a freshly built WASM module.
 #
