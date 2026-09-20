@@ -248,10 +248,14 @@ On WASM, the encryption key is imported as a **non-extractable `CryptoKey`** via
 This package works with the standard `flutter build web` (dart2js) target. It does **not** currently work when the host app is compiled with `flutter build web --wasm` / `flutter run -d chrome --wasm` (dart2wasm). Calls to the Rust side fail with:
 
 ```
-Type 'JSValue' is not a subtype of type 'List<dynamic>' in type cast
+type 'JSValue' is not a subtype of type 'List<dynamic>' of 'raw'
 ```
 
-This is an upstream limitation in [`flutter_rust_bridge`](https://github.com/fzyzcjy/flutter_rust_bridge) — its generated Dart decoders rely on implicit JS-array casts that work on dart2js but fail under dart2wasm. The pattern is hardcoded in FRB's codegen templates, so it affects every FRB-based Dart package, not just this one. Tracking upstream: [flutter_rust_bridge#2575](https://github.com/fzyzcjy/flutter_rust_bridge/issues/2575).
+This is an upstream limitation in [`flutter_rust_bridge`](https://github.com/fzyzcjy/flutter_rust_bridge). Its DCO decoder unwraps every value coming back from Rust with `raw as List<dynamic>` — free under dart2js, where a JS array *is* a Dart `List`, and a failing cast under dart2wasm, where the same value arrives as an opaque `JSAny`. The cast is emitted by FRB's codegen templates as well as its runtime codec, so it affects every FRB-based Dart package, not just this one.
+
+**Fixed upstream, but not yet in a stable release.** [flutter_rust_bridge#3182](https://github.com/fzyzcjy/flutter_rust_bridge/pull/3182) replaces that cast with a `dcoDecodeList` helper on both sides and was merged on 2026-09-05, superseding [#3125](https://github.com/fzyzcjy/flutter_rust_bridge/pull/3125). The first release carrying it is `flutter_rust_bridge` 2.14.0-beta.2 — a prerelease. This package pins the latest stable, 2.13.0, which predates the fix, so `--wasm` stays unsupported here until the fix reaches a stable release and this package's pin moves onto it.
+
+A `dependency_override` in the host app does not work around it. This package's *own* generated bindings emit the same cast, so the fix has to ship from here as a regenerated release — and a stable release of this package cannot depend on a prerelease of `flutter_rust_bridge`, because pub warns against exactly that and this package's release gate treats any warning as an error.
 
 | Command | Status |
 |---------|--------|

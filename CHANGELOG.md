@@ -1,5 +1,47 @@
 ## [Unreleased]
 
+### For Users
+
+#### Fixed
+
+- **The example app now reports an initialization failure instead of spinning
+  forever** (`example/lib/main.dart`) — `_initOpenmls()` is fire-and-forget
+  from `initState()` and caught nothing, so any `Openmls.init()` throw left
+  `_isInitialized` false with the progress indicator running and the exception
+  reaching the console and nowhere else. A hang that names no cause is a much
+  longer diagnosis than the one-line problem behind it.
+
+  The body now branches three ways — initialized, failed, neither — and the
+  failure path renders the error. The raw message is kept on purpose: *any*
+  `init()` failure lands there, not only the missing-WASM one the hint names,
+  so a message asserting the cause would be wrong as often as right. The hint
+  names the usual cause on web and the command that fixes it.
+
+  ⚠ This does not fix the underlying reason `init()` fails on web, which is
+  not fixable from this package: `flutter run -d chrome` after a run for
+  another platform reuses that run's `dart_build` stamp — the build directory
+  key does not include the target platform — and skips the build hook above
+  `hooks_runner`, so `web/pkg/` is never provisioned. *Known Limitations*
+  names the escape. What changes here is that the app says so.
+
+#### Documentation
+
+- **The `--wasm` limitation now names the pull request that fixes it, instead
+  of a stale issue about something else** (`README.md`) — *Known Limitations*
+  tracked [flutter_rust_bridge#2575][frb2575], which was closed in July 2025
+  and describes a different failure (a `DartFnFuture` callback crash under
+  Chrome), not the decoder cast this package actually hits. It now tracks
+  [flutter_rust_bridge#3182][frb3182], the pull request that replaces that
+  cast, merged on 2026-09-05. The quoted error is the verbatim one as well, so
+  that searching for what the console prints finds this section.
+
+  The limitation still applies and was re-measured rather than assumed. What
+  is new for a reader is where the fix is and why waiting is the only option:
+  it is in `flutter_rust_bridge` 2.14.0-beta.2, a prerelease, and this package
+  can neither ship a stable release that depends on a prerelease nor be
+  rescued by a `dependency_override` in the host app, because its own
+  generated bindings carry the same cast. The section now says so.
+
 ### For Contributors
 
 #### Changed
@@ -2482,6 +2524,8 @@
 
 [gh-rrmv]: https://github.com/openmls/openmls/security/advisories/GHSA-rrmv-c79f-cf5r
 [om-2116]: https://github.com/openmls/openmls/issues/2116
+[frb2575]: https://github.com/fzyzcjy/flutter_rust_bridge/issues/2575
+[frb3182]: https://github.com/fzyzcjy/flutter_rust_bridge/pull/3182
 [Unreleased]: https://github.com/djx-y-z/openmls_dart/compare/v3.2.0...HEAD
 [3.2.0]: https://github.com/djx-y-z/openmls_dart/compare/v3.1.0...v3.2.0
 [3.1.0]: https://github.com/djx-y-z/openmls_dart/compare/v3.0.0...v3.1.0
