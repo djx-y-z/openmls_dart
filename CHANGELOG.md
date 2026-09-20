@@ -2,6 +2,17 @@
 
 ### For Users
 
+#### ✨ Highlights
+
+- **Past epoch message secrets are now yours to keep and to clear** — seven
+  engine methods read and set how many past epochs a group keeps, and delete
+  what is kept. Retaining them is a forward-secrecy trade-off, not a tuning
+  knob; the default still keeps none.
+- **A second browser tab can no longer overwrite the first** — every operation
+  on the Web runs under an exclusive cross-tab lock, so the tabs and workers of
+  an origin queue instead of dropping each other's writes.
+- **openmls v0.9.0** — unchanged this release
+
 #### Added
 
 - **Past epoch message secrets can now be retained and deleted on demand** (`rust/src/api/engine.rs`) — `pastEpochDeletionPolicy` reads how many past epochs a group keeps, `setPastEpochDeletionPolicyMaxEpochs` and `setPastEpochDeletionPolicyKeepAll` set it, and four `delete…` methods remove what is kept: `deleteAllPastEpochSecrets`, `deletePastEpochSecretsOlderThan`, `deletePastEpochSecretsBefore` and `deletePastEpochSecretsWithoutTimestamps`.
