@@ -28,6 +28,21 @@ prefer concrete names over categories: a model can check "does this change touch
   else runs on `openmls_rust_crypto`, so a change confined to libcrux affects
   users only through that ciphersuite.
 
+- **Reached, but named nowhere above: the libcrux crates themselves.** They live
+  in a different repository (`cryspen/libcrux`, published to crates.io) and
+  arrive transitively — `hpke-rs-libcrux` brings `libcrux-kem` and its siblings,
+  at versions openmls pins rather than this package. What a change there is able
+  to reach is the X-Wing ciphersuite and nothing else: its key material, the
+  bytes it puts on the wire, and whether it is offered at all. To tell whether a
+  given change did reach it, look for a version move on those crates in
+  `Cargo.lock`.
+
+  ⚠ The compare handed to this prompt covers the upstream openmls repository
+  alone, and a change inside libcrux leaves exactly one trace there — a version
+  number in a manifest — with nothing about what happened inside it. So report
+  the version move and stop; do not infer the contents of a change from a
+  compare that cannot see it.
+
 - Exposed surface — one object, `MlsEngine`, plus the value types its methods
   take and return. Everything below is reachable from Dart through
   `lib/openmls.dart`:

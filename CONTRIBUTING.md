@@ -278,9 +278,10 @@ Before pushing, run what CI will run: `make test`, `make format-check`,
 `make analyze`, and both documentation gates, `make doc` and `make rust-doc`
 (`dartdoc_options.yaml` promotes an unresolved reference to an error, and
 `make rust-doc` runs under `-D warnings`). If you touched a
-`cfg(target_arch = "wasm32")` branch, add `make test-web` — it is the only
-check that executes web code, and it needs a driver:
-`make test-web CHROMEDRIVER=/path/to/chromedriver`.
+`cfg(target_arch = "wasm32")` branch, add `make rust-clippy-web` and
+`make test-web`: the first is the only lint that reads those bodies and the
+second the only check that executes them, and `make test-web` needs a driver
+(`make test-web CHROMEDRIVER=/path/to/chromedriver`).
 
 ### PR Checklist
 
@@ -291,7 +292,8 @@ Before submitting:
 - [ ] Static analysis passes (`make analyze`)
 - [ ] Code is formatted (`make format-check`)
 - [ ] Both documentation gates pass (`make doc`, `make rust-doc`)
-- [ ] A touched `wasm32` branch was run in a browser (`make test-web`)
+- [ ] A touched `wasm32` branch was linted and run in a browser
+      (`make rust-clippy-web`, `make test-web`)
 - [ ] Generated bindings are regenerated and committed, not hand-edited
 - [ ] Documentation is updated if needed
 - [ ] CHANGELOG.md is updated for user-facing changes
@@ -378,6 +380,7 @@ All development tasks should be done via Makefile:
 | `make rust-deny` | Advisories, licences and sources (cargo-deny) |
 | `make rust-check` | Quick Rust type check |
 | `make rust-clippy` | Lint the Rust code (warnings are errors) |
+| `make rust-clippy-web` | The same lint over the wasm32 half — a GATE in CI; `make rust-clippy` is host-only and cannot see it |
 | `make rust-test` | Run the crate's native Rust tests |
 | `make rust-geiger` | Unsafe-expression census (diagnostic, not a gate) |
 | `make third-party-notices` | Regenerate THIRD_PARTY_NOTICES.txt |
@@ -713,7 +716,6 @@ Releasing happens in **two independent stages**, each with its own command and g
 tag — the `openmls_frb` native crate and the `openmls` Dart package
 are versioned and released separately.
 
-<<<<<<< before updating
 1. **Native crate (stage 1)** — from a clean, up-to-date `main`:
    ```bash
    make release-frb ARGS="--version X.Y.Z"
@@ -723,21 +725,6 @@ are versioned and released separately.
    the native build workflow, which builds and publishes the platform binaries.
    The commit/tag/push inherit your terminal, so you enter your signing passphrase
    interactively during the command.
-=======
-| Command | What it does |
-|---------|--------------|
-| `make setup` | Install the toolchain: fvm + pinned Flutter, Rust tools, FRB codegen |
-| `make codegen` | Regenerate the bindings under `lib/src/rust/` |
-| `make build` | Build the native library for this machine |
-| `make test` | Run the Dart test suite |
-| `make analyze` / `make format-check` | The two gates CI runs on every platform |
-| `make doc` / `make rust-doc` | The documentation gates — both BLOCK in CI |
-| `make rust-clippy-web` | Clippy over the wasm32 half of the crate — BLOCKS in CI. `make rust-clippy` is host-only and cannot see it |
-| `make rust-check` / `make rust-clippy` / `make rust-test` | The Rust gates |
-| `make rust-audit` / `make rust-deny` | Advisories, licences, sources |
-| `make third-party-notices` | Regenerate the notice inventory CI verifies |
-| `make clean` | Remove build artifacts, including `rust/target` |
->>>>>>> after updating
 
 2. **Dart package (stage 2)** — after the native build succeeds:
    ```bash

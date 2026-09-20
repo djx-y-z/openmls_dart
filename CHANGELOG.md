@@ -4,7 +4,6 @@
 
 #### Added
 
-<<<<<<< before updating
 - **Past epoch message secrets can now be retained and deleted on demand** (`rust/src/api/engine.rs`) — `pastEpochDeletionPolicy` reads how many past epochs a group keeps, `setPastEpochDeletionPolicyMaxEpochs` and `setPastEpochDeletionPolicyKeepAll` set it, and four `delete…` methods remove what is kept: `deleteAllPastEpochSecrets`, `deletePastEpochSecretsOlderThan`, `deletePastEpochSecretsBefore` and `deletePastEpochSecretsWithoutTimestamps`.
 
   An application message is encrypted under the epoch its sender was in, so a
@@ -169,6 +168,120 @@
   request needs a human, and `@dependabot rebase` is the wrong repair.
 
 #### Changed
+
+- **copier template adopted: v4.13.0 -> v4.14.0** (18 files, plus this entry) — three new gates arrive, each covering something nothing here was checking: the wasm32 half of the crate is now linted, every native library is loaded before it is shipped, and every release archive is checked against what its name claims.
+
+  `make rust-clippy-web` is the lint gate, and `.github/workflows/test-reusable.yml`
+  runs it on the Linux x86_64 leg. It is a second gate rather than a
+  thoroughness setting: `make rust-clippy` runs under the host target, and a
+  `cfg(target_arch = "wasm32")` body is a different implementation of the same
+  function, so the host pass reads none of its lines while reporting green over
+  the file that contains them. The target uses `cd rust` rather than
+  `--manifest-path`, because cargo discovers `.cargo/config.toml` relative to
+  the working directory and the repository root drops the wasm32 rustflags.
+  The other half of this — the crate actually being clean under that lint —
+  landed separately and is recorded above.
+
+  `scripts/verify_library_loads.py` loads each built library before it is
+  packed. `ctypes.CDLL` is the whole check and it is more than it looks: it runs
+  the library's initialisers, resolves its dependencies and refuses a wrong
+  architecture. It then looks up `frb_init_frb_dart_api_dl`, which
+  flutter_rust_bridge exports from its own binding rather than from generated
+  code, so a library without it is not an FRB library whatever else it is. It
+  runs only on the legs whose runner IS the target — both Linux architectures,
+  macOS arm64 and Windows — since a cross-compiled artefact cannot be loaded by
+  the machine that built it. ⚠ Upstream measured `ctypes.CDLL` on macOS only;
+  the Linux and Windows legs are inference until this repository's first
+  native build runs them.
+
+  `scripts/verify_release_artifacts.py` refuses an archive that does not hold
+  what its name says, and runs at both points that can get it wrong:
+  a `verify-artifacts` job over what the build jobs produced, placed before
+  `create-release` and outside its environment so a bad build is caught without
+  spending a reviewer's approval, and again inside `create-release` over the
+  packed archives, before the provenance attestation signs them.
+  ⚠ Checking the architecture would not have caught the likely error: a Linux
+  arm64 and an Android arm64 `.so` carry the same ELF header, and a macOS, an
+  iOS and an iOS-simulator `.dylib` the same Mach-O cputype — exactly the pairs
+  a copy-paste slip in the hand-written `tar` list produces. It parses headers
+  instead of calling `file`, reading the libc in `DT_NEEDED` (glibc asks for
+  `libc.so.6`, Bionic for `libc.so` plus `liblog.so`) and the platform field of
+  `LC_BUILD_VERSION`.
+
+  Measured here against this project's own published release rather than taken
+  on trust: `make verify-release-artifacts` over all twelve archives of
+  `openmls_frb-2.2.0` passes, which is the same call `create-release` makes on
+  the archives it packs. That also settles the question the script cannot answer
+  about itself — its platform table is rendered from the copier answers, and
+  nothing had checked that the rendered table matches the archive names THIS
+  repository publishes. It does, and the discriminators do real work on them:
+  `linux-arm64` reads as glibc and `android-arm64-v8a` as bionic at the same
+  `e_machine`, and `macos-arm64` as macOS against `ios-device-arm64` as iOS at
+  the same Mach-O cputype.
+
+  `.github/workflows/repair-build.yml` and `.github/agent-prompts/repair-build.md`
+  extend the repair agent to open bot-authored pull requests, committing to
+  their own branches. A red update branch never reaches `main`, so nothing
+  watching `main` would ever see it. Most such branches never reach a model:
+  the commonest failure is that the update workflow could not run the binding
+  generator and left the branch labelled `codegen-failed`, which the repair
+  simply runs and clears. Three labels carry state, and `agent-repaired` is a
+  contract — the repair commits with the same App token as the branch's own
+  commits, so nothing else can tell a branch an agent has worked on from one it
+  has not, and a branch carrying it must not be closed automatically.
+
+  `scripts/src/update_changelog.dart` now returns a `ChangelogUpdate` rather
+  than a model, carrying the one fact only that run can observe: whether
+  `[Unreleased]` was left naming two upstream versions because a rewritten
+  Highlights line was standing. `ciOutputsFor` emits both keys on both
+  outcomes, since a key that appears only when true cannot be told apart from a
+  script too old to emit it. `.github/workflows/check-openmls-updates.yml`
+  surfaces it as a numbered step in the pull-request body. The generator also
+  anchors a created `#### Changed` on the first `#### ` heading, so it no longer
+  lands above `#### Added`, and the changelog prompt gains two further rules:
+  no attributing a change by the list of files it touched, and no scope file
+  telling a model with no tools to go and fetch something.
+
+  Smaller: `.github/dependabot.yml` records that `increase-if-necessary` holds
+  only the neighbours of a capped pin and returns the bumped one as a caret;
+  `.github/actionlint.yaml` carries a second suppression for the same actionlint
+  bug; `CLAUDE.md`, `CONTRIBUTING.md` and
+  `.claude/skills/update-openmls/SKILL.md` follow. `.copier-answers.yml` records
+  template version `v4.14.0`.
+
+  `.github/agent-prompts/changelog-scope.md` is updated by hand, because it is
+  the one thing in this release copier structurally cannot deliver: the template
+  writes that file once and never overwrites it, so guidance v4.14.0 adds to its
+  source reaches an existing project only if somebody applies it. The guidance
+  asks that the file name a dependency living in a DIFFERENT repository that
+  still reaches users, and this package has one — the libcrux crates arrive from
+  crates.io through `hpke-rs-libcrux`, at versions openmls pins, and are named
+  nowhere in the bound list. They can reach the X-Wing ciphersuite and nothing
+  else. ⚠ The compare the changelog prompt is given covers the openmls
+  repository alone, where such a change leaves one trace — a version number in a
+  manifest — so an entry reports the version move and stops rather than
+  inferring what changed inside. The file was also checked for the other thing
+  that guidance forbids, an instruction telling a model with no tools to go and
+  fetch something; it carries none.
+
+  Three files conflicted and were resolved by hand. `CONTRIBUTING.md` took the
+  template's `make rust-clippy-web` row into the commands table this file
+  already maintains, rather than the second table copier tried to place inside
+  the release section; the gate is also named in the pre-push list and the pull
+  request checklist, since it blocks in CI.
+  `.github/workflows/check-openmls-updates.yml` kept both sides — the
+  template's stacked-highlights step and this project's database-migration
+  step. `CHANGELOG.md` conflicted in two places and kept this
+  project's side at both. The first is the file's head: this one has begun at
+  `## [Unreleased]` since the project was generated, with no title and no Keep
+  a Changelog blurb, so the paragraph v4.14.0 adds above that heading has no
+  context to attach to and is not adopted. Three of the four projects generated
+  from this template start the same way, and `CLAUDE.md` already carries what
+  that paragraph says, at more length. The second is the template's seeded
+  initial release, which this project's real `## [1.0.0]` section supersedes.
+  The released `## [1.0.1]` section is left as it shipped: copier had rewritten its headings into the audience split by
+  position, matching its own seeded release rather than anything about this
+  project, and released sections do not change.
 
 - **The wasm32 half of the crate is now clean under clippy** (`rust/src/encrypted_db.rs`) — `make rust-clippy` runs under the host target only, so every `cfg(target_arch = "wasm32")` body in the crate had never been linted, here or in CI. A wasm32 body is a different implementation of the same function, so nothing the host lints touches a line of it.
 
@@ -1116,14 +1229,6 @@
   dartdoc release cannot break documentation generation for an already-published
   version), and `make rust-doc` runs rustdoc under `-D warnings` on the host and
   on wasm32. The first was red on adoption — see the six dead references above.
-=======
-Each release is split by audience — `### For Users` for anything a consumer of
-the published package can observe, `### For Contributors` for everything else.
-`CLAUDE.md` carries the full shape and the order of the subsections; the release
-scripts and the changelog generator both assume it.
-
-## [Unreleased]
->>>>>>> after updating
 
   **Bookkeeping no longer outranks tests.** `verify-third-party-notices` and
   `verify-frb-pins` moved *after* the test steps, so a stale inventory no longer
@@ -2293,11 +2398,8 @@ scripts and the changelog generator both assume it.
 
 ## [1.0.1] - 2026-02-11
 
-### For Users
+### Added
 
-#### Added
-
-<<<<<<< before updating
 - Coverage badge
 
 ## [1.0.0] - 2026-02-11
@@ -2337,13 +2439,6 @@ scripts and the changelog generator both assume it.
 - `signer_from_bytes()` zeroizes input bytes on all code paths, including deserialization errors
 - X.509 `x509()` documents that application layer must validate certificate chains
 - SECURITY.md: sensitive API table, known limitations, web deployment recommendations, vulnerability reporting via GitHub Security Advisories
-=======
-- **Initial release** — openmls wraps openmls for Dart and Flutter
-- **Cross-platform support** — Android, iOS, macOS, Linux, Windows, Web
-- **Automatic native library download** — the build hook fetches the prebuilt library for the host platform
-- **SHA256 verification of every download** — fail-closed; an archive without a published checksum is refused
-- **FFI bindings for openmls** — generated by flutter_rust_bridge, typed on both sides
->>>>>>> after updating
 
 [gh-rrmv]: https://github.com/openmls/openmls/security/advisories/GHSA-rrmv-c79f-cf5r
 [om-2116]: https://github.com/openmls/openmls/issues/2116
