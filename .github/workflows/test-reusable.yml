@@ -221,7 +221,7 @@ jobs:
       # against exactly this. Dropping the dead name is the whole fix; the NDK
       # this job actually needs is installed by the step below, by version.
       - name: Setup Android NDK
-        uses: android-actions/setup-android@40fd30fb8d7440372e1316f5d1809ec01dcd3699 # v4.0.1
+        uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd # v4.0.4
         with:
           packages: platform-tools
 
