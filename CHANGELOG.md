@@ -12,6 +12,7 @@
   on the Web runs under an exclusive cross-tab lock, so the tabs and workers of
   an origin queue instead of dropping each other's writes.
 - **openmls v0.9.0** — unchanged this release
+- **openmls_frb v2.3.0** — Rust FFI bindings
 
 #### Added
 
