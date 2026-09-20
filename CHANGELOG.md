@@ -44,6 +44,46 @@
 
 ### For Contributors
 
+#### Added
+
+- **The resolved cargo feature graph is now a gate, not a comment**
+  (`scripts/verify_feature_graph.dart`, `scripts/src/feature_graph.dart`,
+  `Makefile`, `.github/workflows/test-reusable.yml`,
+  `test/scripts/feature_graph_test.dart`) — `rust/Cargo.toml` carries a comment
+  explaining that `openmls`'s `test-utils` must stay absent from a shipped
+  binary, because it implies `backtrace` and `LibraryError::custom()` then
+  formats a symbolized Rust backtrace — build-machine paths, symbol names,
+  crate layout — into an error that travels the *ordinary* error channel out to
+  the Dart caller, no panic required. Nothing enforced it.
+
+  A manifest comment cannot: cargo unifies features across the graph, so the
+  feature can be switched on for a crate this manifest never mentions, by a
+  dependency arriving transitively in a version bump nobody here reviewed. The
+  check therefore reads `cargo tree` — what openmls is *built* with — rather
+  than the manifest text.
+
+  ⚠ **It is keyed by crate, and a flat list of feature names would be red on a
+  healthy tree.** Measured rather than assumed: `openmls_basic_credential`
+  carries `test-utils` deliberately — it is what makes
+  `SignatureKeyPair::private()` reachable, and that crate's `test-utils`
+  implies no backtrace — and `allo-isolate`, which arrives under
+  `flutter_rust_bridge`, enables a `backtrace` feature of its own. Both sit in
+  the test fixture for exactly that reason. `backtrace` is forbidden alongside
+  `test-utils` because upstream allows enabling it on its own, which is a
+  shorter path to the same leak.
+
+  Absence is a failure rather than a pass: if a crate named in the rules is
+  missing from the graph, the check fails instead of reporting clean, so a
+  renamed or dropped dependency cannot silently retire it.
+
+  `--edges normal` (the graph that ends up inside the shipped library),
+  `--target all` (a clean union means every target is clean) and `--locked`
+  (a property of the revision, not of the machine). It resolves without
+  compiling and runs inside the already-required Linux x86_64 test job, so it
+  adds no required context. Verified red as well as green: with `js` added to
+  the rule set the gate fails and names the crate, the feature, the enabled
+  set and the `cargo tree --invert` command that finds the culprit.
+
 #### Changed
 
 - **copier template adopted: v4.14.0 -> v4.14.1** — `make build-web` now
