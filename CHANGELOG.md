@@ -2,6 +2,15 @@
 
 ### For Users
 
+#### ✨ Highlights
+
+- **A failed start on the Web now says why, instead of spinning forever** —
+  the example app reports the error and names the usual cause and its fix.
+- **The `--wasm` limitation now tracks the pull request that fixes it** — and
+  says where that fix is: a prerelease, so the limitation still stands here.
+- **openmls v0.9.0** — unchanged this release
+- **openmls_frb v2.3.0** — unchanged this release
+
 #### Fixed
 
 - **The example app now reports an initialization failure instead of spinning
