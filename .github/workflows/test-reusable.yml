@@ -487,6 +487,19 @@ jobs:
         run: make verify-frb-pins
         shell: bash
 
+      # `rust/Cargo.toml` states which features this crate ASKS for; it cannot
+      # state which features openmls is BUILT with, because cargo unifies
+      # features across the graph. A transitive dependency — arriving in a
+      # version bump nobody reviewed — can enable `test-utils` or `backtrace`
+      # on openmls, and `LibraryError::custom()` then formats a symbolized
+      # backtrace into the ordinary error channel out to the Dart caller.
+      # Resolves without compiling, and rides inside this already-required job
+      # rather than adding a required context of its own.
+      - name: Verify the cargo feature graph
+        if: matrix.name == 'Linux x86_64'
+        run: make verify-feature-graph
+        shell: bash
+
   # ============================================
   # Update coverage badge (after ALL tests pass)
   # ============================================

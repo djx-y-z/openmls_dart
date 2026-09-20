@@ -8,7 +8,7 @@
 # On Windows CI (Git Bash), use cmd to run fvm.bat from PATH:
 # Example: make build ARGS="--target x86_64-pc-windows-msvc" FVM="cmd //c fvm"
 
-.PHONY: help setup setup-fvm setup-rust-tools setup-frb-codegen setup-android setup-web setup-fuzz codegen regen build build-android build-web run-example-web test-web test coverage analyze format format-check get clean version get-version check-new-openmls-version check-exists-openmls-frb-release check-template-updates update-template check-targets third-party-notices verify-third-party-notices verify-frb-pins verify-android-alignment verify-release-artifacts verify-library-loads actionlint rust-audit rust-deny rust-check rust-test rust-clippy rust-clippy-web rust-doc rust-geiger fuzz fuzz-list fuzz-seed doc publish publish-dry-run rust-update update-changelog release-frb release setup-repo-protections
+.PHONY: help setup setup-fvm setup-rust-tools setup-frb-codegen setup-android setup-web setup-fuzz codegen regen build build-android build-web run-example-web test-web test coverage analyze format format-check get clean version get-version check-new-openmls-version check-exists-openmls-frb-release check-template-updates update-template check-targets third-party-notices verify-third-party-notices verify-frb-pins verify-feature-graph verify-android-alignment verify-release-artifacts verify-library-loads actionlint rust-audit rust-deny rust-check rust-test rust-clippy rust-clippy-web rust-doc rust-geiger fuzz fuzz-list fuzz-seed doc publish publish-dry-run rust-update update-changelog release-frb release setup-repo-protections
 
 # FVM command - can be overridden to provide full path on Windows CI
 FVM ?= fvm
@@ -64,6 +64,7 @@ help:
 	@echo "    make third-party-notices          - Regenerate THIRD_PARTY_NOTICES.txt from the dep graph"
 	@echo "    make verify-third-party-notices   - Verify THIRD_PARTY_NOTICES.txt is up to date"
 	@echo "    make verify-frb-pins              - Verify every file names the same flutter_rust_bridge version"
+	@echo "    make verify-feature-graph         - Verify no forbidden cargo feature is enabled in the shipped graph"
 	@echo "    make verify-android-alignment     - Verify built Android libraries are 16 KB-aligned"
 	@echo "    make verify-release-artifacts     - Verify release archives hold what their names say"
 	@echo "                                        Example: make verify-release-artifacts ARGS=release-archives"
@@ -575,6 +576,24 @@ verify-third-party-notices:
 # init. File reads only — no build, no network.
 verify-frb-pins:
 	@$(FVM) dart scripts/verify_frb_pins.dart $(ARGS)
+
+# `rust/Cargo.toml` says which features THIS crate asks for; it cannot say
+# which features openmls is ultimately BUILT with. Cargo unifies features
+# across the graph, so a dependency added transitively — in a version bump
+# nobody here reviewed — can turn one on for a crate this manifest never
+# mentions. The comment above the openmls line is therefore a statement of
+# intent that nothing enforces, and this is the enforcement.
+#
+# ⚠ It is keyed by CRATE, not a flat list of feature names, and that is not
+# fussiness: a flat list would be red on a healthy tree today.
+# `openmls_basic_credential` carries `test-utils` deliberately (it is what
+# makes `SignatureKeyPair::private()` reachable, and implies no backtrace),
+# and `allo-isolate` — which arrives under flutter_rust_bridge — carries a
+# `backtrace` feature of its own.
+#
+# Resolves without compiling, so it is cheap enough to gate every push.
+verify-feature-graph:
+	@$(FVM) dart scripts/verify_feature_graph.dart $(ARGS)
 
 # Google Play has required an app's bundled native libraries to be 16 KB-aligned,
 # for apps targeting Android 15 or later, since 1 November 2025 — and the
