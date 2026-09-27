@@ -58,7 +58,8 @@
 - **The resolved cargo feature graph is now a gate, not a comment**
   (`scripts/verify_feature_graph.dart`, `scripts/src/feature_graph.dart`,
   `Makefile`, `.github/workflows/test-reusable.yml`,
-  `test/scripts/feature_graph_test.dart`) — `rust/Cargo.toml` carries a comment
+  `test/scripts/feature_graph_test.dart`, `CLAUDE.md`) — `rust/Cargo.toml`
+  carries a comment
   explaining that `openmls`'s `test-utils` must stay absent from a shipped
   binary, because it implies `backtrace` and `LibraryError::custom()` then
   formats a symbolized Rust backtrace — build-machine paths, symbol names,
@@ -84,6 +85,13 @@
   Absence is a failure rather than a pass: if a crate named in the rules is
   missing from the graph, the check fails instead of reporting clean, so a
   renamed or dropped dependency cannot silently retire it.
+
+  `CLAUDE.md` gains a `## Feature Graph Gate` section carrying what the code
+  cannot say: why the rules are keyed by crate, and why `--manifest-path` is
+  right here although `make rust-clippy-web` requires the opposite. It is a
+  section of its own rather than lines inside the existing blocks, because that
+  file is template-owned — an edit inside a rendered block conflicts at every
+  adoption, while a section the template knows nothing about does not.
 
   `--edges normal` (the graph that ends up inside the shipped library),
   `--target all` (a clean union means every target is clean) and `--locked`

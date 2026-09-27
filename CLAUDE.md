@@ -509,6 +509,62 @@ The ratchet tree is the only entry scaling with members (~500 bytes per member).
 
 Schema version tracked in `LATEST_SCHEMA_VERSION` constant (`encrypted_db.rs`). Migrations run automatically on `EncryptedDb::open()`. Use the `/add-db-migration` skill when changing storage schema or data format.
 
+## Feature Graph Gate
+
+> Project-specific. `make verify-feature-graph` and the files under it are not
+> part of the copier template — this section is why they exist here.
+
+`rust/Cargo.toml` states which features this crate *asks* for. It cannot state
+which features `openmls` is ultimately **built** with, because cargo unifies
+features across the graph: a dependency arriving transitively, in a version
+bump nobody here reviewed, can enable one for a crate this manifest never
+mentions. A comment in the manifest is a statement of intent that nothing
+enforces, so the check reads `cargo tree` instead of the manifest text.
+
+### What must not ship
+
+`openmls` must carry neither `test-utils` nor `backtrace`. Upstream's
+`[features]` table has `test-utils = [..., "backtrace"]` **and**
+`backtrace = ["dep:backtrace"]`, so the second is reachable on its own —
+forbidding only `test-utils` would miss the shorter path. With either enabled,
+`LibraryError::custom()` formats a symbolized Rust backtrace — build-machine
+paths, symbol names, crate layout — into an error that travels the **ordinary**
+error channel out to the Dart caller. No panic required.
+
+### Why the rules are keyed by crate
+
+⚠ A flat list of feature *names* would be red on a healthy tree, twice over:
+
+| crate | feature | why it is fine |
+|-------|---------|----------------|
+| `openmls_basic_credential` | `test-utils` | deliberate — it is what makes `SignatureKeyPair::private()` reachable, and that crate's `test-utils` implies no backtrace |
+| `allo-isolate` | `backtrace` | someone else's — it arrives under `flutter_rust_bridge` and forms no path into openmls's error channel |
+
+The `backtrace` **crate** is permanently in the release graph
+(`flutter_rust_bridge → allo-isolate → backtrace`). Both crates sit in the test
+fixture so the rule cannot be flattened later without a test going red.
+
+### Design notes
+
+- **Absence is a failure, not a pass.** A crate named in the rules but missing
+  from the graph fails the check — a rule matching nothing prints the same
+  "clean" as a rule matching something clean, so a renamed or dropped
+  dependency cannot silently retire it.
+- `--edges normal` (what ends up inside the shipped library), `--target all`
+  (a clean union means every target is clean), `--locked` (a property of the
+  revision, not of the machine).
+- ⚠ **`--manifest-path`, not `cd rust`** — the opposite of what
+  `make rust-clippy-web` requires. Safe here because `rust/.cargo/config.toml`
+  carries rustflags alone and rustflags never reach resolution: this command
+  resolves without compiling. Measured — both invocations emit identical
+  output. If that file ever gains `[build] target` or a source replacement,
+  measure again.
+- It runs **inside** the already-required Linux x86_64 test job, so it adds no
+  required status context and needs no ruleset change.
+
+Guard against regression, not a fix: the graph is clean on native, wasm32 and
+`--target all`.
+
 ## FVM (Flutter Version Management)
 
 This project uses FVM for consistent Flutter/Dart versions.
