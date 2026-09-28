@@ -42,7 +42,7 @@ make build ARGS="--target <target>"     # Build for specific Rust target
 make build-android                      # Build for Android (all ABIs)
 make build-android ARGS="--target arm64-v8a"  # Build for specific Android ABI
 make verify-android-alignment           # Check the built .so files are 16 KB-aligned
-make build-web                          # Build WASM for web
+make build-web                          # Build WASM for web (stamps .crate-version)
 ```
 
 `ARGS` reaches `build-android` **after** the `build` word, and that is
@@ -60,6 +60,23 @@ therefore pinned by hand in both Android jobs (`build-openmls.yml`
 and `test-reusable.yml`, together — a gate on a different tool than the release
 is not a gate), and `make verify-android-alignment` measures the result rather
 than trusting the pin. Both jobs run it.
+
+⚠ **`make build-web` stamps `rust/target/wasm32/.crate-version`, and the build
+hook REFUSES a local WASM build whose stamp is missing or disagrees with
+`rust/Cargo.toml`** — `HookException` and a stopped build, not a silent
+substitution. The local build still takes priority over the released module; it
+just has to prove which crate produced it.
+
+The stamp exists because nothing else can answer that question. `rustContentHash`
+cannot: it compares the FFI *surface*, and a patch release is precisely the case
+where the surface is byte-identical while the native code behind it moves.
+Timestamps cannot either — a checkout or a stash moves them in both directions
+with the content unchanged.
+
+⚠ **A `rust/target/wasm32/` built before this stamp existed carries none and is
+rejected.** That is the intended answer rather than a regression, and it is what
+the first web build after adopting this looks like: run `make build-web`, or
+delete the directory to use the released module instead.
 
 ### Web
 
@@ -118,6 +135,7 @@ the build hook outright (`Skipping target: dart_build`, visible under
 declare its way out of it — the skip happens above `hooks_runner`, where
 nothing it declares is read. Consumers of the published package hit the same
 thing; the README's *Known Limitations* names the escapes.
+
 
 ### Rust Quality
 ```bash
