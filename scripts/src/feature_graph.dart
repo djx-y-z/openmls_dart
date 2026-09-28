@@ -1,19 +1,20 @@
 /// Checking the RESOLVED cargo feature graph, rather than the text of a manifest.
 ///
 /// `rust/Cargo.toml` says which features this crate asks for. It cannot say
-/// which features `openmls` ends up built with, because cargo UNIFIES features
-/// across the graph: any dependency — including one added transitively, by
+/// which features a dependency ends up built with, because cargo UNIFIES
+/// features across the graph: any dependency — including one added
+/// transitively, by
 /// somebody else, in a version bump nobody here reviewed — can turn a feature
 /// on for a crate this manifest never mentions. A comment in the manifest is
 /// therefore a statement of intent that nothing enforces.
 ///
-/// What must not happen is specific. `openmls/test-utils` implies
-/// `openmls/backtrace` (upstream's own `[features]` table lists `"backtrace"`
-/// inside `test-utils`), and with it `LibraryError::custom()` formats a
-/// symbolized Rust backtrace — build-machine paths, symbol names, crate layout
-/// — into an error that travels the ORDINARY error channel out to the Dart
-/// caller. No panic required. `backtrace` is also enableable on its own, so
-/// forbidding `test-utils` alone would miss the shorter path to the same leak.
+/// What must not happen is named by the `forbidden_features` answer rather
+/// than by this file. The case it was written for: a feature that pulls a
+/// backtrace formatter into the wrapped library, so a symbolized Rust
+/// backtrace — build-machine paths, symbol names, crate layout — reaches the
+/// caller through the ORDINARY error channel, no panic required. Where one
+/// such feature implies another, both are named: forbidding only the outer one
+/// misses the shorter path to the same leak.
 library;
 
 /// One node of `cargo tree --format '{p}|{f}'` output.
@@ -42,8 +43,8 @@ class FeatureViolation {
 
 /// Raised when the graph does not contain a crate the rules name.
 ///
-/// This is a failure and not a pass. A rule about `openmls` that matches
-/// nothing is indistinguishable, in its output, from a rule about `openmls`
+/// This is a failure and not a pass. A rule about a crate that matches
+/// nothing is indistinguishable, in its output, from a rule about a crate
 /// that matches something clean — so a renamed or dropped dependency would
 /// silently retire the check instead of breaking it.
 class FeatureGraphException implements Exception {
@@ -57,13 +58,17 @@ class FeatureGraphException implements Exception {
 
 /// Features that must never be enabled on a crate in the shipped graph.
 ///
+/// Rendered from the `forbidden_features` copier answer, so this is a literal
+/// rather than a parser: a malformed answer fails when the template renders —
+/// where the render gate can see it — instead of becoming a red CI run in a
+/// generated project.
+///
 /// Keyed by crate, deliberately. A flat list of feature NAMES cannot express
-/// this and would be red on a healthy tree: `openmls_basic_credential` carries
-/// `test-utils` on purpose — that is what makes `SignatureKeyPair::private()`
-/// reachable, and that crate's `test-utils` implies no backtrace — while
-/// `allo-isolate`, which arrives under `flutter_rust_bridge`, carries a
-/// `backtrace` feature of its own that has nothing to do with openmls's error
-/// channel.
+/// this and is red on a healthy tree, because the same name is usually
+/// legitimate on a neighbouring crate: one may carry `test-utils` because
+/// something it exposes is reachable only with it, and a crate pulled in by
+/// the FFI bridge may carry a `backtrace` feature of its own that forms no
+/// path into the wrapped library's error channel.
 const Map<String, Set<String>> defaultForbiddenFeatures = {
   'openmls': {'test-utils', 'backtrace'},
 };
