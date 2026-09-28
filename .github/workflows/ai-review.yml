@@ -584,6 +584,13 @@ jobs:
           fi
           printf '%s' "$STRUCTURED" > "$RUNNER_TEMP/findings.json"
 
+      # ⚠ This step and the two below it are duplicated in `repair-build.yml`,
+      # deliberately; that file carries the measurement and the argument,
+      # including why a `.github/actions/run-agent` composite is the worse
+      # trade. The short of it: `uses: ./…` loads from the checkout, which on
+      # this workflow's dispatch path is the head of somebody else's pull
+      # request — in the one job that holds the provider key and that today
+      # runs nothing that pull request controls.
       - name: Install OpenCode
         if: needs.config.outputs.engine == 'opencode'
         env:
@@ -593,6 +600,46 @@ jobs:
           npm install -g "opencode-ai@${AGENT_OPENCODE_VERSION}"
           opencode --version
 
+      # Read from the default branch, the same way `repair-build.yml` reads it,
+      # and here for consistency rather than because the same defect is present.
+      # The two assertions are not equivalent in kind and the difference is the
+      # whole argument:
+      #
+      #   repair-build compares an exact SET of allowed commands, so a config
+      #   that renames or adds one trips it — which is what a template release
+      #   does to an `update-template-*` branch, every time.
+      #
+      #   this one expects NOTHING to be allowed after the wildcard deny. The
+      #   reviewer runs no commands at all, so a config that renames or adds a
+      #   command cannot move it, and a config on the branch under review that
+      #   tried to grant one would fail it rather than slip past.
+      #
+      # So nothing here was broken. What it buys is that both workflows now say
+      # where the agent's permissions come from in one voice, and that the
+      # reviewer's config stops being a file the pull request under review gets
+      # to supply — a weaker property than the assertion, and free.
+      - name: Read the agent config from the default branch
+        if: needs.config.outputs.engine == 'opencode'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          # `Accept: application/vnd.github.raw` asks for the file rather than a
+          # JSON envelope around a base64 blob. The config is JSONC, so nothing
+          # here parses it — `opencode debug agent` below proves both that it
+          # parsed and that it resolved to the agent this workflow expects.
+          gh api "repos/${GH_REPO}/contents/.github/agent-config/opencode.json" \
+            -H 'Accept: application/vnd.github.raw' \
+            > "$RUNNER_TEMP/opencode.json"
+
+          if [ ! -s "$RUNNER_TEMP/opencode.json" ]; then
+            echo "::error::.github/agent-config/opencode.json is empty or absent on the default branch. That file defines the reviewer's permissions, and OpenCode falls back to its unrestricted default agent without it — so this run is stopped instead."
+            exit 1
+          fi
+          echo "Agent config read from the default branch ($(wc -c < "$RUNNER_TEMP/opencode.json") bytes)."
+
       - name: Run the reviewer (OpenCode)
         if: needs.config.outputs.engine == 'opencode'
         env:
@@ -601,7 +648,9 @@ jobs:
           # already holds `OPENROUTER_API_KEY` needs no second copy of it.
           AGENT_OPENCODE_PROVIDER_ENV: ${{ vars.AGENT_OPENCODE_PROVIDER_ENV || 'OPENROUTER_API_KEY' }}
           AGENT_OPENCODE_API_KEY: ${{ secrets.AGENT_OPENCODE_API_KEY || secrets[vars.AGENT_OPENCODE_PROVIDER_ENV || 'OPENROUTER_API_KEY'] }}
-          OPENCODE_CONFIG: ${{ github.workspace }}/.github/agent-config/opencode.json
+          # The copy the step above read from the default branch, not the one in
+          # the checkout — which on this workflow is the pull request's own tree.
+          OPENCODE_CONFIG: ${{ runner.temp }}/opencode.json
           OPENCODE_DISABLE_AUTOUPDATE: '1'
           AGENT_OPENCODE_MODEL: ${{ needs.config.outputs.model }}
         run: |

@@ -39,6 +39,16 @@ on:
         required: false
         default: false
         type: boolean
+      dry_run:
+        description: >-
+          Report which superseded update pull requests would be closed, and
+          close none. Defaults to ON for a manual run: this is the input a
+          human reaches for to see what the rule does, and a rehearsal that
+          closes somebody's pull request is not a rehearsal. Scheduled runs
+          close for real.
+        required: false
+        default: true
+        type: boolean
 
 jobs:
   update-template:
@@ -369,6 +379,184 @@ jobs:
             echo "::error::copier did not bump _commit in .copier-answers.yml. PR #${PR_NUMBER} must be fixed before merge, or this update will be re-opened on every run."
             exit 1
           fi
+
+      # Close the update pull requests this run supersedes.
+      #
+      # `copier update` runs from the `_commit` recorded on the default branch
+      # to the version it is given, so the branch this run produced contains
+      # everything an older open one did. Left alone they accumulate: six
+      # `update-template-*` pull requests have been opened here and every single
+      # one was closed by hand, never merged — which is the case for automating
+      # it and also the reason to be careful, because the hand that closed them
+      # was reading each one.
+      #
+      # Deliberately ORTHOGONAL to the idempotency gate above. That one asks
+      # "does a pull request for THIS version already exist" and is keyed on the
+      # branch name; this one asks "which OLDER ones are now pointless". They
+      # never decide the same pull request, so neither can mask the other.
+      #
+      # Four vetoes, and every one of them fails toward leaving the pull request
+      # open. The gate that matters most is the last: a pull request whose
+      # conflicts a human has resolved is exactly the one whose work would be
+      # thrown away, and a template update conflicts more often than not — five
+      # of the six carried the `conflicts` label.
+      #
+      #   1. the branch is not `update-template-v<x>.<y>.<z>`, or its version is
+      #      not strictly older than this run's — not this job's business;
+      #   2. it carries the `agent-repaired` label;
+      #   3. one of its commits carries a `repair-build:` trailer;
+      #   4. any commit on it has an author that is not a bot.
+      #
+      # 2 and 3 are the contract `repair-build.yml` writes down in two places
+      # (search it for "auto-close"): the repair commits with the App token, so
+      # its commits ARE the bot's and "every commit here is the bot's" stays
+      # true on a branch an agent has worked on. The label and the trailer are
+      # what can tell the difference, and an agent-repaired branch carries
+      # reasoning nobody has confirmed — it is precisely the one that must not
+      # close itself.
+      #
+      # ⚠ The trailer is in the COMMIT MESSAGE, not in the pull request body,
+      # and the difference is not academic. These pull request bodies embed the
+      # CHANGELOG entry, and a CHANGELOG entry in this project has quoted the
+      # string `repair-build: <sha> (agent)` while describing this very feature
+      # — so a body search matches a pull request that was never repaired.
+      # Measured: it false-positives on the real one that prompted this.
+      #
+      # Closing is reversible — `gh pr reopen` — which is why the vetoes are
+      # about not discarding *unconfirmed work* rather than about the close
+      # itself. The branch is untouched either way.
+      #
+      # The `if:` carries an implicit `success()`, which is load-bearing and
+      # invisible: a run where the step above found that no pull request was
+      # opened has already failed, so this one does not run and cannot close
+      # anything against a reference version that produced nothing.
+      - name: Close superseded template update pull requests
+        if: steps.check.outputs.needs_update == 'true'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GH_REPO: ${{ github.repository }}
+          REFERENCE: ${{ steps.check.outputs.latest_version }}
+          # Null on a schedule, so a scheduled run closes for real; true by
+          # default on the manual path. See the input's description.
+          DRY_RUN: ${{ inputs.dry_run || false }}
+        run: |
+          set -euo pipefail
+
+          gh pr list --repo "$GH_REPO" --state open --limit 100 \
+            --json number,headRefName,labels > "$RUNNER_TEMP/open-prs.json"
+
+          # The decision and the act are separate on purpose. Everything below
+          # this heredoc reads a file; everything inside it only reads GitHub.
+          # That is what makes the rule testable against real pull requests
+          # without any of them being closed to find out.
+          python3 - "$REFERENCE" "$RUNNER_TEMP/open-prs.json" "$RUNNER_TEMP/supersede.json" <<'PY'
+          import json, os, re, subprocess, sys
+
+          REFERENCE, PR_LIST, OUT = sys.argv[1], sys.argv[2], sys.argv[3]
+
+          BRANCH = re.compile(r'^update-template-v(\d+)\.(\d+)\.(\d+)$')
+          VERSION = re.compile(r'^v?(\d+)\.(\d+)\.(\d+)$')
+          # Anchored to the start of a line and matched against the commit
+          # message body, which is where `repair-build.yml` writes it. A loose
+          # substring search matches prose quoting the trailer.
+          TRAILER = re.compile(
+              r'^repair-build: [0-9a-f]{7,40} \((?:agent|regenerate)\)\s*$', re.M)
+
+          def bail(reason):
+              print(f"closing nothing: {reason}")
+              json.dump({'reference': REFERENCE, 'close': [], 'kept': []},
+                        open(OUT, 'w'), indent=2)
+              raise SystemExit(0)
+
+          ref = VERSION.match(REFERENCE.strip())
+          if not ref:
+              bail(f"the reference version {REFERENCE!r} is not a plain vX.Y.Z")
+          reference = tuple(int(g) for g in ref.groups())
+
+          close, kept = [], []
+          for pr in json.load(open(PR_LIST)):
+              branch = pr.get('headRefName') or ''
+              match = BRANCH.match(branch)
+              if not match:
+                  continue
+              if tuple(int(g) for g in match.groups()) >= reference:
+                  continue
+
+              entry = {'number': pr['number'], 'branch': branch}
+              def keep(why):
+                  kept.append(dict(entry, why=why))
+
+              if 'agent-repaired' in {l.get('name') for l in (pr.get('labels') or [])}:
+                  keep('it carries the `agent-repaired` label')
+                  continue
+
+              # Read per pull request rather than in the listing above: `gh pr
+              # list` does not carry commits, and this is the one field the
+              # decision cannot be made without.
+              try:
+                  commits = json.loads(subprocess.run(
+                      ['gh', 'pr', 'view', str(pr['number']),
+                       '--repo', os.environ['GH_REPO'], '--json', 'commits'],
+                      capture_output=True, text=True, check=True).stdout)['commits']
+              except Exception as exc:
+                  keep(f'its commits could not be read ({exc})')
+                  continue
+
+              if not commits:
+                  keep('it reports no commits at all')
+                  continue
+
+              if any(TRAILER.search(c.get('messageBody') or '') for c in commits):
+                  keep('a commit on it carries a `repair-build:` trailer')
+                  continue
+
+              # An author with no login is not a bot either. GitHub reports one
+              # for a commit whose email matches no account, which is a human
+              # who pushed from a machine git was configured on differently.
+              authors = [a for c in commits for a in (c.get('authors') or [])]
+              humans = sorted({(a.get('login') or a.get('name') or 'an unnamed author')
+                               for a in authors
+                               if not (a.get('login') or '').endswith('[bot]')})
+              if humans or not authors:
+                  keep('it carries commits by ' + (', '.join(f'`{h}`' for h in humans)
+                                                   or 'nobody this can identify'))
+                  continue
+
+              close.append(entry)
+
+          json.dump({'reference': REFERENCE, 'close': close, 'kept': kept},
+                    open(OUT, 'w'), indent=2)
+          print(f"{len(close)} superseded by {REFERENCE}, {len(kept)} held back")
+          PY
+
+          {
+            echo "## Superseded update pull requests"
+            echo
+            jq -r '
+              (if (.close | length) == 0
+                 then "Nothing older than `" + .reference + "` is open."
+                 else "Superseded by `" + .reference + "`:\n\n"
+                      + (.close | map("- #" + (.number|tostring) + " (`" + .branch + "`)") | join("\n"))
+               end),
+              (if (.kept | length) == 0 then empty
+                 else "\nLeft open:\n\n"
+                      + (.kept | map("- #" + (.number|tostring) + " (`" + .branch + "`) — " + .why) | join("\n"))
+               end)' "$RUNNER_TEMP/supersede.json"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if [ "${DRY_RUN:-false}" = "true" ]; then
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "_Dry run — nothing was closed._" >> "$GITHUB_STEP_SUMMARY"
+            echo "::notice::Dry run: $(jq -r '.close | length' "$RUNNER_TEMP/supersede.json") pull request(s) would have been closed."
+            exit 0
+          fi
+
+          jq -r '.close[] | "\(.number)\t\(.branch)"' "$RUNNER_TEMP/supersede.json" \
+          | while IFS=$'\t' read -r NUMBER BRANCH; do
+              gh pr close "$NUMBER" --repo "$GH_REPO" --comment \
+                "Superseded by the update to \`${REFERENCE}\`, which is cumulative: \`copier update\` runs from the version recorded on the default branch, so the newer branch already contains everything this one carried. Closed automatically because every commit here is the update bot's and nothing had been repaired or resolved on top. Reopen it if that reads wrong — the branch is untouched."
+              echo "::notice::Closed #${NUMBER} (${BRANCH}) as superseded by ${REFERENCE}."
+            done
 
       - name: Summary
         if: always()

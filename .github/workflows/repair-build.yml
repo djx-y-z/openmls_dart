@@ -291,7 +291,17 @@ jobs:
               PR_NUMBER=$(jq -r '.[0].number // ""' <<<"$PR_JSON")
               PR_STATE=$(jq -r '.[0].state // "NONE"' <<<"$PR_JSON")
               CODEGEN_FAILED=$(jq -r '[.[0].labels[]?.name] | index("codegen-failed") != null' <<<"$PR_JSON")
-              CURRENT=$(gh api "repos/$GH_REPO/git/ref/heads/$HEAD_BRANCH" --jq '.object.sha' 2>/dev/null || echo "")
+              # `|| CURRENT=""` and not `|| echo ""` inside the substitution:
+              # `gh api` writes the 404 body to STDOUT, so an `echo` appended to
+              # it rather than replacing it and `CURRENT` came out as
+              # `{"message":"`. An assignment carries the substitution's exit
+              # status, so this replaces the value instead of adding to it.
+              # Measured on a live rehearsal against a branch that had since
+              # been deleted — the warning below printed the JSON fragment where
+              # a commit should have been. Harmless, because any value that is
+              # not the judged sha forces the dry run, but it reads as a bug in
+              # the tool rather than as the branch being gone.
+              CURRENT=$(gh api "repos/$GH_REPO/git/ref/heads/$HEAD_BRANCH" --jq '.object.sha' 2>/dev/null) || CURRENT=""
 
               if [ "$PR_STATE" != "OPEN" ]; then
                 DRY_RUN=true
@@ -305,7 +315,14 @@ jobs:
             # is appended — but the question is the same one, "has CI ruled on
             # what is there NOW", and a repair reasoned about against a
             # superseded tree is wrong for the same reason.
-            if [ "$SHA" != "$CURRENT" ]; then
+            if [ -z "$CURRENT" ]; then
+              # Named its own case rather than falling into the comparison
+              # below, which would report the branch as being at "" . A branch
+              # that no longer exists is the ordinary state of the runs old
+              # enough to rehearse against, not an anomaly.
+              DRY_RUN=true
+              echo "::warning::${HEAD_BRANCH} no longer exists, so nothing can be written to it — forcing a dry run. Run ${REQUESTED_RUN} judged ${SHA:0:12}."
+            elif [ "$SHA" != "$CURRENT" ]; then
               DRY_RUN=true
               echo "::warning::Run ${REQUESTED_RUN} judged ${SHA:0:12} but ${HEAD_BRANCH} is at ${CURRENT:0:12} — forcing a dry run; nothing will be written."
             fi
@@ -989,6 +1006,44 @@ jobs:
             --allowedTools "Read,Edit,Write,Glob,Grep,Bash(make get),Bash(make build),Bash(make codegen),Bash(make test),Bash(make test:*),Bash(make analyze),Bash(make analyze:*),Bash(make format),Bash(make format-check),Bash(make rust-check),Bash(make rust-clippy),Bash(make rust-test),Bash(make doc),Bash(make rust-doc),Bash(cargo check:*),Bash(cargo build:*),Bash(cargo test:*),Bash(cargo clippy:*),Bash(cargo tree:*),Bash(cargo metadata:*),Bash(git log:*),Bash(git status:*)"
             --disallowedTools "WebFetch,WebSearch"
 
+      # ⚠ This step and the two below it — install, config read, and the key
+      # resolution inside the agent step — are duplicated in `ai-review.yml`,
+      # deliberately. Measured at the release that wrote this note: 44
+      # non-comment lines in each of the two regions, 28 of them identical once
+      # indentation is stripped.
+      #
+      # A `.github/actions/run-agent` composite is the obvious fix and is the
+      # worse trade, because `uses: ./…` resolves against the WORKSPACE rather
+      # than against the default branch this workflow came from:
+      #
+      #   here that is the commit under repair, so a commit predating the
+      #   composite could not load it at all — which is the availability
+      #   failure on the `update-template-*` class that the config read below
+      #   exists to remove, reintroduced one step earlier. This job already
+      #   loads `setup-rust`, `setup-protoc` and `setup-fvm` that way, so it
+      #   would not be new in kind; it would be new in what it breaks.
+      #
+      #   in `ai-review.yml` that is the head of the pull request under review.
+      #   On its `workflow_dispatch` path — the one its own header calls "the
+      #   manual path, and the one to use on somebody else's pull request" —
+      #   the workflow comes from the default branch and the checkout does not,
+      #   so that job today executes nothing the pull request controls while
+      #   holding the provider key. A local composite would end that.
+      #
+      # `uses: <owner>/<repo>/.github/actions/run-agent@main` avoids both, and
+      # is declined rather than overlooked: the owner and repository would be
+      # rendered by the template, so it is a literal and not an expression,
+      # which `uses:` does not accept. It pins a moving ref in a file that pins
+      # every third-party action by SHA, it breaks for a project whose default
+      # branch is not `main`, and the only gate this template has over either
+      # workflow is that it renders and lints — thin evidence to rewrite the
+      # secret plumbing of both agents on.
+      #
+      # Note what the duplication is NOT. It did not cause the defect the
+      # config read below fixes: that one was reading the wrong ref, and it was
+      # there when there was one copy. What keeps it from coming back is the
+      # reasoning written at both sites, which a single site would not improve.
+      #
       # Pinned, and `npm` rather than the vendor's curl installer so the version
       # is a lockable input rather than whatever `latest` resolved to that
       # morning. `OPENCODE_DISABLE_AUTOUPDATE` matters for the same reason: an
@@ -1002,10 +1057,74 @@ jobs:
           npm install -g "opencode-ai@${AGENT_OPENCODE_VERSION}"
           opencode --version
 
+      # The config is read from the DEFAULT BRANCH rather than from the tree
+      # being repaired, and that is the whole of this step.
+      #
+      # `OPENCODE_CONFIG` used to name the copy inside `github.workspace` — the
+      # commit under repair. The `EXPECTED` set that validates it is baked into
+      # this workflow, and a workflow always comes from the default branch, so
+      # the agent's permissions travelled with the checkout while the assertion
+      # about them did not. Found by a live rehearsal rather than by reading:
+      # repairing any commit that predates a change to `opencode.json` stops at
+      # `commands this workflow expects that are not allowed: [...]`.
+      #
+      # It fails closed, so this was availability and not security. The class it
+      # blocked is exactly `update-template-*` — that branch carries the
+      # template's new `opencode.json` while this workflow is still the old one,
+      # which is the one combination a template release produces every time.
+      # The upstream-update branches were never affected: each is cut from the
+      # default branch and touches nothing under `.github/`.
+      #
+      # Afterwards the config and the assertion that validates it come from one
+      # place by construction, so the assertion can only fail on a default
+      # branch whose config and workflow disagree with each other — which is
+      # the state actually worth being stopped for.
+      #
+      # `gh api` rather than `git fetch`: the checkout above sets
+      # `persist-credentials: false` deliberately, so there is no credential in
+      # `.git/config` to fetch a private repository with, and the `contents:
+      # read` this workflow already declares is enough. No `?ref=` is passed —
+      # the contents API answers from the default branch, which is where this
+      # workflow itself came from, so there is no branch name written down here
+      # to fall out of date.
+      #
+      # `$RUNNER_TEMP` is outside the workspace, which also puts the config
+      # beyond the agent's `Read`, `Glob` and `Grep`, all three of which are
+      # scoped to the checkout.
+      - name: Read the agent config from the default branch
+        if: needs.detect.outputs.engine == 'opencode' && steps.regenerate.outputs.recovered != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          # `Accept: application/vnd.github.raw` asks for the file itself. The
+          # default response is a JSON envelope carrying a base64 blob, which
+          # would reach OpenCode as a config it cannot parse — closed at the
+          # assertion below, but for a reason nobody would guess from it.
+          gh api "repos/${GH_REPO}/contents/.github/agent-config/opencode.json" \
+            -H 'Accept: application/vnd.github.raw' \
+            > "$RUNNER_TEMP/opencode.json"
+
+          # Non-empty is all that is checked here, and deliberately so: the file
+          # is JSONC — it opens with `//` comments — so no JSON parser belongs
+          # in this step. `opencode debug agent` below proves it parsed AND
+          # resolved to the agent this workflow expects, which is the stronger
+          # claim and the one that matters.
+          if [ ! -s "$RUNNER_TEMP/opencode.json" ]; then
+            echo "::error::.github/agent-config/opencode.json is empty or absent on the default branch. That file defines the agent's permissions, and OpenCode falls back to its unrestricted default agent without it — so this run is stopped instead."
+            exit 1
+          fi
+          echo "Agent config read from the default branch ($(wc -c < "$RUNNER_TEMP/opencode.json") bytes)."
+
       # The permissions live in `.github/agent-config/opencode.json`, which is
       # outside the path allowlist so the agent cannot widen them and have the
-      # change ride along in the pull request. That file is the counterpart to
-      # the `--allowedTools` line above and carries the reasoning for each rule.
+      # change ride along in the pull request. Read from the default branch by
+      # the step above, so an edit to it on the branch under repair is not read
+      # at all — the allowlist holds even where the agent could reach the file.
+      # That file is the counterpart to the `--allowedTools` line above and
+      # carries the reasoning for each rule.
       #
       # `--auto` is deliberately absent: it auto-approves everything not
       # explicitly denied, which is the opposite of an allowlist. The config
@@ -1044,7 +1163,9 @@ jobs:
           # letting OpenCode start without credentials.
           AGENT_OPENCODE_PROVIDER_ENV: ${{ vars.AGENT_OPENCODE_PROVIDER_ENV || 'OPENROUTER_API_KEY' }}
           AGENT_OPENCODE_API_KEY: ${{ secrets.AGENT_OPENCODE_API_KEY || secrets[vars.AGENT_OPENCODE_PROVIDER_ENV || 'OPENROUTER_API_KEY'] }}
-          OPENCODE_CONFIG: ${{ github.workspace }}/.github/agent-config/opencode.json
+          # The copy read from the default branch by the step above, not the one
+          # in the checkout. See that step for why.
+          OPENCODE_CONFIG: ${{ runner.temp }}/opencode.json
           OPENCODE_DISABLE_AUTOUPDATE: '1'
           # Model is engine-scoped on purpose: `AGENT_CLAUDECODE_MODEL` names a
           # Claude model and means nothing to OpenCode, so each engine reads its
@@ -1129,9 +1250,12 @@ jobs:
           # on stderr and then runs anyway — as the *default* agent, which has
           # no command allowlist and no step limit — and exits 0. Every control
           # this file spells out would be silently gone while the step passed.
-          # A missing config is not a hypothetical: the workflow points at the
-          # config inside the checked-out commit, so repairing a commit from
-          # before this file existed reaches exactly that state.
+          # A missing config is not a hypothetical. It used to be reachable by
+          # repairing a commit from before the file existed, because the config
+          # was read out of the checkout; the step above closed that by reading
+          # the default branch instead, and fails loudly when the file is not
+          # there. This assertion is what stands if the file IS there and
+          # resolves to something other than what is written down.
           #
           # `opencode debug agent` also exits 0 when the agent is missing, so
           # the check is on its output rather than its status: a resolved agent

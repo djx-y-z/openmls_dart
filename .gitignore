@@ -57,6 +57,12 @@ docs/
 # Rust
 rust/target/
 
+# Python bytecode. The release and verification gates under scripts/ are
+# Python and are run as `python3 scripts/...`, so any local run leaves a
+# __pycache__ beside them that `git add -A` would otherwise sweep in.
+__pycache__/
+*.py[cod]
+
 # Example Podfile.lock (not committed for library packages)
 example/ios/Podfile.lock
 example/macos/Podfile.lock
