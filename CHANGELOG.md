@@ -58,8 +58,9 @@
 - **The resolved cargo feature graph is now a gate, not a comment**
   (`scripts/verify_feature_graph.dart`, `scripts/src/feature_graph.dart`,
   `Makefile`, `.github/workflows/test-reusable.yml`,
-  `test/scripts/feature_graph_test.dart`, `CLAUDE.md`) — `rust/Cargo.toml`
-  carries a comment
+  `test/scripts/feature_graph_test.dart`,
+  `test/scripts/feature_graph_policy_test.dart`, `CLAUDE.md`) —
+  `rust/Cargo.toml` carries a comment
   explaining that `openmls`'s `test-utils` must stay absent from a shipped
   binary, because it implies `backtrace` and `LibraryError::custom()` then
   formats a symbolized Rust backtrace — build-machine paths, symbol names,
@@ -85,6 +86,16 @@
   Absence is a failure rather than a pass: if a crate named in the rules is
   missing from the graph, the check fails instead of reporting clean, so a
   renamed or dropped dependency cannot silently retire it.
+
+  The mechanism has since moved into the copier template, so the two scripts
+  and the mechanism test are now byte-identical to what it renders and a future
+  adoption will not conflict over them. What stays is the part that is this
+  project's rather than the template's: the rules — `openmls` must carry
+  neither `test-utils` nor `backtrace` — and
+  `feature_graph_policy_test.dart`, whose fixture is the real graph
+  (`openmls_basic_credential` carrying `test-utils` on purpose,
+  `allo-isolate` carrying its own `backtrace`) and therefore the evidence that
+  a flat list of feature names would be red on a healthy tree.
 
   `CLAUDE.md` gains a `## Feature Graph Gate` section carrying what the code
   cannot say: why the rules are keyed by crate, and why `--manifest-path` is

@@ -32,12 +32,13 @@ import 'src/feature_graph.dart';
 /// day.
 ///
 /// ⚠ `--manifest-path` rather than `cd rust`, which is the OPPOSITE of what
-/// `make rust-clippy-web` must do — there, invoking cargo from the repository
+/// a wasm32 clippy pass must do — there, invoking cargo from the repository
 /// root drops the wasm32 rustflags in `rust/.cargo/config.toml` and lints a
 /// configuration the crate never builds under. It is safe here because that
 /// file carries rustflags alone, and rustflags do not reach resolution: this
 /// command resolves without compiling. Measured rather than reasoned — both
-/// invocations emit the same 345 lines, byte for byte.
+/// invocations emit identical output. If that file ever gains a `[build]
+/// target` or a source replacement, measure again rather than assuming.
 const _cargoTreeArgs = [
   'tree',
   '--manifest-path',
@@ -59,9 +60,10 @@ void main(List<String> args) {
     print('');
     print('Checks the RESOLVED cargo feature graph — not the manifest text —');
     print('for features that must never be enabled in a shipped binary.');
-    print('Currently: openmls must carry neither `test-utils` nor');
-    print('`backtrace`, either of which routes a symbolized backtrace into');
-    print('the ordinary error channel out to the Dart caller.');
+    print('The rules come from the `forbidden_features` copier answer:');
+    for (final entry in defaultForbiddenFeatures.entries) {
+      print('  ${entry.key} must carry none of: ${entry.value.join(', ')}');
+    }
     return;
   }
 
@@ -87,21 +89,23 @@ void main(List<String> args) {
   if (violations.isNotEmpty) {
     logError('Forbidden features are enabled in the shipped dependency graph:');
     for (final v in violations) {
-      stderr.writeln('  ${v.crate.name} v${v.crate.version} → ${v.feature}');
-      stderr.writeln('    enabled features: ${v.crate.features.join(', ')}');
+      stderr
+        ..writeln('  ${v.crate.name} v${v.crate.version} → ${v.feature}')
+        ..writeln('    enabled features: ${v.crate.features.join(', ')}');
     }
-    stderr.writeln('');
-    stderr.writeln(
-      'Nothing in rust/Cargo.toml has to ask for these for them to appear: '
-      'cargo unifies features across the graph, so a dependency added '
-      'transitively — by a version bump nobody here reviewed — can turn one '
-      'on. Find who does with:',
-    );
-    stderr.writeln('');
+    stderr
+      ..writeln()
+      ..writeln(
+        'Nothing in rust/Cargo.toml has to ask for these for them to appear: '
+        'cargo unifies features across the graph, so a dependency added '
+        'transitively — by a version bump nobody here reviewed — can turn one '
+        'on. Find who does with:',
+      )
+      ..writeln();
     for (final v in violations) {
       stderr.writeln(
         '  cd rust && cargo tree --locked --edges normal --target all '
-        '--invert ${v.crate.name} --format \'{p}|{f}\'',
+        '--invert ${v.crate.name} --format "{p}|{f}"',
       );
     }
     exit(1);
