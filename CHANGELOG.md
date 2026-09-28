@@ -114,6 +114,30 @@
 
 #### Changed
 
+- **copier template adopted: v4.15.0 -> v4.15.1** — the notices refresh now writes
+  signed commits through GitHub's GraphQL API instead of pushing an unsigned
+  commit.
+
+  `.copier-answers.yml` records the new template revision.
+
+  **The notices refresh now creates a mergeable commit**
+  (`.github/workflows/refresh-notices.yml`) — it previously used an ordinary
+  `git commit` and `git push` on Dependabot cargo branches. The exclusion for
+  `refs/heads/dependabot/**/*` in `signing-commit.json` allows that push, but
+  it does not make the resulting pull request mergeable into `main`, where
+  `required_signatures` still rejects the unsigned workflow commit. An
+  approval therefore cannot unblock the pull request.
+
+  The workflow now uses GraphQL `createCommitOnBranch`, which signs the bytes
+  it writes, and passes `expectedHeadOid` so a concurrent push causes the
+  mutation to fail instead of silently reverting newer work. This also removes
+  the `git config` setup and `/users/{bot}` lookup that were needed only to
+  imitate the commit attribution; the mutation credits the token's owner.
+
+  The workflow reads `verification.verified` from the new commit and fails if
+  it is not `true`. A signing failure is therefore reported during the refresh
+  instead of being left for the pull request's merge check to discover.
+
 - **copier template adopted: v4.14.1 -> v4.15.0** — superseded template-update pull requests can now be closed safely, and the generated workflows and documentation catch up with several template fixes.
 
   `.copier-answers.yml` records the new template revision. The resolved feature-graph gate and its supporting scripts produce no diff in this project; that machinery was already present here.
