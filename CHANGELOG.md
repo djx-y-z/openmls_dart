@@ -1,3 +1,33 @@
+## [Unreleased]
+
+### For Contributors
+
+#### Changed
+
+- **copier template adopted: v4.15.1 -> v4.15.2** — workflow fixes.
+
+  `.copier-answers.yml` records the new template revision.
+
+  **The agent workflows now use `anthropics/claude-code-action` v1.0.236**
+  (`.github/workflows/ai-review.yml`,
+  `.github/workflows/repair-build.yml`) — both pins move from v1.0.228 to
+  v1.0.236, bringing the generated workflows onto the newer bundled Claude
+  Code and Agent SDK versions.
+
+  **The notices refresh now supplies the repository to its signed commit**
+  (`.github/workflows/refresh-notices.yml`) — the `Commit and push` step's
+  `env:` gains `GH_REPO: ${{ github.repository }}`, so the GraphQL mutation and
+  its `verification.verified` read-back receive a repository instead of
+  failing when `$GH_REPO` is unset. The obsolete `APP_SLUG` setting is removed
+  because that step no longer uses it for the Git identity or bot lookup.
+
+  **Large notices inventories now reach `jq` without exceeding Linux's
+  argument limit** (`.github/workflows/refresh-notices.yml`) — the base64
+  content is written to `$RUNNER_TEMP/notices.b64` and passed with `--rawfile`
+  instead of being expanded into one `--arg` argument. This lets the signed
+  commit payload handle inventories whose base64 representation is larger than
+  the per-argument limit.
+
 ## [3.2.1] - 2026-09-29
 
 ### For Users
