@@ -9,7 +9,7 @@
 - **The `--wasm` limitation now tracks the pull request that fixes it** — and
   says where that fix is: a prerelease, so the limitation still stands here.
 - **openmls v0.9.0** — unchanged this release
-- **openmls_frb v2.3.0** — unchanged this release
+- **openmls_frb v2.3.1** — Rust FFI bindings
 
 #### Fixed
 
