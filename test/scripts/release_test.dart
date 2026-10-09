@@ -272,8 +272,8 @@ void main() {
     test('a moved codegen version alone is enough to refuse', () {
       // The hazard the existence check cannot see: a release carrying the right
       // version string, built by a different generator. `rustContentHash`
-      // compares the FFI surface, which such a move need not touch, so nothing
-      // else catches it.
+      // hashes only the bridged functions' names, which such a move need not
+      // touch, so nothing else catches it.
       final reported = drift(ourCodegen: '2.13.0', theirCodegen: '2.12.0');
       expect(reported, hasLength(1));
       expect(
@@ -307,6 +307,127 @@ void main() {
           theirUpstream: 'v1.0.0',
         ),
         hasLength(2),
+      );
+    });
+  });
+
+  group('describeFrbTreeDrift', () {
+    // Shaped like what localFrbTree and remoteFrbTree return: every entry of
+    // rust/ and the lib/src/rust tree, each as `<type> <sha>`.
+    const tag = 'openmls_frb-1.0.0';
+    Map<String, String> tree({
+      String src = 'tree 1111',
+      String lock = 'blob 2222',
+      String bindings = 'tree 3333',
+      String fuzz = 'tree 4444',
+      String deny = 'blob 5555',
+    }) => {
+      'rust/.cargo': 'tree 6666',
+      'rust/Cargo.lock': lock,
+      'rust/Cargo.toml': 'blob 7777',
+      'rust/deny.toml': deny,
+      'rust/fuzz': fuzz,
+      'rust/src': src,
+      'lib/src/rust': bindings,
+    };
+
+    test('is silent when the sources are the same', () {
+      expect(
+        describeFrbTreeDrift(tag: tag, ours: tree(), theirs: tree()),
+        isEmpty,
+      );
+    });
+
+    test('names a source file that changed', () {
+      expect(
+        describeFrbTreeDrift(
+          tag: tag,
+          ours: tree(lock: 'blob 9999'),
+          theirs: tree(),
+        ),
+        ['rust/Cargo.lock: changed since $tag'],
+      );
+    });
+
+    test('names a changed source directory, the bindings included', () {
+      // The case the codegen-and-pin comparison cannot see: a commit to
+      // rust/src between the two stages moves neither of them.
+      expect(
+        describeFrbTreeDrift(
+          tag: tag,
+          ours: tree(src: 'tree 9999', bindings: 'tree 8888'),
+          theirs: tree(),
+        ),
+        ['lib/src/rust: changed since $tag', 'rust/src: changed since $tag'],
+      );
+    });
+
+    test('names an entry that exists on one side only', () {
+      expect(
+        describeFrbTreeDrift(
+          tag: tag,
+          ours: tree()..['rust/build.rs'] = 'blob 9999',
+          theirs: tree(),
+        ),
+        ['rust/build.rs: added since $tag'],
+      );
+      expect(
+        describeFrbTreeDrift(
+          tag: tag,
+          ours: tree()..remove('rust/.cargo'),
+          theirs: tree(),
+        ),
+        ['rust/.cargo: removed since $tag'],
+      );
+    });
+
+    test('leaves out the fuzz crate and the dependency policy', () {
+      expect(
+        describeFrbTreeDrift(
+          tag: tag,
+          ours: tree(fuzz: 'tree 9999', deny: 'blob 9999'),
+          theirs: tree(),
+        ),
+        isEmpty,
+      );
+    });
+  });
+
+  group('parseLsTree', () {
+    test('maps each path to its type and sha', () {
+      const output =
+          '040000 tree 3b886694d3094fec3b264e69d1b79030f8f42696\trust/.cargo\n'
+          '100644 blob bf917e31f15e94d7eb4c25c78a351d43aed2c144\trust/Cargo.lock';
+      expect(parseLsTree(output), {
+        'rust/.cargo': 'tree 3b886694d3094fec3b264e69d1b79030f8f42696',
+        'rust/Cargo.lock': 'blob bf917e31f15e94d7eb4c25c78a351d43aed2c144',
+      });
+    });
+
+    test('is empty for empty output', () {
+      expect(parseLsTree(''), isEmpty);
+    });
+  });
+
+  group('parseContentsListing', () {
+    test("spells the API's types as git does, so the two sides compare", () {
+      const json =
+          '[{"path": "rust/.cargo", "type": "dir", "sha": "3b88"},'
+          ' {"path": "rust/Cargo.lock", "type": "file", "sha": "bf91"}]';
+      expect(parseContentsListing(json), {
+        'rust/.cargo': 'tree 3b88',
+        'rust/Cargo.lock': 'blob bf91',
+      });
+    });
+
+    test('is null for anything but a directory listing', () {
+      // A file comes back as an object, and so does an error. Neither may
+      // pass for a directory, empty or not.
+      expect(parseContentsListing('{"message": "Not Found"}'), isNull);
+      expect(parseContentsListing('not json'), isNull);
+      expect(
+        parseContentsListing('[{"path": "rust/x", "type": "odd", "sha": "1"}]'),
+        isNull,
       );
     });
   });

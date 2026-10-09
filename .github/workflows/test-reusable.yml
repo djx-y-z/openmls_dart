@@ -263,6 +263,34 @@ jobs:
       - name: Verify 16 KB alignment
         run: make verify-android-alignment
 
+  # ============================================
+  # iOS type-check
+  # ============================================
+  # The only place outside a release tag where this package is compiled for
+  # iOS. `build-openmls.yml` builds the three iOS targets only on a release
+  # tag, and its `create-release` needs every one of them, so an iOS-only
+  # compile failure is invisible on main under every green gate and spends a
+  # crate version when the tag finds it. Not hypothetical: `libc` 0.2.190 put
+  # the dyld functions `backtrace` calls behind `target_os = "macos"`, every
+  # iOS build failed with E0425, and every pull request stayed green.
+  #
+  # A type-check, not a build: it catches compile errors like that one, not
+  # link errors. Deliberately not a required context yet; add it to
+  # `.github/rulesets/protect-main.json` once it has proved stable.
+  ios:
+    name: Type-check (iOS)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Setup Rust
+        uses: ./.github/actions/setup-rust
+        with:
+          targets: aarch64-apple-ios,aarch64-apple-ios-sim,x86_64-apple-ios
+
+      - name: Type-check for iOS
+        run: make rust-check-ios
+
   test:
     strategy:
       fail-fast: false
@@ -493,6 +521,17 @@ jobs:
       - name: Verify FRB pins agree
         if: matrix.name == 'Linux x86_64'
         run: make verify-frb-pins
+        shell: bash
+
+      # pub.dev refuses a README, CHANGELOG, LICENSE or example over 256 KiB at
+      # UPLOAD, and the dry-run does not measure them, so without this the
+      # first sign is the publish job failing after the tag. A CHANGELOG
+      # crosses the line by growing a release at a time; this makes the commit
+      # that takes it over the one that goes red, and puts a warning on the run
+      # page from 200 KiB.
+      - name: Verify pub.dev size limits
+        if: matrix.name == 'Linux x86_64'
+        run: make verify-pub-limits
         shell: bash
 
       # `rust/Cargo.toml` states which features this crate ASKS for; it cannot

@@ -4,6 +4,71 @@
 
 #### Changed
 
+- **copier template adopted: v4.15.2 -> v4.16.1** — release gates and native-build consistency checks are now aligned with the template, alongside updated release and repository guidance.
+
+  `.copier-answers.yml` records the new template revision.
+
+  **Package uploads now check pub.dev's size limits before a version is spent**
+  (`scripts/verify_pub_limits.dart`, `scripts/src/pub_limits.dart`,
+  `test/scripts/pub_limits_test.dart`, `Makefile`,
+  `.github/workflows/test-reusable.yml`) — `dart pub publish --dry-run` does
+  not check the 256 KiB limits for `README.md`, `CHANGELOG.md`, `LICENSE` and
+  the first example, or the 128 KiB `pubspec.yaml` limit. The new
+  `make verify-pub-limits` gate measures bytes, checks every example candidate,
+  warns from 200 KiB, and runs in CI, `make publish-dry-run` and `make release`,
+  so an oversized package is rejected before its release commit and tag.
+
+  **Stage 2 now refuses native-source drift after the crate was released**
+  (`scripts/src/release.dart`, `scripts/release.dart`,
+  `test/scripts/release_test.dart`, `.claude/skills/release-package/SKILL.md`)
+  — `make release` compares `rust/` (excluding `rust/fuzz` and
+  `rust/deny.toml`) and `lib/src/rust/` at the stage-1 tag with `HEAD`, using
+  GitHub's contents API and `git ls-tree`. A changed native source therefore
+  requires a new crate instead of allowing a package to publish bindings built
+  without the latest code; `--skip-frb-check` skips both the source and version
+  checks, and the comparison fails closed when either side cannot be read.
+
+  **Release builds and pre-release CI now cover the platforms and artifacts
+  that can otherwise fail only after tagging** (`.github/workflows/build-openmls.yml`,
+  `.github/workflows/test-reusable.yml`, `Makefile`) — the Linux x86_64 native
+  release build is pinned to `ubuntu-24.04`, while CI adds a non-required
+  `Type-check (iOS)` job for `aarch64-apple-ios`, `aarch64-apple-ios-sim` and
+  `x86_64-apple-ios`. The release documentation and update workflow now direct
+  stage 2 through the release process, distinguish retrying a transient failure
+  from spending a version for a code failure, and keep the tag available when
+  dispatching a native-build retry.
+
+  **Local native libraries are now tied to the crate version that built them**
+  (`hook/build.dart`, `Makefile`, `test/hook/build_hook_test.dart`) — host
+  builds receive a `.crate-version` stamp, and the build hook rejects a missing
+  or stale stamp instead of loading an old library whose FFI content hash can
+  remain unchanged after a wire-format change. It no longer reads
+  `rust/target/debug/`; a rejected library names `make build` and deleting
+  `rust/target/release/` as the recovery options.
+
+  **Async initialization reinstalls the Dart port after an isolate is counted**
+  (`lib/src/openmls.dart`, `lib/src/platform/platform_io.dart`,
+  `lib/src/platform/platform_web.dart`) — when another isolate shut down during
+  `init()`, its finalizer could leave the new isolate using the no-op
+  `Dart_PostCObject` pointer, causing async calls to wait forever. The io
+  platform now restores the real pointer after counting the isolate; the web
+  platform keeps the platform-specific no-op behavior.
+
+  **Repository policy and release documentation now match the generated
+  workflows** (`.github/rulesets/README.md`,
+  `.github/rulesets/protect-release-tags.json`, `SECURITY.md`, `CONTRIBUTING.md`,
+  `CLAUDE.md`, `README.md`, `Makefile`, `.claude/skills/release-package/SKILL.md`,
+  `.claude/skills/release-frb-crate/SKILL.md`, `.github/workflows/publish.yml`,
+  `.github/workflows/check-openmls-updates.yml`) — the release-tag ruleset now
+  lists Admin (`actor_id` 5) as its sole bypass role, and the surrounding
+  guidance no longer claims that a `write` collaborator is blocked by the old
+  list. Release instructions consistently use `make release`, explain the
+  stage-1 and native-source checks, and preserve tags for retries. The
+  documentation also describes `rustContentHash` as hashing bridged function
+  names rather than the complete FFI surface, passes `ARGS` through
+  `make get`, and explains that a missing Web `pkg/` module can leave
+  initialization pending rather than producing a useful 404 error.
+
 - **copier template adopted: v4.15.1 -> v4.15.2** — workflow fixes.
 
   `.copier-answers.yml` records the new template revision.

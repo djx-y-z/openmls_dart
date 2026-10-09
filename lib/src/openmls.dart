@@ -90,6 +90,10 @@ class Openmls {
     if (!_frbInitialized) {
       final library = await _loadLibrary(libraryPath);
       await RustLib.init(externalLibrary: library);
+      // After init, not before: RustLib.init counts this isolate only after
+      // installing the Rust-to-Dart post function, and an isolate shutting
+      // down in between can leave a no-op in its place. See the function.
+      platform.reinstallDartPostCObject(library);
       _frbInitialized = true;
     }
 

@@ -334,8 +334,9 @@ jobs:
                you are ready to ship, run the two-stage release:
                - **Stage 1 — native crate:** `make release-frb ARGS="--version X.Y.Z"`
                  (bumps `openmls_frb`, tags `openmls_frb-X.Y.Z`, builds binaries)
-               - **Stage 2 — Dart package:** bump `pubspec.yaml`, move CHANGELOG
-                 `[Unreleased]` → version, tag `vX.Y.Z` (release-package skill)
+               - **Stage 2 — Dart package:** `make release ARGS="--version X.Y.Z"`
+                 (checks the stage-1 release, bumps `pubspec.yaml`, finalizes
+                 the CHANGELOG, tags `vX.Y.Z`; release-package skill)
 
             ---
             *This PR was created automatically by the openmls update checker.*

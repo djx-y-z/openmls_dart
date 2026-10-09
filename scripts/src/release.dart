@@ -4,8 +4,9 @@
 //   1. openmls_frb native crate — `make release-frb` / release_frb.dart:
 //      bump rust/Cargo.toml, tag `openmls_frb-<version>`, build + publish the
 //      native binaries.
-//   2. Dart package — THIS script: verify the stage-1 native binary exists,
-//      bump pubspec.yaml, finalize the CHANGELOG `[Unreleased]` → `[X.Y.Z]`,
+//   2. Dart package — THIS script: verify the stage-1 native binary exists and
+//      was built from this tree's rust/ and lib/src/rust/, bump pubspec.yaml,
+//      finalize the CHANGELOG `[Unreleased]` → `[X.Y.Z]`,
 //      validate with a publish dry-run, then commit + tag `vX.Y.Z` + push. The
 //      tag triggers publish.yml, which publishes to pub.dev (its build hook
 //      downloads the stage-1 binary, which must already exist).
@@ -15,18 +16,22 @@
 // interactively mid-run — no separate manual commit/tag step is needed.
 library;
 
+import 'dart:convert';
 import 'dart:io';
 
 import 'common.dart';
 import 'frb_pins.dart';
+import 'pub_limits.dart';
 import 'release_common.dart';
 import 'third_party_notices.dart';
 
 /// Cut a Dart package release for [version] (plain `X.Y.Z`).
 ///
-/// Verifies the stage-1 native release exists, runs `make publish-dry-run` (on
-/// the clean, pre-bump tree), bumps `pubspec.yaml`, finalizes the CHANGELOG,
-/// creates a signed commit + signed tag `vX.Y.Z`, and (unless [push] is false)
+/// Verifies the stage-1 native release exists and was built from this tree's
+/// native sources, runs `make publish-dry-run` (on the clean, pre-bump tree),
+/// bumps `pubspec.yaml`, finalizes the CHANGELOG,
+/// measures the result against pub.dev's size limits, creates a signed commit +
+/// signed tag `vX.Y.Z`, and (unless [push] is false)
 /// pushes `main` and the tag. Prompts
 /// for confirmation before committing unless [assumeYes]. Set [skipFrbCheck]
 /// only if you have manually verified that the native binary exists *and* was
@@ -159,8 +164,9 @@ Future<void> releasePackage({
     logWarn(
       '--skip-frb-check: NOT verifying that openmls_frb-$crateVersion '
       'exists, AND NOT verifying that it was built from this tree. Make sure '
-      'stage 1 finished for THIS commit — a release left by an earlier cut '
-      'carries the same version string and different bindings.',
+      'stage 1 finished for THIS commit and that nothing under rust/ or '
+      'lib/src/rust/ changed since its tag — a release left by an earlier '
+      'cut carries the same version string and different bindings.',
     );
   } else {
     logStep(
@@ -217,6 +223,30 @@ Future<void> releasePackage({
 
     logStep('Changes to be committed:');
     await runInherit('git', ['--no-pager', 'diff', '--stat', ...releaseFiles]);
+  }
+
+  // ---- pub.dev size limits -------------------------------------------------
+  // pub.dev refuses a README, CHANGELOG, LICENSE or example over 256 KiB at
+  // UPLOAD, and the dry-run above never measures them: the first sign would be
+  // publish.yml failing after the tag, with the version spent. `make
+  // publish-dry-run` ran the same check on the pre-bump tree; this one measures
+  // the files this release commits, the finalized CHANGELOG included.
+  logStep('Checking the file sizes pub.dev refuses at upload...');
+  final sizes = collectPubLimitChecks(packageDir);
+  for (final c in sizes.where((c) => c.status == PubLimitStatus.near)) {
+    logWarn(
+      '$c — past the ${pubContentWarnAt ~/ 1024} KiB warning line. '
+      '${pubLimitAdvice(c)}',
+    );
+  }
+  final overLimit = sizes.where((c) => c.status == PubLimitStatus.over);
+  if (overLimit.isNotEmpty) {
+    if (!resuming) await git(['checkout', '--', ...releaseFiles]);
+    throw Exception(
+      'pub.dev would refuse this upload: ${overLimit.join('; ')}. '
+      '${pubLimitAdvice(overLimit.first)}'
+      '${resuming ? '' : ' Reverted pubspec.yaml and CHANGELOG.md.'}',
+    );
   }
 
   // ---- Confirm -------------------------------------------------------------
@@ -488,12 +518,18 @@ Future<String?> _fileAtRef(String ref, String path) async {
 /// that check and publishes bindings against whatever binary the last stage 1
 /// happened to leave behind.
 ///
-/// Neither runtime net catches the result. `rustContentHash` compares the FFI
-/// *surface*, which an FRB upgrade need not move, and the codegen assert
+/// Neither runtime net catches the result. `rustContentHash` hashes only the
+/// names of the bridged functions, which neither an FRB upgrade nor a change
+/// of argument, return or error types need move, and the codegen assert
 /// compares the bindings against the flutter_rust_bridge *runtime package*,
-/// never against the native library. What differs is the generator that decided
-/// the argument marshalling, so the failure is a wire mismatch inside a
-/// consumer's app.
+/// never against the native library. The failure is then a wire mismatch
+/// inside a consumer's app.
+///
+/// So the binary's sources are compared as a whole — every entry of `rust/`
+/// except [frbTreeExcluded], and `lib/src/rust/` — with [describeFrbTreeDrift],
+/// and the codegen version and upstream pin are also compared by value, with
+/// [describeFrbReleaseDrift], which names them precisely. Any commit touching
+/// those sources after stage 1 therefore needs a new crate.
 ///
 /// Fails closed, including when the comparison cannot be made;
 /// `--skip-frb-check` is the escape hatch.
@@ -506,25 +542,35 @@ Future<void> _verifyFrbReleaseIsCurrent(String crateVersion) async {
     'lib/src/rust/frb_generated.dart',
   );
   final theirCargo = await _fileAtRef(tag, 'rust/Cargo.toml');
-  if (theirBindings == null || theirCargo == null) {
+  final theirTree = await remoteFrbTree(tag);
+  if (theirBindings == null || theirCargo == null || theirTree == null) {
     throw Exception(
-      'Could not read lib/src/rust/frb_generated.dart and rust/Cargo.toml at '
-      '$tag, so it cannot be confirmed that the native binary matches this '
-      'tree. Re-run when the API is reachable, or pass --skip-frb-check if you '
-      'have verified the binary by hand.',
+      'Could not read rust/ and lib/src/rust/ at $tag, so it cannot be '
+      'confirmed that the native binary matches this tree. Re-run when the API '
+      'is reachable, or pass --skip-frb-check if you have verified the binary '
+      'by hand.',
     );
   }
 
   final packageDir = getPackageDir().path;
-  final drift = describeFrbReleaseDrift(
-    tag: tag,
-    ourBindings: File(
-      '$packageDir/lib/src/rust/frb_generated.dart',
-    ).readAsStringSync(),
-    theirBindings: theirBindings,
-    ourCargo: File('$packageDir/rust/Cargo.toml').readAsStringSync(),
-    theirCargo: theirCargo,
-  );
+  final drift = [
+    ...describeFrbReleaseDrift(
+      tag: tag,
+      ourBindings: File(
+        '$packageDir/lib/src/rust/frb_generated.dart',
+      ).readAsStringSync(),
+      theirBindings: theirBindings,
+      ourCargo: File('$packageDir/rust/Cargo.toml').readAsStringSync(),
+      theirCargo: theirCargo,
+    ),
+    // HEAD, not the working tree: the tree is clean by now, and HEAD is what
+    // the release commit is made on.
+    ...describeFrbTreeDrift(
+      tag: tag,
+      ours: await localFrbTree('HEAD'),
+      theirs: theirTree,
+    ),
+  ];
 
   if (drift.isNotEmpty) {
     throw Exception(
@@ -545,10 +591,11 @@ Future<void> _verifyFrbReleaseIsCurrent(String crateVersion) async {
 ///
 /// Takes strings rather than paths so the rule is testable without a fixture
 /// tree or a network, the way `frb_pins.dart` splits every reader from the
-/// disk. Only the inputs that decide whether the *binary* matches are compared:
-/// the codegen version, which fixes the argument marshalling on both sides of
-/// the FFI, and the upstream pin, which is the source the binary was built
-/// from. Everything else about the two trees is free to differ, because stage 2
+/// disk. Two inputs are compared by value, so that a mismatch in either is
+/// named precisely: the codegen version, which fixes the argument marshalling
+/// on both sides of the FFI, and the upstream pin, which is the source the
+/// binary was built from. [describeFrbTreeDrift] compares the binary's sources
+/// as a whole; outside them the two trees are free to differ, because stage 2
 /// legitimately adds commits on top of the stage-1 tag.
 List<String> describeFrbReleaseDrift({
   required String tag,
@@ -578,6 +625,121 @@ List<String> describeFrbReleaseDrift({
   }
 
   return drift;
+}
+
+/// The paths under `rust/` that put nothing into the native binary, left out
+/// of [describeFrbTreeDrift]: the fuzz crate is a package of its own, and
+/// `deny.toml` is dependency policy.
+const frbTreeExcluded = {'rust/fuzz', 'rust/deny.toml'};
+
+/// Names every source of the native binary whose content differs between the
+/// tree behind [tag] ([theirs]) and the tree being released ([ours]). Empty
+/// means the stage-1 binary was built from exactly these sources.
+///
+/// Both maps hold git objects as `<type> <sha>`, keyed by path: every entry of
+/// `rust/`, and the `lib/src/rust` tree, as [localFrbTree] and [remoteFrbTree]
+/// read them. A git object's sha is a hash of its content, so equal entries
+/// mean equal files, and a changed one names its directory without a single
+/// file being read. This is the case [describeFrbReleaseDrift] cannot see: a
+/// commit to `rust/src` between the two stages moves neither the codegen
+/// version nor the upstream pin. Paths in [excluded] are skipped.
+List<String> describeFrbTreeDrift({
+  required String tag,
+  required Map<String, String> ours,
+  required Map<String, String> theirs,
+  Set<String> excluded = frbTreeExcluded,
+}) {
+  final paths = {...ours.keys, ...theirs.keys}.difference(excluded).toList()
+    ..sort();
+  return [
+    for (final path in paths)
+      if (!theirs.containsKey(path))
+        '$path: added since $tag'
+      else if (!ours.containsKey(path))
+        '$path: removed since $tag'
+      else if (ours[path] != theirs[path])
+        '$path: changed since $tag',
+  ];
+}
+
+/// Parses `git ls-tree` output into path → `<type> <sha>`. Pure; exposed for
+/// testing.
+Map<String, String> parseLsTree(String output) {
+  final entries = <String, String>{};
+  for (final line in output.split('\n')) {
+    // `<mode> SP <type> SP <sha> TAB <path>`
+    final tab = line.indexOf('\t');
+    if (tab == -1) continue;
+    final fields = line.substring(0, tab).split(' ');
+    if (fields.length != 3) continue;
+    entries[line.substring(tab + 1)] = '${fields[1]} ${fields[2]}';
+  }
+  return entries;
+}
+
+/// Parses a GitHub contents-API directory listing into path → `<type> <sha>`,
+/// spelling the API's `dir` and `file` as git's `tree` and `blob` so that it
+/// compares with [parseLsTree]. Null when [json] is not such a listing, so the
+/// caller can fail closed. Pure; exposed for testing.
+Map<String, String>? parseContentsListing(String json) {
+  const gitTypes = {
+    'dir': 'tree',
+    'file': 'blob',
+    'symlink': 'blob',
+    'submodule': 'commit',
+  };
+  final Object? decoded;
+  try {
+    decoded = jsonDecode(json);
+  } on FormatException {
+    return null;
+  }
+  if (decoded is! List) return null;
+  final entries = <String, String>{};
+  for (final item in decoded) {
+    if (item is! Map) return null;
+    final path = item['path'];
+    final type = gitTypes[item['type']];
+    final sha = item['sha'];
+    if (path is! String || type == null || sha is! String) return null;
+    entries[path] = '$type $sha';
+  }
+  return entries;
+}
+
+/// The sources of the native binary at [ref] in this repository — every entry
+/// of `rust/` and the `lib/src/rust` tree — as [describeFrbTreeDrift] takes
+/// them. Throws when either is missing, so that the check fails closed.
+Future<Map<String, String>> localFrbTree(String ref) async {
+  final rust = parseLsTree(await git(['ls-tree', ref, 'rust/']));
+  final bindings = parseLsTree(await git(['ls-tree', ref, 'lib/src/rust']));
+  if (rust.isEmpty || !bindings.containsKey('lib/src/rust')) {
+    throw Exception(
+      'rust/ or lib/src/rust is missing at $ref, so the native sources cannot '
+      'be compared. Pass --skip-frb-check only if you have verified the binary '
+      'by hand.',
+    );
+  }
+  return {...rust, 'lib/src/rust': bindings['lib/src/rust']!};
+}
+
+/// The same entries as [localFrbTree], read at [ref] on GitHub, for the reason
+/// [_fileAtRef] gives. Null when either listing cannot be read or lacks them.
+Future<Map<String, String>?> remoteFrbTree(String ref) async {
+  Future<Map<String, String>?> listing(String dir) async {
+    final result = await Process.run('gh', [
+      'api',
+      'repos/{owner}/{repo}/contents/$dir?ref=$ref',
+    ]);
+    return result.exitCode == 0
+        ? parseContentsListing(result.stdout as String)
+        : null;
+  }
+
+  final rust = await listing('rust');
+  final bindings = (await listing('lib/src'))?['lib/src/rust'];
+  if (rust == null || rust.isEmpty || bindings == null) return null;
+  return {...rust, 'lib/src/rust': bindings};
 }
 
 /// Today's date as `YYYY-MM-DD` (local time).

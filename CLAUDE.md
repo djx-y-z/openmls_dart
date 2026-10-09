@@ -68,10 +68,10 @@ substitution. The local build still takes priority over the released module; it
 just has to prove which crate produced it.
 
 The stamp exists because nothing else can answer that question. `rustContentHash`
-cannot: it compares the FFI *surface*, and a patch release is precisely the case
-where the surface is byte-identical while the native code behind it moves.
-Timestamps cannot either — a checkout or a stash moves them in both directions
-with the content unchanged.
+cannot: it hashes only the names of the bridged functions, and a patch release
+is precisely the case where those names stay the same while the native code
+behind them moves. Timestamps cannot either — a checkout or a stash moves them
+in both directions with the content unchanged.
 
 ⚠ **A `rust/target/wasm32/` built before this stamp existed carries none and is
 rejected.** That is the intended answer rather than a regression, and it is what
@@ -131,7 +131,10 @@ platform is **not** in that key — so a debug run for macOS and a debug run for
 Chrome share one `dart_build` stamp. Whichever ran first makes the other skip
 the build hook outright (`Skipping target: dart_build`, visible under
 `--verbose`), and `example/web/pkg/` is then never provisioned:
-`RustLib.init()` fails on a 404 for `pkg/openmls_frb.js`. The hook cannot
+`RustLib.init()` never completes: flutter_rust_bridge waits for the `load`
+event of `pkg/openmls_frb.js` with no error path or timeout, so a missing
+module (a 404, or the app's HTML page the dev server serves in its place
+with a 200) leaves the call pending. The hook cannot
 declare its way out of it — the skip happens above `hooks_runner`, where
 nothing it declares is read. Consumers of the published package hit the same
 thing; the README's *Known Limitations* names the escapes.
@@ -209,6 +212,11 @@ make rust-update                  # Update Cargo.lock + regenerate notices
 make third-party-notices          # Regenerate THIRD_PARTY_NOTICES.txt
 make verify-third-party-notices   # Check it matches the dependency graph
 make verify-frb-pins              # Check every file names the same FRB version
+<<<<<<< before updating
+=======
+make verify-pub-limits            # Check no file is over what pub.dev accepts at upload
+make verify-feature-graph         # Check no forbidden cargo feature is enabled (GATE)
+>>>>>>> after updating
 make verify-android-alignment     # Check built Android libraries are 16 KB-aligned
 make verify-release-artifacts ARGS=<dir>  # Check release archives hold what their names say
 make actionlint                   # Lint the GitHub Actions workflows
@@ -340,8 +348,10 @@ make release ARGS="--version X.Y.Z"   # verify frb binary + bump + finalize
 Verifies the stage-1 `openmls_frb-<crate>` release exists, runs
 `make publish-dry-run` (on the clean, pre-bump tree), bumps `pubspec.yaml`,
 finalizes the CHANGELOG (`[Unreleased]` → `[X.Y.Z]` + compare links; no empty
-`[Unreleased]` is left behind), then signs a commit + tag `vX.Y.Z` and pushes —
-`publish.yml` publishes to pub.dev.
+`[Unreleased]` is left behind), measures the result against pub.dev's upload
+limits (`make verify-pub-limits` — the dry-run does not check them, and pub.dev
+refuses the upload only after the tag), then signs a commit + tag `vX.Y.Z` and
+pushes — `publish.yml` publishes to pub.dev.
 
 Repository rulesets restrict who can create the `openmls_frb-*` / `v*` release
 tags, and a required-reviewer `native-build` environment gates the native publish.
@@ -670,8 +680,10 @@ Rules:
 Releasing itself is **"Release Flow (two stages)"** above — `make release-frb`,
 then `make release`. Do not bump versions, tag or push by hand: each script
 requires a clean tree, bumps the right file, finalizes the CHANGELOG, and
-creates a **signed** tag (`git tag -s`), which the `Protect release tags`
-ruleset requires. An unsigned `git tag -a` is rejected.
+creates a **signed** tag (`git tag -s`). Do not count on the
+`Protect release tags` ruleset to refuse an unsigned one: only Admin may create
+a tag at all, and Admin bypasses it (`always`), its `required_signatures` rule
+included.
 
 What to have green before starting stage 1:
 
@@ -690,7 +702,7 @@ make rust-deny
 make verify-frb-pins
 make verify-third-party-notices
 make actionlint                 # workflows: static + shellcheck (CI runs it too)
-make publish-dry-run            # exits 65 on ANY warning, a dirty tree included
+make publish-dry-run            # size limits first; then exits 65 on ANY warning, a dirty tree included
 ```
 
 Push first and let CI go green. `make release-frb` only *warns* when local main

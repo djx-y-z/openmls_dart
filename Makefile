@@ -8,7 +8,7 @@
 # On Windows CI (Git Bash), use cmd to run fvm.bat from PATH:
 # Example: make build ARGS="--target x86_64-pc-windows-msvc" FVM="cmd //c fvm"
 
-.PHONY: help setup setup-fvm setup-rust-tools setup-frb-codegen setup-android setup-web setup-fuzz codegen regen build build-android build-web run-example-web test-web test coverage analyze format format-check get clean version get-version check-new-openmls-version check-exists-openmls-frb-release check-template-updates update-template check-targets third-party-notices verify-third-party-notices verify-frb-pins verify-feature-graph verify-android-alignment verify-release-artifacts verify-library-loads actionlint rust-audit rust-deny rust-check rust-test rust-clippy rust-clippy-web rust-doc rust-geiger fuzz fuzz-list fuzz-seed doc publish publish-dry-run rust-update update-changelog release-frb release setup-repo-protections
+.PHONY: help setup setup-fvm setup-rust-tools setup-frb-codegen setup-android setup-web setup-fuzz codegen regen build build-android build-web run-example-web test-web test coverage analyze format format-check get clean version get-version check-new-openmls-version check-exists-openmls-frb-release check-template-updates update-template check-targets third-party-notices verify-third-party-notices verify-frb-pins verify-pub-limits verify-feature-graph verify-android-alignment verify-release-artifacts verify-library-loads actionlint rust-audit rust-deny rust-check rust-check-ios rust-test rust-clippy rust-clippy-web rust-doc rust-geiger fuzz fuzz-list fuzz-seed doc publish publish-dry-run rust-update update-changelog release-frb release setup-repo-protections
 
 # FVM command - can be overridden to provide full path on Windows CI
 FVM ?= fvm
@@ -64,6 +64,7 @@ help:
 	@echo "    make third-party-notices          - Regenerate THIRD_PARTY_NOTICES.txt from the dep graph"
 	@echo "    make verify-third-party-notices   - Verify THIRD_PARTY_NOTICES.txt is up to date"
 	@echo "    make verify-frb-pins              - Verify every file names the same flutter_rust_bridge version"
+	@echo "    make verify-pub-limits            - Verify no file is over what pub.dev accepts at upload"
 	@echo "    make verify-feature-graph         - Verify no forbidden cargo feature is enabled (GATE)"
 	@echo "    make verify-android-alignment     - Verify built Android libraries are 16 KB-aligned"
 	@echo "    make verify-release-artifacts     - Verify release archives hold what their names say"
@@ -79,6 +80,7 @@ help:
 	@echo ""
 	@echo "  RUST QUALITY"
 	@echo "    make rust-check                   - Check Rust code compiles"
+	@echo "    make rust-check-ios               - Type-check the iOS targets"
 	@echo "    make rust-test                    - Run Rust unit tests"
 	@echo "    make test-web                     - Run the crate's browser tests (headless Chrome)"
 	@echo "                                        Example: make test-web CHROMEDRIVER=/path/to/chromedriver"
@@ -244,6 +246,12 @@ regen: codegen
 # Build
 # =============================================================================
 
+# The crate version, read the way the build hook's own parser reads it: the
+# first `version =` line of rust/Cargo.toml. Both stamps below are written
+# with it, so they cannot parse the file two different ways.
+READ_CRATE_VERSION = grep -m1 -E '^version[[:space:]]*=' rust/Cargo.toml \
+	| sed -E 's/^version[[:space:]]*=[[:space:]]*"([^"]+)".*/\1/'
+
 # ⚠ Deliberately NOT `--locked`, unlike the release workflow. A project
 # generated from this template has no rust/Cargo.lock until something builds it
 # for the first time — copier's tasks do not create one — and this target is
@@ -254,6 +262,12 @@ regen: codegen
 build:
 	@echo "Building Rust library..."
 	cargo build --release --manifest-path rust/Cargo.toml $(ARGS)
+# Stamp the crate version beside a HOST build, as build-web does beside its
+# module and for the same reason: the hook prefers rust/target/release/ over
+# the released library, so it refuses one whose stamp is missing or names
+# another crate version. A --target build lands in rust/target/<triple>/,
+# which the hook never reads, and gets no stamp.
+	$(if $(findstring --target,$(ARGS)),,@$(READ_CRATE_VERSION) > rust/target/release/.crate-version)
 	@echo ""
 	@echo "Build complete! Library at: rust/target/"
 
@@ -281,12 +295,10 @@ build-web:
 # rebuild and their timestamps move on a checkout or a stash, in both
 # directions, so neither content nor mtime answers it. Without the stamp a
 # wasm directory left over from an earlier version is served silently, and
-# `rustContentHash` does not catch that: it compares the FFI surface, which a
-# patch release leaves byte-identical while replacing the native code behind
-# it. The same first-`version` match the hook's own parser uses.
-	@grep -m1 -E '^version[[:space:]]*=' rust/Cargo.toml \
-		| sed -E 's/^version[[:space:]]*=[[:space:]]*"([^"]+)".*/\1/' \
-		> rust/target/wasm32/.crate-version
+# `rustContentHash` does not catch that: it hashes only the bridged functions'
+# names, which a patch release leaves unchanged while replacing the native
+# code behind them. The same first-`version` match the hook's own parser uses.
+	@$(READ_CRATE_VERSION) > rust/target/wasm32/.crate-version
 	@echo ""
 	@echo "Build complete! WASM files at: rust/target/wasm32/ (crate $$(cat rust/target/wasm32/.crate-version))"
 
@@ -311,7 +323,10 @@ build-web:
 #      all. The hook cannot declare its way out of that: the skip happens above
 #      `hooks_runner`, so nothing the hook declares is ever read. Together with
 #      step 2 it turns a stale `web/pkg/` into a missing one, and
-#      `RustLib.init()` then fails on a 404 for `pkg/openmls_frb.js`. A
+#      `RustLib.init()` then never completes: flutter_rust_bridge waits for
+#      `pkg/openmls_frb.js` to fire `load`, with no error path or timeout,
+#      and a missing module never does — the dev server serves the app's
+#      HTML page in its place, with a 200. A
 #      stamp that does not exist cannot be stale, and an unmatched glob is
 #      a no-op under `rm -f`.
 #   4. `flutter run -d chrome` last, and NOT `--wasm`: that flag compiles the
@@ -382,6 +397,19 @@ test-web:
 
 rust-check:
 	cargo check --manifest-path rust/Cargo.toml
+
+# Type-check the crate for the three iOS targets the release builds. Nothing
+# before a release tag compiled iOS at all until this target: libc 0.2.190 put
+# the dyld functions `backtrace` calls behind `target_os = "macos"`, every iOS
+# build failed with E0425, and every pull request stayed green. `cargo check`
+# catches compile errors like that one, not link errors. Needs the targets:
+#   rustup target add aarch64-apple-ios aarch64-apple-ios-sim x86_64-apple-ios
+IOS_TARGETS = aarch64-apple-ios aarch64-apple-ios-sim x86_64-apple-ios
+rust-check-ios:
+	@for t in $(IOS_TARGETS); do \
+		echo "cargo check --locked --target $$t"; \
+		cargo check --locked --manifest-path rust/Cargo.toml --target $$t || exit 1; \
+	done
 
 # Run the crate's own `#[cfg(test)]` unit tests. These cover invariants the Dart
 # suite cannot reach — notably `classical_ops_do_not_init_libcrux`, which is the
@@ -577,6 +605,15 @@ verify-third-party-notices:
 verify-frb-pins:
 	@$(FVM) dart scripts/verify_frb_pins.dart $(ARGS)
 
+# pub.dev refuses a README.md, CHANGELOG.md, LICENSE or example over 256 KiB
+# and a pubspec.yaml over 128 KiB — at UPLOAD, after the tag, when the version
+# is already spent. `dart pub publish --dry-run` measures none of them, which is
+# why publish-dry-run runs this first. A CHANGELOG crosses the line by growing,
+# so CI runs it on every push too, and warns from 200 KiB. File sizes only — no
+# build, no network.
+verify-pub-limits:
+	@$(FVM) dart scripts/verify_pub_limits.dart $(ARGS)
+
 # `rust/Cargo.toml` states which features THIS crate asks for; it cannot state
 # which features a dependency is ultimately BUILT with. Cargo unifies features
 # across the graph, so a dependency added transitively — in a version bump
@@ -731,9 +768,14 @@ doc:
 # Utilities
 # =============================================================================
 
+# ARGS reaches `dart pub get`, so the other packages in this repository can be
+# resolved too — `make get ARGS="--directory=example_cli"`, which
+# `make analyze ARGS="example_cli"` needs on a fresh checkout. Before ARGS was
+# passed through, that call resolved the root package instead, and said
+# nothing. No target depends on `get`, so no other target's ARGS reach it.
 get:
 	@touch .skip_openmls_hook
-	@$(FVM) dart pub get --no-example; ret=$$?; rm -f .skip_openmls_hook; exit $$ret
+	@$(FVM) dart pub get --no-example $(ARGS); ret=$$?; rm -f .skip_openmls_hook; exit $$ret
 
 clean:
 	rm -rf .dart_tool build rust/target
@@ -751,7 +793,7 @@ get-version:
 # Publishing
 # =============================================================================
 
-publish-dry-run:
+publish-dry-run: verify-pub-limits
 	$(FVM) dart pub publish --dry-run
 
 publish:
@@ -760,13 +802,13 @@ ifndef CI
 	@echo "ERROR: Local publishing is disabled."
 	@echo ""
 	@echo "This package uses automated publishing via GitHub Actions."
-	@echo "To publish a new version:"
+	@echo "To publish a new version, once the native crate is released (stage 1):"
 	@echo ""
-	@echo "  1. Update version in pubspec.yaml"
-	@echo "  2. Update CHANGELOG.md"
-	@echo "  3. Commit and push changes"
-	@echo "  4. Create and push a tag: git tag v0.1.0 && git push origin v0.1.0"
-	@echo "  5. GitHub Actions will automatically publish to pub.dev"
+	@echo '  make release ARGS="--version X.Y.Z"'
+	@echo ""
+	@echo "It verifies the stage-1 release, bumps pubspec.yaml, finalizes"
+	@echo "CHANGELOG.md and pushes a signed vX.Y.Z tag, which starts"
+	@echo "publish.yml. Do not tag by hand: that skips those checks."
 	@echo ""
 	@echo "To validate the package locally, use: make publish-dry-run"
 	@echo ""

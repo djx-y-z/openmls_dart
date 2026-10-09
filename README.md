@@ -276,8 +276,11 @@ directory on the engine revision, the entrypoint, the build mode and the output 
 alone, so a debug run for *another* platform (`flutter run -d macos`, say) leaves behind a
 `dart_build` stamp naming its own dependencies; the next `flutter run -d chrome` finds
 every one of them unchanged, logs `Skipping target: dart_build`, and never invokes the
-hook. With `web/pkg/` not already provisioned, `RustLib.init()` then fails on a 404 for
-`pkg/openmls_frb.js`.
+hook. With `web/pkg/` not already provisioned, `RustLib.init()` then never completes:
+flutter_rust_bridge loads `pkg/openmls_frb.js` through a `<script>` tag and waits for its
+`load` event with no error path or timeout, so a missing module — a 404, or, under
+`flutter run`, the app's own HTML page served in its place with a 200 — leaves the call
+pending with nothing reported to Dart.
 
 The hook cannot defend against this — the skip happens above `hooks_runner`, so nothing
 the hook declares as a dependency is ever read. Any one of these unblocks it, and

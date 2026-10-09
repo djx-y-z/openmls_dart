@@ -3,7 +3,9 @@
 # This workflow publishes the package to pub.dev and creates a GitHub Release.
 #
 # Flow:
-# 1. Create and push a version tag: git tag vX.Y.Z && git push origin vX.Y.Z
+# 1. `make release ARGS="--version X.Y.Z"`, once the native crate is released,
+#    bumps pubspec.yaml, finalizes CHANGELOG.md and pushes a signed vX.Y.Z tag.
+#    Do not tag by hand: that skips the checks the script makes first.
 # 2. Workflow automatically triggers on tag push
 # 3. Validate version tag matches pubspec.yaml
 # 4. Run tests and analysis

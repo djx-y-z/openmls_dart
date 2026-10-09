@@ -23,9 +23,11 @@
 #   necessarily the default branch). Note: dispatch cannot bootstrap a brand-new
 #   release — `check-release` skips the whole run once the release for that crate
 #   version exists, and the `protect-release-tags` ruleset blocks this workflow
-#   from creating the tag itself. To (re)build a version, push the signed tag via
-#   `make release-frb`; to rebuild an already-released version, delete its
-#   GitHub Release and tag first.
+#   from creating the tag itself. To build a version, push its signed tag via
+#   `make release-frb`. To retry one, dispatch on that TAG, never on a branch:
+#   a branch that has moved on would be built and published under the tag's
+#   version. To rebuild an already-released version, delete its GitHub Release
+#   but keep the tag, then dispatch on the tag.
 #
 # The tag name must equal `openmls_frb-<crate version in rust/Cargo.toml>`
 # (validated below). The GitHub Release is created on that same tag, so the tag
@@ -112,8 +114,13 @@ jobs:
     strategy:
       matrix:
         include:
+          # Pinned, like arm64 below, rather than ubuntu-latest: the .so links
+          # against the runner's glibc, and a newer one can raise the oldest
+          # glibc a consumer's Linux needs to load it. ubuntu-latest moves to
+          # Ubuntu 26 from 2026-10-19, so moving this pin is a decision to make
+          # on purpose, after checking the built library's GLIBC_* symbols.
           - arch: x86_64
-            runner: ubuntu-latest
+            runner: ubuntu-24.04
             rust_target: x86_64-unknown-linux-gnu
           - arch: arm64
             runner: ubuntu-24.04-arm
@@ -593,7 +600,9 @@ jobs:
           # race slips past that check the slower `gh release create` fails
           # loudly instead of silently clobbering already-published binaries
           # that consumers' build hooks download. To intentionally rebuild the
-          # same version, delete the release and its tag manually first.
+          # same version, delete the release but keep its tag, then dispatch
+          # this workflow on the tag: without the tag there is no ref to
+          # dispatch on, and this step may not create one.
 
           # Create release with all assets
           gh release create "$TAG" \

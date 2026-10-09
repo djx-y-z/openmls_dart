@@ -67,38 +67,40 @@ const _wasmVersionMarkerName = '.wasm-version';
 /// so a later switch back to released binaries always forces a refresh.
 const _localWasmMarker = 'local-dev';
 
-/// Name of the stamp `make build-web` writes beside its wasm output, recording
-/// the crate version the module was built from.
+/// Name of the stamp `make build` writes beside the host library in
+/// `rust/target/release/`, and `make build-web` beside the module in
+/// `rust/target/wasm32/`, recording the crate version each was built from.
 ///
-/// It exists because nothing else can answer the question. The local wasm
-/// directory is a build artefact: its files change whenever anyone rebuilds,
-/// and their timestamps move on a checkout, a stash or a no-op rebuild, in
-/// both directions — so neither content nor mtime says which crate version
-/// they came from.
-const localWasmStampName = '.crate-version';
+/// It exists because nothing else can answer the question. A local build
+/// directory is a build artefact: its files change whenever
+/// anyone rebuilds, and their timestamps move on a checkout, a stash or a
+/// no-op rebuild, in both directions — so neither content nor mtime says which
+/// crate version they came from.
+const localBuildStampName = '.crate-version';
 
-/// Whether a local `rust/target/wasm32/` build may be served for [version].
+/// Whether a local build may be used for [version], in place of the released
+/// one.
 ///
-/// [stamped] is the trimmed contents of [localWasmStampName], or null when the
-/// file is absent — which is the case for every wasm directory built before
-/// this stamp existed, and is deliberately treated as a mismatch.
+/// [stamped] is the trimmed contents of [localBuildStampName], or null when
+/// the file is absent — which is the case for every directory built before
+/// its stamp existed, and is deliberately treated as a mismatch.
 ///
-/// ⚠ `rustContentHash` does NOT cover this. That check compares the FFI
-/// *surface*, and the surface can be byte-identical across a release that
-/// moves the vendored native code underneath it, which is exactly what a patch
-/// release looks like. So the one value that already crosses the Dart-to-binary
-/// boundary is blind to a stale local module by construction, and a version
-/// stamp is the check that is not.
+/// ⚠ `rustContentHash` does NOT cover this. That check hashes only the
+/// *names* of the bridged functions, and those can stay the same across a
+/// release that moves the vendored native code underneath them, which is
+/// exactly what a patch release looks like. So the one value that already
+/// crosses the Dart-to-binary boundary is blind to a stale local build by
+/// construction, and a version stamp is the check that is not.
 ///
 /// Pure so it is testable without a build tree.
-bool localWasmMatchesCrate({
+bool localBuildMatchesCrate({
   required String? stamped,
   required String version,
 }) => stamped != null && stamped.trim() == version;
 
-/// Reads [localWasmStampName] from a local wasm build directory, or null.
-String? readLocalWasmStamp(Directory wasmDir) {
-  final file = File('${wasmDir.path}/$localWasmStampName');
+/// Reads [localBuildStampName] from a local build directory, or null.
+String? readLocalBuildStamp(Directory buildDir) {
+  final file = File('${buildDir.path}/$localBuildStampName');
   if (!file.existsSync()) return null;
   return file.readAsStringSync().trim();
 }
@@ -154,6 +156,27 @@ void main(List<String> args) async {
     // This allows developers to use locally built libraries without downloading
     final localLib = _findLocalBuild(packageRoot, targetOS, targetArch);
     if (localLib != null) {
+      // A local build wins over the released one, so it must be shown to
+      // belong to THIS crate version, exactly as the local WASM build must.
+      // Nothing else would notice: a library left over from an earlier crate
+      // loads, and when the way values cross the bridge has moved since, the
+      // calls fail in ways no check names — every error a `TypeError`, say.
+      final buildDir = Directory.fromUri(localLib.resolve('.'));
+      final stamped = readLocalBuildStamp(buildDir);
+      if (!localBuildMatchesCrate(stamped: stamped, version: version)) {
+        throw HookException(
+          'The local build ${localLib.toFilePath()} was produced by '
+          '${stamped == null ? 'an unknown crate version' : 'crate $stamped'}, '
+          'but rust/Cargo.toml is at $version. It takes priority over the '
+          'released library, so loading it would run the wrong code. '
+          'Run `make build` to rebuild it, or delete ${buildDir.path} to use '
+          'the released library instead.',
+        );
+      }
+      // ignore: avoid_print
+      print(
+        'Using local $targetOS-$targetArch build: ${localLib.toFilePath()}',
+      );
       output.assets.code.add(
         CodeAsset(
           package: _packageName,
@@ -172,7 +195,8 @@ void main(List<String> args) async {
       // asset and the SDK aborts copying a file that is no longer there.
       output.dependencies
         ..add(packageRoot.resolve('rust/Cargo.toml'))
-        ..add(localLib);
+        ..add(localLib)
+        ..add(buildDir.uri.resolve(localBuildStampName));
       return;
     }
 
@@ -349,7 +373,7 @@ Future<void> _handleWebBuild(
     );
   }
   output.dependencies.add(
-    packageRoot.resolve('rust/target/wasm32/$localWasmStampName'),
+    packageRoot.resolve('rust/target/wasm32/$localBuildStampName'),
   );
 
   // Find the Flutter app root first
@@ -375,12 +399,13 @@ Future<void> _handleWebBuild(
     // to THIS crate version. Nothing downstream would notice if it did not:
     // the marker written below is a sentinel rather than a version, so the
     // freshness check further down is unreachable on this path, and
-    // `rustContentHash` compares the FFI surface, which a release may leave
-    // byte-identical while replacing the native code behind it. A stale module
-    // would then be served silently, and on the web that means running an
-    // upstream version the rest of the package has already moved past.
-    final stamped = readLocalWasmStamp(localWasmDir);
-    if (!localWasmMatchesCrate(stamped: stamped, version: version)) {
+    // `rustContentHash` hashes only the bridged functions' names, which a
+    // release may leave unchanged while replacing the native code behind
+    // them. A stale module would then be served silently, and on the web that
+    // means running an upstream version the rest of the package has already
+    // moved past.
+    final stamped = readLocalBuildStamp(localWasmDir);
+    if (!localBuildMatchesCrate(stamped: stamped, version: version)) {
       throw HookException(
         'The local WASM build in ${localWasmDir.path} was produced by '
         '${stamped == null ? 'an unknown crate version' : 'crate $stamped'}, '
@@ -545,10 +570,11 @@ Future<void> _copyWasmFilesToAppRoot(Uri cacheDir, Directory webPkgDir) async {
 /// Looks for a locally built library in `rust/target/<profile>/`.
 ///
 /// This enables development mode where developers use a locally built library
-/// instead of downloading from GitHub Releases. Checks release profile first,
-/// then debug.
+/// instead of downloading from GitHub Releases. Only `rust/target/release/` is
+/// read, and the caller refuses it unless `make build` stamped it with the
+/// current crate version.
 ///
-/// A plain `rust/target/<profile>/` build is always a HOST build, so it is only
+/// A plain `rust/target/release/` build is always a HOST build, so it is only
 /// valid when the target OS AND architecture match the host — otherwise we would
 /// bundle e.g. a macOS dylib into an iOS app (dyld rejects it at launch) or a
 /// wrong-arch `.so`. For any cross-target build this returns null and the hook
@@ -564,17 +590,10 @@ Uri? _findLocalBuild(Uri packageRoot, OS targetOS, Architecture targetArch) {
 
   final fileName = _getLibraryFileName(targetOS);
 
-  // Try release first, then debug
-  for (final profile in ['release', 'debug']) {
-    final path = packageRoot.resolve('rust/target/$profile/$fileName');
-    if (File.fromUri(path).existsSync()) {
-      // ignore: avoid_print
-      print('Using local $targetOS-$targetArch build: ${path.toFilePath()}');
-      return path;
-    }
-  }
-
-  return null;
+  // The release profile only: `make build` is what writes the crate stamp the
+  // caller requires, and it builds release. A debug build would carry none.
+  final path = packageRoot.resolve('rust/target/release/$fileName');
+  return File.fromUri(path).existsSync() ? path : null;
 }
 
 /// Gets the library filename for the target OS.
