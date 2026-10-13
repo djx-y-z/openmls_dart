@@ -1108,7 +1108,7 @@ zerocopy 0.8.56
   License: BSD-2-Clause OR Apache-2.0 OR MIT
   Texts:   LICENSE-APACHE [T4], LICENSE-BSD [T128], LICENSE-MIT [T130]
 
-zeroize 1.9.0
+zeroize 1.9.1
   License: Apache-2.0 OR MIT
   Texts:   LICENSE-APACHE [T6], LICENSE-MIT [T85]
 
@@ -1983,7 +1983,7 @@ Crates:
   cmov@0.5.4
   ctutils@0.4.2
   idb@0.6.5
-  zeroize@1.9.0
+  zeroize@1.9.1
   zeroize_derive@1.5.0
 
 Apache License
@@ -8822,7 +8822,7 @@ DEALINGS IN THE SOFTWARE.
 
 Crates:
   keccak@0.2.2
-  zeroize@1.9.0
+  zeroize@1.9.1
 
 Copyright (c) 2018-2026 The RustCrypto Project Developers
 
