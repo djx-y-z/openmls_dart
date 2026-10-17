@@ -69,7 +69,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.13.0';
 
   @override
-  int get rustContentHash => -734665338;
+  int get rustContentHash => -954044788;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -363,6 +363,12 @@ abstract class RustLibApi extends BaseApi {
   crateApiEngineMlsEngineGroupPendingProposals({
     required MlsEngine that,
     required List<int> groupIdBytes,
+  });
+
+  Future<ProcessedMessageInspectResult> crateApiEngineMlsEngineInspectMessage({
+    required MlsEngine that,
+    required List<int> groupIdBytes,
+    required List<int> messageBytes,
   });
 
   Future<WelcomeInspectResult> crateApiEngineMlsEngineInspectWelcome({
@@ -2641,6 +2647,45 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
+  Future<ProcessedMessageInspectResult> crateApiEngineMlsEngineInspectMessage({
+    required MlsEngine that,
+    required List<int> groupIdBytes,
+    required List<int> messageBytes,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 =
+              cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsEngine(
+                that,
+              );
+          var arg1 = cst_encode_list_prim_u_8_loose(groupIdBytes);
+          var arg2 = cst_encode_list_prim_u_8_loose(messageBytes);
+          return wire.wire__crate__api__engine__MlsEngine_inspect_message(
+            port_,
+            arg0,
+            arg1,
+            arg2,
+          );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_processed_message_inspect_result,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiEngineMlsEngineInspectMessageConstMeta,
+        argValues: [that, groupIdBytes, messageBytes],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiEngineMlsEngineInspectMessageConstMeta =>
+      const TaskConstMeta(
+        debugName: "MlsEngine_inspect_message",
+        argNames: ["that", "groupIdBytes", "messageBytes"],
+      );
+
+  @override
   Future<WelcomeInspectResult> crateApiEngineMlsEngineInspectWelcome({
     required MlsEngine that,
     required MlsGroupConfig config,
@@ -4801,8 +4846,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   FlexibleCommitOptions dco_decode_flexible_commit_options(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 8)
-      throw Exception('unexpected arr length: expect 8 but see ${arr.length}');
+    if (arr.length != 9)
+      throw Exception('unexpected arr length: expect 9 but see ${arr.length}');
     return FlexibleCommitOptions(
       addKeyPackages: dco_decode_list_list_prim_u_8_strict(arr[0]),
       removeIndices: dco_decode_list_prim_u_32_strict(arr[1]),
@@ -4812,6 +4857,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       aad: dco_decode_opt_list_prim_u_8_strict(arr[5]),
       createGroupInfo: dco_decode_bool(arr[6]),
       useRatchetTreeExtension: dco_decode_bool(arr[7]),
+      keepPending: dco_decode_bool(arr[8]),
     );
   }
 
@@ -4966,6 +5012,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   Uint8List dco_decode_list_prim_u_8_strict(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw as Uint8List;
+  }
+
+  @protected
+  List<StagedProposalInfo> dco_decode_list_staged_proposal_info(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return (raw as List<dynamic>).map(dco_decode_staged_proposal_info).toList();
   }
 
   @protected
@@ -5211,14 +5263,31 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   StagedCommitInfo dco_decode_staged_commit_info(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 5)
-      throw Exception('unexpected arr length: expect 5 but see ${arr.length}');
+    if (arr.length != 9)
+      throw Exception('unexpected arr length: expect 9 but see ${arr.length}');
     return StagedCommitInfo(
       addCredentials: dco_decode_list_list_prim_u_8_strict(arr[0]),
       removeIndices: dco_decode_list_prim_u_32_strict(arr[1]),
       hasUpdate: dco_decode_bool(arr[2]),
       selfRemoved: dco_decode_bool(arr[3]),
       pskCount: dco_decode_u_32(arr[4]),
+      removeCredentials: dco_decode_list_list_prim_u_8_strict(arr[5]),
+      proposals: dco_decode_list_staged_proposal_info(arr[6]),
+      committerCredential: dco_decode_opt_list_prim_u_8_strict(arr[7]),
+      groupContextExtensions: dco_decode_list_mls_extension(arr[8]),
+    );
+  }
+
+  @protected
+  StagedProposalInfo dco_decode_staged_proposal_info(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 3)
+      throw Exception('unexpected arr length: expect 3 but see ${arr.length}');
+    return StagedProposalInfo(
+      proposalType: dco_decode_mls_proposal_type(arr[0]),
+      senderIndex: dco_decode_opt_box_autoadd_u_32(arr[1]),
+      byReference: dco_decode_bool(arr[2]),
     );
   }
 
@@ -5535,6 +5604,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_aad = sse_decode_opt_list_prim_u_8_strict(deserializer);
     var var_createGroupInfo = sse_decode_bool(deserializer);
     var var_useRatchetTreeExtension = sse_decode_bool(deserializer);
+    var var_keepPending = sse_decode_bool(deserializer);
     return FlexibleCommitOptions(
       addKeyPackages: var_addKeyPackages,
       removeIndices: var_removeIndices,
@@ -5544,6 +5614,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       aad: var_aad,
       createGroupInfo: var_createGroupInfo,
       useRatchetTreeExtension: var_useRatchetTreeExtension,
+      keepPending: var_keepPending,
     );
   }
 
@@ -5739,6 +5810,20 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var len_ = sse_decode_i_32(deserializer);
     return deserializer.buffer.getUint8List(len_);
+  }
+
+  @protected
+  List<StagedProposalInfo> sse_decode_list_staged_proposal_info(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    var len_ = sse_decode_i_32(deserializer);
+    var ans_ = <StagedProposalInfo>[];
+    for (var idx_ = 0; idx_ < len_; ++idx_) {
+      ans_.add(sse_decode_staged_proposal_info(deserializer));
+    }
+    return ans_;
   }
 
   @protected
@@ -6078,12 +6163,41 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_hasUpdate = sse_decode_bool(deserializer);
     var var_selfRemoved = sse_decode_bool(deserializer);
     var var_pskCount = sse_decode_u_32(deserializer);
+    var var_removeCredentials = sse_decode_list_list_prim_u_8_strict(
+      deserializer,
+    );
+    var var_proposals = sse_decode_list_staged_proposal_info(deserializer);
+    var var_committerCredential = sse_decode_opt_list_prim_u_8_strict(
+      deserializer,
+    );
+    var var_groupContextExtensions = sse_decode_list_mls_extension(
+      deserializer,
+    );
     return StagedCommitInfo(
       addCredentials: var_addCredentials,
       removeIndices: var_removeIndices,
       hasUpdate: var_hasUpdate,
       selfRemoved: var_selfRemoved,
       pskCount: var_pskCount,
+      removeCredentials: var_removeCredentials,
+      proposals: var_proposals,
+      committerCredential: var_committerCredential,
+      groupContextExtensions: var_groupContextExtensions,
+    );
+  }
+
+  @protected
+  StagedProposalInfo sse_decode_staged_proposal_info(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_proposalType = sse_decode_mls_proposal_type(deserializer);
+    var var_senderIndex = sse_decode_opt_box_autoadd_u_32(deserializer);
+    var var_byReference = sse_decode_bool(deserializer);
+    return StagedProposalInfo(
+      proposalType: var_proposalType,
+      senderIndex: var_senderIndex,
+      byReference: var_byReference,
     );
   }
 
@@ -6555,6 +6669,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_opt_list_prim_u_8_strict(self.aad, serializer);
     sse_encode_bool(self.createGroupInfo, serializer);
     sse_encode_bool(self.useRatchetTreeExtension, serializer);
+    sse_encode_bool(self.keepPending, serializer);
   }
 
   @protected
@@ -6748,6 +6863,18 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_i_32(self.length, serializer);
     serializer.buffer.putUint8List(self);
+  }
+
+  @protected
+  void sse_encode_list_staged_proposal_info(
+    List<StagedProposalInfo> self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    for (final item in self) {
+      sse_encode_staged_proposal_info(item, serializer);
+    }
   }
 
   @protected
@@ -7040,6 +7167,21 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_bool(self.hasUpdate, serializer);
     sse_encode_bool(self.selfRemoved, serializer);
     sse_encode_u_32(self.pskCount, serializer);
+    sse_encode_list_list_prim_u_8_strict(self.removeCredentials, serializer);
+    sse_encode_list_staged_proposal_info(self.proposals, serializer);
+    sse_encode_opt_list_prim_u_8_strict(self.committerCredential, serializer);
+    sse_encode_list_mls_extension(self.groupContextExtensions, serializer);
+  }
+
+  @protected
+  void sse_encode_staged_proposal_info(
+    StagedProposalInfo self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_mls_proposal_type(self.proposalType, serializer);
+    sse_encode_opt_box_autoadd_u_32(self.senderIndex, serializer);
+    sse_encode_bool(self.byReference, serializer);
   }
 
   @protected
@@ -7616,6 +7758,33 @@ class MlsEngineImpl extends RustOpaque implements MlsEngine {
   }) => RustLib.instance.api.crateApiEngineMlsEngineGroupPendingProposals(
     that: this,
     groupIdBytes: groupIdBytes,
+  );
+
+  /// Process a message the way `processMessageWithInspect` does — decrypt it,
+  /// verify it, stage a commit — and report the same, **without changing
+  /// anything**: no commit is merged, no proposal stored, no ratchet
+  /// advanced, nothing written to storage.
+  ///
+  /// For an application that decides whether a commit is acceptable before
+  /// it takes effect: an access-control policy over who may add and remove
+  /// whom, say, which MLS leaves to the application. Inspect the commit,
+  /// judge `stagedCommitInfo` — its `proposals` with their senders, the
+  /// credentials of the members it removes, the group context it leads to —
+  /// and only then call `processMessage` (or `processMessageWithInspect`) on
+  /// the same bytes to apply it. A commit that is refused is simply never
+  /// processed; the group stays in its epoch.
+  ///
+  /// The message is processed twice when accepted, which costs one more
+  /// decryption and signature check. That is what makes this safe: nothing
+  /// staged here can be merged by mistake, because nothing staged here
+  /// outlives the call.
+  Future<ProcessedMessageInspectResult> inspectMessage({
+    required List<int> groupIdBytes,
+    required List<int> messageBytes,
+  }) => RustLib.instance.api.crateApiEngineMlsEngineInspectMessage(
+    that: this,
+    groupIdBytes: groupIdBytes,
+    messageBytes: messageBytes,
   );
 
   Future<WelcomeInspectResult> inspectWelcome({

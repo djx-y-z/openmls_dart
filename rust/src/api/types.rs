@@ -242,6 +242,10 @@ pub struct MlsGroupContextInfo {
 }
 
 /// Information about a staged commit before merging.
+// The fields after `psk_count` default to empty, so code that builds one
+// itself (a test double) keeps compiling; the struct-level attribute is what
+// lets the fields carry `#[frb(..)]`.
+#[flutter_rust_bridge::frb]
 pub struct StagedCommitInfo {
     /// TLS-serialized Credentials of members being added.
     pub add_credentials: Vec<Vec<u8>>,
@@ -253,9 +257,45 @@ pub struct StagedCommitInfo {
     pub self_removed: bool,
     /// Number of PSK proposals.
     pub psk_count: u32,
+    /// TLS-serialized Credentials of the members being removed, as they stood
+    /// before the commit — one per entry of `remove_indices`, in the same
+    /// order. After the merge those leaves are gone, so this is where an
+    /// application learns *whose* device a Remove takes out.
+    #[frb(default = [])]
+    pub remove_credentials: Vec<Vec<u8>>,
+    /// Every proposal the commit applies, with who proposed it. A commit can
+    /// carry proposals by reference from other members, so the committer is
+    /// not necessarily the author of each change: an access-control policy
+    /// judges each proposal by its own sender.
+    #[frb(default = [])]
+    pub proposals: Vec<StagedProposalInfo>,
+    /// The committer's new leaf credential when the commit has an update
+    /// path, TLS-serialized. A path can replace the committer's credential,
+    /// which an application binding credentials to identities must check.
+    pub committer_credential: Option<Vec<u8>>,
+    /// The extensions of the group context the commit leads to — whether or
+    /// not it carries a GroupContextExtensions proposal — so an application
+    /// can check what it binds there (the head of an access-control list,
+    /// say) before accepting the commit.
+    #[frb(default = [])]
+    pub group_context_extensions: Vec<MlsExtension>,
+}
+
+/// One proposal of a staged commit.
+pub struct StagedProposalInfo {
+    pub proposal_type: MlsProposalType,
+    /// The proposer's leaf index when a group member proposed it; `None` for
+    /// an external sender or a new member.
+    pub sender_index: Option<u32>,
+    /// Whether the commit carries it by reference — a proposal sent earlier
+    /// on its own — rather than inline.
+    pub by_reference: bool,
 }
 
 /// Options for the flexible commit builder.
+// The struct-level attribute is what lets a field carry `#[frb(..)]`: it
+// rewrites them before rustc sees them, which a field attribute alone cannot.
+#[flutter_rust_bridge::frb]
 pub struct FlexibleCommitOptions {
     /// TLS-serialized KeyPackages to add.
     pub add_key_packages: Vec<Vec<u8>>,
@@ -273,6 +313,16 @@ pub struct FlexibleCommitOptions {
     pub create_group_info: bool,
     /// Whether to include the ratchet tree extension in GroupInfo.
     pub use_ratchet_tree_extension: bool,
+    /// Leave the commit pending instead of merging it (default: false).
+    ///
+    /// With a delivery service that orders commits, a commit only becomes the
+    /// next epoch once the service accepts it: another member's commit to the
+    /// same epoch may win. Kept pending, the group stays in its current epoch
+    /// until the application calls `mergePendingCommit` (accepted) or
+    /// `clearPendingCommit` (lost), so a lost race leaves nothing to repair.
+    /// Another member's commit processed meanwhile replaces it.
+    #[frb(default = false)]
+    pub keep_pending: bool,
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -415,10 +465,29 @@ pub(crate) fn capabilities_to_native(caps: &MlsCapabilities) -> Result<Capabilit
     ))
 }
 
-pub(crate) fn extensions_from_mls(exts: &[MlsExtension]) -> Vec<Extension> {
-    exts.iter()
-        .map(|ext| Extension::Unknown(ext.extension_type, UnknownExtension(ext.data.clone())))
-        .collect()
+/// The extensions `exts` stand for, typed where OpenMLS knows their type.
+///
+/// Each one is decoded from its wire form exactly as OpenMLS decodes a
+/// received extension, so a type it defines — `RequiredCapabilities`
+/// (0x0003), `ExternalSenders` (0x0005), … — becomes its typed variant, and
+/// only the rest stays `Extension::Unknown`. Passing every type as unknown
+/// would make those unusable: OpenMLS looks for the typed variants, and for
+/// instance refuses an application's group-context extension unless a typed
+/// `RequiredCapabilities` lists it.
+pub(crate) fn extensions_from_mls(exts: &[MlsExtension]) -> Result<Vec<Extension>, String> {
+    exts.iter().map(extension_from_mls).collect()
+}
+
+fn extension_from_mls(ext: &MlsExtension) -> Result<Extension, String> {
+    use openmls::prelude::tls_codec::{DeserializeBytes, Serialize, VLBytes};
+    let mut wire = ext.extension_type.to_be_bytes().to_vec();
+    wire.extend(
+        VLBytes::new(ext.data.clone())
+            .tls_serialize_detached()
+            .map_err(|e| format!("Failed to encode extension 0x{:04x}: {}", ext.extension_type, e))?,
+    );
+    Extension::tls_deserialize_exact_bytes(&wire)
+        .map_err(|e| format!("Invalid extension 0x{:04x}: {}", ext.extension_type, e))
 }
 
 /// Returns every ciphersuite this build can execute.
