@@ -199,6 +199,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   Uint8List dco_decode_list_prim_u_8_strict(dynamic raw);
 
   @protected
+  List<StagedProposalInfo> dco_decode_list_staged_proposal_info(dynamic raw);
+
+  @protected
   MlsCapabilities dco_decode_mls_capabilities(dynamic raw);
 
   @protected
@@ -276,6 +279,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   StagedCommitInfo dco_decode_staged_commit_info(dynamic raw);
+
+  @protected
+  StagedProposalInfo dco_decode_staged_proposal_info(dynamic raw);
 
   @protected
   int dco_decode_u_16(dynamic raw);
@@ -496,6 +502,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   Uint8List sse_decode_list_prim_u_8_strict(SseDeserializer deserializer);
 
   @protected
+  List<StagedProposalInfo> sse_decode_list_staged_proposal_info(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   MlsCapabilities sse_decode_mls_capabilities(SseDeserializer deserializer);
 
   @protected
@@ -593,6 +604,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   StagedCommitInfo sse_decode_staged_commit_info(SseDeserializer deserializer);
+
+  @protected
+  StagedProposalInfo sse_decode_staged_proposal_info(
+    SseDeserializer deserializer,
+  );
 
   @protected
   int sse_decode_u_16(SseDeserializer deserializer);
@@ -809,6 +825,17 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   }
 
   @protected
+  ffi.Pointer<wire_cst_list_staged_proposal_info>
+  cst_encode_list_staged_proposal_info(List<StagedProposalInfo> raw) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    final ans = wire.cst_new_list_staged_proposal_info(raw.length);
+    for (var i = 0; i < raw.length; ++i) {
+      cst_api_fill_to_wire_staged_proposal_info(raw[i], ans.ref.ptr[i]);
+    }
+    return ans;
+  }
+
+  @protected
   ffi.Pointer<wire_cst_list_prim_u_8_strict> cst_encode_opt_String(
     String? raw,
   ) {
@@ -1009,6 +1036,7 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
     wireObj.use_ratchet_tree_extension = cst_encode_bool(
       apiObj.useRatchetTreeExtension,
     );
+    wireObj.keep_pending = cst_encode_bool(apiObj.keepPending);
   }
 
   @protected
@@ -1270,6 +1298,26 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
     wireObj.has_update = cst_encode_bool(apiObj.hasUpdate);
     wireObj.self_removed = cst_encode_bool(apiObj.selfRemoved);
     wireObj.psk_count = cst_encode_u_32(apiObj.pskCount);
+    wireObj.remove_credentials = cst_encode_list_list_prim_u_8_strict(
+      apiObj.removeCredentials,
+    );
+    wireObj.proposals = cst_encode_list_staged_proposal_info(apiObj.proposals);
+    wireObj.committer_credential = cst_encode_opt_list_prim_u_8_strict(
+      apiObj.committerCredential,
+    );
+    wireObj.group_context_extensions = cst_encode_list_mls_extension(
+      apiObj.groupContextExtensions,
+    );
+  }
+
+  @protected
+  void cst_api_fill_to_wire_staged_proposal_info(
+    StagedProposalInfo apiObj,
+    wire_cst_staged_proposal_info wireObj,
+  ) {
+    wireObj.proposal_type = cst_encode_mls_proposal_type(apiObj.proposalType);
+    wireObj.sender_index = cst_encode_opt_box_autoadd_u_32(apiObj.senderIndex);
+    wireObj.by_reference = cst_encode_bool(apiObj.byReference);
   }
 
   @protected
@@ -1620,6 +1668,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_list_staged_proposal_info(
+    List<StagedProposalInfo> self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_mls_capabilities(
     MlsCapabilities self,
     SseSerializer serializer,
@@ -1751,6 +1805,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_staged_commit_info(
     StagedCommitInfo self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_staged_proposal_info(
+    StagedProposalInfo self,
     SseSerializer serializer,
   );
 
@@ -3403,6 +3463,42 @@ class RustLibWire implements BaseWire {
       _wire__crate__api__engine__MlsEngine_group_pending_proposalsPtr
           .asFunction<
             void Function(int, int, ffi.Pointer<wire_cst_list_prim_u_8_loose>)
+          >();
+
+  void wire__crate__api__engine__MlsEngine_inspect_message(
+    int port_,
+    int that,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> group_id_bytes,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> message_bytes,
+  ) {
+    return _wire__crate__api__engine__MlsEngine_inspect_message(
+      port_,
+      that,
+      group_id_bytes,
+      message_bytes,
+    );
+  }
+
+  late final _wire__crate__api__engine__MlsEngine_inspect_messagePtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Int64,
+            ffi.UintPtr,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+          )
+        >
+      >('frbgen_openmls_wire__crate__api__engine__MlsEngine_inspect_message');
+  late final _wire__crate__api__engine__MlsEngine_inspect_message =
+      _wire__crate__api__engine__MlsEngine_inspect_messagePtr
+          .asFunction<
+            void Function(
+              int,
+              int,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            )
           >();
 
   void wire__crate__api__engine__MlsEngine_inspect_welcome(
@@ -5325,6 +5421,23 @@ class RustLibWire implements BaseWire {
   late final _cst_new_list_prim_u_8_strict = _cst_new_list_prim_u_8_strictPtr
       .asFunction<ffi.Pointer<wire_cst_list_prim_u_8_strict> Function(int)>();
 
+  ffi.Pointer<wire_cst_list_staged_proposal_info>
+  cst_new_list_staged_proposal_info(int len) {
+    return _cst_new_list_staged_proposal_info(len);
+  }
+
+  late final _cst_new_list_staged_proposal_infoPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Pointer<wire_cst_list_staged_proposal_info> Function(ffi.Int32)
+        >
+      >('frbgen_openmls_cst_new_list_staged_proposal_info');
+  late final _cst_new_list_staged_proposal_info =
+      _cst_new_list_staged_proposal_infoPtr
+          .asFunction<
+            ffi.Pointer<wire_cst_list_staged_proposal_info> Function(int)
+          >();
+
   int dummy_method_to_enforce_bundling() {
     return _dummy_method_to_enforce_bundling();
   }
@@ -5466,6 +5579,9 @@ final class wire_cst_flexible_commit_options extends ffi.Struct {
 
   @ffi.Bool()
   external bool use_ratchet_tree_extension;
+
+  @ffi.Bool()
+  external bool keep_pending;
 }
 
 final class wire_cst_list_prim_u_32_loose extends ffi.Struct {
@@ -5484,6 +5600,23 @@ final class wire_cst_mls_member_info extends ffi.Struct {
   external ffi.Pointer<wire_cst_list_prim_u_8_strict> signature_key;
 }
 
+final class wire_cst_staged_proposal_info extends ffi.Struct {
+  @ffi.Int32()
+  external int proposal_type;
+
+  external ffi.Pointer<ffi.Uint32> sender_index;
+
+  @ffi.Bool()
+  external bool by_reference;
+}
+
+final class wire_cst_list_staged_proposal_info extends ffi.Struct {
+  external ffi.Pointer<wire_cst_staged_proposal_info> ptr;
+
+  @ffi.Int32()
+  external int len;
+}
+
 final class wire_cst_staged_commit_info extends ffi.Struct {
   external ffi.Pointer<wire_cst_list_list_prim_u_8_strict> add_credentials;
 
@@ -5497,6 +5630,14 @@ final class wire_cst_staged_commit_info extends ffi.Struct {
 
   @ffi.Uint32()
   external int psk_count;
+
+  external ffi.Pointer<wire_cst_list_list_prim_u_8_strict> remove_credentials;
+
+  external ffi.Pointer<wire_cst_list_staged_proposal_info> proposals;
+
+  external ffi.Pointer<wire_cst_list_prim_u_8_strict> committer_credential;
+
+  external ffi.Pointer<wire_cst_list_mls_extension> group_context_extensions;
 }
 
 final class wire_cst_list_mls_ciphersuite extends ffi.Struct {
