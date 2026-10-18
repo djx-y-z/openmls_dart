@@ -6,7 +6,7 @@
 import '../frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-// These functions are ignored because they are not marked as `pub`: `capabilities_to_native`, `ciphersuite_to_native`, `extensions_from_mls`, `native_to_ciphersuite`, `wire_format_to_native`
+// These functions are ignored because they are not marked as `pub`: `capabilities_to_native`, `ciphersuite_to_native`, `extension_from_mls`, `extensions_from_mls`, `native_to_ciphersuite`, `wire_format_to_native`
 
 /// Returns every ciphersuite this build can execute.
 ///
@@ -43,6 +43,16 @@ class FlexibleCommitOptions {
   /// Whether to include the ratchet tree extension in GroupInfo.
   final bool useRatchetTreeExtension;
 
+  /// Leave the commit pending instead of merging it (default: false).
+  ///
+  /// With a delivery service that orders commits, a commit only becomes the
+  /// next epoch once the service accepts it: another member's commit to the
+  /// same epoch may win. Kept pending, the group stays in its current epoch
+  /// until the application calls `mergePendingCommit` (accepted) or
+  /// `clearPendingCommit` (lost), so a lost race leaves nothing to repair.
+  /// Another member's commit processed meanwhile replaces it.
+  final bool keepPending;
+
   const FlexibleCommitOptions({
     required this.addKeyPackages,
     required this.removeIndices,
@@ -52,6 +62,7 @@ class FlexibleCommitOptions {
     this.aad,
     required this.createGroupInfo,
     required this.useRatchetTreeExtension,
+    this.keepPending = false,
   });
 
   @override
@@ -63,7 +74,8 @@ class FlexibleCommitOptions {
       groupContextExtensions.hashCode ^
       aad.hashCode ^
       createGroupInfo.hashCode ^
-      useRatchetTreeExtension.hashCode;
+      useRatchetTreeExtension.hashCode ^
+      keepPending.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -77,7 +89,8 @@ class FlexibleCommitOptions {
           groupContextExtensions == other.groupContextExtensions &&
           aad == other.aad &&
           createGroupInfo == other.createGroupInfo &&
-          useRatchetTreeExtension == other.useRatchetTreeExtension;
+          useRatchetTreeExtension == other.useRatchetTreeExtension &&
+          keepPending == other.keepPending;
 }
 
 /// Options for creating a key package with the builder API.
@@ -490,12 +503,39 @@ class StagedCommitInfo {
   /// Number of PSK proposals.
   final int pskCount;
 
+  /// TLS-serialized Credentials of the members being removed, as they stood
+  /// before the commit — one per entry of `remove_indices`, in the same
+  /// order. After the merge those leaves are gone, so this is where an
+  /// application learns *whose* device a Remove takes out.
+  final List<Uint8List> removeCredentials;
+
+  /// Every proposal the commit applies, with who proposed it. A commit can
+  /// carry proposals by reference from other members, so the committer is
+  /// not necessarily the author of each change: an access-control policy
+  /// judges each proposal by its own sender.
+  final List<StagedProposalInfo> proposals;
+
+  /// The committer's new leaf credential when the commit has an update
+  /// path, TLS-serialized. A path can replace the committer's credential,
+  /// which an application binding credentials to identities must check.
+  final Uint8List? committerCredential;
+
+  /// The extensions of the group context the commit leads to — whether or
+  /// not it carries a GroupContextExtensions proposal — so an application
+  /// can check what it binds there (the head of an access-control list,
+  /// say) before accepting the commit.
+  final List<MlsExtension> groupContextExtensions;
+
   const StagedCommitInfo({
     required this.addCredentials,
     required this.removeIndices,
     required this.hasUpdate,
     required this.selfRemoved,
     required this.pskCount,
+    this.removeCredentials = const [],
+    this.proposals = const [],
+    this.committerCredential,
+    this.groupContextExtensions = const [],
   });
 
   @override
@@ -504,7 +544,11 @@ class StagedCommitInfo {
       removeIndices.hashCode ^
       hasUpdate.hashCode ^
       selfRemoved.hashCode ^
-      pskCount.hashCode;
+      pskCount.hashCode ^
+      removeCredentials.hashCode ^
+      proposals.hashCode ^
+      committerCredential.hashCode ^
+      groupContextExtensions.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -515,7 +559,43 @@ class StagedCommitInfo {
           removeIndices == other.removeIndices &&
           hasUpdate == other.hasUpdate &&
           selfRemoved == other.selfRemoved &&
-          pskCount == other.pskCount;
+          pskCount == other.pskCount &&
+          removeCredentials == other.removeCredentials &&
+          proposals == other.proposals &&
+          committerCredential == other.committerCredential &&
+          groupContextExtensions == other.groupContextExtensions;
+}
+
+/// One proposal of a staged commit.
+class StagedProposalInfo {
+  final MlsProposalType proposalType;
+
+  /// The proposer's leaf index when a group member proposed it; `None` for
+  /// an external sender or a new member.
+  final int? senderIndex;
+
+  /// Whether the commit carries it by reference — a proposal sent earlier
+  /// on its own — rather than inline.
+  final bool byReference;
+
+  const StagedProposalInfo({
+    required this.proposalType,
+    this.senderIndex,
+    required this.byReference,
+  });
+
+  @override
+  int get hashCode =>
+      proposalType.hashCode ^ senderIndex.hashCode ^ byReference.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is StagedProposalInfo &&
+          runtimeType == other.runtimeType &&
+          proposalType == other.proposalType &&
+          senderIndex == other.senderIndex &&
+          byReference == other.byReference;
 }
 
 /// Information extracted from a Welcome message before joining.

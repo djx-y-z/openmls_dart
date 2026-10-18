@@ -32,7 +32,8 @@ use super::types::{
     ciphersuite_to_native, native_to_ciphersuite, capabilities_to_native, extensions_from_mls,
     FlexibleCommitOptions, KeyPackageOptions, MlsCapabilities, MlsCiphersuite, MlsExtension,
     MlsGroupContextInfo, MlsLeafNodeInfo, MlsMemberInfo, MlsPendingProposalInfo, MlsProposalType,
-    MlsWireFormatPolicy, ProcessedMessageType, StagedCommitInfo, WelcomeInspectResult,
+    MlsWireFormatPolicy, ProcessedMessageType, StagedCommitInfo, StagedProposalInfo,
+    WelcomeInspectResult,
 };
 use crate::snapshot_storage::{SnapshotOpenMlsProvider, SnapshotStorageProvider};
 
@@ -64,6 +65,86 @@ fn load_group<P: OpenMlsProvider>(group_id: &[u8], provider: &P) -> Result<MlsGr
     MlsGroup::load(provider.storage(), &gid)
         .map_err(|e| format!("Failed to load group: {}", e))?
         .ok_or_else(|| "No group found in storage".to_string())
+}
+
+/// The binding's name for a proposal's type.
+fn proposal_type_of(proposal: &Proposal) -> MlsProposalType {
+    match proposal {
+        Proposal::Add(_) => MlsProposalType::Add,
+        Proposal::Remove(_) => MlsProposalType::Remove,
+        Proposal::Update(_) => MlsProposalType::Update,
+        Proposal::PreSharedKey(_) => MlsProposalType::PreSharedKey,
+        Proposal::ReInit(_) => MlsProposalType::Reinit,
+        Proposal::ExternalInit(_) => MlsProposalType::ExternalInit,
+        Proposal::GroupContextExtensions(_) => MlsProposalType::GroupContextExtensions,
+        _ => MlsProposalType::Custom,
+    }
+}
+
+/// Everything an application may want to judge about `staged` before it is
+/// merged into `group` — which must still be in the epoch the commit ends, so
+/// the leaves it removes can still be looked up.
+fn staged_commit_info(group: &MlsGroup, staged: &StagedCommit) -> Result<StagedCommitInfo, String> {
+    let mut add_credentials = Vec::new();
+    for add in staged.add_proposals() {
+        let cred_bytes = add.add_proposal().key_package().leaf_node().credential()
+            .tls_serialize_detached()
+            .map_err(|e| format!("Failed to serialize add credential: {}", e))?;
+        add_credentials.push(cred_bytes);
+    }
+
+    let mut remove_indices = Vec::new();
+    let mut remove_credentials = Vec::new();
+    for remove in staged.remove_proposals() {
+        let removed = remove.remove_proposal().removed();
+        let member = group.member_at(removed)
+            .ok_or_else(|| format!("Commit removes leaf {} which holds no member", removed.u32()))?;
+        let cred_bytes = member.credential
+            .tls_serialize_detached()
+            .map_err(|e| format!("Failed to serialize removed member's credential: {}", e))?;
+        remove_indices.push(removed.u32());
+        remove_credentials.push(cred_bytes);
+    }
+
+    let proposals = staged.queued_proposals()
+        .map(|queued| StagedProposalInfo {
+            proposal_type: proposal_type_of(queued.proposal()),
+            sender_index: match queued.sender() {
+                Sender::Member(index) => Some(index.u32()),
+                _ => None,
+            },
+            by_reference: matches!(queued.proposal_or_ref_type(), ProposalOrRefType::Reference),
+        })
+        .collect();
+
+    let committer_credential = staged.update_path_leaf_node()
+        .map(|leaf| leaf.credential().tls_serialize_detached())
+        .transpose()
+        .map_err(|e| format!("Failed to serialize committer credential: {}", e))?;
+
+    // Only the extensions OpenMLS does not interpret itself — the
+    // application's own, as `groupOwnLeafNode` reports them too.
+    let group_context_extensions = staged.group_context().extensions().iter()
+        .filter_map(|ext| match ext {
+            Extension::Unknown(ext_type, data) => Some(MlsExtension {
+                extension_type: *ext_type,
+                data: data.0.clone(),
+            }),
+            _ => None,
+        })
+        .collect();
+
+    Ok(StagedCommitInfo {
+        add_credentials,
+        remove_indices,
+        has_update: staged.update_proposals().next().is_some(),
+        self_removed: staged.self_removed(),
+        psk_count: staged.psk_proposals().count() as u32,
+        remove_credentials,
+        proposals,
+        committer_credential,
+        group_context_extensions,
+    })
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -510,12 +591,12 @@ impl MlsEngine {
             builder = builder.leaf_node_capabilities(capabilities_to_native(caps)?);
         }
         if let Some(ref leaf_exts) = options.leaf_node_extensions {
-            let extensions = Extensions::from_vec(extensions_from_mls(leaf_exts))
+            let extensions = Extensions::from_vec(extensions_from_mls(leaf_exts)?)
                 .map_err(|e| format!("Failed to create leaf node extensions: {}", e))?;
             builder = builder.leaf_node_extensions(extensions);
         }
         if let Some(ref kp_exts) = options.key_package_extensions {
-            let extensions = Extensions::from_vec(extensions_from_mls(kp_exts))
+            let extensions = Extensions::from_vec(extensions_from_mls(kp_exts)?)
                 .map_err(|e| format!("Failed to create key package extensions: {}", e))?;
             builder = builder.key_package_extensions(extensions);
         }
@@ -627,12 +708,12 @@ impl MlsEngine {
             builder = builder.lifetime(Lifetime::new(lifetime_secs));
         }
         if let Some(ref gc_exts) = group_context_extensions {
-            let extensions = Extensions::from_vec(extensions_from_mls(gc_exts))
+            let extensions = Extensions::from_vec(extensions_from_mls(gc_exts)?)
                 .map_err(|e| format!("Failed to create group context extensions: {}", e))?;
             builder = builder.with_group_context_extensions(extensions);
         }
         if let Some(ref leaf_exts) = leaf_node_extensions {
-            let extensions = Extensions::from_vec(extensions_from_mls(leaf_exts))
+            let extensions = Extensions::from_vec(extensions_from_mls(leaf_exts)?)
                 .map_err(|e| format!("Failed to create leaf node extensions: {}", e))?;
             builder = builder
                 .with_leaf_node_extensions(extensions)
@@ -1560,7 +1641,7 @@ impl MlsEngine {
             ln_builder = ln_builder.with_capabilities(capabilities_to_native(caps)?);
         }
         if let Some(ref exts) = leaf_node_extensions {
-            let extensions = Extensions::from_vec(extensions_from_mls(exts))
+            let extensions = Extensions::from_vec(extensions_from_mls(exts)?)
                 .map_err(|e| format!("Failed to create leaf node extensions: {}", e))?;
             ln_builder = ln_builder.with_extensions(extensions);
         }
@@ -1635,7 +1716,7 @@ impl MlsEngine {
             ln_builder = ln_builder.with_capabilities(capabilities_to_native(caps)?);
         }
         if let Some(ref exts) = leaf_node_extensions {
-            let extensions = Extensions::from_vec(extensions_from_mls(exts))
+            let extensions = Extensions::from_vec(extensions_from_mls(exts)?)
                 .map_err(|e| format!("Failed to create leaf node extensions: {}", e))?;
             ln_builder = ln_builder.with_extensions(extensions);
         }
@@ -1682,7 +1763,7 @@ impl MlsEngine {
         let provider = self.load_for_group(&group_id_bytes).await?;
         let mut group = load_group(&group_id_bytes, &provider)?;
 
-        let ext_vec: Vec<Extension> = extensions.iter().map(|ext| Extension::Unknown(ext.extension_type, UnknownExtension(ext.data.clone()))).collect();
+        let ext_vec = extensions_from_mls(&extensions)?;
         let gc_extensions = Extensions::from_vec(ext_vec).map_err(|e| format!("Failed to create extensions: {}", e))?;
 
         let (proposal_out, _) = group.propose_group_context_extensions(&provider, gc_extensions, &signer)
@@ -1830,7 +1911,7 @@ impl MlsEngine {
         let provider = self.load_for_group(&group_id_bytes).await?;
         let mut group = load_group(&group_id_bytes, &provider)?;
 
-        let ext_vec: Vec<Extension> = extensions.iter().map(|ext| Extension::Unknown(ext.extension_type, UnknownExtension(ext.data.clone()))).collect();
+        let ext_vec = extensions_from_mls(&extensions)?;
         let gc_extensions = Extensions::from_vec(ext_vec).map_err(|e| format!("Failed to create extensions: {}", e))?;
 
         let (commit_out, welcome_opt, group_info_opt) = group
@@ -1882,7 +1963,7 @@ impl MlsEngine {
         }
 
         if let Some(ref gc_exts) = options.group_context_extensions {
-            let ext_vec = extensions_from_mls(gc_exts);
+            let ext_vec = extensions_from_mls(gc_exts)?;
             let extensions = Extensions::from_vec(ext_vec).map_err(|e| format!("Failed to create group context extensions: {}", e))?;
             commit_builder = commit_builder.propose_group_context_extensions(extensions).map_err(|e| format!("Failed to propose group context extensions: {}", e))?;
         }
@@ -1891,7 +1972,9 @@ impl MlsEngine {
         let commit_builder = commit_builder.create_group_info(options.create_group_info).use_ratchet_tree_extension(options.use_ratchet_tree_extension);
         let commit_builder = commit_builder.build(provider.rand(), provider.crypto(), &signer, |_| true).map_err(|e| format!("Failed to build commit: {}", e))?;
         let bundle = commit_builder.stage_commit(&provider).map_err(|e| format!("Failed to stage commit: {}", e))?;
-        group.merge_pending_commit(&provider).map_err(|e| format!("Failed to merge pending commit: {}", e))?;
+        if !options.keep_pending {
+            group.merge_pending_commit(&provider).map_err(|e| format!("Failed to merge pending commit: {}", e))?;
+        }
 
         let (commit_out, welcome_opt, gi_opt) = bundle.into_messages();
         let commit_bytes = commit_out.tls_serialize_detached().map_err(|e| format!("Failed to serialize commit: {}", e))?;
@@ -1978,21 +2061,14 @@ impl MlsEngine {
                         .map_err(|e| format!("Failed to store pending proposal: {}", e))?;
                     (ProcessedMessageType::Proposal, None, false, true, Some(prop_type))
                 }
-                // openmls 0.9.0 splits two cases out of what used to be errors.
-                // Neither is reachable through this engine, but naming them
-                // beats reporting them as an unknown content type.
-                //
-                // `OwnPendingCommit` is returned only when an incoming commit
-                // matches a *pending* one. Every commit-producing entry point
-                // here merges before it returns, so no pending commit ever
-                // survives to storage and an own commit fanned back by the
-                // delivery service takes the `OwnCommitMismatch` path instead —
-                // the same rejection 0.8.1 gave as `StageCommitError::OwnCommit`.
+                // `OwnPendingCommit`: an incoming commit is this member's own
+                // pending one, made with `FlexibleCommitOptions.keepPending`.
+                // `mergePendingCommit` applies it; there is nothing to process.
                 ProcessedMessageContent::OwnPendingCommit => {
                     return Err(
-                        "Own commit fanned back by the delivery service matched a pending \
-                         commit; this engine merges commits when it creates them, so there \
-                         is nothing left to merge"
+                        "Own commit fanned back by the delivery service matched this member's \
+                         pending commit; merge it with mergePendingCommit instead of \
+                         processing it"
                             .to_string(),
                     );
                 }
@@ -2023,6 +2099,43 @@ impl MlsEngine {
         group_id_bytes: Vec<u8>,
         message_bytes: Vec<u8>,
     ) -> Result<ProcessedMessageInspectResult, String> {
+        self.process_inspected(group_id_bytes, message_bytes, true).await
+    }
+
+    /// Process a message the way `processMessageWithInspect` does — decrypt it,
+    /// verify it, stage a commit — and report the same, **without changing
+    /// anything**: no commit is merged, no proposal stored, no ratchet
+    /// advanced, nothing written to storage.
+    ///
+    /// For an application that decides whether a commit is acceptable before
+    /// it takes effect: an access-control policy over who may add and remove
+    /// whom, say, which MLS leaves to the application. Inspect the commit,
+    /// judge `stagedCommitInfo` — its `proposals` with their senders, the
+    /// credentials of the members it removes, the group context it leads to —
+    /// and only then call `processMessage` (or `processMessageWithInspect`) on
+    /// the same bytes to apply it. A commit that is refused is simply never
+    /// processed; the group stays in its epoch.
+    ///
+    /// The message is processed twice when accepted, which costs one more
+    /// decryption and signature check. That is what makes this safe: nothing
+    /// staged here can be merged by mistake, because nothing staged here
+    /// outlives the call.
+    pub async fn inspect_message(
+        &self,
+        group_id_bytes: Vec<u8>,
+        message_bytes: Vec<u8>,
+    ) -> Result<ProcessedMessageInspectResult, String> {
+        self.process_inspected(group_id_bytes, message_bytes, false).await
+    }
+
+    /// The common body of `process_message_with_inspect` (`apply`) and
+    /// `inspect_message` (not `apply`: the session is dropped unsaved).
+    async fn process_inspected(
+        &self,
+        group_id_bytes: Vec<u8>,
+        message_bytes: Vec<u8>,
+        apply: bool,
+    ) -> Result<ProcessedMessageInspectResult, String> {
         let provider = self.load_for_group(&group_id_bytes).await?;
         let mut group = load_group(&group_id_bytes, &provider)?;
 
@@ -2046,54 +2159,33 @@ impl MlsEngine {
                     (ProcessedMessageType::Application, Some(app_msg.into_bytes()), None, None)
                 }
                 ProcessedMessageContent::StagedCommitMessage(staged_commit) => {
-                    let mut add_credentials = Vec::new();
-                    for add in staged_commit.add_proposals() {
-                        let kp = add.add_proposal().key_package();
-                        let cred_bytes = kp.leaf_node().credential()
-                            .tls_serialize_detached()
-                            .map_err(|e| format!("Failed to serialize add credential: {}", e))?;
-                        add_credentials.push(cred_bytes);
+                    // Read before the merge: the leaves it removes are gone after.
+                    let info = staged_commit_info(&group, &staged_commit)?;
+                    if apply {
+                        group.merge_staged_commit(&provider, *staged_commit)
+                            .map_err(|e| format!("Failed to merge staged commit: {}", e))?;
                     }
-                    let remove_indices: Vec<u32> = staged_commit.remove_proposals().map(|r| r.remove_proposal().removed().u32()).collect();
-                    let has_update = staged_commit.update_proposals().next().is_some();
-                    let self_removed = staged_commit.self_removed();
-                    let psk_count = staged_commit.psk_proposals().count() as u32;
-                    let info = StagedCommitInfo { add_credentials, remove_indices, has_update, self_removed, psk_count };
-
-                    group.merge_staged_commit(&provider, *staged_commit)
-                        .map_err(|e| format!("Failed to merge staged commit: {}", e))?;
                     (ProcessedMessageType::StagedCommit, None, Some(info), None)
                 }
                 ProcessedMessageContent::ProposalMessage(queued_proposal) => {
-                    let prop_type = match queued_proposal.proposal() {
-                        Proposal::Add(_) => MlsProposalType::Add,
-                        Proposal::Remove(_) => MlsProposalType::Remove,
-                        Proposal::Update(_) => MlsProposalType::Update,
-                        Proposal::PreSharedKey(_) => MlsProposalType::PreSharedKey,
-                        Proposal::ReInit(_) => MlsProposalType::Reinit,
-                        Proposal::ExternalInit(_) => MlsProposalType::ExternalInit,
-                        Proposal::GroupContextExtensions(_) => MlsProposalType::GroupContextExtensions,
-                        _ => MlsProposalType::Custom,
-                    };
-                    group.store_pending_proposal(provider.storage(), *queued_proposal)
-                        .map_err(|e| format!("Failed to store pending proposal: {}", e))?;
+                    let prop_type = proposal_type_of(queued_proposal.proposal());
+                    if apply {
+                        group.store_pending_proposal(provider.storage(), *queued_proposal)
+                            .map_err(|e| format!("Failed to store pending proposal: {}", e))?;
+                    }
                     (ProcessedMessageType::Proposal, None, None, Some(prop_type))
                 }
-                // openmls 0.9.0 splits two cases out of what used to be errors.
-                // Neither is reachable through this engine, but naming them
-                // beats reporting them as an unknown content type.
-                //
-                // `OwnPendingCommit` is returned only when an incoming commit
-                // matches a *pending* one. Every commit-producing entry point
-                // here merges before it returns, so no pending commit ever
-                // survives to storage and an own commit fanned back by the
-                // delivery service takes the `OwnCommitMismatch` path instead —
-                // the same rejection 0.8.1 gave as `StageCommitError::OwnCommit`.
+                // `OwnPendingCommit` is returned when an incoming commit is this
+                // member's own pending one — fanned back by the delivery service
+                // after a commit made with `FlexibleCommitOptions.keepPending`.
+                // There is nothing to process: `mergePendingCommit` applies it.
+                // (A commit merged when it was made arrives as
+                // `OwnCommitMismatch` instead, as in 0.8.1.)
                 ProcessedMessageContent::OwnPendingCommit => {
                     return Err(
-                        "Own commit fanned back by the delivery service matched a pending \
-                         commit; this engine merges commits when it creates them, so there \
-                         is nothing left to merge"
+                        "Own commit fanned back by the delivery service matched this member's \
+                         pending commit; merge it with mergePendingCommit instead of \
+                         processing it"
                             .to_string(),
                     );
                 }
@@ -2112,7 +2204,11 @@ impl MlsEngine {
                 _ => return Err("Unknown processed message content type".to_string()),
             };
 
-        self.commit(provider, Some(&group_id_bytes)).await?;
+        // Not applying: dropping the session discards everything processing
+        // touched in its snapshot, and releases the operation lock.
+        if apply {
+            self.commit(provider, Some(&group_id_bytes)).await?;
+        }
 
         Ok(ProcessedMessageInspectResult {
             message_type, sender_index, epoch, application_message, staged_commit_info, proposal_type,

@@ -201,6 +201,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   Uint8List dco_decode_list_prim_u_8_strict(dynamic raw);
 
   @protected
+  List<StagedProposalInfo> dco_decode_list_staged_proposal_info(dynamic raw);
+
+  @protected
   MlsCapabilities dco_decode_mls_capabilities(dynamic raw);
 
   @protected
@@ -278,6 +281,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   StagedCommitInfo dco_decode_staged_commit_info(dynamic raw);
+
+  @protected
+  StagedProposalInfo dco_decode_staged_proposal_info(dynamic raw);
 
   @protected
   int dco_decode_u_16(dynamic raw);
@@ -498,6 +504,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   Uint8List sse_decode_list_prim_u_8_strict(SseDeserializer deserializer);
 
   @protected
+  List<StagedProposalInfo> sse_decode_list_staged_proposal_info(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   MlsCapabilities sse_decode_mls_capabilities(SseDeserializer deserializer);
 
   @protected
@@ -595,6 +606,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   StagedCommitInfo sse_decode_staged_commit_info(SseDeserializer deserializer);
+
+  @protected
+  StagedProposalInfo sse_decode_staged_proposal_info(
+    SseDeserializer deserializer,
+  );
 
   @protected
   int sse_decode_u_16(SseDeserializer deserializer);
@@ -735,6 +751,7 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
       cst_encode_opt_list_prim_u_8_strict(raw.aad),
       cst_encode_bool(raw.createGroupInfo),
       cst_encode_bool(raw.useRatchetTreeExtension),
+      cst_encode_bool(raw.keepPending),
     ].jsify()!;
   }
 
@@ -858,6 +875,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   JSAny cst_encode_list_prim_u_8_strict(Uint8List raw) {
     // Codec=Cst (C-struct based), see doc to use other codecs
     return raw.jsify()!;
+  }
+
+  @protected
+  JSAny cst_encode_list_staged_proposal_info(List<StagedProposalInfo> raw) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return raw.map(cst_encode_staged_proposal_info).toList().jsify()!;
   }
 
   @protected
@@ -1049,6 +1072,20 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
       cst_encode_bool(raw.hasUpdate),
       cst_encode_bool(raw.selfRemoved),
       cst_encode_u_32(raw.pskCount),
+      cst_encode_list_list_prim_u_8_strict(raw.removeCredentials),
+      cst_encode_list_staged_proposal_info(raw.proposals),
+      cst_encode_opt_list_prim_u_8_strict(raw.committerCredential),
+      cst_encode_list_mls_extension(raw.groupContextExtensions),
+    ].jsify()!;
+  }
+
+  @protected
+  JSAny cst_encode_staged_proposal_info(StagedProposalInfo raw) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return [
+      cst_encode_mls_proposal_type(raw.proposalType),
+      cst_encode_opt_box_autoadd_u_32(raw.senderIndex),
+      cst_encode_bool(raw.byReference),
     ].jsify()!;
   }
 
@@ -1412,6 +1449,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_list_staged_proposal_info(
+    List<StagedProposalInfo> self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_mls_capabilities(
     MlsCapabilities self,
     SseSerializer serializer,
@@ -1543,6 +1586,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_staged_commit_info(
     StagedCommitInfo self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_staged_proposal_info(
+    StagedProposalInfo self,
     SseSerializer serializer,
   );
 
@@ -2124,6 +2173,18 @@ class RustLibWire implements BaseWire {
     port_,
     that,
     group_id_bytes,
+  );
+
+  void wire__crate__api__engine__MlsEngine_inspect_message(
+    NativePortType port_,
+    int that,
+    JSAny group_id_bytes,
+    JSAny message_bytes,
+  ) => wasmModule.wire__crate__api__engine__MlsEngine_inspect_message(
+    port_,
+    that,
+    group_id_bytes,
+    message_bytes,
   );
 
   void wire__crate__api__engine__MlsEngine_inspect_welcome(
@@ -3042,6 +3103,13 @@ extension type RustLibWasmModule._(JSObject _) implements JSObject {
     NativePortType port_,
     int that,
     JSAny group_id_bytes,
+  );
+
+  external void wire__crate__api__engine__MlsEngine_inspect_message(
+    NativePortType port_,
+    int that,
+    JSAny group_id_bytes,
+    JSAny message_bytes,
   );
 
   external void wire__crate__api__engine__MlsEngine_inspect_welcome(

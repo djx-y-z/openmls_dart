@@ -1,5 +1,57 @@
 ## [Unreleased]
 
+### For Users
+
+#### ✨ Highlights
+
+- **Judge a commit before it takes effect** — `inspectMessage` reports what a
+  commit would do, with who proposed each change and whose leaves it removes,
+  and applies nothing.
+- **Merge an own commit only once the delivery service took it** —
+  `FlexibleCommitOptions.keepPending`.
+- **Group-context extensions OpenMLS defines are passed typed** — so an
+  application's own extension can be required with `RequiredCapabilities`.
+
+#### Added
+
+- **`MlsEngine.inspectMessage`** — processes a message like
+  `processMessageWithInspect` and reports the same, without merging a commit,
+  storing a proposal, advancing a ratchet or writing to storage. MLS lets any
+  member commit any Add or Remove and leaves who may to the application; with
+  this, an application judges a commit by its own policy and processes it
+  only when it accepts it. A refused commit is simply never processed.
+- **`StagedCommitInfo.removeCredentials`** — the credential of each removed
+  member, read before the merge, one per `removeIndices` entry: after the
+  merge those leaves are gone.
+- **`StagedCommitInfo.proposals`** (`StagedProposalInfo`) — every proposal
+  the commit applies, with its own sender and whether it came by reference.
+  A commit can carry other members' proposals, so the committer is not
+  necessarily the author of each change.
+- **`StagedCommitInfo.committerCredential`** — the committer's new leaf
+  credential when the commit has an update path, which can replace it.
+- **`StagedCommitInfo.groupContextExtensions`** — the application-defined
+  extensions of the group context the commit leads to.
+- **`FlexibleCommitOptions.keepPending`** (default `false`) — leaves the
+  commit pending instead of merging it, for `mergePendingCommit` once the
+  delivery service accepted it or `clearPendingCommit` when another member's
+  commit won the epoch. Processing that member's commit also replaces it.
+
+#### Changed
+
+- **Extensions are decoded as OpenMLS decodes received ones**
+  (`extensions_from_mls`) — a type OpenMLS defines (`RequiredCapabilities`
+  0x0003, `ExternalSenders` 0x0005, …) becomes its typed variant instead of an
+  unknown extension, wherever the API takes `MlsExtension`s: group creation,
+  key packages, leaf nodes, group-context updates and proposals, flexible
+  commits. OpenMLS looks for the typed variants: an application's
+  group-context extension used to be refused for want of a
+  `RequiredCapabilities` listing it, which could not be given. A malformed
+  extension of such a type is now an `Invalid extension 0x….` error at the
+  call.
+- **`StagedCommitInfo` has four more fields** — all optional in its
+  constructor (empty lists, `null`), so code that builds one itself, a test
+  double say, compiles unchanged.
+
 ### For Contributors
 
 #### Changed

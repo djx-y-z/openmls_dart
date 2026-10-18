@@ -8,7 +8,7 @@ import 'config.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 import 'types.dart';
 
-// These functions are ignored because they are not marked as `pub`: `acquire_locks`, `apply_past_epoch_deletion`, `apply_past_epoch_policy`, `build_credential_with_key`, `commit`, `db`, `load_for_group`, `load_global`, `load_group`, `max_epochs_to_native`, `native_to_past_epoch_policy`, `unix_seconds_to_system_time`, `with_cap`
+// These functions are ignored because they are not marked as `pub`: `acquire_locks`, `apply_past_epoch_deletion`, `apply_past_epoch_policy`, `build_credential_with_key`, `commit`, `db`, `load_for_group`, `load_global`, `load_group`, `max_epochs_to_native`, `native_to_past_epoch_policy`, `process_inspected`, `proposal_type_of`, `staged_commit_info`, `unix_seconds_to_system_time`, `with_cap`
 // These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `OpLocks`, `OpSession`
 // These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `crypto`, `rand`, `storage`
 
@@ -427,6 +427,29 @@ abstract class MlsEngine implements RustOpaqueInterface {
 
   Future<List<MlsPendingProposalInfo>> groupPendingProposals({
     required List<int> groupIdBytes,
+  });
+
+  /// Process a message the way `processMessageWithInspect` does — decrypt it,
+  /// verify it, stage a commit — and report the same, **without changing
+  /// anything**: no commit is merged, no proposal stored, no ratchet
+  /// advanced, nothing written to storage.
+  ///
+  /// For an application that decides whether a commit is acceptable before
+  /// it takes effect: an access-control policy over who may add and remove
+  /// whom, say, which MLS leaves to the application. Inspect the commit,
+  /// judge `stagedCommitInfo` — its `proposals` with their senders, the
+  /// credentials of the members it removes, the group context it leads to —
+  /// and only then call `processMessage` (or `processMessageWithInspect`) on
+  /// the same bytes to apply it. A commit that is refused is simply never
+  /// processed; the group stays in its epoch.
+  ///
+  /// The message is processed twice when accepted, which costs one more
+  /// decryption and signature check. That is what makes this safe: nothing
+  /// staged here can be merged by mistake, because nothing staged here
+  /// outlives the call.
+  Future<ProcessedMessageInspectResult> inspectMessage({
+    required List<int> groupIdBytes,
+    required List<int> messageBytes,
   });
 
   Future<WelcomeInspectResult> inspectWelcome({
