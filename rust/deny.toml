@@ -32,11 +32,33 @@ version = 2
 #     also reports *unmaintained* advisories, which `cargo audit` does not fail
 #     on, so an entry here is often one `make rust-audit` never needed.
 #
-# The libcrux crypto advisories that used to dominate this list are gone:
-# openmls-v0.9.0 moves the whole libcrux tree past every version they applied
-# to, so they no longer match a crate in the graph. See `.cargo/audit.toml`,
-# which now carries an empty list and the reasoning.
+# The libcrux vulnerabilities below mirror `.cargo/audit.toml`, which holds the
+# full reachability analysis for each; the notes here are pointers. They are
+# the 2026-10 batch. The openmls-v0.8.1 batch that used to dominate this list
+# is gone: openmls-v0.9.0 moved the whole libcrux tree past every version it
+# applied to.
 ignore = [
+    # --- libcrux vulnerabilities (see .cargo/audit.toml for the full notes) ---
+    # Both crates reach the graph only through openmls_libcrux_crypto 0.4.0,
+    # the X-Wing provider, and only an upstream OpenMLS release can move them:
+    # the fixes need hpke-rs-libcrux 0.8, which openmls main adopted (#2261)
+    # and has not released. openmls 0.9.1 does not carry it.
+    # libcrux-hmac-drbg `HmacDrbgRng::fill_bytes` panic on lengths that are a
+    # multiple of 65,536. Unreachable: nothing in the graph calls it —
+    # openmls_libcrux_crypto uses the raw `HmacDrbgSha256::generate`.
+    "RUSTSEC-2026-0329",
+    # libcrux-kem `PublicKey::encapsulate_derand` panic on a short seed.
+    # Unreachable: nothing in the graph calls it — hpke-rs-libcrux 0.7.0
+    # encapsulates through the randomized `encapsulate(prng)`.
+    "RUSTSEC-2026-0330",
+    # libcrux-kem X-Wing public-key decode panic on input under 1184 bytes. NOT
+    # unreachable — ACCEPTED availability-only risk (CVSS 4.0 VC:N/VI:N/VA:H):
+    # a peer's malformed X-Wing key panics this client's next encapsulation to
+    # it. X-Wing (0x004D) only. Native: the operation fails with a
+    # PanicException. wasm32: the panic aborts and the database stays locked
+    # until the page reloads (SECURITY.md Known Limitations #12, #13).
+    "RUSTSEC-2026-0331",
+
     # --- Unmaintained transitive build dependencies (informational) ---
     # cargo-deny flags unmaintained advisories that `cargo audit` does not fail
     # on. This crate is pulled transitively by upstream, is not in the shipped

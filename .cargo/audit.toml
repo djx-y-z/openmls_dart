@@ -1,25 +1,24 @@
 # cargo-audit configuration.
 #
-# The ignore list is empty, and that is the finding rather than an oversight.
+# Every entry below is a libcrux advisory that reaches this crate only through
+# the X-Wing provider (openmls_libcrux_crypto) and that `cargo update` cannot
+# move: the fixed versions lie outside openmls's own version requirements, so
+# each clears only with an upstream OpenMLS release that raises them. Each
+# carries its reachability argument inline; add an entry only the same way.
 #
-# Every entry it used to hold was a libcrux advisory that openmls-v0.8.1 pinned
-# us to by exact version: RUSTSEC-2026-0073, -0075, -0124, -0207, -0208, -0209,
-# -0211 and -0212. Each note ended with some form of "clears on the next
-# upstream OpenMLS bump", and openmls-v0.9.0 is that bump — it moves the whole
-# libcrux tree (libcrux-secrets 0.0.5 -> 0.0.6, libcrux-ed25519 0.0.6 -> 0.0.9,
-# libcrux-aead 0.0.7 -> 0.0.9, hpke-rs 0.6.1 -> 0.7.0), so none of those
-# advisories matches a crate in the graph any more. Verified by removing them
-# and re-running: `make rust-audit` reports no vulnerabilities, and
-# `make rust-deny` reports no `advisory-not-detected` warnings.
+# The list was empty from the openmls-v0.9.0 bump until the 2026-10 batch
+# below. Every entry it held before was a libcrux advisory that openmls-v0.8.1
+# pinned us to by exact version: RUSTSEC-2026-0073, -0075, -0124, -0207, -0208,
+# -0209, -0211 and -0212. openmls-v0.9.0 moved the whole libcrux tree
+# (libcrux-secrets 0.0.5 -> 0.0.6, libcrux-ed25519 0.0.6 -> 0.0.9, libcrux-aead
+# 0.0.7 -> 0.0.9, hpke-rs 0.6.1 -> 0.7.0) past every one of them — verified by
+# removing them and re-running: `make rust-audit` reported no vulnerabilities,
+# and `make rust-deny` no `advisory-not-detected` warnings. RUSTSEC-2026-0212
+# was the one entry NOT argued unreachable — an accepted availability-only risk
+# on the aarch64 X-Wing path — and that bump remediated it outright.
 #
-# RUSTSEC-2026-0212 is worth naming specifically, because it was the one entry
-# that was NOT argued unreachable: it was an explicitly accepted
-# availability-only risk on the aarch64 X-Wing path. It is now remediated
-# outright rather than accepted.
-#
-# Add an entry back only with an inline justification, the way the removed ones
-# carried theirs. `deny.toml` keeps its own list for the unmaintained-crate
-# advisories that `cargo audit` does not fail on.
+# `deny.toml` keeps its own list: the same vulnerabilities, plus the
+# unmaintained-crate advisories that `cargo audit` does not fail on.
 #
 # A libcrux reachability argument is only as good as the guard that bounds what
 # reaches libcrux. Three tests in `rust/src/hybrid_crypto.rs` do that, and any
@@ -27,8 +26,9 @@
 #
 #   - `libcrux_routing_is_limited_to_xwing` — enumerates every supported
 #     ciphersuite and requires that exactly one (X-Wing, 0x004D) routes to
-#     libcrux, both by the routing predicate and by running HPKE keygen on a
-#     fresh provider per suite. This is the one that bounds the set.
+#     libcrux, both by the routing predicate and by running all five HPKE
+#     methods on a fresh provider per suite. This is the one that bounds the
+#     set.
 #   - `classical_ops_do_not_init_libcrux` — per operation family (signature,
 #     AEAD, hash, KDF), the justification most ignores were phrased over.
 #   - `api_list_matches_provider_support` — keeps the advertised suite list and
@@ -39,4 +39,68 @@
 # ML-KEM suites began reaching libcrux while every existing test stayed green.
 
 [advisories]
-ignore = []
+ignore = [
+    # --- 2026-10 batch: libcrux-hmac-drbg and libcrux-kem (openmls-v0.9.0) ---
+    #
+    # Neither crate can be moved from here. Each has exactly one dependent
+    # (`cargo tree --target all -i <crate>`): libcrux-hmac-drbg comes from
+    # openmls_libcrux_crypto 0.4.0, which requires `libcrux-hmac-drbg = "0.0.1"`
+    # — for a 0.0.x crate a caret requirement is an exact pin — and libcrux-kem
+    # from hpke-rs-libcrux, which that crate requires as "0.7"; the only 0.7
+    # release, 0.7.0, pins libcrux-kem to 0.0.9. The fixed versions (0.0.2 and
+    # 0.0.10) arrive with hpke-rs-libcrux 0.8.0, which openmls main adopted in
+    # #2261 (2026-10-09) and has not released. openmls 0.9.1 (tag `v0.9.1`)
+    # leaves both requirements as they are, so these entries outlive that bump.
+
+    # libcrux-hmac-drbg 0.0.1: the auto-reseeding `HmacDrbgRng::fill_bytes`
+    # panics when asked for a non-zero multiple of 65,536 bytes.
+    # CVSS:4.0/AV:N/AC:L/AT:P/PR:N/UI:N/VC:N/VI:N/VA:H — availability only.
+    # Unreachable: nothing in the graph calls the affected function.
+    # openmls_libcrux_crypto never names `HmacDrbgRng`; it drives the raw
+    # `HmacDrbgSha256::generate` from its own `fill_random`, whose `chunks_mut`
+    # loop never issues the empty request that panics. `fill_random` in turn
+    # serves only that provider's `OpenMlsRand` and signature key generation,
+    # and HybridCrypto reaches neither: its own `OpenMlsRand` delegates to
+    # RustCrypto unconditionally, and `classical_ops_do_not_init_libcrux` pins
+    # signature key generation there.
+    "RUSTSEC-2026-0329",
+
+    # libcrux-kem 0.0.9: `PublicKey::encapsulate_derand` panics on a seed
+    # shorter than 32 bytes (X-Wing and X25519MlKem768Draft06 keys).
+    # CVSS:4.0/AV:L/AC:L/AT:P/PR:H/UI:N/VC:N/VI:N/VA:H — availability only, and
+    # the seed is the encapsulating party's own secret randomness.
+    # Unreachable: nothing in the graph calls the affected function.
+    # hpke-rs-libcrux 0.7.0 encapsulates with the randomized
+    # `PublicKey::encapsulate(prng)`, which samples a fixed-size seed itself and
+    # does not go through `encapsulate_derand`; neither hpke-rs,
+    # hpke-rs-crypto nor any crate of the openmls workspace calls it.
+    "RUSTSEC-2026-0330",
+
+    # libcrux-kem 0.0.9: `XWingKemDraft06PublicKey::decode` panics on input
+    # shorter than 1184 bytes — it slices `bytes[0..1184]` before checking the
+    # length (a well-formed X-Wing public key is 1216 bytes).
+    # CVSS:4.0/AV:N/AC:L/AT:N/PR:N/UI:N/VC:N/VI:N/VA:H.
+    # NOT unreachable — ACCEPTED RISK. hpke-rs-libcrux 0.7.0 `kem_encaps`
+    # decodes the recipient's key on every X-Wing HPKE encapsulation
+    # (`hpke_seal`, `hpke_setup_sender_and_export`), and neither hpke-rs nor
+    # openmls 0.9.0 checks its length first. That key is peer data: the
+    # init_key of a KeyPackage this client adds (the Welcome is sealed to it),
+    # the encryption keys of other members' tree nodes (a commit's UpdatePath
+    # is encrypted to them), a GroupInfo's external_pub (an external join). A
+    # malformed key from a peer therefore panics this client's next
+    # encapsulation to it. Bounded to the X-Wing suite (0x004D), the only one
+    # whose HPKE reaches libcrux (`libcrux_routing_is_limited_to_xwing`);
+    # classical and the other post-quantum suites never initialize libcrux.
+    # The impact is availability, but not the same on both targets:
+    #   - native: the panic unwinds, flutter_rust_bridge surfaces it to Dart as
+    #     a `PanicException`, the snapshot is never committed and the engine's
+    #     lock is released — that one operation fails;
+    #   - wasm32: a panic aborts (SECURITY.md, Known Limitations #12). The
+    #     instance traps, zeroize-on-Drop is skipped for that operation, and
+    #     the engine's locks — its mutex and the Web Lock — are never
+    #     released, so that database stays unusable until the page reloads.
+    # Accepted because it can neither leak nor forge (VC:N/VI:N) and the fixed
+    # crate is out of reach until upstream releases one; SECURITY.md #13 tells
+    # consumers how to keep 0x004D out of their groups meanwhile.
+    "RUSTSEC-2026-0331",
+]

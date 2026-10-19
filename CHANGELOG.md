@@ -1,5 +1,28 @@
 ## [Unreleased]
 
+### For Users
+
+#### Security
+
+- **X-Wing's libcrux dependencies carry three new RustSec advisories, one of
+  them a peer-triggerable denial of service** — RUSTSEC-2026-0329
+  (`libcrux-hmac-drbg` 0.0.1), RUSTSEC-2026-0330 and RUSTSEC-2026-0331
+  (`libcrux-kem` 0.0.9) reach this package only through the experimental
+  X-Wing ciphersuite (0x004D), and ship in the released native libraries
+  (`openmls_frb` 2.3.1 included). OpenMLS pins both crates — 0.9.1 too — so no
+  dependency update here can move them; the fixed versions need an OpenMLS
+  release that does not exist yet. 0329 and 0330 are unreachable: nothing in
+  the dependency graph calls the affected functions. **0331 is reachable** —
+  an X-Wing public key shorter than 1184 bytes, supplied by a peer, panics the
+  next encryption to it. Nothing leaks and nothing is forged (CVSS
+  `VC:N/VI:N/VA:H`). Natively the operation fails with a `PanicException` and
+  nothing is saved; on the web the panic aborts with the engine's locks held,
+  and the database stays unusable until the page is reloaded. Classical and
+  the other post-quantum suites never reach libcrux. `SECURITY.md` (Known
+  Limitations #13) says how to keep 0x004D away from untrusted peers until a
+  fixed release; the per-advisory analysis is in `.cargo/audit.toml` and
+  `rust/deny.toml`.
+
 ### For Contributors
 
 #### Changed
