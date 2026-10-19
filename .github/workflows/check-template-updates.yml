@@ -74,9 +74,10 @@ jobs:
       # write-scoped credential. The pull request is pushed by
       # peter-evans/create-pull-request, which takes the token as an input and
       # needs no persisted credentials; the gh steps read it from GH_TOKEN.
-      # Mirrors refresh-notices.yml. The repository is public, so an anonymous
-      # checkout fetches the same content; if it is ever made private, re-add
-      # `token: ${{ steps.app-token.outputs.token }}` alongside this line.
+      # Mirrors refresh-notices.yml. This checkout runs on the job's default
+      # GITHUB_TOKEN, which `permissions: contents: read` scopes to a read of
+      # this repository — enough whether it is public or private — so the App
+      # token is not needed here at all.
       - uses: actions/checkout@v7
         with:
           persist-credentials: false

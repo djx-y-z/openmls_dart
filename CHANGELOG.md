@@ -28,6 +28,20 @@
   commit payload handle inventories whose base64 representation is larger than
   the per-argument limit.
 
+- **The App token is kept out of the update-checker checkouts**
+  (`.github/workflows/check-openmls-updates.yml`,
+  `.github/workflows/check-template-updates.yml`) — both jobs mint a
+  write-scoped GitHub App token and then run repository code and third-party
+  tooling (`make`, `pip install copier`) in the same job. The
+  `actions/checkout` step no longer receives that token; it uses the job's
+  default, read-scoped `GITHUB_TOKEN` (the jobs grant `contents: read`), and
+  `persist-credentials: false` keeps even that out of `.git/config`, so nothing
+  in the worktree can read a write-scoped credential. `GITHUB_TOKEN` is enough
+  to check the repository out whether it is public or private. The pull request
+  is still pushed by `peter-evans/create-pull-request` via its App-token input,
+  and the `gh` steps read the App token from `GH_TOKEN`. Mirrors
+  `refresh-notices.yml`.
+
 ## [3.2.1] - 2026-09-29
 
 ### For Users
