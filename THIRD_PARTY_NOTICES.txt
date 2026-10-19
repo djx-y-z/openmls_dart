@@ -924,7 +924,7 @@ serde_derive 1.0.229
   License: MIT OR Apache-2.0
   Texts:   LICENSE-APACHE [T10], LICENSE-MIT [T145]
 
-serde_json 1.0.151
+serde_json 1.0.154
   License: MIT OR Apache-2.0
   Texts:   LICENSE-APACHE [T10], LICENSE-MIT [T145]
 
@@ -1108,7 +1108,7 @@ zerocopy 0.8.56
   License: BSD-2-Clause OR Apache-2.0 OR MIT
   Texts:   LICENSE-APACHE [T4], LICENSE-BSD [T128], LICENSE-MIT [T130]
 
-zeroize 1.9.0
+zeroize 1.9.1
   License: Apache-2.0 OR MIT
   Texts:   LICENSE-APACHE [T6], LICENSE-MIT [T85]
 
@@ -1983,7 +1983,7 @@ Crates:
   cmov@0.5.4
   ctutils@0.4.2
   idb@0.6.5
-  zeroize@1.9.0
+  zeroize@1.9.1
   zeroize_derive@1.5.0
 
 Apache License
@@ -2831,7 +2831,7 @@ Crates:
   serde_bytes@0.11.19
   serde_core@1.0.229
   serde_derive@1.0.229
-  serde_json@1.0.151
+  serde_json@1.0.154
   syn@2.0.119
   syn@3.0.4
   thiserror-impl@2.0.21
@@ -8822,7 +8822,7 @@ DEALINGS IN THE SOFTWARE.
 
 Crates:
   keccak@0.2.2
-  zeroize@1.9.0
+  zeroize@1.9.1
 
 Copyright (c) 2018-2026 The RustCrypto Project Developers
 
@@ -10701,7 +10701,7 @@ Crates:
   serde_bytes@0.11.19
   serde_core@1.0.229
   serde_derive@1.0.229
-  serde_json@1.0.151
+  serde_json@1.0.154
   syn@2.0.119
   syn@3.0.4
   thiserror-impl@2.0.21
