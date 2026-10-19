@@ -66,9 +66,20 @@ jobs:
           client-id: ${{ vars.APP_CLIENT_ID }}
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
 
+      # The App token minted above is deliberately NOT passed to this checkout,
+      # and `persist-credentials: false` keeps even the default GITHUB_TOKEN out
+      # of `.git/config`. Later steps in this same job run repository code and
+      # third-party tooling (pip install copier, make update-template, make get),
+      # and keeping the token out of the worktree means none of that can read a
+      # write-scoped credential. The pull request is pushed by
+      # peter-evans/create-pull-request, which takes the token as an input and
+      # needs no persisted credentials; the gh steps read it from GH_TOKEN.
+      # Mirrors refresh-notices.yml. The repository is public, so an anonymous
+      # checkout fetches the same content; if it is ever made private, re-add
+      # `token: ${{ steps.app-token.outputs.token }}` alongside this line.
       - uses: actions/checkout@v7
         with:
-          token: ${{ steps.app-token.outputs.token }}
+          persist-credentials: false
 
       - name: Setup FVM and Flutter
         uses: ./.github/actions/setup-fvm
