@@ -343,8 +343,8 @@ mod tests {
     /// proves lazy init keeps classical suites independent of libcrux.
     ///
     /// This test also MECHANICALLY ENFORCES the reasoning `.cargo/audit.toml`
-    /// records: its ignore list is empty, and the libcrux advisories it used to
-    /// carry — RUSTSEC-2026-0075 (libcrux-ed25519) and RUSTSEC-2026-0124
+    /// records. The libcrux advisories it carried until openmls 0.9.0 —
+    /// RUSTSEC-2026-0075 (libcrux-ed25519) and RUSTSEC-2026-0124
     /// (libcrux-chacha20poly1305) among them — were justified on the grounds
     /// that signature and AEAD operations never route to libcrux. openmls 0.9.0
     /// moved the tree past every one of them, so none matches today. If a future
