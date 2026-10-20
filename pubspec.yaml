@@ -27,8 +27,8 @@ dependencies:
   # SDK is the other half of it — capping them below what the pinned Flutter
   # expects breaks the hook at a consumer's build, which is worse than the drift.
   # Majors (hooks 2.x, code_assets 2.x) are a deliberate migration, not a bump.
-  hooks: ^1.0.0
-  code_assets: ^1.0.0
+  hooks: ^2.2.0
+  code_assets: ^2.1.0
 
 dev_dependencies:
   # Capped to one minor line, not because 6.1 is bad but because
@@ -55,7 +55,7 @@ dev_dependencies:
   # runtime, so a change here shows up as a diff in the committed bindings and
   # not as a failing assert — the update workflow's `bindings=changed` tripwire
   # is what surfaces it.
-  ffigen: ^20.1.1
+  ffigen: ^23.0.0
 
 platforms:
   android:
