@@ -51,12 +51,12 @@ ignore = [
     # Unreachable: nothing in the graph calls it — hpke-rs-libcrux 0.7.0
     # encapsulates through the randomized `encapsulate(prng)`.
     "RUSTSEC-2026-0330",
-    # libcrux-kem X-Wing public-key decode panic on input under 1184 bytes. NOT
-    # unreachable — ACCEPTED availability-only risk (CVSS 4.0 VC:N/VI:N/VA:H):
-    # a peer's malformed X-Wing key panics this client's next encapsulation to
-    # it. X-Wing (0x004D) only. Native: the operation fails with a
-    # PanicException. wasm32: the panic aborts and the database stays locked
-    # until the page reloads (SECURITY.md Known Limitations #12, #13).
+    # libcrux-kem X-Wing public-key decode panic on input under 1184 bytes.
+    # Reachable in openmls_frb up to 2.3.1 (X-Wing 0x004D, a peer's malformed
+    # key; CVSS 4.0 VC:N/VI:N/VA:H): a PanicException natively, a database
+    # locked until reload on wasm32 (SECURITY.md Known Limitations #12, #13).
+    # From the next release HybridCrypto refuses such keys before libcrux sees
+    # them (`XWING_PUBLIC_KEY_LEN`). Listed regardless: it is in the lockfile.
     "RUSTSEC-2026-0331",
 
     # --- Unmaintained transitive build dependencies (informational) ---

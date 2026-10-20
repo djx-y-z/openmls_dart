@@ -80,27 +80,33 @@ ignore = [
     # shorter than 1184 bytes — it slices `bytes[0..1184]` before checking the
     # length (a well-formed X-Wing public key is 1216 bytes).
     # CVSS:4.0/AV:N/AC:L/AT:N/PR:N/UI:N/VC:N/VI:N/VA:H.
-    # NOT unreachable — ACCEPTED RISK. hpke-rs-libcrux 0.7.0 `kem_encaps`
-    # decodes the recipient's key on every X-Wing HPKE encapsulation
-    # (`hpke_seal`, `hpke_setup_sender_and_export`), and neither hpke-rs nor
-    # openmls 0.9.0 checks its length first. That key is peer data: the
-    # init_key of a KeyPackage this client adds (the Welcome is sealed to it),
-    # the encryption keys of other members' tree nodes (a commit's UpdatePath
-    # is encrypted to them), a GroupInfo's external_pub (an external join). A
-    # malformed key from a peer therefore panics this client's next
-    # encapsulation to it. Bounded to the X-Wing suite (0x004D), the only one
-    # whose HPKE reaches libcrux (`libcrux_routing_is_limited_to_xwing`);
-    # classical and the other post-quantum suites never initialize libcrux.
-    # The impact is availability, but not the same on both targets:
-    #   - native: the panic unwinds, flutter_rust_bridge surfaces it to Dart as
-    #     a `PanicException`, the snapshot is never committed and the engine's
-    #     lock is released — that one operation fails;
-    #   - wasm32: a panic aborts (SECURITY.md, Known Limitations #12). The
-    #     instance traps, zeroize-on-Drop is skipped for that operation, and
-    #     the engine's locks — its mutex and the Web Lock — are never
-    #     released, so that database stays unusable until the page reloads.
-    # Accepted because it can neither leak nor forge (VC:N/VI:N) and the fixed
-    # crate is out of reach until upstream releases one; SECURITY.md #13 tells
-    # consumers how to keep 0x004D out of their groups meanwhile.
+    # REACHABLE in the released binaries, GUARDED in this tree — never write
+    # "unreachable" here. hpke-rs-libcrux 0.7.0 `kem_encaps` decodes the
+    # recipient's key on every X-Wing HPKE encapsulation (`hpke_seal`,
+    # `hpke_setup_sender_and_export`), and neither hpke-rs nor openmls 0.9.0
+    # checks its length first. That key is peer data: the init_key of a
+    # KeyPackage this client adds (the Welcome is sealed to it), the encryption
+    # keys of other members' tree nodes (a commit's UpdatePath is encrypted to
+    # them), a GroupInfo's external_pub (an external join). Bounded to the
+    # X-Wing suite (0x004D), the only one whose HPKE reaches libcrux
+    # (`libcrux_routing_is_limited_to_xwing`); classical and the other
+    # post-quantum suites never initialize libcrux.
+    #   - openmls_frb up to 2.3.1 (package up to 3.2.1): a malformed key from a
+    #     peer panics this client's next encapsulation to it. Native: the panic
+    #     unwinds, flutter_rust_bridge surfaces it to Dart as a
+    #     `PanicException`, the snapshot is never committed and the engine's
+    #     lock is released — that one operation fails. wasm32: a panic aborts
+    #     (SECURITY.md, Known Limitations #12) — the instance traps,
+    #     zeroize-on-Drop is skipped, and the engine's locks (its mutex and the
+    #     Web Lock) are never released, so that database stays unusable until
+    #     the page reloads. Availability only either way (VC:N/VI:N).
+    #   - from the next openmls_frb release on: HybridCrypto refuses an X-Wing
+    #     recipient key of any length but 1216 before libcrux sees it, with the
+    #     error `libcrux-kem` 0.0.10 gives (`XWING_PUBLIC_KEY_LEN` in
+    #     `rust/src/hybrid_crypto.rs`). Pinned by
+    #     `xwing_malformed_recipient_key_is_an_error_not_a_panic`, which panics
+    #     inside libcrux with the check removed.
+    # The entry stays all the same: `cargo audit` reads the lockfile, and
+    # libcrux-kem 0.0.9 is in it until upstream releases the fix.
     "RUSTSEC-2026-0331",
 ]

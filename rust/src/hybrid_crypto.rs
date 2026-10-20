@@ -86,6 +86,25 @@ fn routes_to_libcrux(config: &HpkeConfig) -> bool {
     config.0 == kem && config.1 == kdf && config.2 == aead
 }
 
+/// Length of an X-Wing (draft-06) public key: the ML-KEM-768 encapsulation key
+/// (1184 bytes) followed by the X25519 public key (32).
+///
+/// The two sender-side HPKE methods refuse any other length on the libcrux
+/// route before libcrux sees the key, because of RUSTSEC-2026-0331: in
+/// `libcrux-kem` 0.0.9, `XWingKemDraft06PublicKey::decode` slices
+/// `bytes[0..1184]` before it checks the length, so a shorter key panics
+/// instead of failing. The recipient key is peer data — a key package's init
+/// key, another member's tree-node key, a `GroupInfo`'s `external_pub` — and on
+/// wasm32 that panic aborts with the engine's locks held. Every other length is
+/// refused by libcrux as well, so the check turns away nothing that could have
+/// worked, and each method answers with the error `libcrux-kem` 0.0.10 gives.
+///
+/// The receive side needs no such check: it decodes the KEM output with a
+/// fixed-size `try_into` and decrypts with our own key. Once an openmls release
+/// brings `libcrux-kem` 0.0.10 the check is redundant rather than wrong;
+/// whether to keep it, as `wire_decode.rs` was kept, is decided at that bump.
+const XWING_PUBLIC_KEY_LEN: usize = 1184 + 32;
+
 impl OpenMlsCrypto for HybridCrypto {
     fn supports(&self, ciphersuite: Ciphersuite) -> Result<(), CryptoError> {
         if routes_to_libcrux(&ciphersuite.hpke_config()) {
@@ -182,6 +201,10 @@ impl OpenMlsCrypto for HybridCrypto {
         ptxt: &[u8],
     ) -> Result<HpkeCiphertext, CryptoError> {
         if routes_to_libcrux(&config) {
+            // RUSTSEC-2026-0331: see `XWING_PUBLIC_KEY_LEN`.
+            if pk_r.len() != XWING_PUBLIC_KEY_LEN {
+                return Err(CryptoError::HpkeEncryptionError);
+            }
             self.libcrux()?.hpke_seal(config, pk_r, info, aad, ptxt)
         } else {
             self.rust.hpke_seal(config, pk_r, info, aad, ptxt)
@@ -212,6 +235,10 @@ impl OpenMlsCrypto for HybridCrypto {
         exporter_length: usize,
     ) -> Result<(KemOutput, ExporterSecret), CryptoError> {
         if routes_to_libcrux(&config) {
+            // RUSTSEC-2026-0331: see `XWING_PUBLIC_KEY_LEN`.
+            if pk_r.len() != XWING_PUBLIC_KEY_LEN {
+                return Err(CryptoError::SenderSetupError);
+            }
             self.libcrux()?.hpke_setup_sender_and_export(
                 config,
                 pk_r,
@@ -633,6 +660,49 @@ mod tests {
         );
 
         full_group_lifecycle(cs);
+    }
+
+    /// RUSTSEC-2026-0331: a malformed X-Wing recipient key must come back as an
+    /// error from both sender-side methods, never as a panic inside libcrux.
+    ///
+    /// Only the lengths under 1184 tell the guard apart from its absence —
+    /// `libcrux-kem` 0.0.9 panics on exactly those, and returns an error for
+    /// the others. With the two checks removed, this test panics on the first
+    /// key, which is how it was verified. The well-formed key at the end is the
+    /// other half: the guard must not refuse a key libcrux accepts.
+    #[test]
+    fn xwing_malformed_recipient_key_is_an_error_not_a_panic() {
+        let cs = LIBCRUX_CIPHERSUITE;
+        let hybrid = HybridCrypto::new();
+
+        // Pin the constant against a real key rather than restating it.
+        let kp = hybrid
+            .derive_hpke_keypair(cs.hpke_config(), &[5u8; 32])
+            .expect("derive X-Wing HPKE keypair");
+        assert_eq!(kp.public.len(), XWING_PUBLIC_KEY_LEN, "X-Wing public key length");
+
+        for len in [0, 1, 32, 1183, 1184, 1215, 1217] {
+            let pk_r = vec![0x42u8; len];
+            assert_eq!(
+                hybrid.hpke_seal(cs.hpke_config(), &pk_r, b"info", b"aad", b"ptxt").err(),
+                Some(CryptoError::HpkeEncryptionError),
+                "hpke_seal to a {len}-byte X-Wing key"
+            );
+            assert_eq!(
+                hybrid
+                    .hpke_setup_sender_and_export(cs.hpke_config(), &pk_r, b"info", b"ctx", 32)
+                    .err(),
+                Some(CryptoError::SenderSetupError),
+                "hpke_setup_sender_and_export to a {len}-byte X-Wing key"
+            );
+        }
+
+        hybrid
+            .hpke_seal(cs.hpke_config(), &kp.public, b"info", b"aad", b"ptxt")
+            .expect("hpke_seal to a well-formed X-Wing key");
+        hybrid
+            .hpke_setup_sender_and_export(cs.hpke_config(), &kp.public, b"info", b"ctx", 32)
+            .expect("hpke_setup_sender_and_export to a well-formed X-Wing key");
     }
 
     /// Every ciphersuite the public API advertises must survive a complete
