@@ -129,6 +129,35 @@ updates:
         update-types:
           - "version-update:semver-major"
 
+      # Two more ways into the same migration. Every ffigen from 21.0.0 on
+      # requires `hooks ^2.0.0`, and coverage 1.16.0 requires `cli_util ^0.6.0`,
+      # which ffigen admits only from 22.1.0 on — so neither can be taken
+      # without hooks 2.
+      #
+      # ⚠ The two entries above do not stop either, and neither does the
+      # group's `update-types`: Dependabot checks both against the dependency it
+      # is updating, not against what that update drags along. On 2026-10-19
+      # (#58) it took coverage 1.16.0 as a minor in the `pub` group, could not
+      # resolve it by unlocking coverage alone, fell back to unlocking
+      # everything, and the pull request carried ffigen 23.0.0, hooks 2.2.0 and
+      # code_assets 2.1.0 along. ffigen alone takes the same full unlock (its
+      # job logs of 2026-10-05 and 2026-10-12) and is dropped there only by
+      # Dependabot's own "peer dependency can be updated" check, not by anything
+      # in this file.
+      #
+      # So the entry points are ignored instead: ffigen's majors, and the
+      # coverage releases that need the new cli_util. The `versions` entry is a
+      # requirement, which pub's parser accepts, not a wildcard (see above). A
+      # release reachable only through hooks 2 will arrive the same way: a
+      # minor-group pull request carrying majors is this, not a broken group.
+      # Lift all four entries together, with the move to Flutter >= 3.47.0.
+      - dependency-name: "ffigen"
+        update-types:
+          - "version-update:semver-major"
+      - dependency-name: "coverage"
+        versions:
+          - ">= 1.16.0"
+
   # The native crate's dependencies. These are compiled into the binary the
   # build hook downloads, so a vulnerable transitive crate reaches consumers as
   # shipped code rather than as a build-time inconvenience — `make rust-audit`
