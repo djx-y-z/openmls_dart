@@ -33,9 +33,9 @@
 # NOT reach for `@dependabot rebase` to fix that: it discards this workflow's
 # commit and puts the pull request straight back to red.
 #
-# Signing. `signing-commit.json` requires signed commits on `~ALL` branches and
-# excludes exactly `refs/heads/dependabot/**/*`, so an unsigned push onto THIS
-# branch is accepted and would be rejected anywhere else.
+# Signing. `signing-commit.json` requires signed commits on `~ALL` branches but
+# excludes `refs/heads/dependabot/**/*` (and the update checkers' branches), so
+# an unsigned push onto THIS branch is accepted and would be rejected on `main`.
 #
 # ⚠ That exclusion does not reach the merge. `main` is not excluded, so a pull
 # request carrying an unsigned commit cannot be merged into it at all — and no

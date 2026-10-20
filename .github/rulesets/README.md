@@ -41,7 +41,7 @@ Maintain = 4, **Admin = 5**.
 | File | Ruleset | Target | Rules | Bypass |
 |------|---------|--------|-------|--------|
 | `protect-main.json` | Protect main branch | `~DEFAULT_BRANCH` | pull_request (0 approvals), required_status_checks, non_fast_forward, deletion | Admin (5) |
-| `signing-commit.json` | Signing commit | `~ALL` branches except `dependabot/**/*` | required_signatures, non_fast_forward | none by default |
+| `signing-commit.json` | Signing commit | `~ALL` branches except `dependabot/**/*`, `update-openmls-*`, `update-template-v*` | required_signatures, non_fast_forward | none by default |
 | `delete-branches.json` | Delete branches | `~ALL` branches except `dependabot/**/*` | deletion | Admin (5) |
 | `protect-release-tags.json` | Protect release tags | all tags (`~ALL`) | creation, update, deletion, required_signatures | Admin (5), Maintain (4) |
 
@@ -221,12 +221,41 @@ gh api repos/djx-y-z/openmls_dart/rules/branches/main \
   --jq '[.[] | .type] | join(", ")'    # expect the full set, unchanged
 ```
 
-Branches from `peter-evans/create-pull-request`
-(`update-openmls-*`, `update-template-*`) are deliberately *not*
-excluded: those PRs are recreated per version rather than refreshed in place, so
-the force-push path has never been exercised. If an update PR is ever seen
-failing to refresh, extend the same `exclude` list rather than adding a bypass
-actor.
+### Why the update checkers' branches are excluded from Signing commit
+
+`peter-evans/create-pull-request` refreshes a branch that already exists by
+rebuilding it on `main` and moving the ref, which is a force-push. These
+branches were left in at first, because each update arrives on a branch of its
+own rather than refreshing an old one. That held for the scheduled path only:
+`force_update`, the documented way to regenerate an open update pull request,
+was measured failing in a generated project on 2026-10-20. The App created its
+signed commit through the API (`verified: true`), and the ref update was then
+refused: "Cannot force-push to this branch". A scheduled run takes the same
+path whenever a version's branch outlives its pull request, because the
+idempotency gate looks for an open pull request, not for the branch.
+
+So `refs/heads/update-openmls-*` and `refs/heads/update-template-v*` are
+excluded from **Signing commit**, as Dependabot's branches are and at the same
+cost: on those branches a push may rewrite history and need not be signed. The
+App signs regardless (`sign-commits: true`), whoever can rewrite them could
+already push to them, and reaching `main` still takes its pull-request gate.
+
+⚠ Keep it an `exclude`. **Signing commit** is also what stops anyone, an Admin
+included, from force-pushing `main`: **Protect main branch** has its own
+`non_fast_forward`, but with an Admin bypass. A bypass actor here would exempt
+the App on `main` too (see above), and splitting `non_fast_forward` into a
+ruleset of its own, to keep signatures required on these branches, has to keep
+that one on `~ALL` with no bypass, or `main` loses its only unconditional ban.
+
+The patterns are exact on purpose: `update-*` would exempt any branch someone
+happens to name that way. The branches stay under **Delete branches**, so the
+App cannot delete one; a branch left behind by a closed update pull request is
+removed by an Admin. Verify it against a name of the real shape, as above:
+
+```bash
+gh api repos/djx-y-z/openmls_dart/rules/branches/update-template-v1.0.0 \
+  --jq '[.[] | .type] | join(", ")'    # expect: deletion
+```
 
 ## Apply
 

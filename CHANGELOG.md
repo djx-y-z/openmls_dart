@@ -63,6 +63,21 @@
   and the `gh` steps read the App token from `GH_TOKEN`. Mirrors
   `refresh-notices.yml`.
 
+- **The update checkers can regenerate their own pull requests**
+  (`.github/rulesets/signing-commit.json`, `.github/rulesets/README.md`) —
+  `peter-evans/create-pull-request` refreshes an existing branch by
+  force-pushing it, and `Signing commit` forbids that on `~ALL` branches with
+  no bypass actors, so `force_update` could not regenerate an open update pull
+  request: measured on 2026-10-20 (run `39450303118`), the App's signed API
+  commit was created and the ref update refused with "Cannot force-push to
+  this branch". A scheduled run fails the same way when a version's branch
+  outlives its pull request. `refs/heads/update-openmls-*` and
+  `refs/heads/update-template-v*` are now excluded from that ruleset, as
+  `refs/heads/dependabot/**/*` already is: a push there may rewrite history
+  and need not be signed, and the App signs regardless. `main` keeps its
+  pull-request gate, its signatures and its no-bypass ban on force-pushes,
+  and the branches stay under `Delete branches`.
+
 ## [3.2.1] - 2026-09-29
 
 ### For Users
