@@ -1061,7 +1061,7 @@ String getUpstreamVersion() {
 // ---------------------------------------------------------------------------
 
 /// The answer of `upstream_source` this project was generated with.
-const upstreamSourceKind = 'git_tag';
+const upstreamSourceKind = 'crates_io';
 
 /// What every request [upstreamHttp] makes is identified by.
 const upstreamUserAgent =
@@ -1083,5 +1083,5 @@ final UpstreamSource upstreamSource = upstreamSourceFor(
     'openmls_traits',
     'openmls_libcrux_crypto',
   ],
-  tagPrefix: 'openmls-v',
+  tagPrefix: 'v',
 );

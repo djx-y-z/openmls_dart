@@ -71,6 +71,13 @@
   now holds Admin only (`.github/rulesets/protect-release-tags.json`), and the
   text says that Admins bypass the ruleset's signature rule as well; the
   release scripts sign their tags.
+- **`THIRD_PARTY_NOTICES.txt` gives the openmls crates the canonical MIT
+  text** — the file ships in every native archive and in the package. With
+  openmls taken from crates.io (see *For Contributors*), its seven openmls
+  crates carry the MIT text with `Copyright (c) OpenMLS Authors`, composed
+  from the crate metadata, because a published `.crate` has no LICENSE file;
+  until now it quoted the repository's LICENSE, which names the year 2020.
+  The licence terms are unchanged.
 
 ### For Contributors
 
@@ -178,6 +185,22 @@
 
   The App-token checkout hardening and the update checkers' branch exclusion,
   both above, now come from the template.
+
+- **openmls comes from crates.io instead of a git tag** (`rust/Cargo.toml`,
+  `rust/Cargo.lock`, `rust/deny.toml`, `.github/dependabot.yml`,
+  `.copier-answers.yml` and the files the `upstream_source: crates_io` answer
+  renders) — the update check found upstream releases through GitHub's latest
+  release and accepted only an `openmls-vX.Y.Z` tag, so openmls 0.9.1,
+  published on 2026-10-07 under the tag `v0.9.1` and with no GitHub release,
+  was invisible to it. `openmls` is now pinned exactly, `"=0.9.0"`, on both of
+  its declarations, the four other openmls crates sit at the requirements that
+  release declares, and the check reads crates.io. The code is the same: all
+  nine openmls packages in the lockfile were published from the commit the
+  `openmls-v0.9.0` tag names (`3a3e35de`), and only their `source` and
+  `checksum` lines moved. `rust/deny.toml` no longer allows the openmls git
+  repository, and Dependabot ignores the four openmls crates that arrive only
+  through the others, so they move with the openmls release that requires
+  them.
 
 ## [3.2.1] - 2026-09-29
 

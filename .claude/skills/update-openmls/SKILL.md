@@ -17,10 +17,28 @@ Release notes are often terse or incomplete. Always examine what actually
 changed between the two tags. `vOLD` is the version being replaced (see the
 PR title/diff), `vNEW` is the new one.
 
-**1a. Release notes (starting point, not the whole story):**
+This project takes openmls from crates.io, so the two releases
+are compared by the commits their published crates record rather than by tags —
+which tags upstream cuts, and how it names them, is exactly what a registry
+source does not depend on. Find those commits first, and read `vOLD`/`vNEW`
+below as `$OLD`/`$NEW`:
 
 ```bash
-gh api repos/openmls/openmls/releases/tags/vNEW --jq '.body'
+commit_of() {  # the commit `cargo package` recorded inside the published crate
+  curl -sL "https://static.crates.io/crates/openmls/openmls-$1.crate" \
+    | tar -xzOf - "openmls-$1/.cargo_vcs_info.json" | jq -r .git.sha1
+}
+OLD=$(commit_of X.Y.Z)   # the version being replaced
+NEW=$(commit_of X.Y.Z)   # the new one
+```
+
+**1a. Release notes (starting point, not the whole story)** — crates.io carries
+none, so they are the release's section of `CHANGELOG.md` (or a
+`RELEASE_NOTES.md`) at the new commit:
+
+```bash
+gh api "repos/openmls/openmls/contents/CHANGELOG.md?ref=$NEW" \
+  -H 'Accept: application/vnd.github.raw' | less
 ```
 
 **1b. Full commit list between the tags:**
@@ -272,8 +290,8 @@ make check-new-openmls-version ARGS="--update"
 ```
 
 This will:
-1. Check GitHub for latest openmls release
-2. Update `rust/Cargo.toml` with new openmls dependency tags
+1. Check crates.io for latest openmls release
+2. Update `rust/Cargo.toml` with new openmls dependency versions
 3. Show next steps for completing the update
 
 ## Manual Update Process
@@ -283,12 +301,16 @@ This will:
 Check `rust/Cargo.toml`:
 ```toml
 [dependencies]
-openmls = { git = "https://github.com/openmls/openmls", tag = "openmls-v0.8.0" }
+openmls = "=0.9.0"
 ```
 
 ### Step 2: Update Version
 
-Edit `rust/Cargo.toml` and update the tag for upstream crates.
+Edit `rust/Cargo.toml`: pin `openmls` to the new version, exactly
+(`"=X.Y.Z"`), on every declaration of it, and move every other upstream crate to
+the requirement that release itself declares (crates.io lists it under the
+version's dependencies). `make check-new-openmls-version ARGS="--update"`
+does both, and records them in `.copier-answers.yml`.
 
 ### Step 3: Update Cargo.lock
 
@@ -326,7 +348,7 @@ make check-new-openmls-version
 make check-new-openmls-version ARGS="--update"
 
 # Update to specific version
-make check-new-openmls-version ARGS="--update --version openmls-vX.Y.Z"
+make check-new-openmls-version ARGS="--update --version X.Y.Z"
 
 # Force update even if versions match
 make check-new-openmls-version ARGS="--update --force"
@@ -341,8 +363,8 @@ Files automatically updated by `make check-new-openmls-version ARGS="--update"`:
 
 | File | What | Description |
 |------|------|-------------|
-| `rust/Cargo.toml` | upstream tags | Native library dependency version |
-| `.copier-answers.yml` | `upstream_version` | What the next `copier update` renders |
+| `rust/Cargo.toml` | upstream versions | Native library dependency version |
+| `.copier-answers.yml` | `upstream_version`, `upstream_crate_versions` | What the next `copier update` renders |
 | `rust/Cargo.toml` | `version` | `openmls_frb` bump mirroring upstream SemVer delta (adjust manually if wrapper API changed differently) |
 | `README.md` | Badge | Version badge in header |
 | `CLAUDE.md` | Example | Code example in documentation |

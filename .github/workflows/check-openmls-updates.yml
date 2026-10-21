@@ -2,9 +2,9 @@
 #
 # This workflow:
 # 1. Runs daily (or manually) to check for new openmls releases
-# 2. Compares with current upstream dependency tag in rust/Cargo.toml
+# 2. Compares with current upstream dependency version in rust/Cargo.toml
 # 3. If newer version found:
-#    - Updates rust/Cargo.toml with new openmls tag
+#    - Updates rust/Cargo.toml with new openmls version
 #    - Runs cargo update to update Cargo.lock
 #    - Regenerates FRB bindings (make codegen)
 #    - Updates CHANGELOG.md with AI-generated entry (provider per AI_MODELS)
@@ -320,17 +320,17 @@ jobs:
 
             ### Files Updated Automatically
 
-            - `rust/Cargo.toml` — ${{ steps.cargo-toml.outputs.success == 'true' && 'openmls dependency tags only (the `openmls_frb` crate version is intentionally NOT bumped here)' || '**NOT UPDATED** (update failed)' }}
+            - `rust/Cargo.toml` — ${{ steps.cargo-toml.outputs.success == 'true' && 'openmls dependency versions only (the `openmls_frb` crate version is intentionally NOT bumped here)' || '**NOT UPDATED** (update failed)' }}
             - `rust/Cargo.lock` — ${{ steps.cargo-lock.outputs.success == 'true' && 'updated dependencies' || '**NOT UPDATED** (cargo update failed)' }}
             - `lib/src/rust/` — ${{ steps.codegen.outputs.success == 'true' && format('regenerated FRB bindings — FFI surface **{0}**', steps.codegen.outputs.bindings == 'changed' && 'MOVED (review: the `openmls_frb` bump is not a patch)' || 'unchanged') || '**NOT UPDATED** (codegen failed, manual update required)' }}
             - `CHANGELOG.md` — ${{ steps.changelog.outputs.success == 'true' && format('AI-generated entry (written by `{0}`)', steps.changelog.outputs.ai_provider) || '**NOT UPDATED** (AI failed, manual update required)' }}
             - `README.md` — ${{ steps.cargo-toml.outputs.success == 'true' && 'version badge' || '**NOT UPDATED**' }}
-            - `.copier-answers.yml` — ${{ steps.cargo-toml.outputs.success == 'true' && 'upstream_version updated' || '**NOT UPDATED**' }}
+            - `.copier-answers.yml` — ${{ steps.cargo-toml.outputs.success == 'true' && 'upstream_version and upstream_crate_versions updated' || '**NOT UPDATED**' }}
             - `CLAUDE.md` — ${{ steps.cargo-toml.outputs.success == 'true' && 'example in documentation' || '**NOT UPDATED**' }}
 
             ### Release Notes
 
-            See [openmls ${{ steps.check.outputs.latest_version }} release notes](${{ steps.check.outputs.release_url }})
+            See [openmls ${{ steps.check.outputs.latest_version }} page on crates.io](${{ steps.check.outputs.release_url }})
 
             ### Before Merge
 

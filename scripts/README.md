@@ -25,7 +25,7 @@ make check-new-openmls-version
 make check-new-openmls-version ARGS="--update"
 
 # Update to specific version
-make check-new-openmls-version ARGS="--update --version openmls-v0.8.1"
+make check-new-openmls-version ARGS="--update --version 0.9.0"
 
 # Force update even if versions match
 make check-new-openmls-version ARGS="--update --force"

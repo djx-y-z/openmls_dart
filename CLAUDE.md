@@ -223,7 +223,7 @@ make check-template-updates       # Check for copier template updates
 make update-template ARGS="--version vX.Y.Z"  # Apply a template update (runs copier)
 make check-targets                # Check deployment targets (iOS/macOS/Android)
 make check-targets ARGS="--ios --set 14.0"  # Set iOS target everywhere
-make update-changelog ARGS="--version openmls-vX.Y.Z"  # Update CHANGELOG with AI
+make update-changelog ARGS="--version X.Y.Z"  # Update CHANGELOG with AI
 make help                         # Show all available commands
 ```
 
@@ -358,10 +358,14 @@ See `.github/rulesets/README.md`.
 
 Two different versions live here and neither is in `pubspec.yaml`:
 
-- **The upstream openmls version** is the git tag in `rust/Cargo.toml`
-  (`tag = "openmls-v0.9.0"` on each of the six openmls dependency lines — five
-  crates, with `openmls` declared a second time for `wasm32`). This
-  is what `make check-new-openmls-version` reads and updates.
+- **The upstream openmls version** is the crates.io version
+  `rust/Cargo.toml` pins `openmls` to — exactly, `"=0.9.0"`, on both
+  declarations of it (the second is the `wasm32` target table). The other four
+  openmls crates are at the requirement that release itself declares,
+  recorded in `upstream_crate_versions` in `.copier-answers.yml`. That is what
+  `make check-new-openmls-version` reads and updates, and it finds
+  new releases on crates.io — not through GitHub Releases or tags, which an
+  upstream may name or publish however it likes.
 - **The native crate version** is `[package] version` in `rust/Cargo.toml`.
   `hook/build.dart` parses it (`_readVersion`) and downloads
   `openmls_frb-<version>` from GitHub Releases, so the archive's copy of
@@ -373,7 +377,7 @@ To check/update the version:
 make check-new-openmls-version              # Check for updates
 make check-new-openmls-version ARGS="--update"  # Apply update
 make rust-update                    # Update Cargo.lock after version bump
-make update-changelog ARGS="--version openmls-v1.0.0"  # Generate AI changelog entry
+make update-changelog ARGS="--version 1.0.0"  # Generate AI changelog entry
 ```
 
 ### AI-Powered Changelog
@@ -391,11 +395,11 @@ instead of going quiet.
 
 ```bash
 AI_MODELS=anthropic/claude-opus-5 ANTHROPIC_API_KEY=xxx \
-  make update-changelog ARGS="--version openmls-v1.0.0"
+  make update-changelog ARGS="--version 1.0.0"
 
 # Pick a different model, or a different order, without touching the code
 AI_MODELS=google/gemini-3.5-flash-lite ANTHROPIC_API_KEY=… GEMINI_API_KEY=… \
-  make update-changelog ARGS="--version openmls-v1.0.0"
+  make update-changelog ARGS="--version 1.0.0"
 ```
 
 | Variable | Purpose |

@@ -26,10 +26,10 @@
 ///   ```bash
 ///   # Update changelog for specific version
 ///   AI_MODELS=anthropic/claude-opus-5 ANTHROPIC_API_KEY=xxx \
-///     fvm dart scripts/update_changelog.dart --version openmls-v1.0.0
+///     fvm dart scripts/update_changelog.dart --version 1.0.0
 ///
 ///   # CI mode (key from environment)
-///   fvm dart scripts/update_changelog.dart --version openmls-v1.0.0 --ci
+///   fvm dart scripts/update_changelog.dart --version 1.0.0 --ci
 ///   ```
 library;
 
@@ -194,9 +194,9 @@ Environment:
 Examples:
   # Update changelog for specific version
   AI_MODELS=anthropic/claude-opus-5 ANTHROPIC_API_KEY=xxx \
-    fvm dart scripts/update_changelog.dart --version openmls-v1.0.0
+    fvm dart scripts/update_changelog.dart --version 1.0.0
 
   # CI mode (key from environment)
-  fvm dart scripts/update_changelog.dart --version openmls-v1.0.0 --ci
+  fvm dart scripts/update_changelog.dart --version 1.0.0 --ci
 ''');
 }

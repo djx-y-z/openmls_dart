@@ -408,7 +408,7 @@ make check-targets
 make rust-update
 
 # Generate AI-powered changelog entry (needs AI_MODELS + a provider key)
-make update-changelog ARGS="--version openmls-v1.0.0"
+make update-changelog ARGS="--version 1.0.0"
 ```
 
 The CI automatically checks for new openmls releases daily and creates PRs with:

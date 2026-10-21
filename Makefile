@@ -76,7 +76,7 @@ help:
 	@echo "                                        Example: make check-targets ARGS=\"--ios --set 14.0\""
 	@echo "    make rust-update                  - Re-resolve Cargo.lock for rust/Cargo.toml (cargo update --workspace)"
 	@echo "    make update-changelog             - Update CHANGELOG.md with AI"
-	@echo "                                        Example: make update-changelog ARGS=\"--version openmls-v1.0.0\""
+	@echo "                                        Example: make update-changelog ARGS=\"--version 1.0.0\""
 	@echo ""
 	@echo "  RUST QUALITY"
 	@echo "    make rust-check                   - Check Rust code compiles"

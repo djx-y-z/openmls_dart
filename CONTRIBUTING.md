@@ -435,7 +435,7 @@ The CI automatically checks for new openmls releases daily and creates PRs. The 
 make check-new-openmls-version
 
 # 2. Apply update
-make check-new-openmls-version ARGS="--update --version openmls-v1.0.0"
+make check-new-openmls-version ARGS="--update --version 1.0.0"
 
 # 3. Update Cargo.lock (also regenerates THIRD_PARTY_NOTICES.txt, which is
 #    derived from the dependency graph and verified against it in CI)
@@ -446,7 +446,7 @@ make codegen
 
 # 5. Update CHANGELOG with AI (see "Setting up AI Changelog" below)
 AI_MODELS=anthropic/claude-opus-5 ANTHROPIC_API_KEY=xxx \
-  make update-changelog ARGS="--version openmls-v1.0.0"
+  make update-changelog ARGS="--version 1.0.0"
 
 # 6. Test
 make test

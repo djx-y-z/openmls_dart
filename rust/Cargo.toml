@@ -38,19 +38,19 @@ parking_lot = "0.12"
 # which is a one-line wrapper over `self.public_group.group_context()`; both
 # `public_group()` and `GroupContext`'s accessors became public in 0.9.0, so
 # `api/engine.rs` calls that chain directly.
-openmls = { git = "https://github.com/openmls/openmls", tag = "openmls-v0.9.0", features = ["draft-ietf-mls-pq-ciphersuites"] }
-openmls_rust_crypto = { git = "https://github.com/openmls/openmls", tag = "openmls-v0.9.0", features = ["draft-ietf-mls-pq-ciphersuites"] }
+openmls = { version = "=0.9.0", features = ["draft-ietf-mls-pq-ciphersuites"] }
+openmls_rust_crypto = { version = "0.6.0", features = ["draft-ietf-mls-pq-ciphersuites"] }
 # Both features are named explicitly rather than inherited.
 # `draft-ietf-mls-pq-ciphersuites`: without it `SignatureKeyPair::new` has no
 # ML-DSA arms and the four MLDSA ciphersuites cannot build an identity.
 # `test-utils`: this is *this* crate's feature, not openmls's — it is what makes
 # `SignatureKeyPair::private()` reachable (`api/keys.rs`), and it implies no
 # backtrace.
-openmls_basic_credential = { git = "https://github.com/openmls/openmls", tag = "openmls-v0.9.0", features = ["test-utils", "draft-ietf-mls-pq-ciphersuites"] }
-openmls_traits = { git = "https://github.com/openmls/openmls", tag = "openmls-v0.9.0", features = ["draft-ietf-mls-pq-ciphersuites"] }
+openmls_basic_credential = { version = "0.6.0", features = ["test-utils", "draft-ietf-mls-pq-ciphersuites"] }
+openmls_traits = { version = "0.6.0", features = ["draft-ietf-mls-pq-ciphersuites"] }
 # libcrux-based provider: only used for the X-Wing hybrid post-quantum KEM
 # (HpkeKemType::XWingKemDraft6); everything else stays on openmls_rust_crypto.
-openmls_libcrux_crypto = { git = "https://github.com/openmls/openmls", tag = "openmls-v0.9.0", features = ["draft-ietf-mls-pq-ciphersuites"] }
+openmls_libcrux_crypto = { version = "0.4.0", features = ["draft-ietf-mls-pq-ciphersuites"] }
 
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
@@ -59,7 +59,7 @@ rusqlite = { version = "0.37", features = ["bundled-sqlcipher-vendored-openssl"]
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 # OpenMLS requires `js` feature for WASM: enables fluvio_wasm_timer for time access
 # Cargo merges features from [dependencies] and [target.*.dependencies]
-openmls = { git = "https://github.com/openmls/openmls", tag = "openmls-v0.9.0", features = ["js"] }
+openmls = { version = "=0.9.0", features = ["js"] }
 # getrandom refuses to compile for wasm32-unknown-unknown until its browser
 # backend is selected by name, and three majors coexist in a modern Rust crypto
 # graph. Cargo unions features per package version and per target, so declaring

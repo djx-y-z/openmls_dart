@@ -112,8 +112,8 @@ unknown-registry = "deny"
 unknown-git = "deny"
 allow-registry = ["https://github.com/rust-lang/crates.io-index"]
 allow-git = [
-    # Upstream crate repository (pinned by tag in Cargo.toml, by commit in Cargo.lock).
-    "https://github.com/openmls/openmls",
+    # None for the upstream crates: they come from crates.io
+    # (upstream_source=crates_io), which allow-registry above already admits.
     # Add any additional git dependency repositories here. Transitive git deps
     # (a crate the upstream itself pulls from git) must be listed explicitly or
     # `cargo deny check sources` will fail.

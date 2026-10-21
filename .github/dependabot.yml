@@ -166,20 +166,30 @@ updates:
   # Transitive crates included (`allow` below): without it Dependabot updates
   # only what rust/Cargo.toml names, and the transitive graph used to move as a
   # side effect of every upstream bump, whose `cargo update` swept the whole
-  # lockfile. The bump now moves only what the new tag requires
+  # lockfile. The bump now moves only what the new release requires
   # (`make rust-update`), so this is where everything else moves — on its own
   # CI run, rather than riding along with a dependency update and breaking a
   # platform nobody was looking at: in a generated project, `libc` 0.2.190 on
   # iOS did exactly that. Any `ignore` entry keeps its meaning for the crate it
   # names, transitive occurrences of those versions included.
   #
-  # The upstream crates are ignored rather than left to chance. They are git
-  # dependencies pinned to a tag, and Dependabot's cargo updater does follow git
-  # refs — so without this it would open its own pull request for the same bump
+  # The upstream crates are ignored rather than left to chance. They come from
+  # crates.io, and a registry crate is exactly what Dependabot's cargo updater
+  # bumps — so without this it would open its own pull request for the same bump
   # that check-openmls-updates.yml exists to make, with none of the
   # work that one does: no `make codegen`, no bindings tripwire, no CHANGELOG
   # entry, no version badge. Two pull requests for one upstream release, and the
-  # cheaper one merges first.
+  # cheaper one merges first. It would also move the other upstream crates off
+  # the requirements the primary crate's release declares for them, which
+  # `upstream_crate_versions` in .copier-answers.yml records.
+  #
+  # ⚠ The list names only the upstream crates rust/Cargo.toml declares. One that
+  # arrives only through them — a crate the upstream repository publishes and
+  # the primary depends on — is a plain registry crate in this mode, and `allow`
+  # above moves it in the `cargo` group with everything else, separately from
+  # the upstream release it belongs to, unless the project names it in an
+  # ignore entry of its own. With a git tag none of them could move on their
+  # own: one tag pinned the whole repository.
   - package-ecosystem: "cargo"
     directory: "/rust"
     allow:
@@ -214,6 +224,16 @@ updates:
       - dependency-name: "openmls_basic_credential"
       - dependency-name: "openmls_traits"
       - dependency-name: "openmls_libcrux_crypto"
+      # The crates openmls publishes that arrive only through the five above —
+      # the ⚠ case in the note before this block. They move with the openmls
+      # release that requires them, in check-openmls-updates.yml's pull request
+      # (`make rust-update`). Named one by one rather than by a wildcard, so a
+      # crate openmls starts publishing later is not held back without anyone
+      # having decided it.
+      - dependency-name: "openmls_memory_storage"
+      - dependency-name: "openmls_serialization_helpers"
+      - dependency-name: "openmls_sqlite_storage"
+      - dependency-name: "openmls_test"
 
       # rusqlite has a ceiling of 0.37, for two independent reasons.
       #
