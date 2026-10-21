@@ -28,7 +28,7 @@
 ///   fvm dart scripts/check_new_upstream_version.dart --update --ci
 ///
 ///   # Update to specific version
-///   fvm dart scripts/check_new_upstream_version.dart --update --version 0.9.0
+///   fvm dart scripts/check_new_upstream_version.dart --update --version 0.9.1
 ///
 ///   # Output JSON for scripting
 ///   fvm dart scripts/check_new_upstream_version.dart --json
@@ -131,7 +131,7 @@ Examples:
   fvm dart scripts/check_new_upstream_version.dart --update --ci
 
   # Update to specific version
-  fvm dart scripts/check_new_upstream_version.dart --update --version 0.9.0
+  fvm dart scripts/check_new_upstream_version.dart --update --version 0.9.1
 
   # Output JSON for scripting
   fvm dart scripts/check_new_upstream_version.dart --json

@@ -10,10 +10,10 @@
 //! What remains is the fuzz target. It lives here, rather than in the fuzz
 //! crate, so the fuzzer drives the decoders through *this* crate's `openmls`
 //! dependency. Doing it the other way round would mean giving `rust/fuzz` its
-//! own `openmls` entry, and nothing would keep that tag in step with
+//! own `openmls` entry, and nothing would keep that pin in step with
 //! `rust/Cargo.toml` when `make check-new-openmls-version` bumps it.
 //!
-//! Kept after the upstream fix on purpose: these are the types the API parses
+//! Kept after the GHSA-rrmv fix on purpose: these are the types the API parses
 //! straight off the network, so they are worth fuzzing whichever decoder is
 //! behind them. Upstream added its own targets over the same surface in #2148;
 //! this one differs in covering the exact entry points this crate exposes.
@@ -22,8 +22,8 @@ use openmls::prelude::tls_codec::DeserializeBytes as TlsDeserializeBytes;
 use openmls::prelude::{KeyPackageIn, MlsMessageIn, RatchetTreeIn};
 
 /// Fuzz entry point — drives the decoders over every type the API reads from
-/// attacker-controlled bytes. The contract under test is simply "never panics";
-/// an `Err` is a pass.
+/// attacker-controlled bytes. The contract under test is simply that nothing
+/// panics or crashes; an `Err` is a pass.
 #[doc(hidden)]
 pub fn fuzz_decode_wire_types(bytes: &[u8]) {
     let _ = MlsMessageIn::tls_deserialize_exact_bytes(bytes);

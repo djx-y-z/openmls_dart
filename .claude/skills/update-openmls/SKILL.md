@@ -301,7 +301,7 @@ This will:
 Check `rust/Cargo.toml`:
 ```toml
 [dependencies]
-openmls = "=0.9.0"
+openmls = "=0.9.1"
 ```
 
 ### Step 2: Update Version

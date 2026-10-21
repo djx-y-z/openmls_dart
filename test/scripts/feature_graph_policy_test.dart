@@ -13,6 +13,10 @@ import '../../scripts/src/feature_graph.dart';
 /// Real `cargo tree --format '{p}|{f}' --prefix none` lines from this project,
 /// trimmed to the crates that matter. The two clean-but-tempting ones are kept
 /// deliberately: they are what a flat forbidden-feature list would trip over.
+/// The openmls lines were captured on openmls 0.9.0, then taken from a git
+/// tag; since the switch to crates.io they carry no source, and the rules read
+/// only crate and feature names. The first one stays a git line because the
+/// parser test below needs one.
 const _healthyGraph = [
   'openmls v0.9.0 (https://github.com/openmls/openmls?tag=openmls-v0.9.0#3a3e35de)|draft-ietf-mls-pq-ciphersuites,js',
   'openmls_basic_credential v0.6.0 (https://github.com/openmls/openmls?tag=openmls-v0.9.0#3a3e35de)|draft-ietf-mls-pq-ciphersuites,test-utils',

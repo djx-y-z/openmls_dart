@@ -237,12 +237,12 @@ updates:
 
       # rusqlite has a ceiling of 0.37, for two independent reasons.
       #
-      # It is pinned, not chosen: openmls 0.9.0 pulls optional
+      # It is pinned, not chosen: openmls 0.9.1 pulls optional
       # `openmls_sqlite_storage`, which requires `rusqlite = "0.37"` ->
       # `libsqlite3-sys ^0.35`. Cargo resolves optional dependencies into the
       # lockfile even when the feature is off, and `links = "sqlite3"` admits
       # exactly one package — so 0.38+ does not resolve at all while we are on
-      # openmls 0.9.0.
+      # openmls 0.9.1.
       #
       # And 0.40.x is independently unshippable: it bundles SQLCipher 4.14.0,
       # whose `sqlcipher_fprintf` (new in 4.11.0) allocates on Windows. With

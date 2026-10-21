@@ -2,6 +2,18 @@
 
 ### For Users
 
+#### ✨ Highlights
+
+- **A peer can no longer crash the application with nested extensions** —
+  GHSA-gc79-23g3-8g52, fixed upstream in openmls 0.9.1; every earlier release
+  of this package is affected.
+- **A malformed X-Wing key from a peer no longer panics** — RUSTSEC-2026-0331,
+  on the 0x004D suite only.
+- **Async calls no longer wait forever when another isolate shuts down during
+  `Openmls.init()`** — native platforms; see *Fixed*.
+- **openmls v0.9.1** — a patch release: the GHSA-gc79-23g3-8g52 fix, and
+  nothing else this package's API exposes.
+
 #### Changed
 
 - **The build hook uses a local host build only when `make build` stamped it
@@ -19,6 +31,33 @@
 
 #### Security
 
+- **A peer can no longer crash the application with nested extensions
+  (GHSA-gc79-23g3-8g52)** — openmls 0.9.0 → 0.9.1 (`rust/Cargo.toml`,
+  `rust/Cargo.lock`). openmls 0.9.0 decoded an extension's body before
+  checking that its type is allowed where it appears, so a `ratchet_tree`
+  extension inside a leaf node was decoded in full, its leaf nodes and their
+  extensions included, one stack frame deeper per level of nesting. Input
+  nested deeply enough ran the stack out, which is not a panic, so no
+  `PanicException` stands in for it. In most environments the process ends;
+  through a C FFI, as here, or in WebAssembly, the advisory says the outcome
+  depends on the environment and linker configuration, at worst memory
+  corruption. Neither was measured here. Every call that decodes
+  a message, `Welcome`, `GroupInfo`, ratchet tree or key package from a peer
+  was exposed, whatever the ciphersuite: incoming messages (`processMessage`,
+  `processMessageWithInspect` and the synchronous `mlsMessageExtractGroupId`,
+  `mlsMessageExtractEpoch` and `mlsMessageContentType`), the `Welcome`,
+  `GroupInfo` and ratchet tree of a join, a `Welcome` that is only inspected
+  (`inspectWelcome`, `exportWelcomeSecret`), and key packages (`addMembers`,
+  `proposeAdd`, `keyPackageLifetime` and the rest). 0.9.1 checks the type
+  first, so the same input fails with an ordinary error. Where that error
+  carries the decoder's message (ratchet trees, key packages, the `GroupInfo`
+  of an external join, unencrypted handshake messages), it now names the
+  extension type that is out of place, where 0.9.0 said "Found duplicate
+  extensions". The fix is upstream's
+  ([advisory](https://github.com/openmls/openmls/security/advisories/GHSA-gc79-23g3-8g52):
+  high, CVSS 4.0 8.7, CWE-674). Every native library released before this
+  one carries an affected openmls, `openmls_frb` 2.3.1 (package 3.2.1)
+  included; `SECURITY.md` (Known Limitations #14) covers them.
 - **A malformed X-Wing key from a peer no longer panics (RUSTSEC-2026-0331)**
   — up to `openmls_frb` 2.3.1, an X-Wing (0x004D) public key shorter than
   1184 bytes made the next encryption to it panic inside `libcrux-kem` 0.0.9:
@@ -163,7 +202,7 @@
   `ubuntu-26.04` and `ubuntu-26.04-arm`; a Linux library records the glibc
   symbol versions of the image that built it.
 
-  **An upstream bump moves only what the new tag requires** —
+  **An upstream bump moves only what the new release requires** —
   `make rust-update` is `cargo update --workspace`, and the rest of the graph
   moves in Dependabot's weekly cargo pull request, which now takes transitive
   crates too (`allow: dependency-type: all`).
@@ -192,15 +231,15 @@
   renders) — the update check found upstream releases through GitHub's latest
   release and accepted only an `openmls-vX.Y.Z` tag, so openmls 0.9.1,
   published on 2026-10-07 under the tag `v0.9.1` and with no GitHub release,
-  was invisible to it. `openmls` is now pinned exactly, `"=0.9.0"`, on both of
+  was invisible to it. `openmls` is now pinned exactly (`"=X.Y.Z"`) on both of
   its declarations, the four other openmls crates sit at the requirements that
-  release declares, and the check reads crates.io. The code is the same: all
-  nine openmls packages in the lockfile were published from the commit the
-  `openmls-v0.9.0` tag names (`3a3e35de`), and only their `source` and
-  `checksum` lines moved. `rust/deny.toml` no longer allows the openmls git
-  repository, and Dependabot ignores the four openmls crates that arrive only
-  through the others, so they move with the openmls release that requires
-  them.
+  release declares, and the check reads crates.io. The switch, made on 0.9.0
+  before the bump in *Security*, moved no code: all nine openmls packages in
+  the lockfile were published from the commit the `openmls-v0.9.0` tag names
+  (`3a3e35de`), and only their `source` and `checksum` lines moved.
+  `rust/deny.toml` no longer allows the openmls git repository, and Dependabot
+  ignores the four openmls crates that arrive only through the others, so they
+  move with the openmls release that requires them.
 
 ## [3.2.1] - 2026-09-29
 

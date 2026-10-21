@@ -2,7 +2,7 @@
 name = "openmls_frb"
 version = "2.3.1"
 edition = "2024"
-# 1.91 is openmls 0.9.0's floor (its workspace declares it), and that is what
+# 1.91 is the floor openmls's workspace declares (since 0.9.0), and that is what
 # sets this now. The previous 1.89 was ours: `std::fs::File::try_lock`, the
 # single-writer sidecar lock in `encrypted_db.rs`, whose alternative
 # `libc::flock` is an `unsafe fn` this crate would have to make an exception
@@ -38,7 +38,7 @@ parking_lot = "0.12"
 # which is a one-line wrapper over `self.public_group.group_context()`; both
 # `public_group()` and `GroupContext`'s accessors became public in 0.9.0, so
 # `api/engine.rs` calls that chain directly.
-openmls = { version = "=0.9.0", features = ["draft-ietf-mls-pq-ciphersuites"] }
+openmls = { version = "=0.9.1", features = ["draft-ietf-mls-pq-ciphersuites"] }
 openmls_rust_crypto = { version = "0.6.0", features = ["draft-ietf-mls-pq-ciphersuites"] }
 # Both features are named explicitly rather than inherited.
 # `draft-ietf-mls-pq-ciphersuites`: without it `SignatureKeyPair::new` has no
@@ -59,7 +59,7 @@ rusqlite = { version = "0.37", features = ["bundled-sqlcipher-vendored-openssl"]
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 # OpenMLS requires `js` feature for WASM: enables fluvio_wasm_timer for time access
 # Cargo merges features from [dependencies] and [target.*.dependencies]
-openmls = { version = "=0.9.0", features = ["js"] }
+openmls = { version = "=0.9.1", features = ["js"] }
 # getrandom refuses to compile for wasm32-unknown-unknown until its browser
 # backend is selected by name, and three majors coexist in a modern Rust crypto
 # graph. Cargo unions features per package version and per target, so declaring

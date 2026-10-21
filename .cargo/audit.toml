@@ -83,8 +83,8 @@ ignore = [
     # REACHABLE in the released binaries, GUARDED in this tree — never write
     # "unreachable" here. hpke-rs-libcrux 0.7.0 `kem_encaps` decodes the
     # recipient's key on every X-Wing HPKE encapsulation (`hpke_seal`,
-    # `hpke_setup_sender_and_export`), and neither hpke-rs nor openmls 0.9.0
-    # checks its length first. That key is peer data: the init_key of a
+    # `hpke_setup_sender_and_export`), and neither hpke-rs nor openmls (0.9.0,
+    # 0.9.1) checks its length first. That key is peer data: the init_key of a
     # KeyPackage this client adds (the Welcome is sealed to it), the encryption
     # keys of other members' tree nodes (a commit's UpdatePath is encrypted to
     # them), a GroupInfo's external_pub (an external join). Bounded to the
