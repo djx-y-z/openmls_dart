@@ -41,7 +41,7 @@ concurrency:
 jobs:
   discover:
     name: Discover fuzz targets
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     outputs:
       targets: ${{ steps.list.outputs.targets }}
     steps:
@@ -73,7 +73,7 @@ jobs:
     # An empty list is a valid state (every target deleted); GitHub errors on an
     # empty matrix, so skip the fan-out instead of failing the workflow.
     if: needs.discover.outputs.targets != '[]'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     strategy:
       fail-fast: false
       matrix:
@@ -95,6 +95,9 @@ jobs:
             rust -> target
             rust/fuzz -> target
           cache-on-failure: true
+          # The runner image belongs in the key: see the same step in
+          # .github/actions/setup-rust/action.yml.
+          env-vars: ImageOS
 
       - name: Install cargo-fuzz
         run: cargo install cargo-fuzz --locked

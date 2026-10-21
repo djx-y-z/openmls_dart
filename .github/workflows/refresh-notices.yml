@@ -87,7 +87,7 @@ concurrency:
 jobs:
   discover:
     name: Find stale cargo pull requests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     outputs:
       prs: ${{ steps.find.outputs.prs }}
     steps:
@@ -186,7 +186,7 @@ jobs:
     # No open cargo pull request is the ordinary state on most days, and GitHub
     # errors on an empty matrix rather than skipping it.
     if: needs.discover.outputs.prs != '[]'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     strategy:
       # One pull request failing to regenerate says nothing about the others.
       fail-fast: false
@@ -287,7 +287,7 @@ jobs:
     name: Commit notices (#${{ matrix.pr.number }})
     needs: [discover, generate]
     if: needs.discover.outputs.prs != '[]'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     strategy:
       fail-fast: false
       max-parallel: 1

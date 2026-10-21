@@ -17,6 +17,7 @@ import 'dart:io';
 
 import 'ai_client.dart';
 import 'common.dart';
+import 'upstream_source.dart';
 
 /// Update CHANGELOG.md with a new openmls version entry.
 ///
@@ -64,52 +65,107 @@ Future<ChangelogUpdate> updateChangelog({
 }) async {
   final packageDir = getPackageDir();
 
-  // Step 1: Fetch release notes from GitHub.
+  // Both pins reach GitHub API URLs below, so they are held to the shape this
+  // project's upstream source pins by before anything is fetched.
+  upstreamSource.validatePin(version, origin: '--version argument');
+  if (fromVersion != null) {
+    upstreamSource.validatePin(fromVersion, origin: '--from argument');
+  }
+
+  // Step 1: What this run's own tree says: which upstream crates the package
+  // builds, and how the resolved graph moved. Read first, because the release
+  // notes and the compare both need the crates: the notes to find a crate's
+  // own CHANGELOG.md, the compare to tell their files from everything else in
+  // the range.
+  logStep('Reading the resolved dependency graph...');
+  final crates = await _fetchUpstreamCrates(packageDir);
+  logInfo(
+    'Upstream crates in the graph: '
+    '${crates.isEmpty ? 'none found' : crates.map((c) => c.name).join(', ')}',
+  );
+  final lock = await _readLockfileChanges(packageDir, crates: crates);
+  logInfo('Got ${lock.prompt.length} characters of lockfile changes');
+
+  // Step 2: The upstream commits the two pins denote. For a tag they are the
+  // tags themselves and cost nothing; a registry source reads them out of the
+  // published crates, and when that fails the steps that need a commit are
+  // left out rather than the entry.
+  final to = await _revisionOf(version);
+  final from = fromVersion == null || fromVersion == version
+      ? null
+      : await _revisionOf(fromVersion);
+
+  // Step 3: Fetch the release's own notes, wherever the source keeps them.
   logStep('Fetching release notes for $version...');
-  final releaseNotes = await _fetchReleaseNotes(version);
+  final releaseNotes = await _fetchReleaseNotes(
+    version,
+    ref: to?.ref,
+    crates: crates,
+  );
   logInfo('Got ${releaseNotes.length} characters of release notes');
 
-  // Step 2: Fetch the actual commit list between the two tags — release notes
-  // alone are often terse, which produced incomplete changelog entries.
+  // Step 4: Fetch the actual commit list between the two releases — release
+  // notes alone are often terse, which produced incomplete changelog entries.
   var upstreamCommits = '';
   var upstreamFiles = '';
-  if (fromVersion != null && fromVersion != version) {
-    logStep('Fetching upstream compare $fromVersion...$version...');
+  var upstreamPatches = '';
+  if (from != null && to != null) {
+    logStep('Fetching upstream compare ${from.ref}...${to.ref}...');
     try {
-      final compare = await _fetchUpstreamCompare(fromVersion, version);
+      final compare = await _fetchUpstreamCompare(
+        from.ref,
+        to.ref,
+        crates: crates,
+      );
       upstreamCommits = compare.commits;
       upstreamFiles = compare.files;
+      upstreamPatches = compare.patches;
       logInfo('Got ${upstreamCommits.length} characters of commit history');
       logInfo('Got ${upstreamFiles.length} characters of changed-file list');
+      logInfo(
+        'Got ${upstreamPatches.length} characters of bound-crate patches',
+      );
     } catch (e) {
       logWarning('Could not fetch upstream compare: $e');
     }
+    if (upstreamCommits.isNotEmpty && (from.dirty || to.dirty)) {
+      upstreamCommits =
+          '(At least one of these releases was published from a tree with '
+          'uncommitted changes, so the range below is of the commits nearest '
+          'to what shipped, not exactly of it.)\n$upstreamCommits';
+    }
   }
 
-  // Step 3: Read current CHANGELOG.
+  // Step 5: Read current CHANGELOG.
   logStep('Reading CHANGELOG.md...');
   final changelogFile = File('${packageDir.path}/CHANGELOG.md');
   final currentChangelog = changelogFile.readAsStringSync();
 
-  // Step 4: Analyze with AI.
+  // Step 6: Analyze with AI.
   logStep('Analyzing release notes with AI...');
   final entry = await _generateChangelogEntry(
     version: version,
-    fromVersion: fromVersion,
+    fromRef: from?.ref,
+    toRef: to?.ref,
     releaseNotes: releaseNotes,
     upstreamCommits: upstreamCommits,
     upstreamFiles: upstreamFiles,
+    upstreamPatches: upstreamPatches,
+    crates: crates,
+    lockChanges: lock.prompt,
     currentChangelog: currentChangelog,
     codegenResult: codegenResult,
     models: models,
   );
 
   final nativeHighlight = entry.highlight;
-  final changed = entry.changed;
+  // The third-party paragraph is the lockfile's, appended rather than asked
+  // for; see [thirdPartyParagraphFrom].
+  final changed = composeChangedEntry(entry.changed, lock.paragraph);
   logInfo('Generated openmls highlight: $nativeHighlight');
   logInfo('Generated changed entry');
 
-  // Step 5: Update CHANGELOG.
+  // Step 7: Update CHANGELOG.
   logStep('Updating CHANGELOG.md...');
   // The new Highlights line supersedes this script's own default from an
   // earlier bump, but never a rewritten one — so say when one is left standing.
@@ -144,9 +200,64 @@ Future<ChangelogUpdate> updateChangelog({
 const emptyReleaseNotesPlaceholder =
     'No release notes were published for this release.';
 
-/// Fetch release notes, from the GitHub release if it has a body and from the
-/// upstream repository's own `RELEASE_NOTES.md` if it does not.
-Future<String> _fetchReleaseNotes(String version) async {
+/// Fetch the release's own notes from wherever the upstream source keeps them,
+/// in the order [UpstreamSource.releaseNotesKinds] gives: the GitHub release
+/// when it has a body, then `RELEASE_NOTES.md` and the release's section of
+/// `CHANGELOG.md` at [ref], the commit [version] denotes.
+///
+/// When nothing later in the order has more, what the GitHub release said is
+/// what comes back — its "no notes were published" included, which is a fact
+/// about that release. A source with no GitHub release to ask ends at
+/// [emptyReleaseNotesPlaceholder] instead.
+Future<String> _fetchReleaseNotes(
+  String version, {
+  required String? ref,
+  required List<UpstreamCrate> crates,
+}) async {
+  String? fromRelease;
+  for (final kind in upstreamSource.releaseNotesKinds) {
+    switch (kind) {
+      case ReleaseNotesKind.githubRelease:
+        fromRelease = await _fetchGithubReleaseNotes(version);
+        if (fromRelease != emptyReleaseNotesPlaceholder) return fromRelease;
+      case ReleaseNotesKind.releaseNotesFile:
+        if (ref == null) continue;
+        final notes = await _fetchInRepoReleaseNotes(version, ref: ref);
+        if (notes == null) continue;
+        logInfo(
+          fromRelease == null
+              ? 'Using RELEASE_NOTES.md at $ref'
+              : 'Release body was empty; using RELEASE_NOTES.md at $ref',
+        );
+        return notes;
+      case ReleaseNotesKind.changelogSection:
+        if (ref == null) continue;
+        final notes = await _fetchChangelogSection(
+          version,
+          ref: ref,
+          crates: crates,
+        );
+        if (notes == null) continue;
+        logInfo('Using the $version section of CHANGELOG.md at $ref');
+        return notes;
+    }
+  }
+  return fromRelease ?? emptyReleaseNotesPlaceholder;
+}
+
+/// The upstream commit [pin] denotes, or null — said in the log — when it
+/// cannot be named; see [UpstreamSource.revisionOf].
+Future<UpstreamRevision?> _revisionOf(String pin) async {
+  try {
+    return await upstreamSource.revisionOf(pin, upstreamHttp);
+  } on Object catch (e) {
+    logWarning('Could not name the upstream commit of $pin: $e');
+    return null;
+  }
+}
+
+/// The body of the GitHub release for the tag [version].
+Future<String> _fetchGithubReleaseNotes(String version) async {
   final result = await Process.run('curl', [
     '-s',
     'https://api.github.com/repos/openmls/openmls/releases/tags/$version',
@@ -156,33 +267,92 @@ Future<String> _fetchReleaseNotes(String version) async {
     throw Exception('Failed to fetch release from GitHub');
   }
 
-  final fromRelease = releaseNotesFrom(
+  return releaseNotesFrom(
     jsonDecode(result.stdout as String) as Map<String, dynamic>,
     version,
   );
-  if (fromRelease != emptyReleaseNotesPlaceholder) return fromRelease;
-
-  final fromRepo = await _fetchInRepoReleaseNotes(version);
-  if (fromRepo == null) return fromRelease;
-  logInfo('Release body was empty; using RELEASE_NOTES.md at $version');
-  return fromRepo;
 }
 
-/// Fetch `RELEASE_NOTES.md` at [version] from the upstream repository.
+/// The upstream repository's file at [path] and [ref], raw, or null when it
+/// cannot be fetched.
 ///
 /// Best-effort by design: an upstream that keeps no such file, a network
-/// failure and a rate-limited reply all land as null and leave the caller with
-/// the release body it already had.
-Future<String?> _fetchInRepoReleaseNotes(String version) async {
+/// failure and a rate-limited reply all land as null or as an error payload,
+/// and every reader of the result turns those into "no notes here" and leaves
+/// the caller with what it already had.
+Future<String?> _fetchUpstreamFile(String path, {required String ref}) async {
   final result = await Process.run('curl', [
     '-s',
     '-H',
     'Accept: application/vnd.github.raw',
-    'https://api.github.com/repos/openmls/openmls/contents/RELEASE_NOTES.md'
-        '?ref=$version',
+    'https://api.github.com/repos/openmls/openmls/contents/$path?ref=$ref',
   ]);
   if (result.exitCode != 0) return null;
-  return inRepoReleaseNotesFrom(result.stdout as String, version);
+  return result.stdout as String;
+}
+
+/// Fetch `RELEASE_NOTES.md` at [ref] from the upstream repository, and keep it
+/// only if it is the notes of [version] — see [inRepoReleaseNotesFrom].
+Future<String?> _fetchInRepoReleaseNotes(
+  String version, {
+  required String ref,
+}) async {
+  final content = await _fetchUpstreamFile('RELEASE_NOTES.md', ref: ref);
+  return content == null ? null : inRepoReleaseNotesFrom(content, version);
+}
+
+/// The section for [version] of the upstream's `CHANGELOG.md` at [ref]: the
+/// primary crate's own when it keeps one, the repository's otherwise.
+/// Best-effort, like [_fetchInRepoReleaseNotes].
+Future<String?> _fetchChangelogSection(
+  String version, {
+  required String ref,
+  required List<UpstreamCrate> crates,
+}) async {
+  final primaryDir =
+      crates.where((c) => c.name == upstreamSource.primary).firstOrNull?.dir ??
+      '';
+  for (final path in {'${primaryDir}CHANGELOG.md', 'CHANGELOG.md'}) {
+    final content = await _fetchUpstreamFile(path, ref: ref);
+    if (content == null) continue;
+    final section = changelogSectionFrom(
+      content,
+      upstreamSource.semverOf(version),
+    );
+    if (section != null) return section;
+  }
+  return null;
+}
+
+/// The section of a `CHANGELOG.md` whose heading names [version]: the text
+/// under that heading, up to the next heading of the same or a higher level.
+/// Null when no heading names it, or the section under it is empty.
+///
+/// The version has to stand alone in the heading — `## [1.2.3] - 2026-01-02`,
+/// `## v1.2.3`, `## 1.2.3 (2026-01-02)` all name `1.2.3`, while `1.2.30` and
+/// `1.2.3-rc.1` do not. Taking those would hand over another release's notes,
+/// which is worse than none: wrong rather than missing, the same trap
+/// [inRepoReleaseNotesFrom] guards against. Pure; exposed for testing.
+String? changelogSectionFrom(String content, String version) {
+  final heading = RegExp(r'^(#{1,6})\s+(.*)$');
+  final named = RegExp(
+    '(?<![0-9A-Za-z.+-])v?${RegExp.escape(version)}(?![0-9A-Za-z.+-])',
+  );
+  final lines = content.split('\n');
+  for (var i = 0; i < lines.length; i++) {
+    final match = heading.firstMatch(lines[i]);
+    if (match == null || !named.hasMatch(match.group(2)!)) continue;
+    final level = match.group(1)!.length;
+    final body = <String>[];
+    for (final line in lines.skip(i + 1)) {
+      final next = heading.firstMatch(line);
+      if (next != null && next.group(1)!.length <= level) break;
+      body.add(line);
+    }
+    final text = body.join('\n').trim();
+    return text.isEmpty ? null : text;
+  }
+  return null;
 }
 
 /// Read release notes out of the upstream repository's own `RELEASE_NOTES.md`.
@@ -269,10 +439,11 @@ String releaseNotesFrom(Map<String, dynamic> json, String version) {
 /// landed. Without it the model has only commit subject lines to go on, and a
 /// subject line is not evidence of location — an entry written from one put an
 /// upstream commit in the wrong crate.
-Future<({String commits, String files})> _fetchUpstreamCompare(
+Future<({String commits, String files, String patches})> _fetchUpstreamCompare(
   String from,
-  String to,
-) async {
+  String to, {
+  required List<UpstreamCrate> crates,
+}) async {
   final result = await Process.run('curl', [
     '-s',
     'https://api.github.com/repos/openmls/openmls/compare/$from...$to?per_page=250',
@@ -287,7 +458,11 @@ Future<({String commits, String files})> _fetchUpstreamCompare(
     throw Exception(json['message'] ?? 'No commits in compare response');
   }
 
-  return (commits: upstreamCommitsFrom(json), files: upstreamFilesFrom(json));
+  return (
+    commits: upstreamCommitsFrom(json),
+    files: upstreamFilesFrom(json, crates: crates),
+    patches: upstreamPatchesFrom(json, crates: crates),
+  );
 }
 
 /// Render the changed-file list out of a decoded compare response.
@@ -303,28 +478,45 @@ Future<({String commits, String files})> _fetchUpstreamCompare(
 /// crates we bind changed"). A model told only "here are some files" would
 /// make that claim from a truncated list and be wrong. So completeness is
 /// computed here, where the counts are, and stated in the text the model
-/// reads: `total` against what was returned, and whether the char cap bit.
+/// reads.
 ///
-/// Pure; exposed for testing.
-String upstreamFilesFrom(Map<String, dynamic> json) {
+/// ⚠ The char cap is a safety valve, not a budget, and it sits above anything
+/// 300 paths can reach. At 12 000 it was the binding limit: a 20-commit patch
+/// release touching 228 files came to 12 330 characters, was marked TRUNCATED
+/// although the API had returned every file, and the entry then wrote "the file
+/// list is truncated, so it cannot establish…" into the CHANGELOG.
+///
+/// Given [crates], the files inside them are listed first and apart — they are
+/// what the entry is about, and on a large range they were otherwise lost among
+/// hundreds of binding files. Pure; exposed for testing.
+String upstreamFilesFrom(
+  Map<String, dynamic> json, {
+  List<UpstreamCrate> crates = const [],
+}) {
   final files = json['files'];
   if (files is! List || files.isEmpty) return '';
 
-  final lines = <String>[];
+  final inCrates = <String>[];
+  final elsewhere = <String>[];
   for (final file in files) {
     if (file is! Map<String, dynamic>) continue;
     final name = file['filename'];
     if (name is! String) continue;
     final status = file['status'] as String? ?? 'changed';
     final previous = file['previous_filename'];
-    lines.add(
-      previous is String ? '$status $previous -> $name' : '$status $name',
-    );
+    final line = previous is String
+        ? '$status $previous -> $name'
+        : '$status $name';
+    final bound =
+        _inAnyCrate(name, crates) ||
+        (previous is String && _inAnyCrate(previous, crates));
+    (bound ? inCrates : elsewhere).add(line);
   }
-  if (lines.isEmpty) return '';
+  final total = inCrates.length + elsewhere.length;
+  if (total == 0) return '';
 
-  const maxChars = 12000;
-  var listing = lines.join('\n');
+  const maxChars = 60000;
+  var listing = elsewhere.join('\n');
   var capped = false;
   if (listing.length > maxChars) {
     listing = listing.substring(0, listing.lastIndexOf('\n', maxChars));
@@ -333,13 +525,466 @@ String upstreamFilesFrom(Map<String, dynamic> json) {
 
   // `files` is capped at 300 by the API; a payload at that ceiling is assumed
   // incomplete even when no count says so.
-  final complete = !capped && lines.length < 300;
+  final complete = !capped && total < 300;
   final header = complete
-      ? 'COMPLETE — every file the range touches is listed below '
-            '(${lines.length}).'
+      ? 'COMPLETE — every file the range touches is listed below ($total).'
       : 'TRUNCATED — this is only part of what the range touches. Nothing '
             'below supports a claim that some path was NOT changed.';
-  return '$header\n$listing';
+  if (crates.isEmpty) return '$header\n$listing';
+
+  return '$header\n'
+      '\n'
+      'In the upstream crates this package builds (${inCrates.length}):\n'
+      '${inCrates.isEmpty ? '(none)' : inCrates.join('\n')}\n'
+      '\n'
+      'Everywhere else (${elsewhere.length}):\n'
+      '${elsewhere.isEmpty ? '(none)' : listing}';
+}
+
+/// Whether [path] in the upstream repository belongs to one of [crates].
+bool _inAnyCrate(String path, List<UpstreamCrate> crates) =>
+    crates.any((c) => c.dir.isEmpty || path.startsWith(c.dir));
+
+/// Render the patches of the files inside [crates] out of a decoded compare
+/// response, for the prompt to read what changed rather than guess it.
+///
+/// A file list says WHERE the range touched a bound crate and nothing about
+/// WHAT it did there. Given only a path, the entry has two moves and both have
+/// shipped: invent a reason from a commit subject that sounds related — a
+/// one-line `#[repr(transparent)]` became "a serialization change" — or say
+/// that the material does not say, which is a sentence about the prompt and not
+/// about the release. The compare payload already carries each file's `patch`,
+/// and a bound crate's share of a range is small (the largest in the last eight
+/// releases was 4 471 characters, a test), so it is passed on rather than
+/// thrown away.
+///
+/// Empty when no crates are known or none of their files changed. Pure;
+/// exposed for testing.
+String upstreamPatchesFrom(
+  Map<String, dynamic> json, {
+  required List<UpstreamCrate> crates,
+}) {
+  if (crates.isEmpty) return '';
+  final files = json['files'];
+  if (files is! List) return '';
+
+  const perFile = 6000;
+  const total = 24000;
+  final out = <String>[];
+  var used = 0;
+  var notShown = 0;
+  for (final file in files) {
+    if (file is! Map<String, dynamic>) continue;
+    final name = file['filename'];
+    if (name is! String || !_inAnyCrate(name, crates)) continue;
+    if (used >= total) {
+      notShown++;
+      continue;
+    }
+    final patch = file['patch'];
+    if (patch is! String || patch.trim().isEmpty) {
+      out.add(
+        '### $name\n'
+        '(the payload carries no patch for this file — binary, renamed '
+        'without edits, or too large for GitHub to inline)',
+      );
+      continue;
+    }
+    var body = patch.trimRight();
+    var cut = false;
+    if (body.length > perFile) {
+      final at = body.lastIndexOf('\n', perFile);
+      body = body.substring(0, at > 0 ? at : perFile);
+      cut = true;
+    }
+    used += body.length;
+    out.add(
+      '### $name\n'
+      '```diff\n'
+      '$body\n'
+      '```'
+      '${cut ? '\n(cut at $perFile characters; the rest is not shown)' : ''}',
+    );
+  }
+  if (out.isEmpty) return '';
+  if (notShown > 0) {
+    out.add('($notShown more changed file(s) in those crates; not shown)');
+  }
+  return out.join('\n\n');
+}
+
+/// Ask `cargo metadata` which upstream crates this package builds — which ones
+/// are upstream's is the source's call, [UpstreamSource.cratesIn].
+///
+/// Best-effort: no toolchain, a checkout it cannot fetch or a lock out of step
+/// all land as an empty list, and every section that needs the crates then
+/// falls back to what it did without them.
+Future<List<UpstreamCrate>> _fetchUpstreamCrates(Directory packageDir) async {
+  try {
+    final result = await Process.run('cargo', [
+      'metadata',
+      '--manifest-path',
+      'rust/Cargo.toml',
+      '--format-version',
+      '1',
+      '--locked',
+    ], workingDirectory: packageDir.path);
+    if (result.exitCode != 0) {
+      logWarning(
+        'cargo metadata failed, so the prompt names only the crates the '
+        'generator was told about: ${(result.stderr as String).trim()}',
+      );
+      return const [];
+    }
+    return upstreamSource.cratesIn(
+      jsonDecode(result.stdout as String) as Map<String, dynamic>,
+      vcsInfo: _readVcsInfo,
+    );
+  } on Object catch (e) {
+    logWarning('cargo metadata could not be run: $e');
+    return const [];
+  }
+}
+
+/// The [VcsInfo] of the crate unpacked in [crateDir], from the
+/// `.cargo_vcs_info.json` that `cargo package` put there, or null when there
+/// is none or it cannot be read — the crate is then left out, not guessed at.
+VcsInfo? _readVcsInfo(String crateDir) {
+  final file = File('$crateDir.cargo_vcs_info.json');
+  if (!file.existsSync()) return null;
+  try {
+    return vcsInfoFrom(file.readAsStringSync());
+  } on FormatException {
+    return null;
+  }
+}
+
+/// One `[[package]]` stanza of a `Cargo.lock`, reduced to what an entry names.
+typedef LockedPackage = ({String name, String version, String? source});
+
+/// Read the `[[package]]` stanzas out of a `Cargo.lock`. Pure; exposed for
+/// testing.
+List<LockedPackage> parseCargoLock(String text) {
+  final packages = <LockedPackage>[];
+  final field = RegExp(r'^(name|version|source) = "(.*)"$');
+  String? name;
+  String? version;
+  String? source;
+  void flush() {
+    final n = name;
+    final v = version;
+    if (n != null && v != null) {
+      packages.add((name: n, version: v, source: source));
+    }
+    name = version = source = null;
+  }
+
+  for (final raw in text.split('\n')) {
+    final line = raw.trim();
+    if (line.startsWith('[')) {
+      flush();
+      continue;
+    }
+    final match = field.firstMatch(line);
+    if (match == null) continue;
+    switch (match.group(1)) {
+      case 'name':
+        name = match.group(2);
+      case 'version':
+        version = match.group(2);
+      case 'source':
+        source = match.group(2);
+    }
+  }
+  flush();
+  return packages;
+}
+
+/// What moved between two `Cargo.lock` texts, by package name.
+typedef LockDiff = ({
+  List<({String name, List<LockedPackage> was, List<LockedPackage> now})> git,
+  List<({String name, List<String> was, List<String> now})> moved,
+  List<({String name, List<String> versions})> added,
+  List<({String name, List<String> versions})> removed,
+});
+
+/// Compare two `Cargo.lock` texts. Packages without a `source` are this
+/// workspace's own and are left out. Pure; exposed for testing.
+LockDiff diffLockfiles(String before, String after) {
+  Map<String, List<LockedPackage>> byName(String text) {
+    final map = <String, List<LockedPackage>>{};
+    for (final p in parseCargoLock(text)) {
+      if (p.source == null) continue;
+      (map[p.name] ??= []).add(p);
+    }
+    return map;
+  }
+
+  List<String> versions(List<LockedPackage> ps) =>
+      ps.map((p) => p.version).toList()..sort();
+
+  final oldByName = byName(before);
+  final newByName = byName(after);
+  final diff = (
+    git: <({String name, List<LockedPackage> was, List<LockedPackage> now})>[],
+    moved: <({String name, List<String> was, List<String> now})>[],
+    added: <({String name, List<String> versions})>[],
+    removed: <({String name, List<String> versions})>[],
+  );
+  for (final name in {...oldByName.keys, ...newByName.keys}.toList()..sort()) {
+    final was = oldByName[name] ?? const [];
+    final now = newByName[name] ?? const [];
+    if ([...was, ...now].any((p) => p.source!.startsWith('git+'))) {
+      diff.git.add((name: name, was: was, now: now));
+    } else if (was.isEmpty) {
+      diff.added.add((name: name, versions: versions(now)));
+    } else if (now.isEmpty) {
+      diff.removed.add((name: name, versions: versions(was)));
+    } else if (versions(was).join(',') != versions(now).join(',')) {
+      diff.moved.add((name: name, was: versions(was), now: versions(now)));
+    }
+  }
+  return diff;
+}
+
+/// Whether [diff] records no move at all; a git dependency that stayed where
+/// it was is not one.
+bool _isStill(LockDiff diff) =>
+    diff.moved.isEmpty &&
+    diff.added.isEmpty &&
+    diff.removed.isEmpty &&
+    diff.git.every((g) => _lockedLabel(g.was) == _lockedLabel(g.now));
+
+/// Describe how the resolved graph moved between two `Cargo.lock` texts, for
+/// the prompt.
+///
+/// Every entry a human rewrote on these pull requests gained the same
+/// paragraph: which third-party crates moved with the bump, and whether a git
+/// dependency from another repository moved at all. The model never saw the
+/// lockfile, so it could do neither, and once it filled the gap by inventing a
+/// version move for such a dependency. The diff is a fact this run already
+/// holds, so it is handed over instead of asked for — and the paragraph itself
+/// is written by [thirdPartyParagraphFrom], not by the model.
+///
+/// Registry crates named in [upstream] are listed apart: with a registry
+/// upstream source they are the entry's subject, not crates that moved with
+/// it.
+///
+/// Empty when nothing moved. Pure; exposed for testing.
+String lockfileChangesFrom(
+  String before,
+  String after, {
+  Set<String> upstream = const {},
+}) {
+  final diff = diffLockfiles(before, after);
+  if (_isStill(diff)) return '';
+  final fromUpstream = [
+    for (final m in diff.moved)
+      if (upstream.contains(m.name))
+        '- `${m.name}` ${m.was.join(', ')} → ${m.now.join(', ')}',
+    for (final a in diff.added)
+      if (upstream.contains(a.name))
+        '- `${a.name}` ${a.versions.join(', ')}, added',
+    for (final r in diff.removed)
+      if (upstream.contains(r.name))
+        '- `${r.name}` removed (was ${r.versions.join(', ')})',
+  ];
+
+  final git = [
+    for (final g in diff.git)
+      if (g.now.isEmpty)
+        '- `${g.name}` removed (was ${_lockedLabel(g.was)})'
+      else if (g.was.isEmpty)
+        '- `${g.name}` ${_lockedLabel(g.now)}, added'
+      else if (_lockedLabel(g.was) == _lockedLabel(g.now))
+        '- `${g.name}` ${_lockedLabel(g.now)}, unchanged'
+      else
+        '- `${g.name}` ${_lockedLabel(g.now)}, was ${_lockedLabel(g.was)}',
+  ];
+  String block(String title, List<String> lines) =>
+      '$title (${lines.length}):\n${lines.isEmpty ? '(none)' : lines.join('\n')}';
+  return [
+    if (git.isNotEmpty) 'Git dependencies:\n${git.join('\n')}',
+    if (fromUpstream.isNotEmpty)
+      'Upstream crates, from the registry:\n${fromUpstream.join('\n')}',
+    block('Registry crates that moved', [
+      for (final m in diff.moved)
+        if (!upstream.contains(m.name))
+          '- `${m.name}` ${m.was.join(', ')} → ${m.now.join(', ')}',
+    ]),
+    block('Registry crates added', [
+      for (final a in diff.added)
+        if (!upstream.contains(a.name))
+          '- `${a.name}` ${a.versions.join(', ')}',
+    ]),
+    block('Registry crates removed', [
+      for (final r in diff.removed)
+        if (!upstream.contains(r.name))
+          '- `${r.name}` ${r.versions.join(', ')}',
+    ]),
+  ].join('\n\n');
+}
+
+/// The paragraph this script appends to the model's entry: every third-party
+/// crate that moved, was added or was removed, and every git dependency from a
+/// repository other than [upstreamRepo], moved or not.
+///
+/// Written here rather than asked for. The list is a fact of the lockfile, a
+/// model copying sixteen names out of a prompt is exactly where one gets
+/// dropped or a version mistyped, and the model has nothing to add to it — it
+/// cannot read those crates' own changelogs. The upstream repository's crates
+/// are the entry's subject and are left to it — and so are the registry crates
+/// named in [upstream], which is where a registry upstream source's crates are.
+///
+/// Empty when nothing moved. Pure; exposed for testing.
+String thirdPartyParagraphFrom(
+  String before,
+  String after, {
+  required String upstreamRepo,
+  Set<String> upstream = const {},
+}) {
+  final all = diffLockfiles(before, after);
+  if (_isStill(all)) return '';
+  final diff = (
+    git: all.git,
+    moved: [
+      for (final m in all.moved)
+        if (!upstream.contains(m.name)) m,
+    ],
+    added: [
+      for (final a in all.added)
+        if (!upstream.contains(a.name)) a,
+    ],
+    removed: [
+      for (final r in all.removed)
+        if (!upstream.contains(r.name)) r,
+    ],
+  );
+
+  String named(String name, List<String> versions) =>
+      '`$name` ${_inProse(versions)}';
+  final sentences = <String>[
+    if (diff.moved.isEmpty)
+      'No third-party crate moves with it.'
+    else
+      'Third-party crates move with it: ${_inProse([
+        for (final m in diff.moved) named(m.name, [for (final v in m.now)
+            if (!m.was.contains(v)) v].ifEmpty(m.now)),
+      ])}.',
+    if (diff.added.isEmpty && diff.removed.isEmpty) 'None is added or removed.',
+    if (diff.added.isNotEmpty)
+      'New to the graph: ${_inProse([for (final a in diff.added) named(a.name, a.versions)])}.',
+    if (diff.removed.isNotEmpty)
+      'Gone from it: ${_inProse([for (final r in diff.removed) named(r.name, r.versions)])}.',
+  ];
+  for (final g in diff.git) {
+    final source = [...g.now, ...g.was].first.source!;
+    final repo = _gitSource(source)?.repo;
+    if (repo == null || repo.toLowerCase() == upstreamRepo.toLowerCase()) {
+      continue;
+    }
+    final now = _pinned(g.now);
+    final was = _pinned(g.was);
+    if (g.was.isEmpty) {
+      sentences.add('`${g.name}` $now joins the graph.');
+    } else if (g.now.isEmpty) {
+      sentences.add('`${g.name}` leaves the graph.');
+    } else if (now == was) {
+      sentences.add('`${g.name}` stays at $now.');
+    } else {
+      sentences.add('`${g.name}` moves from $was to $now.');
+    }
+  }
+  return sentences.join(' ');
+}
+
+/// `1.6.0 (`06959b4`)` for each resolution of a git package, in prose.
+String _pinned(List<LockedPackage> packages) => _inProse([
+  for (final p in packages)
+    '${p.version} (`${_gitSource(p.source!)?.rev ?? '?'}`)',
+]);
+
+/// `a`, `a and b`, `a, b and c`.
+String _inProse(List<String> items) => items.length < 2
+    ? items.join()
+    : '${items.sublist(0, items.length - 1).join(', ')} and ${items.last}';
+
+extension on List<String> {
+  /// This list, or [fallback] when it is empty.
+  List<String> ifEmpty(List<String> fallback) => isEmpty ? fallback : this;
+}
+
+/// `1.6.0 (owner/repo @06959b4)` for git packages, joined when a name resolves
+/// more than once.
+String _lockedLabel(List<LockedPackage> packages) {
+  final labels = [
+    for (final p in packages) '${p.version} (${_describeSource(p.source!)})',
+  ]..sort();
+  return labels.join(', ');
+}
+
+/// `owner/repo @06959b4` for a git source, the source itself otherwise.
+String _describeSource(String source) {
+  final git = _gitSource(source);
+  return git == null ? source : '${git.repo} @${git.rev}';
+}
+
+/// `owner/repo` and the short revision out of
+/// `git+https://github.com/owner/repo?tag=…#rev`.
+({String repo, String rev})? _gitSource(String source) {
+  final match = RegExp(
+    r'^git\+https?://[^/]+/([^?#]+?)(?:\.git)?(?:\?[^#]*)?#([0-9a-f]+)$',
+  ).firstMatch(source);
+  if (match == null) return null;
+  final rev = match.group(2)!;
+  return (
+    repo: match.group(1)!,
+    rev: rev.length > 7 ? rev.substring(0, 7) : rev,
+  );
+}
+
+/// The lockfile diff of the working tree against `HEAD`: as a prompt section,
+/// and as the paragraph appended to the entry.
+///
+/// `HEAD` is the base the update branch was cut from, and the bump is not yet
+/// committed when this runs. Where it already is, the two are equal and both
+/// are simply left out: no section is better than one claiming that nothing
+/// moved.
+Future<({String prompt, String paragraph})> _readLockfileChanges(
+  Directory packageDir, {
+  required List<UpstreamCrate> crates,
+}) async {
+  const path = 'rust/Cargo.lock';
+  const none = (prompt: '', paragraph: '');
+  try {
+    final before = await Process.run('git', [
+      'show',
+      'HEAD:$path',
+    ], workingDirectory: packageDir.path);
+    final file = File('${packageDir.path}/$path');
+    if (before.exitCode != 0 || !file.existsSync()) {
+      logWarning('Could not read $path at HEAD; the prompt gets no lock diff');
+      return none;
+    }
+    final old = before.stdout as String;
+    final now = file.readAsStringSync();
+    // The answers' crates and the graph's: the graph also holds the crates
+    // upstream pulls in from itself, and the answers stand in when `cargo
+    // metadata` could not run.
+    final upstream = {...upstreamSource.crates, for (final c in crates) c.name};
+    return (
+      prompt: lockfileChangesFrom(old, now, upstream: upstream),
+      paragraph: thirdPartyParagraphFrom(
+        old,
+        now,
+        upstreamRepo: 'openmls/openmls',
+        upstream: upstream,
+      ),
+    );
+  } on Object catch (e) {
+    logWarning('Could not diff $path: $e');
+    return none;
+  }
 }
 
 /// Render the commit list out of a decoded compare response. Pure; exposed for
@@ -466,6 +1111,13 @@ const _defaultHighlightTemplate =
     '**openmls $_highlightVersionSlot** — internal/dependency update, '
     'no public-API impact';
 
+/// How a Highlights line names the upstream release [pin]: `v` and the bare
+/// version, whatever the source pins by — the house format is
+/// `**<library> vX.Y.Z**`, and a pin is a tag with its own prefix, or a
+/// registry version with none. Pure; exposed for testing.
+String highlightVersionFor(UpstreamSource source, String pin) =>
+    'v${source.semverOf(pin)}';
+
 /// The mandated default Highlights line for [version].
 String defaultHighlightFor(String version) =>
     _defaultHighlightTemplate.replaceFirst(_highlightVersionSlot, version);
@@ -550,6 +1202,37 @@ String stripLeadingListMarker(String highlight) {
   return marker == null ? trimmed : trimmed.substring(marker.end).trim();
 }
 
+/// [text] with typographic quotes and apostrophes made straight, as everything
+/// else in the CHANGELOG is. Pure; exposed for testing.
+///
+/// A model writing prose reaches for `’` whatever the prompt shows (see
+/// [breakingContradictsNoImpact]), and the entry then mixes it with the
+/// straight apostrophe of [noImpactPhrase] inside one paragraph. Replayed on the
+/// last three upstream bumps, gpt-6-luna did that in two entries of three. The
+/// meaning never changes, so it is settled here rather than asked for.
+String withStraightQuotes(String text) =>
+    text.replaceAll(RegExp('[‘’ʼ]'), "'").replaceAll(RegExp('[“”]'), '"');
+
+/// The `#### Changed` entry as written: the model's [entry], its last sentence
+/// closed, then the script's own [paragraph] when there is one. Pure; exposed
+/// for testing.
+///
+/// The appended paragraph starts a new sentence, so an entry that leaves its
+/// last one open runs straight into it. Replayed on the last three upstream
+/// bumps, one entry of six ended "…do not affect this library's public API"
+/// with no full stop. Only an ending that is plainly a word, a number or a code
+/// span is closed, and never a nested list item, which the house style writes
+/// without one.
+String composeChangedEntry(String entry, String paragraph) {
+  var text = entry.trimRight();
+  final lastLine = text.split('\n').last;
+  final nestedItem = RegExp(r'^\s+(?:[-*+]|\d+\.)\s').hasMatch(lastLine);
+  if (!nestedItem && RegExp(r'[A-Za-z0-9`]$').hasMatch(text)) {
+    text = '$text.';
+  }
+  return paragraph.isEmpty ? text : '$text\n\n  $paragraph';
+}
+
 /// The fields the model must return, and what each one is.
 ///
 /// Doubles as the schema every provider enforces natively, so the JSON contract
@@ -571,10 +1254,14 @@ const _changelogFields = <String, String>{
 Future<({String highlight, String changed, AiModel model})>
 _generateChangelogEntry({
   required String version,
-  required String? fromVersion,
+  required String? fromRef,
+  required String? toRef,
   required String releaseNotes,
   required String upstreamCommits,
   required String upstreamFiles,
+  required String upstreamPatches,
+  required List<UpstreamCrate> crates,
+  required String lockChanges,
   required String currentChangelog,
   required String? codegenResult,
   required List<ResolvedAiModel> models,
@@ -582,11 +1269,15 @@ _generateChangelogEntry({
   // Extract recent changelog entries for context (first 150 lines).
   final changelogContext = currentChangelog.split('\n').take(150).join('\n');
 
+  // The release as the Highlights line names it — see [highlightVersionFor].
+  final shown = highlightVersionFor(upstreamSource, version);
+
   // Prefer a compare link (the release notes are often incomplete); fall back
-  // to the release-notes link when the previous version is unknown.
-  final sourceLink = fromVersion != null && fromVersion != version
-      ? '[compare](https://github.com/openmls/openmls/compare/$fromVersion...$version)'
-      : '[release notes](https://github.com/openmls/openmls/releases/tag/$version)';
+  // to the release's page when there is no previous commit to compare from.
+  final page = upstreamSource.pageFor(version);
+  final sourceLink = fromRef != null && toRef != null && fromRef != toRef
+      ? '[compare](https://github.com/openmls/openmls/compare/$fromRef...$toRef)'
+      : '[${page.label}](${page.url})';
 
   // Injected only when the pipeline actually ran codegen and captured the
   // result. Absent, the prompt says nothing about codegen and rule 6 forbids
@@ -615,6 +1306,23 @@ dependency bump this is unexpected and a reviewer needs to see it.
   // so editing the file takes effect without touching this script.
   final scope = readChangelogScope();
 
+  // The resolved graph's answer when there is one, the generator answers'
+  // otherwise; see [UpstreamSource.cratesIn] for why the two can differ.
+  final crateNames = crates.isEmpty
+      ? boundCrates
+      : crates.map((c) => '`${c.name}`').join(', ');
+  final cratesSection = crates.isEmpty
+      ? ''
+      : '''
+
+## Upstream crates this package builds (from `cargo metadata` — a real result of this run)
+${crates.map((c) => '- `${c.name}` ${c.version}, at `${c.dir}` in the upstream repository').join('\n')}
+
+These are the crates from the upstream repository in this package's resolved
+dependency graph, the ones it pulls in transitively included. Wherever the rules
+below speak of the crates we bind, these are the crates meant — this list is the
+fact where the scope section above names fewer.''';
+
   final prompt =
       '''
 You are updating CHANGELOG.md for **openmls_dart**, a Dart package
@@ -635,10 +1343,11 @@ from the material below; it is not the answer.
 Note also what that material cannot settle. The range above covers ONE
 repository. A dependency that lives in a different one leaves a single trace in
 it — a version number in a manifest — and nothing whatever about what changed
-inside it. So where the entry would turn on that, say the material does not
-carry it, and name the version move as the version move it is. Do not infer the
-change from the bump, from the dependency's name, or from what the section
-above says such a change can reach.
+inside it. So name the version move as the version move it is, and make no
+claim about what changed inside that dependency. Do not infer the change from
+the bump, from the dependency's name, or from what the section above says such
+a change can reach.
+$cratesSection
 
 ## openmls release notes for $version:
 $releaseNotes
@@ -672,8 +1381,31 @@ own, so nothing here joins the two. Never attribute a file to a named commit,
 and never take the REASON a file changed from a commit subject that happens to
 sound related: a range holds unrelated commits, and pairing one commit's subject
 with another commit's file invents a change nobody made. Write "the range
-changes <file>" and stop there. Where the entry would turn on why a file
-changed, say that this material does not say.'''}
+changes <file>"; where its patch is given below, say what the patch shows, and
+otherwise stop there. Never write that the reason is unknown — leave it out.'''}
+${upstreamPatches.isEmpty ? '' : '''
+
+## What the range changed inside the crates this package builds (the compare API's own patches)
+$upstreamPatches
+
+These are the changes themselves. Describe them from what they show — a type or
+function gained, removed or altered, a body changed, a test added — and then
+say whether any of it reaches an item named under "Exposed surface" above. Go
+no further than a patch shows: a file with no patch, or a hunk that is cut, is
+named and not explained.'''}
+${lockChanges.isEmpty ? '' : '''
+
+## How the resolved dependency graph moved (`rust/Cargo.lock`, before → after — a real result of this run)
+$lockChanges
+
+This script appends a paragraph of its own to your entry, naming every
+registry crate that moved, every one added or removed, and every git dependency
+from another repository with its version, moved or not — so a version move the
+scope section asks you to report is reported there. Leave all of those out of
+your text: a second list adds nothing, and a list copied by hand is where a
+crate gets dropped. The section is here so that you know what moved, not so
+that you comment on it; it does not say which crates reach the shipped binaries,
+so make no claim either way.'''}
 
 ## Current CHANGELOG.md (match this house style exactly):
 $changelogContext
@@ -685,9 +1417,9 @@ Return a JSON object with EXACTLY two string fields:
 2. "changed" — the "#### Changed" entry.
 
 ## Rules for "openmls_highlight"
-1. Format exactly: "**openmls $version** — <brief 3-7 word description>".
+1. Format exactly: "**openmls $shown** — <brief 3-7 word description>".
 2. If nothing in this update touches our exposed surface (the common case), use:
-   "${defaultHighlightFor(version)}".
+   "${defaultHighlightFor(shown)}".
 3. Return the line WITHOUT a leading "- ". The list marker is added when the
    line is written into the file; one in your answer makes it "- - **…".
 
@@ -726,7 +1458,7 @@ Return a JSON object with EXACTLY two string fields:
      package's public API, and that sentence must be omitted.
 3. When the crates we bind had no change reaching our exposed surface, say so
    explicitly. Default wording, which is true whenever (b) in rule 2 failed:
-   "The crates we bind (`openmls`, `openmls_rust_crypto`, `openmls_basic_credential`, `openmls_traits`, `openmls_libcrux_crypto`) have no changes reaching the surface this package exposes".
+   "The crates we bind${crateNames.isEmpty ? '' : ' ($crateNames)'} have no changes reaching the surface this package exposes".
    Use the STRONGER "are unchanged apart from version strings" ONLY when those
    crates genuinely had no code change at all. Those are different claims, and
    the strong one is checkable: if a bound crate lost or altered any symbol —
@@ -751,7 +1483,7 @@ Return a JSON object with EXACTLY two string fields:
    more than one of them is padding, and it is what makes these entries read as
    filled-in boilerplate. Omit the phrase entirely when it is not true.
    Two things above can make it false, and you can check both. First, a
-   COMPLETE file list in which a crate named under "Crates bound:" has any
+   COMPLETE file list in which a crate we bind (rule 3 names them) has any
    SOURCE file changed — source meaning a file that is neither a version string
    nor a test. That is the update reaching this package, whatever you conclude
    about which surface it reaches. Second, an unchanged FFI surface offered as
@@ -776,7 +1508,11 @@ Return a JSON object with EXACTLY two string fields:
    not even reliable: some upstreams publish every release with an empty body
    while maintaining the notes elsewhere. When the release-notes section says
    nothing was published, write the entry from the commit list and do not
-   remark on the absence.
+   remark on the absence. The same goes for what the inputs leave open: "the
+   supplied list names", "the material does not identify", "the file list is
+   truncated, so it cannot establish" have all reached a pull request, and a
+   reader of the CHANGELOG has no list and no material. Say what is known in
+   terms of the release, and leave out what is not.
 
 ## The shape of "changed" (the SHAPE is fixed; the wording is yours every time)
 
@@ -789,6 +1525,9 @@ One house-format bullet, continued in indented paragraphs when it needs them:
     <continuation: what the crates we bind did and did not change; the
     binding-regeneration result, if one is given above; and the rule-4
     conclusion, if it is true>
+
+    (no third-party paragraph: where a lockfile section is given above,
+    this script appends one)
 
 Inside the JSON string a newline is written \\n, and a continuation paragraph is
 a blank line followed by two spaces of indent.
@@ -865,8 +1604,8 @@ code blocks.
   }
 
   return (
-    highlight: stripLeadingListMarker(highlight),
-    changed: changed.trimRight(),
+    highlight: withStraightQuotes(stripLeadingListMarker(highlight)),
+    changed: withStraightQuotes(changed.trimRight()),
     model: response.model,
   );
 }
@@ -915,7 +1654,25 @@ String insertChangelogEntry({
   }
 }
 
+/// The opening of this package's own crate line in Highlights, which
+/// `make release-frb` stamps BELOW the upstream one (CLAUDE.md: headlines, then
+/// the upstream library, then the crate).
+const _crateHighlightPrefix = '- **openmls_frb v';
+
+/// A Markdown link reference definition (`[Unreleased]: https://…`), which
+/// ends whatever block precedes it.
+final _linkReference = RegExp(r'^\[[^\]]+\]:\s');
+
 /// Insert entry into an existing [Unreleased] section.
+///
+/// Both lines are placed when their block ENDS rather than when its heading is
+/// read, because where they belong depends on what the block holds. The
+/// Highlights line used to go straight under the heading, which on a section
+/// that already carried the release's headline bullets put a routine
+/// dependency bump above them — against the documented order, and fixed by
+/// hand every time. It now goes in above the crate's own line, or else last,
+/// which is that order whatever the block held. The Changed entry goes last in
+/// its block too, so successive bumps read in the order they landed.
 String _insertIntoUnreleased(
   List<String> lines,
   String nativeHighlight,
@@ -926,9 +1683,6 @@ String _insertIntoUnreleased(
   var inForUsers = false;
   var insertedHighlights = false;
   var insertedChanged = false;
-  // Whether the line being read sits under `#### ✨ Highlights`, which is the
-  // only block a superseded native-library line may be dropped from.
-  var inHighlights = false;
   // Index of the `## [Unreleased]` heading within [result], so a missing
   // `### For Users` can be spliced at the top of the section, not the bottom.
   var unreleasedIdx = -1;
@@ -939,6 +1693,10 @@ String _insertIntoUnreleased(
   // subsection that follows it in the documented order. -1 until one is seen,
   // in which case the flush falls back to the end of the block.
   var changedAnchorIdx = -1;
+  // The heading of the `#### ✨ Highlights` or `#### Changed` block being read,
+  // within [result]; -1 outside it. Each entry is placed when its block ends.
+  var highlightsIdx = -1;
+  var changedIdx = -1;
 
   // The end of what has been emitted so far, backed up over trailing blanks so
   // an insertion there keeps the blank line separating it from what follows.
@@ -948,6 +1706,45 @@ String _insertIntoUnreleased(
       at--;
     }
     return at;
+  }
+
+  // Put [text] last in the block under [heading], which runs to the end of
+  // [result]: after its last non-blank line, or, in an empty block, below the
+  // heading with a blank line on either side.
+  void appendToBlock(int heading, String text) {
+    var end = result.length;
+    while (end > heading + 1 && result[end - 1].trim().isEmpty) {
+      end--;
+    }
+    if (end > heading + 1) {
+      result.insert(end, text);
+      return;
+    }
+    result.insertAll(heading + 1, ['', text]);
+    if (heading + 3 >= result.length) result.add('');
+  }
+
+  void closeHighlights() {
+    if (highlightsIdx < 0) return;
+    final line = '- $nativeHighlight';
+    final crateLine = result.indexWhere(
+      (l) => l.startsWith(_crateHighlightPrefix),
+      highlightsIdx + 1,
+    );
+    if (crateLine >= 0) {
+      result.insert(crateLine, line);
+    } else {
+      appendToBlock(highlightsIdx, line);
+    }
+    insertedHighlights = true;
+    highlightsIdx = -1;
+  }
+
+  void closeChanged() {
+    if (changedIdx < 0) return;
+    appendToBlock(changedIdx, changed);
+    insertedChanged = true;
+    changedIdx = -1;
   }
 
   // Splice whichever subsection is still missing into the existing
@@ -970,6 +1767,42 @@ String _insertIntoUnreleased(
     }
   }
 
+  // The end of [Unreleased]: the next version heading, the link references at
+  // the bottom of the file, or the end of the file itself.
+  void endUnreleased() {
+    closeHighlights();
+    closeChanged();
+    if (!insertedHighlights || !insertedChanged) {
+      if (forUsersIdx >= 0) {
+        // A `### For Users` heading exists and runs to the end of the
+        // section, so only its missing subsections have to be created.
+        // Adding another `### For Users` would duplicate the heading.
+        flushForUsers();
+      } else {
+        // No `### For Users` anywhere in [Unreleased]. Create it at the TOP of
+        // the section rather than here at the bottom: appending would file a
+        // user-facing entry below every existing subsection (`### For
+        // Contributors`), and every released section puts For Users first.
+        result.insertAll(unreleasedIdx + 1, [
+          '',
+          '### For Users',
+          '',
+          '#### ✨ Highlights',
+          '',
+          '- $nativeHighlight',
+          '',
+          '#### Changed',
+          '',
+          changed,
+        ]);
+        insertedHighlights = true;
+        insertedChanged = true;
+      }
+    }
+    inUnreleased = false;
+    inForUsers = false;
+  }
+
   for (var i = 0; i < lines.length; i++) {
     final line = lines[i];
 
@@ -981,41 +1814,12 @@ String _insertIntoUnreleased(
       continue;
     }
 
-    // Check for next version section (end of Unreleased).
+    // Check for the end of Unreleased: the next version section, or the link
+    // references when no version section follows.
     if (inUnreleased &&
-        line.startsWith('## [') &&
-        !line.contains('Unreleased')) {
-      // If we haven't inserted yet, create the structure.
-      if (!insertedHighlights || !insertedChanged) {
-        if (forUsersIdx >= 0) {
-          // A `### For Users` heading exists and runs to the end of the
-          // section, so only its missing subsections have to be created.
-          // Adding another `### For Users` would duplicate the heading.
-          flushForUsers();
-        } else {
-          // No `### For Users` anywhere in [Unreleased]. Create it at the TOP of
-          // the section rather than here at the bottom: appending would file a
-          // user-facing entry below every existing subsection (`### For
-          // Contributors`), and every released section puts For Users first.
-          result.insertAll(unreleasedIdx + 1, [
-            '',
-            '### For Users',
-            '',
-            '#### ✨ Highlights',
-            '',
-            '- $nativeHighlight',
-            '',
-            '#### Changed',
-            '',
-            changed,
-          ]);
-          insertedHighlights = true;
-          insertedChanged = true;
-        }
-      }
-      inUnreleased = false;
-      inForUsers = false;
-      inHighlights = false;
+        ((line.startsWith('## [') && !line.contains('Unreleased')) ||
+            _linkReference.hasMatch(line))) {
+      endUnreleased();
       result.add(line);
       continue;
     }
@@ -1030,80 +1834,62 @@ String _insertIntoUnreleased(
 
     // Check for next ### section (end of For Users).
     if (inForUsers && line.startsWith('### ') && !line.contains('For Users')) {
+      closeHighlights();
+      closeChanged();
       // If we haven't inserted yet, insert before this section.
       if (!insertedHighlights || !insertedChanged) {
         flushForUsers();
       }
       inForUsers = false;
-      inHighlights = false;
       result.add(line);
       continue;
     }
 
-    // Check for #### ✨ Highlights in For Users.
-    if (inForUsers && line.contains('Highlights')) {
-      result.add(line);
-      result.add('');
-      result.add('- $nativeHighlight');
-      insertedHighlights = true;
-      inHighlights = true;
-      // Skip the next empty line if present.
-      if (i + 1 < lines.length && lines[i + 1].trim().isEmpty) {
-        i++;
+    if (inForUsers && line.startsWith('#### ')) {
+      closeHighlights();
+      closeChanged();
+
+      if (line.contains('Highlights')) {
+        result.add(line);
+        highlightsIdx = result.length - 1;
+        continue;
       }
+
+      // Matched exactly, because `#### Changed (Breaking)` is a different
+      // subsection: filing a routine native-library bump under it would
+      // announce it as a breaking change.
+      if (line.trimRight() == '#### Changed') {
+        result.add(line);
+        changedIdx = result.length - 1;
+        continue;
+      }
+
+      // A `#### Changed` that has to be created belongs just before the first
+      // heading that FOLLOWS it in the documented order (`#### Security`,
+      // `#### Fixed`, `#### Documentation`, …), so that first one anchors it.
+      //
+      // ⚠ [precedesChanged] is therefore not a courtesy list: a subsection
+      // that comes BEFORE `#### Changed` and is missing from it becomes the
+      // anchor, and the created `#### Changed` is then filed above it — out of
+      // the order this script and CLAUDE.md both state. `#### Added` can reach
+      // here, and did.
+      if (!insertedChanged && changedAnchorIdx < 0 && !precedesChanged(line)) {
+        changedAnchorIdx = trimmedEnd();
+      }
+      result.add(line);
       continue;
     }
 
-    // Check for #### Changed in For Users. Matched exactly, because
-    // `#### Changed (Breaking)` is a different subsection: filing a routine
-    // native-library bump under it would announce it as a breaking change. A
-    // missing `#### ✨ Highlights` is NOT created here — the flush puts it at
-    // the top of the block, which is where the documented order wants it even
-    // when `#### Changed` is preceded by the breaking one.
     // A native-library Highlights line from an earlier bump in the same release
-    // window is superseded by the one just inserted: that line names the
-    // version the section ships, so two of them make the section name two.
-    // Only this script's own mandated default matches — see
-    // [isOwnDefaultHighlight] — so a rewritten line is never dropped here.
-    if (inHighlights && insertedHighlights && isOwnDefaultHighlight(line)) {
-      continue;
-    }
-
-    if (inForUsers &&
-        line.startsWith('#### ') &&
-        !line.contains('Highlights')) {
-      inHighlights = false;
-    }
-
-    if (inForUsers && line.trimRight() == '#### Changed') {
-      result.addAll([line, '', changed]);
-      insertedChanged = true;
-      // Skip the next empty line if present.
-      if (i + 1 < lines.length && lines[i + 1].trim().isEmpty) {
-        i++;
-      }
-      continue;
-    }
-
-    // A `#### Changed` that has to be created belongs just before the first
-    // heading that FOLLOWS it in the documented order (`#### Security`,
-    // `#### Fixed`, `#### Documentation`, …), so that first one anchors it.
-    //
-    // ⚠ [precedesChanged] is therefore not a courtesy list: a subsection that
-    // comes BEFORE `#### Changed` and is missing from it becomes the anchor,
-    // and the created `#### Changed` is then filed above it — out of the order
-    // this script and CLAUDE.md both state. `#### ✨ Highlights` cannot reach
-    // here (it is consumed above), but `#### Added` can, and did.
-    if (inForUsers &&
-        !insertedChanged &&
-        changedAnchorIdx < 0 &&
-        line.startsWith('#### ') &&
-        !precedesChanged(line)) {
-      changedAnchorIdx = trimmedEnd();
-    }
+    // window is superseded by this one: that line names the version the
+    // section ships, so two of them make the section name two. Only this
+    // script's own mandated default matches — see [isOwnDefaultHighlight] — so
+    // a rewritten line is never dropped here.
+    if (highlightsIdx >= 0 && isOwnDefaultHighlight(line)) continue;
 
     result.add(line);
   }
+  if (inUnreleased) endUnreleased();
 
   return result.join('\n');
 }

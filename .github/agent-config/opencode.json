@@ -24,7 +24,8 @@
 // the config for anyone running `opencode` in this repository by hand.
 //
 // Which model runs is not set here — it is `vars.AGENT_OPENCODE_MODEL` in the
-// workflow, in `provider/model` form. Any provider OpenCode knows about works,
+// workflow, in `provider/model` form, and the one for session titles is
+// `vars.AGENT_OPENCODE_TITLE_MODEL` (see `"title"` below; unset means none). Any provider OpenCode knows about works,
 // because the workflow hands the `AGENT_OPENCODE_API_KEY` secret to whichever
 // environment variable `vars.AGENT_OPENCODE_PROVIDER_ENV` names.
 //
@@ -220,6 +221,20 @@
   },
 
   "agent": {
+    // Session titles, which are the one other model call `opencode run` makes.
+    // OpenCode names each session through its "small model", and when nothing
+    // names that model it picks one from the main model's provider catalogue
+    // by itself: on OpenRouter, google/gemini-3.6-flash on 1.18.15 and
+    // google/gemini-3.8-flash on 1.18.35 — through the same key, with the
+    // run's opening message in the request — and on the catalogue OpenCode
+    // downloads today the same rule lands on an image model. A title is thrown
+    // away with the runner, so the call is off here. Setting
+    // `vars.AGENT_OPENCODE_TITLE_MODEL` turns it back on with a named model:
+    // both workflows replace this exact line with
+    // `"title": { "model": "<that value>" },` and then check what OpenCode
+    // resolved, so a reformatted line fails the run instead of being skipped.
+    "title": { "disable": true },
+
     "repair-build": {
       "description": "Repairs a broken build on main and leaves a verdict.",
       "mode": "primary",

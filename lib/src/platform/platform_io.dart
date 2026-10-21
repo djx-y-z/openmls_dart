@@ -1,6 +1,7 @@
 /// IO-specific platform implementations for native platforms.
 library;
 
+import 'dart:ffi';
 import 'dart:io';
 import 'dart:isolate';
 
@@ -89,6 +90,35 @@ ExternalLibrary openLibraryFromPath(String path) {
   return ExternalLibrary.open(path);
 }
 // coverage:ignore-end
+
+/// Installs the real `Dart_PostCObject` for flutter_rust_bridge again.
+///
+/// Call it right after `RustLib.init`. Every Rust-to-Dart message - the
+/// result of an async call, the invocation of a store callback - goes through
+/// one process-wide function pointer, and flutter_rust_bridge replaces it with
+/// a no-op when its process-wide count of initialized isolates drops to zero
+/// (its guard against posting after `Dart_Cleanup`). `RustLib.init` installs
+/// the real function BEFORE it counts the isolate. If the last other counted
+/// isolate group shuts down in between, its finalizer installs the no-op after
+/// the real one, and this isolate - initialized and alive - is left with it:
+/// every async call from then on waits forever for an answer that was dropped,
+/// while sync calls, which post nothing, keep working.
+///
+/// Installing it again once the isolate is counted closes that window, since
+/// the count cannot reach zero while this isolate lives. What stays open is a
+/// finalizer that has already taken the count to zero and not yet written the
+/// no-op - a few instructions on another thread. Only flutter_rust_bridge can
+/// close that one, by updating the count and the pointer under one lock.
+///
+/// `dart test` runs every suite as its own isolate group in one process, and
+/// that is where this was measured: the first async call of a suite hung until
+/// the test timed out, on every CI platform.
+void reinstallDartPostCObject(ExternalLibrary library) {
+  library.ffiDynamicLibrary.lookupFunction<
+    Void Function(Pointer<Void>),
+    void Function(Pointer<Void>)
+  >('store_dart_post_cobject')(NativeApi.postCObject.cast());
+}
 
 /// Get the platform-specific library name.
 String getLibraryName() {

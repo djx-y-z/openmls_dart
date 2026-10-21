@@ -8,7 +8,7 @@
 #
 # `ignore` entries are regular expressions matched against the message text.
 #
-# There are two suppressions, both for one actionlint bug rather than for a
+# The first two suppressions are for one actionlint bug rather than for a
 # workflow one. actionlint carries a compiled-in copy of popular actions' input
 # schemas, and its copy of `actions/create-github-app-token` predates v3: it
 # still believes `app-id` is required and `client-id` does not exist. The
@@ -21,6 +21,14 @@
 # The patterns name the action deliberately. A real mistake in some other
 # action, or a different mistake in this one, still reports.
 #
+# The third is for a gap rather than a bug: actionlint's list of GitHub-hosted
+# runner labels predates `ubuntu-26.04` and `ubuntu-26.04-arm` — so in 1.7.12,
+# the release CI pins, and on its master as of 2026-10-19 — and every job on
+# them reports as an unknown label. GitHub has offered both since the image
+# left preview (actions/runner-images#14747). The pattern names those two
+# labels and no others, so a mistyped label still reports. Drop it once the
+# pinned actionlint knows them.
+#
 # Requires an actionlint that knows the `paths` key (CI pins 1.7.12). An older
 # binary rejects the file rather than ignoring it.
 paths:
@@ -28,3 +36,4 @@ paths:
     ignore:
       - 'input "client-id" is not defined in action "actions/create-github-app-token'
       - 'missing input "app-id" which is required by action "actions/create-github-app-token'
+      - 'label "ubuntu-26\.04(-arm)?" is unknown'

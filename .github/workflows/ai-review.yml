@@ -82,7 +82,7 @@ jobs:
   # ==========================================================================
   config:
     name: Decide whether to review
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 5
     outputs:
       run: ${{ steps.pr.outputs.run }}
@@ -323,7 +323,7 @@ jobs:
     name: Review the diff
     needs: config
     if: needs.config.outputs.run == 'true' && needs.config.outputs.configured == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 30
 
     steps:
@@ -437,8 +437,45 @@ jobs:
             echo
             echo "## Commits"
             echo
-            jq -r '.commits[] | "- \(.oid[0:12]) \(.messageHeadline)"' <<<"$META"
+            jq -r '.commits[] | "- \(.oid[0:12]) \(.messageHeadline) — by \(.authors | map(.login) | join(", "))"' <<<"$META"
+            # Where each file's hunks begin. The read tool hands back a bounded
+            # slice per call — 50 KB in OpenCode — and on a dependency bump the
+            # lockfile hunk sat past 2 600 lines of regenerated notices, beyond
+            # where the first read stopped. An index turns "keep paging and
+            # hope" into "read from line N", and costs one grep.
+            echo
+            echo "## Where each file starts in \`.agent-scratch/pr.diff\`"
+            echo
+            echo "Your read tool returns a bounded slice of a file per call, so a"
+            echo "long diff is not seen whole by reading it once from the top."
+            echo "Read each file's hunks from the line given here."
+            echo
+            grep -n '^diff --git ' .agent-scratch/pr.diff \
+              | sed -E 's|^([0-9]+):diff --git a/(.*) b/.*|- line \1: \2|' || true
           } > .agent-scratch/pr-context.md
+
+          # A CHANGELOG entry in a bot's pull request was written by a model —
+          # the update bot's or the template adoption's — and it is the one
+          # place in such a diff where prose makes claims. Measured on four
+          # dependency bumps: the reviewer judged the entry "consistent" while
+          # it narrated its own inputs and named none of the lockfile's moves,
+          # because nothing said the entry was a model's or what to hold it to.
+          if [ "$AUTHOR_IS_BOT" = "true" ] && jq -e '.files | any(.path == "CHANGELOG.md")' <<<"$META" >/dev/null; then
+            {
+              echo
+              echo "## The CHANGELOG entry in this diff was written by a model"
+              echo
+              echo "The automation that opened this pull request writes its"
+              echo "CHANGELOG text with a model; a later commit by a person (see the"
+              echo "authors above) may have rewritten it. Hold every line the diff"
+              echo "adds to \`CHANGELOG.md\` against the rest of the diff: a version,"
+              echo "crate or file it names must appear in a hunk, and a sentence"
+              echo "about how the entry was written — what it was given, \"the"
+              echo "supplied list\", \"the material does not say\", a list that was"
+              echo "truncated — describes the writer and not the change. Report"
+              echo "either under rule 6."
+            } >> .agent-scratch/pr-context.md
+          fi
 
           # The cold start, enforced here rather than asked for in the prompt.
           #
@@ -594,7 +631,7 @@ jobs:
       - name: Install OpenCode
         if: needs.config.outputs.engine == 'opencode'
         env:
-          AGENT_OPENCODE_VERSION: ${{ vars.AGENT_OPENCODE_VERSION || '1.18.15' }}
+          AGENT_OPENCODE_VERSION: ${{ vars.AGENT_OPENCODE_VERSION || '1.18.35' }}
         run: |
           set -euo pipefail
           npm install -g "opencode-ai@${AGENT_OPENCODE_VERSION}"
@@ -623,6 +660,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
+          AGENT_OPENCODE_TITLE_MODEL: ${{ vars.AGENT_OPENCODE_TITLE_MODEL }}
         run: |
           set -euo pipefail
 
@@ -640,6 +678,25 @@ jobs:
           fi
           echo "Agent config read from the default branch ($(wc -c < "$RUNNER_TEMP/opencode.json") bytes)."
 
+          # Session titles stay off unless a model is named for them, exactly as
+          # in `repair-build.yml`, which carries the reasoning: the `"title"`
+          # entry in that file is replaced, whole line, by the named model.
+          if [ -n "${AGENT_OPENCODE_TITLE_MODEL:-}" ]; then
+            if ! printf '%s' "$AGENT_OPENCODE_TITLE_MODEL" | grep -qE '^[A-Za-z0-9._-]+/[A-Za-z0-9._:/-]+$'; then
+              echo "::error::AGENT_OPENCODE_TITLE_MODEL ('${AGENT_OPENCODE_TITLE_MODEL}') is not a provider/model id."
+              exit 1
+            fi
+            TITLE_LINE='    "title": { "disable": true },'
+            if [ "$(grep -cxF "$TITLE_LINE" "$RUNNER_TEMP/opencode.json")" != "1" ]; then
+              echo "::error::AGENT_OPENCODE_TITLE_MODEL is set, but .github/agent-config/opencode.json does not carry the line it replaces exactly once: ${TITLE_LINE}"
+              exit 1
+            fi
+            TITLE_MODEL="$AGENT_OPENCODE_TITLE_MODEL" perl -pi -e \
+              's/^    "title": \{ "disable": true \},$/    "title": { "model": "$ENV{TITLE_MODEL}" },/' \
+              "$RUNNER_TEMP/opencode.json"
+            echo "Session titles will be written by ${AGENT_OPENCODE_TITLE_MODEL}."
+          fi
+
       - name: Run the reviewer (OpenCode)
         if: needs.config.outputs.engine == 'opencode'
         env:
@@ -653,6 +710,8 @@ jobs:
           OPENCODE_CONFIG: ${{ runner.temp }}/opencode.json
           OPENCODE_DISABLE_AUTOUPDATE: '1'
           AGENT_OPENCODE_MODEL: ${{ needs.config.outputs.model }}
+          # Read only by the title check below; the config step put it in.
+          AGENT_OPENCODE_TITLE_MODEL: ${{ vars.AGENT_OPENCODE_TITLE_MODEL }}
         run: |
           set -euo pipefail
 
@@ -770,6 +829,25 @@ jobs:
             exit 1
           fi
 
+          # The session-title call: off, or exactly the named model. The same
+          # assertion as in `repair-build.yml`, which says why it is made — and
+          # why a config without the entry only warns, which matters most here:
+          # this file runs as the pull request's own copy against the default
+          # branch's config, so the pull request bringing it meets the old one.
+          opencode debug agent title > "$RUNNER_TEMP/title-agent.json" 2> "$RUNNER_TEMP/title-agent.err" || true
+          TITLE_GOT=$(jq -r 'select(.name == "title") | "\(.model.providerID)/\(.model.modelID)"' "$RUNNER_TEMP/title-agent.json" 2>/dev/null || true)
+          if [ -n "${AGENT_OPENCODE_TITLE_MODEL:-}" ]; then
+            if [ "$TITLE_GOT" != "$AGENT_OPENCODE_TITLE_MODEL" ]; then
+              echo "::error::AGENT_OPENCODE_TITLE_MODEL is '${AGENT_OPENCODE_TITLE_MODEL}', and OpenCode resolved the title agent to '${TITLE_GOT:-nothing}'."
+              exit 1
+            fi
+          elif ! grep -qxF '    "title": { "disable": true },' "$RUNNER_TEMP/opencode.json"; then
+            echo "::warning::.github/agent-config/opencode.json on the default branch has no \"title\" entry yet, so OpenCode titles this session with a model it picks itself. The entry turns that call off."
+          elif [ -n "$TITLE_GOT" ] || ! grep -q 'Agent title not found' "$RUNNER_TEMP/title-agent.err"; then
+            echo "::error::Session titles are meant to be off, and OpenCode still resolves a title agent ('${TITLE_GOT:-unreadable}') — it would name each session with a model nobody chose. See the \"title\" entry in .github/agent-config/opencode.json."
+            exit 1
+          fi
+
           # Stdout is the deliverable. The reviewer has no tool that can write a
           # file — across seven runs this model never calls `write` at all and
           # reaches for a shell it does not have — so the findings arrive as its
@@ -823,7 +901,7 @@ jobs:
         if: needs.config.outputs.engine == 'opencode'
         run: |
           set -euo pipefail
-          if ! python3 - "$RUNNER_TEMP/review.log" "$RUNNER_TEMP/findings.json" <<'PY'
+          if ! python3 - "$RUNNER_TEMP/review.log" "$RUNNER_TEMP/findings.json" .agent-scratch/pr.diff <<'PY'
           import json, re, sys
 
           raw = open(sys.argv[1], encoding='utf-8', errors='replace').read()
@@ -892,8 +970,67 @@ jobs:
           def norm(p):
               return re.sub(r'^\./', '', p.strip()).rstrip('/')
 
-          opened = {norm(p) for p in
-                    re.findall(r'^\s*(?:\S\s+)?Read\s+(\S+)', raw, re.M)}
+          reads = re.findall(r'^\s*(?:\S\s+)?Read\s+(\S+)(?:\s+\[([^\]]*)\])?',
+                             raw, re.M)
+          opened = {norm(p) for p, _ in reads}
+
+          # A file can also be SEEN without being opened: a hunk at a time, in
+          # `.agent-scratch/pr.diff`. That still does not make it a file the
+          # reviewer read — the prompt asks for files opened, not the files the
+          # diff touches, and those are exactly what the control run above
+          # claimed — so such a claim still comes off the list. It is reported
+          # as seen in the diff rather than as never opened, though: on a bot's
+          # CHANGELOG entry the hunk is what the reviewer is asked to check,
+          # and "never opened" reads as though it had not looked.
+          #
+          # Only what the transcript shows was returned counts. One call of
+          # OpenCode's read tool (`ReadTool.lines`, 1.18) gives `limit` lines
+          # from the 1-based `offset`, 2000 by default, each cut to 2000
+          # characters plus a marker, and stops before 51200 bytes. That cap is
+          # how a lockfile hunk starting 2656 lines in went unread on a real
+          # dependency bump while the review called the entry consistent.
+          def diff_seen(diff_path):
+              try:
+                  lines = open(diff_path, encoding='utf-8',
+                               errors='replace').read().split('\n')
+              except OSError:
+                  return set()
+              # Each file's section: the lines after its `diff --git` header, up
+              # to the next header, with the paths its ---/+++ lines name.
+              sections = []
+              for i, line in enumerate(lines, 1):
+                  m = re.match(r'diff --git a/(.*) b/(.*)$', line)
+                  if m:
+                      sections.append([i + 1, len(lines), set(m.groups())])
+                      if len(sections) > 1:
+                          sections[-2][1] = i - 1
+                  elif sections and re.match(r'(?:---|\+\+\+) [ab]/', line):
+                      sections[-1][2].add(line[6:])
+              seen = set()
+              for p, args in reads:
+                  if not norm(p).endswith('.agent-scratch/pr.diff'):
+                      continue
+                  o = re.search(r'offset=(\d+)', args or '')
+                  n = re.search(r'limit=(\d+)', args or '')
+                  start = int(o.group(1)) if o else 1
+                  limit = int(n.group(1)) if n else 2000
+                  got = size = 0
+                  for line in lines[start - 1:]:
+                      if got >= limit:
+                          break
+                      if len(line) > 2000:
+                          line = line[:2000] + '... (line truncated to 2000 chars)'
+                      cost = len(line.encode('utf-8')) + (1 if got else 0)
+                      if size + cost > 51200:
+                          break
+                      size += cost
+                      got += 1
+                  end = start + got - 1
+                  for first, last, paths in sections:
+                      if first <= end and last >= start:
+                          seen |= {norm(x) for x in paths}
+              return seen
+
           claimed = parsed.get('reviewed')
           if isinstance(claimed, list):
               kept = [f for f in claimed
@@ -904,10 +1041,18 @@ jobs:
               # read" — and can keep saying the weaker thing on the engine
               # where no transcript exists to check against.
               parsed['reviewed_verified'] = True
-              if dropped:
-                  parsed['reviewed_unverified'] = dropped
-                  print(f"{len(dropped)} of {len(claimed)} file(s) in 'reviewed' "
-                        f"were never opened: {sorted(dropped)}")
+              seen = diff_seen(sys.argv[3]) if dropped else set()
+              in_diff = [f for f in dropped
+                         if isinstance(f, str) and norm(f) in seen]
+              unverified = [f for f in dropped if f not in in_diff]
+              if in_diff:
+                  parsed['reviewed_in_diff'] = in_diff
+                  print(f"{len(in_diff)} file(s) in 'reviewed' were seen only "
+                        f"in the diff: {sorted(in_diff)}")
+              if unverified:
+                  parsed['reviewed_unverified'] = unverified
+                  print(f"{len(unverified)} of {len(claimed)} file(s) in 'reviewed' "
+                        f"were never opened: {sorted(unverified)}")
 
           json.dump(parsed, open(sys.argv[2], 'w'))
           print(f"Extracted findings ({route}): status={parsed.get('status')}, "
@@ -1217,7 +1362,7 @@ jobs:
     # reads that; the failure mode of a mistake here is now silence rather than
     # a public write, which is the direction it should fail in.
     if: needs.config.outputs.dry_run != 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 10
     permissions:
       contents: read
@@ -1486,6 +1631,7 @@ jobs:
 
           reviewed = data.get('reviewed')
           unverified = data.get('reviewed_unverified') or []
+          in_diff = data.get('reviewed_in_diff') or []
           # "read" only where the transcript was there to check it against.
           # On the engine that has no transcript this stays a claim, and the
           # heading says so rather than borrowing the other engine's assurance.
@@ -1509,6 +1655,10 @@ jobs:
               tail += listing(reviewed)
           else:
               tail.append('(none reported)')
+          if in_diff:
+              tail += ['', 'The reviewer also listed the following, which it saw only as '
+                       'hunks in the diff and never opened as files:', '']
+              tail += listing(in_diff)
           if unverified:
               tail += ['', 'The reviewer also claimed to have read the following, but the '
                        'transcript shows it never opened them, so the claim was removed:', '']

@@ -118,14 +118,37 @@ tag you push IS the release tag (no duplicate tags).
 
 ## If the build fails
 
-Fix the issue on `main`, then delete and re-create the tag:
+Find out why before touching the tag. What can be done depends on the cause,
+and `make release-frb` will not cut a version it has already cut.
+
+**A transient failure** — a runner that never started, a network timeout, a
+flaky download — is retried on the same tag and commit:
+
+- re-run the failed jobs of the tag's run (Actions → the run → *Re-run failed
+  jobs*, or `gh run rerun <run-id> --failed`), or
+- dispatch the workflow on the tag:
+  `gh workflow run build-openmls.yml --ref openmls_frb-X.Y.Z`.
+
+Dispatch on the **tag**, never on `main`: the workflow builds the ref it is
+dispatched on and publishes under the crate version it finds there, so a
+dispatch on a `main` that has moved on would publish other code under this
+version. Nothing is published until every leg is green — `create-release`
+needs them all.
+
+**A failure caused by the code** — a compile error, a failing check — cannot
+be retried, because the tag points at the commit that fails. The version is
+spent: its bump commit is on `main`, so `make release-frb` refuses it as not
+greater than the current version, and the tag ruleset reserves deleting the
+tag to Admin — which tidies up but does not free the version. Fix the cause on
+`main`, push, let CI go green, and cut the next patch:
 
 ```bash
-git tag -d openmls_frb-X.Y.Z
-git push origin :refs/tags/openmls_frb-X.Y.Z
-# fix + commit on main, then:
-make release-frb ARGS="--version X.Y.Z"
+make release-frb ARGS="--version X.Y.W"   # W = Z + 1
 ```
+
+The CHANGELOG's `openmls_frb` Highlights line needs no edit — the release
+replaces it with the new version — but any other text that names the spent
+version by hand, in the release notes or the docs, does.
 
 ## Resources
 

@@ -52,7 +52,7 @@ on:
 
 jobs:
   update-template:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     # All writes (checkout push, PR creation, branch push) go through the App
     # token; the default GITHUB_TOKEN needs no write access here.
     permissions:

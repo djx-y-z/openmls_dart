@@ -18,16 +18,20 @@
 # rather than tidiness:
 #
 #   detect   — decides whether there is anything to do, deterministically
+#   rerun    — re-runs a red run's failed jobs once, before any agent sees it
 #   repair   — regenerates, then runs the agent; holds NO write credential
 #   propose  — mints the App token and opens a pull request   (main, fixed)
 #   commit   — mints the App token and commits to the branch  (pr,   fixed)
 #   report   — mints the App token and files an issue         (main, cannot-fix)
 #   remark   — mints the App token and comments on the branch (pr,   cannot-fix)
+#   record   — counts a repair that stopped before any verdict, and says so
+#              once it has stopped trying                     (either, failed)
 #   resolve  — closes those issues once `main` is green again (housekeeping)
 #
-# The last five are the only ones that can write, and none of them runs an
-# agent. Which one runs is decided by the mode and the agent's verdict, and they
-# are mutually exclusive.
+# Every job after `repair` can write, and none of them runs an agent; neither
+# does `rerun`, whose `actions: write` is the one write held by `github.token`.
+# Which of propose, commit, report and remark runs is decided by the mode and
+# the agent's verdict, and they are mutually exclusive.
 #
 # In mode=pr the agent is not always reached. The commonest cause of a red bot
 # pull request here is not an upstream API change at all — it is that the update
@@ -81,11 +85,12 @@ on:
       run_id:
         description: >-
           Failing Tests run to repair. Empty means: the latest completed run on
-          main, and failing that, the oldest red bot pull request. Naming a run
-          is how this workflow gets exercised without waiting for something to
-          break for real — a run on a pull-request branch selects mode=pr, and a
-          named run may point at a branch whose pull request is closed, which
-          the scheduled search would never choose. Whenever a named run is not
+          main, and failing that, the oldest red bot pull request that is not a
+          draft. Naming a run is how this workflow gets exercised without
+          waiting for something to break for real — a run on a pull-request
+          branch selects mode=pr, and a named run may point at a branch whose
+          pull request is closed or a draft, which the scheduled search would
+          never choose. Whenever a named run is not
           judging the current head of its branch, the dry run is forced.
         required: false
         default: ''
@@ -98,10 +103,19 @@ on:
         type: boolean
 
 # Least privilege for the whole file. `actions: read` is for reading the failing
-# run's log; every write is made by the `propose` job with a GitHub App token.
+# run's log; every write to the repository is made with a GitHub App token, by a
+# job that runs no agent. The one wider grant is `rerun`'s, at that job only.
 permissions:
   contents: read
   actions: read
+
+# How many times one commit may be handed to the `repair` job without the job
+# reaching a verdict before it is left to a person. Two, so that one transient
+# failure — a network blip in setup, a provider having a bad hour — costs a
+# retry rather than a human, and a failure that is not transient costs two runs
+# rather than every run from then on. See the `record` job.
+env:
+  UNFINISHED_CAP: 2
 
 # One repair at a time. A second run starting while the first is mid-flight
 # would race it to the same branch, and neither is urgent enough to cancel the
@@ -116,7 +130,7 @@ jobs:
   # ==========================================================================
   detect:
     name: Detect a broken main
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 5
     # Named at the job rather than raised for the whole file, so the job the
     # agent runs in keeps the narrowest token of the five. `pull-requests: read`
@@ -164,6 +178,14 @@ jobs:
       # the reports filed for a red `main`, so it has to ask about `main` and
       # not about whichever target was selected.
       main_conclusion: ${{ steps.failure.outputs.main_conclusion }}
+      # Whether a person named the run. A named run keeps the one dedupe it
+      # always had (`existing` below) and is never counted by `record`.
+      named: ${{ steps.failure.outputs.named }}
+      # What the scheduled search passed over and why, for the summary; and the
+      # runs it asked to have re-run, for `rerun`.
+      held: ${{ steps.failure.outputs.held }}
+      reruns: ${{ steps.failure.outputs.reruns }}
+      reruns_json: ${{ steps.failure.outputs.reruns_json }}
       configured: ${{ steps.config.outputs.configured }}
       engine: ${{ steps.config.outputs.engine }}
       model: ${{ steps.config.outputs.model }}
@@ -243,9 +265,12 @@ jobs:
           # run picked is not broken" stopped being the same question as "main
           # is green" the moment this step learned to pick a pull request.
           MAIN_RUN=$(gh run list --workflow=test.yml --branch=main --status=completed \
-                       --limit=1 --json conclusion,databaseId,headSha,url)
+                       --limit=1 --json conclusion,databaseId,headSha,url,attempt,createdAt)
           MAIN_CONCLUSION=$(jq -r '.[0].conclusion // "none"' <<<"$MAIN_RUN")
-          echo "main_conclusion=$MAIN_CONCLUSION" >> "$GITHUB_OUTPUT"
+          {
+            echo "main_conclusion=$MAIN_CONCLUSION"
+            echo "named=$([ -n "$REQUESTED_RUN" ] && echo true || echo false)"
+          } >> "$GITHUB_OUTPUT"
 
           TIP=$(gh api "repos/$GH_REPO/commits/main" --jq '.sha')
           DRY_RUN="${REQUESTED_DRY_RUN:-false}"
@@ -256,6 +281,93 @@ jobs:
           BRANCH=""
           CODEGEN_FAILED=false
           CONCLUSION="$MAIN_CONCLUSION"
+
+          # ---------------------------------------------------------------- #
+          # The scheduled search asks three questions of every red candidate,
+          # in this order, and only the last answer hands it to an agent:
+          #
+          #   answered? — it has been looked at already; asking again every
+          #               night is how automation teaches people to stop
+          #               reading it. Passed over.
+          #   first try? — red on its run's first attempt, which may be nothing
+          #               but a flaky runner. Its failed jobs run once more
+          #               (the `rerun` job) and the next run reads the result.
+          #   otherwise — chosen.
+          #
+          # Asked of each candidate in turn, not of the one already picked. The
+          # dedupe used to run after selection, on the single target, so an
+          # answered pull request, being the oldest, kept every newer one from
+          # ever being looked at. A dry run with no named run asks too, so a
+          # rehearsal of the schedule picks what the schedule would. A named run
+          # skips all of it and keeps the one dedupe it always had, in the step
+          # below.
+          # ---------------------------------------------------------------- #
+          HELD=""
+          RERUNS=""
+          hold() { HELD="${HELD:+$HELD; }$1"; }
+
+          # Prints why a head counts as answered, or nothing. The three queries
+          # the step below also makes mirror it, including how each one fails;
+          # that step carries the reasoning for them. The two that are new here
+          # fail the step on an API error (status 2 fails the assignment under
+          # `set -e`): reading as "not answered" would hand the commit to a
+          # model again, which is the loop they exist to end.
+          answered() { # mode sha branch pr-number
+            local n
+            if [ "$1" = "main" ]; then
+              # `|| return 2` on every query: `set -e` does not reach inside a
+              # command substitution, so a failed call would otherwise leave an
+              # empty count that the test below reads as a match.
+              n=$(gh pr list --repo "$GH_REPO" --head "repair-build-${2:0:12}" --state all \
+                    --json number --jq 'length') || return 2
+              if [ "$n" != "0" ]; then echo "a repair pull request for it already exists"; return 0; fi
+              # The `report` job's issue, by its exact marker: an agent has said
+              # it cannot fix this commit. Measured in a generated project:
+              # re-asking gave four nights of `cannot-fix` on one commit of
+              # `main`, then a fifth answer that hand-edited generated code to
+              # make the check pass.
+              n=$(gh issue list --repo "$GH_REPO" --state all --limit 100 --label automated \
+                    --json body \
+                  | jq --arg m "<!-- repair-build:$2 -->" '[.[] | select(.body | contains($m))] | length') \
+                || return 2
+              if [ "$n" != "0" ]; then echo "an agent has already reported that it cannot fix it"; return 0; fi
+            else
+              n=$(gh api "repos/$GH_REPO/compare/main...$3" \
+                    --jq '[.commits[].commit.message | select(test("repair-build: [0-9a-f]+ \\(agent\\)"))] | length' \
+                  2>/dev/null || echo 0)
+              if [ "${n:-0}" -gt 0 ]; then echo "its branch already carries an agent repair, and one is the cap"; return 0; fi
+              n=$(gh pr view "$4" --repo "$GH_REPO" --json comments \
+                    --jq "[.comments[] | select(.body | contains(\"repair-build:$2:agent\"))] | length" \
+                  2>/dev/null || echo 0)
+              if [ "${n:-0}" -gt 0 ]; then echo "an agent has already said why it did not repair this commit"; return 0; fi
+            fi
+            # The `record` job's count of repairs of this commit that stopped
+            # before any verdict. An artifact per attempt rather than a marker
+            # somewhere a person reads, so it can neither collide with the
+            # markers above nor leave a red status behind once the build is green.
+            n=$(gh api "repos/$GH_REPO/actions/artifacts?name=repair-unfinished-$2&per_page=100" \
+                  --jq '[.artifacts[] | select(.expired | not)] | length') || return 2
+            if [ "$n" -ge "$UNFINISHED_CAP" ]; then echo "the repair stopped short of a verdict on it ${n} times"; return 0; fi
+            return 0
+          }
+
+          # Red on the run's first attempt, young enough to re-run (GitHub
+          # refuses a re-run 30 days after the run was created), and not
+          # already asked about: `rerun` keeps a `repair-rerun-<run id>`
+          # artifact before it asks, so a re-run GitHub refused hands the run to
+          # the agent next time instead of being asked for twice a day forever.
+          # The dates in jq rather than shell arithmetic, which ends the whole
+          # step on an unreadable date even inside an `if`; here a missing
+          # field just answers "no", and the run goes to the agent as before.
+          first_attempt() { # run-list-json
+            local n
+            jq -e '.[0] | (.attempt // 1) == 1
+                     and (now - (.createdAt | fromdateiso8601)) < 25 * 86400' \
+              <<<"$1" > /dev/null 2>&1 || return 1
+            n=$(gh api "repos/$GH_REPO/actions/artifacts?name=repair-rerun-$(jq -r '.[0].databaseId' <<<"$1")&per_page=100" \
+                  --jq '[.artifacts[] | select(.expired | not)] | length' 2>/dev/null || echo 0)
+            [ "${n:-0}" -eq 0 ]
+          }
 
           # ---------------------------------------------------------------- #
           # A named run: the rehearsal path, and the manual escape.
@@ -336,19 +448,46 @@ jobs:
 
             if [ "$MAIN_CONCLUSION" = "failure" ]; then
               SHA=$(jq -r '.[0].headSha' <<<"$MAIN_RUN")
-              if [ "$SHA" = "$TIP" ]; then
-                MODE="main"
-              else
+              if [ "$SHA" != "$TIP" ]; then
                 echo "::notice::The red run judged ${SHA:0:12} but main is now at ${TIP:0:12} — waiting for CI to rule on the current tip."
+              else
+                WHY=$(answered main "$SHA")
+                if [ -n "$WHY" ]; then
+                  hold "main is red at ${SHA:0:12}, and ${WHY}"
+                elif first_attempt "$MAIN_RUN"; then
+                  RERUNS="$(jq -r '.[0].databaseId' <<<"$MAIN_RUN")"
+                  hold "main is red at ${SHA:0:12} on its run's first attempt, so the failed jobs run once more before an agent is asked"
+                else
+                  MODE="main"
+                fi
               fi
             fi
 
             # -------------------------------------------------------------- #
-            # Then the bot pull requests. Every condition below is a boundary
-            # rather than a preference:
+            # Then the bot pull requests — but not past a `main` that is red at
+            # its tip, answered or not. A branch cut from a broken `main`
+            # inherits the breakage, and an agent handed it would put `main`'s
+            # fix on a dependency update and spend that branch's one attempt on
+            # somebody else's failure. That is what `main` first means.
+            #
+            # Every condition below is a boundary rather than a preference:
             #
             #   open            — a closed pull request is a decision somebody
             #                     made; committing to its branch overrules it.
+            #   not a draft     — a draft is a pull request a human has to
+            #                     finish, and the template update opens one
+            #                     whenever copier left conflicts. No agent can
+            #                     repair that. Measured in two generated
+            #                     projects: where a conflict landed in the
+            #                     Makefile, `make get` stopped the job before
+            #                     the agent started, nothing marked the head as
+            #                     answered, and the same commit failed on every
+            #                     scheduled run for over a week — and, as the
+            #                     oldest candidate, it kept the dependency
+            #                     update this mode exists for from ever being
+            #                     picked. Where the conflicts missed the
+            #                     Makefile, the agent ran and blamed a flaky
+            #                     runner.
             #   same repository — a fork's branch cannot be pushed to, and
             #                     running an agent over a fork's tree in a
             #                     workflow that later mints an App token is
@@ -366,18 +505,30 @@ jobs:
             #                     available here: `dependabot/**` is the one
             #                     prefix the signing ruleset's non-fast-forward
             #                     rule excludes.
+            #   not the repair's own — `repair-build-*` is the branch `propose`
+            #                     opens for a red `main`: opened by the App and
+            #                     labelled `automated`, so it passes every
+            #                     condition above. It is this workflow's own
+            #                     proposal waiting for review, and its commit
+            #                     carries no `(agent)` trailer, so the
+            #                     one-attempt cap could not see a second agent
+            #                     layered on the first.
             #
             # Oldest first. A bot opens a new pull request per upstream release
-            # and the older one is the one a human has been waiting on.
+            # and the older one is the one a human has been waiting on — which
+            # is also why an answered one is passed over rather than allowed to
+            # end the search.
             # -------------------------------------------------------------- #
-            if [ -z "$MODE" ]; then
+            if [ -z "$MODE" ] && [ -z "$HELD" ]; then
               CANDIDATES=$(gh pr list --repo "$GH_REPO" --state open --label automated \
                              --limit 50 \
-                             --json number,headRefName,headRefOid,isCrossRepository,author,labels \
+                             --json number,headRefName,headRefOid,isCrossRepository,isDraft,author,labels \
                 | jq -c '[ .[]
                     | select(.isCrossRepository == false)
+                    | select(.isDraft == false)
                     | select(.author.is_bot == true)
                     | select(.author.login | ascii_downcase | contains("dependabot") | not)
+                    | select(.headRefName | startswith("repair-build-") | not)
                     | {number, head: .headRefName, oid: .headRefOid,
                        labels: [.labels[].name]} ]
                     | sort_by(.number)')
@@ -389,7 +540,7 @@ jobs:
                 LABELLED=$(jq -r '.labels | index("codegen-failed") != null' <<<"$C")
 
                 PRUN=$(gh run list --workflow=test.yml --branch="$HEAD" --status=completed \
-                         --limit=1 --json conclusion,databaseId,headSha,url)
+                         --limit=1 --json conclusion,databaseId,headSha,url,attempt,createdAt)
                 PCONCL=$(jq -r '.[0].conclusion // "none"' <<<"$PRUN")
                 PSHA=$(jq -r '.[0].headSha // ""' <<<"$PRUN")
 
@@ -408,6 +559,18 @@ jobs:
                 fi
 
                 if [ "$LABELLED" = "true" ] || [ "$RED" = "true" ]; then
+                  WHY=$(answered pr "$OID" "$HEAD" "$n")
+                  if [ -n "$WHY" ]; then
+                    hold "#${n} is red at ${OID:0:12}, and ${WHY}"
+                    continue
+                  fi
+                  # The label is evidence about the tree rather than the
+                  # runner, so a labelled branch is not re-run first.
+                  if [ "$RED" = "true" ] && [ "$LABELLED" != "true" ] && first_attempt "$PRUN"; then
+                    RERUNS="${RERUNS:+$RERUNS }$(jq -r '.[0].databaseId' <<<"$PRUN")"
+                    hold "#${n} is red at ${OID:0:12} on its run's first attempt, so the failed jobs run once more first"
+                    continue
+                  fi
                   MODE="pr"
                   PR_NUMBER="$n"
                   BRANCH="$HEAD"
@@ -429,15 +592,30 @@ jobs:
             fi
           fi
 
+          # The same list twice: words for the summary, JSON for `rerun`'s matrix.
+          RERUNS_JSON=$(jq -nc --arg r "$RERUNS" '$r | split(" ") | map(select(length > 0))')
+
           if [ -z "$MODE" ]; then
-            echo "broken=false" >> "$GITHUB_OUTPUT"
-            echo "conclusion=$CONCLUSION" >> "$GITHUB_OUTPUT"
-            echo "::notice::Nothing to repair: the latest completed Tests run on main concluded '$MAIN_CONCLUSION', and no bot pull request is red."
+            {
+              echo "broken=false"
+              echo "conclusion=$CONCLUSION"
+              echo "held=$HELD"
+              echo "reruns=$RERUNS"
+              echo "reruns_json=$RERUNS_JSON"
+            } >> "$GITHUB_OUTPUT"
+            if [ -n "$HELD" ]; then
+              echo "::notice::Nothing handed to an agent: ${HELD}."
+            else
+              echo "::notice::Nothing to repair: the latest completed Tests run on main concluded '$MAIN_CONCLUSION', and no bot pull request outside a draft is red."
+            fi
             exit 0
           fi
 
           {
             echo "broken=true"
+            echo "held=$HELD"
+            echo "reruns=$RERUNS"
+            echo "reruns_json=$RERUNS_JSON"
             echo "mode=$MODE"
             echo "dry_run=$DRY_RUN"
             echo "conclusion=$CONCLUSION"
@@ -463,11 +641,17 @@ jobs:
             echo "::warning::Repairing #${PR_NUMBER} (${BRANCH}) at ${SHA:0:12} — codegen-failed=${CODEGEN_FAILED}, $(jq -r '.[0].url // "no failing run"' <<<"$RUN")"
           fi
 
-      # Not consulted on a dry run: there is nothing to collide with, and
-      # skipping would defeat the only way to rehearse this workflow twice.
+      # A named run only. The scheduled search asks these questions of every
+      # candidate before it picks one (`answered`, above), so whatever it picks
+      # has not been answered; a named run skips that search and is asked here,
+      # exactly as it always was. Not on a dry run: there is nothing to collide
+      # with, and skipping would defeat the only way to rehearse a run twice.
       - name: Skip what has already been answered
         id: existing
-        if: steps.failure.outputs.broken == 'true' && steps.failure.outputs.dry_run != 'true'
+        if: >-
+          steps.failure.outputs.broken == 'true' &&
+          steps.failure.outputs.dry_run != 'true' &&
+          steps.failure.outputs.named == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
@@ -572,8 +756,31 @@ jobs:
           BRANCH: ${{ steps.failure.outputs.branch }}
           CODEGEN_FAILED: ${{ steps.failure.outputs.codegen_failed }}
           DRY_RUN: ${{ steps.failure.outputs.dry_run }}
+          HELD: ${{ steps.failure.outputs.held }}
+          RERUNS: ${{ steps.failure.outputs.reruns }}
+          # `inputs` rather than the step output, as `rerun` reads it: the
+          # output is not written when nothing was chosen.
+          REQUESTED_DRY_RUN: ${{ inputs.dry_run }}
         run: |
           set -euo pipefail
+          # What the search passed over, one line each. Called from the
+          # nothing-chosen branch and the chosen ones alike, since a run can
+          # pick a newer pull request precisely because it passed an older one.
+          passed_over() {
+            [ -n "${HELD:-}" ] || return 0
+            echo
+            echo "Passed over, each for a reason a person should know:"
+            echo
+            printf '%s\n' "$HELD" | sed 's/; /\n/g' | sed 's/^/- /'
+            if [ -n "${RERUNS:-}" ]; then
+              echo
+              if [ "${REQUESTED_DRY_RUN:-false}" = "true" ]; then
+                echo "A scheduled run would re-run the failed jobs of: ${RERUNS}."
+              else
+                echo "Re-running the failed jobs of: ${RERUNS}. The next run reads the result."
+              fi
+            fi
+          }
           {
             echo "## Build repair — what this run decided"
             echo
@@ -582,9 +789,15 @@ jobs:
               echo "to \`claude-code\` or \`opencode\`, and the matching model variable, to"
               echo "switch this on. This is not a failure — it is what an unconfigured"
               echo "repository is supposed to look like."
+            elif [ "${BROKEN:-}" != "true" ] && [ -n "${HELD:-}" ]; then
+              echo "**Nothing handed to an agent.** Something is red, and none of it"
+              echo "should go to a model this run."
+              passed_over
+              echo
+              echo "Agent that would have run: \`${ENGINE}\` / \`${MODEL}\`."
             elif [ "${BROKEN:-}" != "true" ]; then
               echo "**Nothing to repair.** The latest completed Tests run on \`main\`"
-              echo "concluded \`${MAIN_CONCLUSION:-unknown}\`, and no bot pull request is red."
+              echo "concluded \`${MAIN_CONCLUSION:-unknown}\`, and no bot pull request outside a draft is red."
               echo
               echo "Agent that would have run: \`${ENGINE}\` / \`${MODEL}\`."
             elif [ "${SKIP:-}" = "true" ]; then
@@ -601,12 +814,78 @@ jobs:
               echo "| Failing run | ${RUN_URL:-none — the label is the evidence} |"
               echo "| Agent | \`${ENGINE}\` / \`${MODEL}\`, if the regeneration does not settle it |"
               echo "| Dry run | \`${DRY_RUN}\` |"
+              passed_over
             else
               echo "Repairing \`main\` at \`${SHA:0:12}\` with \`${ENGINE}\` / \`${MODEL}\`."
               echo
               echo "Failing run: ${RUN_URL:-unknown}"
             fi
           } >> "$GITHUB_STEP_SUMMARY"
+
+  # ==========================================================================
+  # A red run's failed jobs, once more, before any agent is asked about it.
+  # ==========================================================================
+  rerun:
+    name: Re-run a red build once
+    needs: detect
+    # Not on a dry run — starting CI is a write a rehearsal does not make — and
+    # not where no agent is configured, since "switched off" means one thing.
+    # Only the scheduled search fills `reruns`, so a named run never gets here.
+    if: >-
+      needs.detect.outputs.reruns != '' &&
+      needs.detect.outputs.configured == 'true' &&
+      inputs.dry_run != true
+    runs-on: ubuntu-26.04
+    timeout-minutes: 5
+    # One leg per run, so each can leave its own marker below.
+    strategy:
+      matrix:
+        run_id: ${{ fromJSON(needs.detect.outputs.reruns_json || '[]') }}
+    # The one wider grant in this file, and the reason this is a job of its own.
+    # `actions: write` also dispatches and cancels workflows, so it is held by a
+    # job that runs nothing but `gh run rerun` on ids `detect` read from the
+    # API — never by the job an agent runs in, and never on a quiet day.
+    #
+    # Why re-run at all: the commonest red here has been a flaky runner. `main`
+    # went red four times in five weeks and every one was one, and the agent's
+    # correct answer to each — `cannot-fix`, "re-run the job" — spent the one
+    # answer that commit gets on telling a person to press a button. A second
+    # attempt that fails as well is what an agent is then shown.
+    permissions:
+      actions: write
+    steps:
+      # Kept BEFORE the request, so the request is asked once. If GitHub refuses
+      # the re-run — a policy, a permission, an age limit — the run stays on its
+      # first attempt, and without this every scheduled run would ask again and
+      # never show it to an agent. `first_attempt` in `detect` reads it.
+      - name: Remember the request
+        env:
+          RUN_ID: ${{ matrix.run_id }}
+        run: |
+          set -euo pipefail
+          case "$RUN_ID" in
+            ''|*[!0-9]*) echo "::error::'${RUN_ID}' is not a run id."; exit 1 ;;
+          esac
+          mkdir -p "$RUNNER_TEMP/rerun"
+          echo "$RUN_ID" > "$RUNNER_TEMP/rerun/run_id.txt"
+
+      - name: Keep the marker
+        uses: actions/upload-artifact@v7
+        with:
+          name: repair-rerun-${{ matrix.run_id }}
+          path: ${{ runner.temp }}/rerun/run_id.txt
+          retention-days: 30
+          if-no-files-found: error
+
+      - name: Re-run the failed jobs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN_ID: ${{ matrix.run_id }}
+        run: |
+          set -euo pipefail
+          gh run rerun "$RUN_ID" --failed --repo "$GH_REPO"
+          echo "::notice::Re-running the failed jobs of run ${RUN_ID}; the next scheduled run reads the result."
 
   # ==========================================================================
   # The agent. No write credential exists anywhere in this job.
@@ -618,7 +897,7 @@ jobs:
       needs.detect.outputs.broken == 'true' &&
       needs.detect.outputs.skip != 'true' &&
       needs.detect.outputs.configured == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     # Longer in mode=pr, because that mode adds work this job did not used to
     # do: installing the binding generator, running it, and copying the
     # upstream source the agent reads — all before the agent's own `make build`,
@@ -783,6 +1062,11 @@ jobs:
       # and its only options are to guess or to give up.
       - name: Setup Rust
         uses: ./.github/actions/setup-rust
+        # The wasm32 half of `make rust-doc`, a gate the prompt has the agent
+        # run. Without the target it stops before documenting anything, and a
+        # dry run's agent reported the gate as one it could not complete.
+        with:
+          targets: wasm32-unknown-unknown
 
       - name: Setup FVM and Flutter
         uses: ./.github/actions/setup-fvm
@@ -1048,10 +1332,18 @@ jobs:
       # is a lockable input rather than whatever `latest` resolved to that
       # morning. `OPENCODE_DISABLE_AUTOUPDATE` matters for the same reason: an
       # agent that upgrades itself mid-run is not the agent that was reviewed.
+      #
+      # 1.18.35, moved from 1.18.15, which could not run gpt-6-luna: a model
+      # is looked up in the catalogue built into the binary, 1.18.15's predates
+      # it, and the run died with `ProviderModelNotFoundError` — which the
+      # transcript shows only as `UnknownError`. Measured on 1.18.35, locally
+      # and in a dry run of each workflow: both agents' permission assertions
+      # pass unchanged. A model newer than the pinned catalogue needs the pin
+      # moved with it.
       - name: Install OpenCode
         if: needs.detect.outputs.engine == 'opencode' && steps.regenerate.outputs.recovered != 'true'
         env:
-          AGENT_OPENCODE_VERSION: ${{ vars.AGENT_OPENCODE_VERSION || '1.18.15' }}
+          AGENT_OPENCODE_VERSION: ${{ vars.AGENT_OPENCODE_VERSION || '1.18.35' }}
         run: |
           set -euo pipefail
           npm install -g "opencode-ai@${AGENT_OPENCODE_VERSION}"
@@ -1096,6 +1388,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
+          AGENT_OPENCODE_TITLE_MODEL: ${{ vars.AGENT_OPENCODE_TITLE_MODEL }}
         run: |
           set -euo pipefail
 
@@ -1117,6 +1410,30 @@ jobs:
             exit 1
           fi
           echo "Agent config read from the default branch ($(wc -c < "$RUNNER_TEMP/opencode.json") bytes)."
+
+          # Session titles stay off unless a model is named for them; the
+          # `"title"` entry in that file says what the call is and why. The name
+          # comes from a repository variable, so only someone who could edit
+          # this workflow can set it, and it is still held to the
+          # `provider/model` shape because it is spliced into the file's text.
+          # The file is JSONC, so the splice replaces the one whole line that
+          # entry is — and a file without that line, exactly once, stops the run
+          # rather than quietly keeping titles off.
+          if [ -n "${AGENT_OPENCODE_TITLE_MODEL:-}" ]; then
+            if ! printf '%s' "$AGENT_OPENCODE_TITLE_MODEL" | grep -qE '^[A-Za-z0-9._-]+/[A-Za-z0-9._:/-]+$'; then
+              echo "::error::AGENT_OPENCODE_TITLE_MODEL ('${AGENT_OPENCODE_TITLE_MODEL}') is not a provider/model id."
+              exit 1
+            fi
+            TITLE_LINE='    "title": { "disable": true },'
+            if [ "$(grep -cxF "$TITLE_LINE" "$RUNNER_TEMP/opencode.json")" != "1" ]; then
+              echo "::error::AGENT_OPENCODE_TITLE_MODEL is set, but .github/agent-config/opencode.json does not carry the line it replaces exactly once: ${TITLE_LINE}"
+              exit 1
+            fi
+            TITLE_MODEL="$AGENT_OPENCODE_TITLE_MODEL" perl -pi -e \
+              's/^    "title": \{ "disable": true \},$/    "title": { "model": "$ENV{TITLE_MODEL}" },/' \
+              "$RUNNER_TEMP/opencode.json"
+            echo "Session titles will be written by ${AGENT_OPENCODE_TITLE_MODEL}."
+          fi
 
       # The permissions live in `.github/agent-config/opencode.json`, which is
       # outside the path allowlist so the agent cannot widen them and have the
@@ -1208,6 +1525,8 @@ jobs:
           # roughly double. That changes nothing here — it would still be the
           # cheapest model that held the bar, by an order of magnitude.
           AGENT_OPENCODE_MODEL: ${{ needs.detect.outputs.model }}
+          # Read only by the title check below; the config step put it in.
+          AGENT_OPENCODE_TITLE_MODEL: ${{ vars.AGENT_OPENCODE_TITLE_MODEL }}
         run: |
           set -euo pipefail
 
@@ -1334,6 +1653,35 @@ jobs:
           PY
           then
             echo "::error::The 'repair-build' agent did not resolve from ${OPENCODE_CONFIG} with the permissions this workflow expects. OpenCode falls back to its unrestricted default agent when the config is missing, and a config that resolves differently from what it reads as is worse than none — so this run is stopped instead. See the message above."
+            exit 1
+          fi
+
+          # And the session-title call: off, or exactly the model
+          # AGENT_OPENCODE_TITLE_MODEL names. Asserted on what OpenCode resolved,
+          # for the reason the permissions are: a title agent that was meant to
+          # be off and is not falls back to the implicit pick the `"title"`
+          # entry exists to rule out, and nothing else would say so. Measured on
+          # 1.18.15 and 1.18.35 alike: a disabled agent prints "Agent title not
+          # found" on stderr, a pinned one prints itself on stdout with its
+          # model as {providerID, modelID}.
+          #
+          # A config with no `"title"` entry at all is a warning rather than a
+          # stop. The config comes from the default branch and the workflow
+          # need not — on a pull request `ai-review.yml` runs the pull request's
+          # own copy — so the pull request that brings this check, a template
+          # adoption among them, meets a config without the entry. The entry
+          # present and not taking effect is still an error.
+          opencode debug agent title > "$RUNNER_TEMP/title-agent.json" 2> "$RUNNER_TEMP/title-agent.err" || true
+          TITLE_GOT=$(jq -r 'select(.name == "title") | "\(.model.providerID)/\(.model.modelID)"' "$RUNNER_TEMP/title-agent.json" 2>/dev/null || true)
+          if [ -n "${AGENT_OPENCODE_TITLE_MODEL:-}" ]; then
+            if [ "$TITLE_GOT" != "$AGENT_OPENCODE_TITLE_MODEL" ]; then
+              echo "::error::AGENT_OPENCODE_TITLE_MODEL is '${AGENT_OPENCODE_TITLE_MODEL}', and OpenCode resolved the title agent to '${TITLE_GOT:-nothing}'."
+              exit 1
+            fi
+          elif ! grep -qxF '    "title": { "disable": true },' "$RUNNER_TEMP/opencode.json"; then
+            echo "::warning::.github/agent-config/opencode.json on the default branch has no \"title\" entry yet, so OpenCode titles this session with a model it picks itself. The entry turns that call off."
+          elif [ -n "$TITLE_GOT" ] || ! grep -q 'Agent title not found' "$RUNNER_TEMP/title-agent.err"; then
+            echo "::error::Session titles are meant to be off, and OpenCode still resolves a title agent ('${TITLE_GOT:-unreadable}') — it would name each session with a model nobody chose. See the \"title\" entry in .github/agent-config/opencode.json."
             exit 1
           fi
 
@@ -1767,7 +2115,7 @@ jobs:
       needs.detect.outputs.dry_run != 'true' &&
       needs.repair.outputs.status == 'fixed' &&
       needs.repair.outputs.changed == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 10
     permissions:
       contents: read
@@ -1928,7 +2276,7 @@ jobs:
       needs.detect.outputs.mode == 'pr' &&
       needs.detect.outputs.dry_run != 'true' &&
       needs.repair.outputs.status == 'fixed'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 10
     permissions:
       contents: read
@@ -2355,7 +2703,7 @@ jobs:
       needs.detect.outputs.mode == 'main' &&
       needs.detect.outputs.dry_run != 'true' &&
       needs.repair.outputs.status == 'cannot-fix'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 10
     permissions:
       contents: read
@@ -2488,7 +2836,7 @@ jobs:
       needs.detect.outputs.mode == 'pr' &&
       needs.detect.outputs.dry_run != 'true' &&
       needs.repair.outputs.status == 'cannot-fix'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 10
     permissions:
       contents: read
@@ -2572,6 +2920,149 @@ jobs:
           echo "::notice::Commented on #${PR_NUMBER}."
 
   # ==========================================================================
+  # A repair that stopped before it reached any verdict. No agent here either.
+  # ==========================================================================
+  record:
+    name: Count a repair that did not finish
+    needs: [detect, repair, propose, commit, report, remark]
+    # Only a verdict used to mark a commit as answered, so any failure on the
+    # way to one — `make get`, the generator, OpenCode, a missing verdict, a
+    # guard, the secret scan, a timeout, or a writing job after it — left the
+    # commit to be picked again on every scheduled run. Measured: a template
+    # update with conflict markers in its Makefile failed at `make get` on all
+    # 17 scheduled runs over nine days, at a toolchain build each time.
+    #
+    # `always()` because this runs exactly when an upstream job failed, which is
+    # when a job without it is skipped; `cancelled` as well as `failure`, which
+    # is how a job killed by its own `timeout-minutes` can read. Only a
+    # scheduled pick is counted — a named run is somebody asking, who reads its
+    # result — and never a dry run, which writes nothing.
+    if: >-
+      always() &&
+      needs.detect.outputs.broken == 'true' &&
+      needs.detect.outputs.named != 'true' &&
+      needs.detect.outputs.dry_run != 'true' &&
+      (contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled'))
+    runs-on: ubuntu-26.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      actions: read
+
+    steps:
+      # The count is one artifact per attempt, named for the commit, and read by
+      # `answered` in `detect`. Not a marker in an issue, a comment or a status:
+      # `report` deduplicates on a prefix of its own marker, `resolve` treats any
+      # comment on its issues as a person's, and a failing commit status would
+      # still be red after the build itself went green. Nothing an agent wrote
+      # goes into it — after a secret-scan failure that text is not safe to keep.
+      - name: Count this attempt
+        id: count
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          SHA: ${{ needs.detect.outputs.sha }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          RESULTS: >-
+            repair=${{ needs.repair.result }}
+            propose=${{ needs.propose.result }}
+            commit=${{ needs.commit.result }}
+            report=${{ needs.report.result }}
+            remark=${{ needs.remark.result }}
+        run: |
+          set -euo pipefail
+          BEFORE=$(gh api "repos/$GH_REPO/actions/artifacts?name=repair-unfinished-$SHA&per_page=100" \
+                     --jq '[.artifacts[] | select(.expired | not)] | length')
+          COUNT=$((BEFORE + 1))
+          mkdir -p "$RUNNER_TEMP/unfinished"
+          printf 'sha=%s\nrun=%s\n%s\n' "$SHA" "$RUN_URL" "$RESULTS" > "$RUNNER_TEMP/unfinished/attempt.txt"
+          {
+            echo "count=$COUNT"
+            echo "exhausted=$([ "$COUNT" -ge "$UNFINISHED_CAP" ] && echo true || echo false)"
+          } >> "$GITHUB_OUTPUT"
+          echo "::warning::The repair of ${SHA:0:12} stopped before any verdict (${RESULTS}). That is attempt ${COUNT} of ${UNFINISHED_CAP} for this commit."
+
+      - name: Keep the count
+        uses: actions/upload-artifact@v7
+        with:
+          name: repair-unfinished-${{ needs.detect.outputs.sha }}
+          path: ${{ runner.temp }}/unfinished/attempt.txt
+          retention-days: 90
+          if-no-files-found: error
+
+      # Said once, when the last attempt is spent, so the commit is not given up
+      # on silently: a run that only went green and said "Already handled"
+      # would read as though somebody had.
+      - name: Generate GitHub App Token
+        id: app-token
+        if: steps.count.outputs.exhausted == 'true'
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ vars.APP_CLIENT_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+
+      # On the pull request in mode=pr, where its reader already is. For `main`
+      # an issue, as `report` files one, with a marker that is not a prefix of
+      # `report`'s — so it can never stand in for a real diagnosis — and that
+      # `resolve` still closes once `main` is green.
+      - name: Say that it stopped trying
+        if: steps.count.outputs.exhausted == 'true'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GH_REPO: ${{ github.repository }}
+          MODE: ${{ needs.detect.outputs.mode }}
+          PR_NUMBER: ${{ needs.detect.outputs.pr_number }}
+          SHA: ${{ needs.detect.outputs.sha }}
+          FAILING_RUN: ${{ needs.detect.outputs.run_url }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          COUNT: ${{ steps.count.outputs.count }}
+        run: |
+          set -euo pipefail
+          if [ "$MODE" = "pr" ]; then
+            MARKER="<!-- repair-build:${SHA}:unfinished -->"
+          else
+            MARKER="<!-- repair-build:unfinished:${SHA} -->"
+          fi
+          {
+            echo "$MARKER"
+            echo "## The build repair did not finish"
+            echo
+            echo "The repair was started on \`${SHA:0:12}\` ${COUNT} times, and each time it stopped"
+            echo "before reaching an answer — no fix and no diagnosis. **It will not be started on"
+            echo "this commit again.**"
+            echo
+            echo "| | |"
+            echo "|---|---|"
+            echo "| Failing run | ${FAILING_RUN:-none — the evidence was the tree} |"
+            echo "| Last attempt | ${RUN_URL} |"
+            echo
+            echo "The attempt's log says where it stopped. A new commit re-arms the repair, and"
+            echo "running the workflow by hand with the failing run named starts it regardless."
+          } > "$RUNNER_TEMP/note.md"
+
+          if [ "$MODE" = "pr" ]; then
+            gh pr comment "$PR_NUMBER" --repo "$GH_REPO" --body-file "$RUNNER_TEMP/note.md"
+            echo "::notice::Commented on #${PR_NUMBER}."
+            exit 0
+          fi
+
+          # Listed and filtered rather than searched, for the reasons `report`
+          # gives for its own lookup.
+          EXISTING=$(gh issue list --repo "$GH_REPO" --state all --limit 100 \
+            --label automated --json number,body \
+            | jq -r --arg marker "$MARKER" \
+                'map(select(.body | contains($marker))) | first | .number // empty')
+          if [ -n "$EXISTING" ]; then
+            echo "::notice::An issue for ${SHA:0:12} already exists (#${EXISTING}) — leaving it alone."
+            exit 0
+          fi
+          NUMBER=$(gh issue create --repo "$GH_REPO" \
+            --title "Build red at ${SHA:0:12} and the repair could not finish" \
+            --body-file "$RUNNER_TEMP/note.md" \
+            --label automated)
+          echo "::warning::Filed ${NUMBER}"
+
+  # ==========================================================================
   # Housekeeping: retire the reports whose subject has gone away.
   # ==========================================================================
   resolve:
@@ -2591,7 +3082,7 @@ jobs:
     # bot branch on a perfectly green `main` would otherwise leave the reports
     # about `main` open forever.
     if: needs.detect.outputs.main_conclusion != 'failure' && inputs.dry_run != true
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 10
     permissions:
       contents: read

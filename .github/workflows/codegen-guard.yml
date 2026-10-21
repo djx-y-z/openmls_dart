@@ -83,7 +83,7 @@ permissions:
 jobs:
   bindings:
     name: FRB bindings were regenerated
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@v7
 

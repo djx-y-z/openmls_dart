@@ -94,22 +94,22 @@ void main() {
     });
   });
 
-  group('local WASM crate stamp', () {
-    // The hook prefers a local `rust/target/wasm32/` build over the released
-    // module, so this stamp is the only thing standing between a developer and
-    // a silently stale module on the web. `rustContentHash` does not cover it:
-    // that value compares the FFI surface, which a patch release leaves
-    // byte-identical while the vendored native code moves underneath it.
+  group('local build crate stamp', () {
+    // The hook prefers a local build over the released one, so the stamp is
+    // the only thing standing between a developer and a silently stale
+    // library or module. `rustContentHash` does not cover it: that value
+    // hashes only the bridged functions' names, which a patch release leaves
+    // unchanged while the vendored native code moves underneath them.
     test('accepts a build stamped with the same crate version', () {
       expect(
-        build_hook.localWasmMatchesCrate(stamped: '1.5.0', version: '1.5.0'),
+        build_hook.localBuildMatchesCrate(stamped: '1.5.0', version: '1.5.0'),
         isTrue,
       );
     });
 
     test('rejects a build stamped with another crate version', () {
       expect(
-        build_hook.localWasmMatchesCrate(stamped: '1.4.0', version: '1.5.0'),
+        build_hook.localBuildMatchesCrate(stamped: '1.4.0', version: '1.5.0'),
         isFalse,
       );
     });
@@ -117,37 +117,38 @@ void main() {
     test(
       'rejects an UNSTAMPED build, which is every one built before this',
       () {
-        // The case that motivated the check: a wasm directory that predates the
-        // stamp carries no version at all and used to be served regardless.
+        // The case that motivated the check: a build directory that predates
+        // its stamp carries no version at all and used to be used regardless.
         expect(
-          build_hook.localWasmMatchesCrate(stamped: null, version: '1.5.0'),
+          build_hook.localBuildMatchesCrate(stamped: null, version: '1.5.0'),
           isFalse,
         );
       },
     );
 
-    test('tolerates the trailing newline `make build-web` actually writes', () {
-      // The target stamps with `grep | sed > file`, which terminates the line.
-      // A check that compared raw contents would reject every real build.
+    test('tolerates the trailing newline the make targets actually write', () {
+      // `make build` and `make build-web` stamp with `grep | sed > file`, which
+      // terminates the line. A check that compared raw contents would reject
+      // every real build.
       expect(
-        build_hook.localWasmMatchesCrate(stamped: '1.5.0\n', version: '1.5.0'),
+        build_hook.localBuildMatchesCrate(stamped: '1.5.0\n', version: '1.5.0'),
         isTrue,
       );
     });
 
-    test('readLocalWasmStamp returns null when the stamp is absent', () {
-      final dir = Directory.systemTemp.createTempSync('wasm_stamp_test');
+    test('readLocalBuildStamp returns null when the stamp is absent', () {
+      final dir = Directory.systemTemp.createTempSync('build_stamp_test');
       addTearDown(() => dir.deleteSync(recursive: true));
-      expect(build_hook.readLocalWasmStamp(dir), isNull);
+      expect(build_hook.readLocalBuildStamp(dir), isNull);
     });
 
-    test('readLocalWasmStamp reads and trims the stamp', () {
-      final dir = Directory.systemTemp.createTempSync('wasm_stamp_test');
+    test('readLocalBuildStamp reads and trims the stamp', () {
+      final dir = Directory.systemTemp.createTempSync('build_stamp_test');
       addTearDown(() => dir.deleteSync(recursive: true));
       File(
-        '${dir.path}/${build_hook.localWasmStampName}',
+        '${dir.path}/${build_hook.localBuildStampName}',
       ).writeAsStringSync('1.5.0\n');
-      expect(build_hook.readLocalWasmStamp(dir), equals('1.5.0'));
+      expect(build_hook.readLocalBuildStamp(dir), equals('1.5.0'));
     });
   });
 }

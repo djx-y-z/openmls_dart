@@ -23,9 +23,11 @@
 #   necessarily the default branch). Note: dispatch cannot bootstrap a brand-new
 #   release — `check-release` skips the whole run once the release for that crate
 #   version exists, and the `protect-release-tags` ruleset blocks this workflow
-#   from creating the tag itself. To (re)build a version, push the signed tag via
-#   `make release-frb`; to rebuild an already-released version, delete its
-#   GitHub Release and tag first.
+#   from creating the tag itself. To build a version, push its signed tag via
+#   `make release-frb`. To retry one, dispatch on that TAG, never on a branch:
+#   a branch that has moved on would be built and published under the tag's
+#   version. To rebuild an already-released version, delete its GitHub Release
+#   but keep the tag, then dispatch on the tag.
 #
 # The tag name must equal `openmls_frb-<crate version in rust/Cargo.toml>`
 # (validated below). The GitHub Release is created on that same tag, so the tag
@@ -58,7 +60,7 @@ jobs:
   # Check if release already exists (uses scripts/check_exists_frb_release.dart)
   # ============================================
   check-release:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     outputs:
       version: ${{ steps.check.outputs.version }}
       openmls_version: ${{ steps.check.outputs.openmls_version }}
@@ -112,11 +114,16 @@ jobs:
     strategy:
       matrix:
         include:
+          # Named by version, like every Ubuntu job here, and for a sharper
+          # reason than the rest: the .so links against the runner's glibc, and
+          # a newer one can raise the oldest glibc a consumer's Linux needs to
+          # load it. So the next image comes after checking the GLIBC_* symbol
+          # versions of a library built on it.
           - arch: x86_64
-            runner: ubuntu-latest
+            runner: ubuntu-26.04
             rust_target: x86_64-unknown-linux-gnu
           - arch: arm64
-            runner: ubuntu-24.04-arm
+            runner: ubuntu-26.04-arm
             rust_target: aarch64-unknown-linux-gnu
     runs-on: ${{ matrix.runner }}
     steps:
@@ -248,7 +255,7 @@ jobs:
   build-android:
     needs: check-release
     if: needs.check-release.outputs.skip != 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     strategy:
       matrix:
         include:
@@ -392,7 +399,7 @@ jobs:
   build-wasm:
     needs: check-release
     if: needs.check-release.outputs.skip != 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@v7
 
@@ -431,7 +438,7 @@ jobs:
       - build-android
       - build-windows
       - build-wasm
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@v7
 
@@ -460,7 +467,7 @@ jobs:
       - build-windows
       - build-wasm
     if: needs.check-release.outputs.skip != 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     # Supply-chain gate: publishing the consumer-downloaded native binaries
     # requires a human to approve the `native-build` environment deployment.
     # This mirrors publish.yml's `pub.dev` environment and is the ONLY control
@@ -593,7 +600,9 @@ jobs:
           # race slips past that check the slower `gh release create` fails
           # loudly instead of silently clobbering already-published binaries
           # that consumers' build hooks download. To intentionally rebuild the
-          # same version, delete the release and its tag manually first.
+          # same version, delete the release but keep its tag, then dispatch
+          # this workflow on the tag: without the tag there is no ref to
+          # dispatch on, and this step may not create one.
 
           # Create release with all assets
           gh release create "$TAG" \

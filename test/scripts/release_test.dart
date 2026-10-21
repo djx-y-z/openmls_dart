@@ -1,6 +1,7 @@
 import 'package:test/test.dart';
 
 import '../../scripts/src/release.dart';
+import '../../scripts/src/upstream_source.dart';
 
 /// A CHANGELOG shaped like the real one: an `[Unreleased]` section with
 /// in-progress content, two released sections, and compare links at the bottom.
@@ -245,22 +246,24 @@ void main() {
     String bindings(String codegen) =>
         "  @override\n  String get codegenVersion => '$codegen';\n"
         '  @override\n  int get rustContentHash => 450650216;\n';
+    // Declared and pinned the way this project's upstream source does both,
+    // because that is what describeFrbReleaseDrift reads back — strictly.
     String cargo(String upstream) =>
-        '[dependencies]\n'
-        'openmls = { git = "https://example.invalid/upstream", '
-        'tag = "$upstream" }\n';
+        '[dependencies]\n${upstreamSource.declarationOf(upstream)}\n';
+    final current = upstreamSource.pinOf('1.2.3');
+    final older = upstreamSource.pinOf('1.0.0');
 
     List<String> drift({
       required String ourCodegen,
       required String theirCodegen,
-      String ourUpstream = 'v1.2.3',
-      String theirUpstream = 'v1.2.3',
+      String? ourUpstream,
+      String? theirUpstream,
     }) => describeFrbReleaseDrift(
       tag: 'openmls_frb-1.0.0',
       ourBindings: bindings(ourCodegen),
       theirBindings: bindings(theirCodegen),
-      ourCargo: cargo(ourUpstream),
-      theirCargo: cargo(theirUpstream),
+      ourCargo: cargo(ourUpstream ?? current),
+      theirCargo: cargo(theirUpstream ?? current),
     );
 
     test('is silent when the tag was built from this tree', () {
@@ -272,8 +275,8 @@ void main() {
     test('a moved codegen version alone is enough to refuse', () {
       // The hazard the existence check cannot see: a release carrying the right
       // version string, built by a different generator. `rustContentHash`
-      // compares the FFI surface, which such a move need not touch, so nothing
-      // else catches it.
+      // hashes only the bridged functions' names, which such a move need not
+      // touch, so nothing else catches it.
       final reported = drift(ourCodegen: '2.13.0', theirCodegen: '2.12.0');
       expect(reported, hasLength(1));
       expect(
@@ -290,12 +293,16 @@ void main() {
       final reported = drift(
         ourCodegen: '2.13.0',
         theirCodegen: '2.13.0',
-        theirUpstream: 'v1.0.0',
+        theirUpstream: older,
       );
       expect(reported, hasLength(1));
       expect(
         reported.single,
-        allOf(contains('openmls:'), contains('v1.2.3'), contains('v1.0.0')),
+        allOf(
+          contains('${upstreamSource.primary}:'),
+          contains(current),
+          contains(older),
+        ),
       );
     });
 
@@ -304,9 +311,160 @@ void main() {
         drift(
           ourCodegen: '2.13.0',
           theirCodegen: '2.12.0',
-          theirUpstream: 'v1.0.0',
+          theirUpstream: older,
         ),
         hasLength(2),
+      );
+    });
+
+    // A tag cut before a change of upstream source records its pin in the
+    // other source's form. That is drift — the binary was built from another
+    // source — and is named as such, not thrown at the release as a crash.
+    test('a pin at the tag this source cannot read is named as drift', () {
+      final reported = describeFrbReleaseDrift(
+        tag: 'openmls_frb-1.0.0',
+        ourBindings: bindings('2.13.0'),
+        theirBindings: bindings('2.13.0'),
+        ourCargo: cargo(current),
+        theirCargo:
+            '[dependencies]\n${upstreamSource.primary} = { path = "../up" }\n',
+      );
+      expect(reported.single, contains('cannot be read as one'));
+    });
+
+    // This tree is the one being released: a pin it cannot name is no state
+    // to publish from, so it fails rather than reporting drift.
+    test('a pin this tree cannot read stops the release', () {
+      expect(
+        () => describeFrbReleaseDrift(
+          tag: 'openmls_frb-1.0.0',
+          ourBindings: bindings('2.13.0'),
+          theirBindings: bindings('2.13.0'),
+          ourCargo: '[dependencies]\n',
+          theirCargo: cargo(current),
+        ),
+        throwsFormatException,
+      );
+    });
+  });
+
+  group('describeFrbTreeDrift', () {
+    // Shaped like what localFrbTree and remoteFrbTree return: every entry of
+    // rust/ and the lib/src/rust tree, each as `<type> <sha>`.
+    const tag = 'openmls_frb-1.0.0';
+    Map<String, String> tree({
+      String src = 'tree 1111',
+      String lock = 'blob 2222',
+      String bindings = 'tree 3333',
+      String fuzz = 'tree 4444',
+      String deny = 'blob 5555',
+    }) => {
+      'rust/.cargo': 'tree 6666',
+      'rust/Cargo.lock': lock,
+      'rust/Cargo.toml': 'blob 7777',
+      'rust/deny.toml': deny,
+      'rust/fuzz': fuzz,
+      'rust/src': src,
+      'lib/src/rust': bindings,
+    };
+
+    test('is silent when the sources are the same', () {
+      expect(
+        describeFrbTreeDrift(tag: tag, ours: tree(), theirs: tree()),
+        isEmpty,
+      );
+    });
+
+    test('names a source file that changed', () {
+      expect(
+        describeFrbTreeDrift(
+          tag: tag,
+          ours: tree(lock: 'blob 9999'),
+          theirs: tree(),
+        ),
+        ['rust/Cargo.lock: changed since $tag'],
+      );
+    });
+
+    test('names a changed source directory, the bindings included', () {
+      // The case the codegen-and-pin comparison cannot see: a commit to
+      // rust/src between the two stages moves neither of them.
+      expect(
+        describeFrbTreeDrift(
+          tag: tag,
+          ours: tree(src: 'tree 9999', bindings: 'tree 8888'),
+          theirs: tree(),
+        ),
+        ['lib/src/rust: changed since $tag', 'rust/src: changed since $tag'],
+      );
+    });
+
+    test('names an entry that exists on one side only', () {
+      expect(
+        describeFrbTreeDrift(
+          tag: tag,
+          ours: tree()..['rust/build.rs'] = 'blob 9999',
+          theirs: tree(),
+        ),
+        ['rust/build.rs: added since $tag'],
+      );
+      expect(
+        describeFrbTreeDrift(
+          tag: tag,
+          ours: tree()..remove('rust/.cargo'),
+          theirs: tree(),
+        ),
+        ['rust/.cargo: removed since $tag'],
+      );
+    });
+
+    test('leaves out the fuzz crate and the dependency policy', () {
+      expect(
+        describeFrbTreeDrift(
+          tag: tag,
+          ours: tree(fuzz: 'tree 9999', deny: 'blob 9999'),
+          theirs: tree(),
+        ),
+        isEmpty,
+      );
+    });
+  });
+
+  group('parseLsTree', () {
+    test('maps each path to its type and sha', () {
+      const output =
+          '040000 tree 3b886694d3094fec3b264e69d1b79030f8f42696\trust/.cargo\n'
+          '100644 blob bf917e31f15e94d7eb4c25c78a351d43aed2c144\trust/Cargo.lock';
+      expect(parseLsTree(output), {
+        'rust/.cargo': 'tree 3b886694d3094fec3b264e69d1b79030f8f42696',
+        'rust/Cargo.lock': 'blob bf917e31f15e94d7eb4c25c78a351d43aed2c144',
+      });
+    });
+
+    test('is empty for empty output', () {
+      expect(parseLsTree(''), isEmpty);
+    });
+  });
+
+  group('parseContentsListing', () {
+    test("spells the API's types as git does, so the two sides compare", () {
+      const json =
+          '[{"path": "rust/.cargo", "type": "dir", "sha": "3b88"},'
+          ' {"path": "rust/Cargo.lock", "type": "file", "sha": "bf91"}]';
+      expect(parseContentsListing(json), {
+        'rust/.cargo': 'tree 3b88',
+        'rust/Cargo.lock': 'blob bf91',
+      });
+    });
+
+    test('is null for anything but a directory listing', () {
+      // A file comes back as an object, and so does an error. Neither may
+      // pass for a directory, empty or not.
+      expect(parseContentsListing('{"message": "Not Found"}'), isNull);
+      expect(parseContentsListing('not json'), isNull);
+      expect(
+        parseContentsListing('[{"path": "rust/x", "type": "odd", "sha": "1"}]'),
+        isNull,
       );
     });
   });

@@ -1,45 +1,16 @@
 /// Update checking utilities for openmls.
 ///
 /// Provides functions to check for upstream updates, compare versions,
-/// and update rust/Cargo.toml.
+/// and update rust/Cargo.toml. Everything that depends on where the upstream
+/// crates come from — what a pin looks like, where the newest release is
+/// found, how a bump is written — is asked of [upstreamSource].
 library;
 
 import 'dart:convert';
 import 'dart:io';
 
 import 'common.dart';
-
-/// GitHub repository for upstream openmls releases.
-const _upstreamRepo = 'openmls/openmls';
-
-/// Tag prefix used by the upstream repo for openmls releases.
-const _tagPrefix = 'openmls-v';
-
-/// Accepts exactly `<_tagPrefix>X.Y.Z` with optional semver prerelease
-/// identifiers. Built from [_tagPrefix] rather than hardcoded: a repo whose
-/// upstream uses a non-default prefix must still validate its own tags, and a
-/// hardcoded `v?` silently rejects every one of them.
-final _upstreamTagPattern = RegExp(
-  '^${RegExp.escape(_tagPrefix)}'
-  r'(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)'
-  r'(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$',
-);
-
-/// Validates an upstream release tag before it is used or exported.
-///
-/// Tag values reach `GITHUB_OUTPUT` and from there workflow shell commands and
-/// branch names, so anything that is not the exact expected tag form is
-/// rejected. Applies to upstream API data, manual workflow input, and the tag
-/// recorded in `rust/Cargo.toml` alike — [source] names which of them was
-/// rejected, because the three fail for different reasons and the fix differs
-/// (a typo in a dispatch input, a stale pin, or upstream changing its tag
-/// scheme).
-String validateUpstreamTag(String tag, {String source = 'upstream tag'}) {
-  if (!_upstreamTagPattern.hasMatch(tag)) {
-    throw FormatException('Refusing unexpected $source format: "$tag"');
-  }
-  return tag;
-}
+import 'upstream_source.dart';
 
 /// Result of checking for updates.
 class UpdateCheckResult {
@@ -51,10 +22,10 @@ class UpdateCheckResult {
     required this.releaseUrl,
   });
 
-  /// Current version from rust/Cargo.toml (upstream tag).
+  /// Current upstream pin, from rust/Cargo.toml.
   final String currentVersion;
 
-  /// Latest version from upstream GitHub releases.
+  /// Pin of the newest upstream release.
   final String latestVersion;
 
   /// Whether an update is needed.
@@ -63,7 +34,7 @@ class UpdateCheckResult {
   /// Whether the latest release is a prerelease.
   final bool isPrerelease;
 
-  /// URL to the release page on GitHub.
+  /// URL of a page about the latest release.
   final String releaseUrl;
 
   Map<String, dynamic> toJson() => {
@@ -100,23 +71,26 @@ class UpdateFilesResult {
   final List<String> updatedFiles;
 }
 
-/// Checks for updates from upstream GitHub releases.
+/// Checks for updates from upstream.
 ///
 /// If [targetVersion] is provided, checks against that specific version.
-/// Otherwise, fetches the latest release from GitHub.
+/// Otherwise, asks [upstreamSource] for the newest release.
 ///
 /// Returns [UpdateCheckResult] with comparison information.
 Future<UpdateCheckResult> checkForUpdates({
   String? targetVersion,
   bool silent = false,
 }) async {
-  // Read current version from rust/Cargo.toml
-  // The recorded dependency pin is an upstream tag, so it must satisfy the
-  // same shape as anything fetched from the API.
-  final currentVersion = validateUpstreamTag(
-    getUpstreamVersion(),
-    source: 'tag recorded in rust/Cargo.toml',
-  );
+  final source = upstreamSource;
+
+  // With upstream crates, the pin recorded in rust/Cargo.toml, validated — the
+  // same shape as anything fetched from upstream, and a missing one fails here
+  // instead of reading as "up to date". Without any, this project follows the
+  // upstream repository's releases with its own crate version, which carries
+  // no tag prefix.
+  final currentVersion = source.crates.isEmpty
+      ? getCrateVersion()
+      : getUpstreamVersion();
 
   if (!silent) {
     logInfo('Current openmls version: $currentVersion');
@@ -129,41 +103,36 @@ Future<UpdateCheckResult> checkForUpdates({
 
   if (targetVersion != null) {
     // Manual workflow input is as untrusted as the upstream API response.
-    latestVersion = validateUpstreamTag(
+    latestVersion = source.validatePin(
       targetVersion,
-      source: '--version argument',
+      origin: '--version argument',
     );
-    isPrerelease = _isPrerelease(latestVersion);
-    releaseUrl =
-        'https://github.com/$_upstreamRepo/releases/tag/$targetVersion';
+    isPrerelease = source.isPrerelease(latestVersion);
+    releaseUrl = source.pageFor(latestVersion).url;
     if (!silent) {
       logInfo('Checking against specified version: $latestVersion');
     }
   } else {
     if (!silent) {
-      logStep('Fetching latest release from GitHub...');
+      logStep('Fetching the latest upstream release...');
     }
-    final release = await _fetchLatestRelease();
-    // The tag name is attacker-controlled upstream data that ends up in
-    // GITHUB_OUTPUT and, from there, in workflow shell commands and branch
-    // names. validateUpstreamTag rejects unexpected prefixes and characters.
-    latestVersion = validateUpstreamTag(
-      release['tag_name'] as String,
-      source: 'tag_name from the GitHub API',
-    );
-    isPrerelease = release['prerelease'] as bool? ?? false;
-    releaseUrl =
-        release['html_url'] as String? ??
-        'https://github.com/$_upstreamRepo/releases';
+    // Validated by the source: the pin is attacker-controlled upstream data
+    // that ends up in GITHUB_OUTPUT and, from there, in workflow shell
+    // commands and branch names.
+    final release = await source.fetchLatest(upstreamHttp);
+    latestVersion = release.pin;
+    isPrerelease = release.isPrerelease;
+    releaseUrl = release.page;
     if (!silent) {
       logInfo('Latest upstream version: $latestVersion');
     }
   }
 
-  // Compare versions (normalize for comparison)
-  final currentNorm = _normalizeVersion(currentVersion);
-  final latestNorm = _normalizeVersion(latestVersion);
-  final comparison = compareVersions(currentNorm, latestNorm);
+  // Compare the versions the pins denote, prefixes stripped.
+  final comparison = compareVersions(
+    source.semverOf(currentVersion),
+    source.semverOf(latestVersion),
+  );
   final needsUpdate = comparison < 0;
 
   return UpdateCheckResult(
@@ -175,60 +144,21 @@ Future<UpdateCheckResult> checkForUpdates({
   );
 }
 
-/// Normalize version by removing the tag prefix for comparison.
+/// Rewrites the upstream version badge in [readmeContent] to [version].
 ///
-/// Strips the configured tag prefix ('openmls-v') and falls back
-/// to stripping a plain 'v'/'V' prefix if the tag prefix doesn't match.
-String _normalizeVersion(String version) {
-  if (version.startsWith(_tagPrefix)) {
-    return version.substring(_tagPrefix.length);
-  }
-  if (version.startsWith('v') || version.startsWith('V')) {
-    return version.substring(1);
-  }
-  return version;
-}
-
-/// Check if a version is a prerelease.
-///
-/// Normalizes the version first to strip the tag prefix, then
-/// checks for prerelease indicators like `-alpha`, `-beta`, `-rc`.
-bool _isPrerelease(String version) {
-  final normalized = _normalizeVersion(version);
-  return normalized.contains('-') ||
-      normalized.contains('alpha') ||
-      normalized.contains('beta') ||
-      normalized.contains('rc');
-}
-
-/// Fetch the latest release from GitHub API.
-Future<Map<String, dynamic>> _fetchLatestRelease() async {
-  final body = await githubApiGet(
-    Uri.parse('https://api.github.com/repos/$_upstreamRepo/releases/latest'),
-    accept: 'application/vnd.github.v3+json',
-    userAgent: 'openmls-update-checker',
-  );
-  return jsonDecode(body) as Map<String, dynamic>;
-}
-
-/// Rewrites the upstream version badge in [readmeContent] to [newVersion].
-///
-/// [newVersion] is the raw upstream tag — the value every *other* substitution
-/// in [updateVersionFiles] needs, because `rust/Cargo.toml`, `CLAUDE.md` and
-/// `.copier-answers.yml` all record a tag. The badge is the one consumer that
-/// must not have it: it displays a version, and the library name is already in
-/// the badge text, so writing the tag verbatim renders the prefix twice —
-/// `badge/openmls-openmls-v1.2.3`. It is
-/// normalised here and nowhere else.
+/// [version] is the bare version the pin denotes — [UpstreamSource.semverOf]
+/// — and not the pin itself, which every *other* file [updateVersionFiles]
+/// writes needs. The badge displays a version, and the library name is
+/// already in the badge text, so writing a tag verbatim renders the prefix
+/// twice: `badge/openmls-<prefix>1.2.3`.
 ///
 /// A leading `v` is kept exactly as the badge already spells it, and content
 /// with no badge comes back unchanged.
-String updateReadmeBadge(String readmeContent, String newVersion) {
+String updateReadmeBadge(String readmeContent, String version) {
   // [![name](https://img.shields.io/badge/name-vX.Y.Z-orange.svg)]
   final badgePattern = RegExp(
     r'(\[!\[openmls\]\(https://img\.shields\.io/badge/openmls-)(v?)[0-9]+\.[0-9]+\.[0-9]+[^)]*(-orange\.svg\)\])',
   );
-  final version = _normalizeVersion(newVersion);
   return readmeContent.replaceAllMapped(
     badgePattern,
     (m) => '${m.group(1)}${m.group(2)}$version${m.group(3)}',
@@ -238,10 +168,10 @@ String updateReadmeBadge(String readmeContent, String newVersion) {
 /// Update upstream version in all relevant files.
 ///
 /// Updates:
-/// - rust/Cargo.toml (upstream dependency tags only)
+/// - rust/Cargo.toml (upstream dependency pins only)
 /// - README.md (badge) - if exists
 /// - CLAUDE.md (example) - if exists (enable_claude=true)
-/// - .copier-answers.yml (upstream_version) - if exists
+/// - .copier-answers.yml (the answers recording the pins) - if exists
 ///
 /// Does NOT bump the `openmls_frb` crate version: that is a deliberate
 /// release decision made later via `make release-frb` (which bumps the crate
@@ -254,71 +184,45 @@ Future<UpdateFilesResult> updateVersionFiles({
   required String oldVersion,
   bool silent = false,
 }) async {
+  final source = upstreamSource;
   final packageDir = getPackageDir();
   final updatedFiles = <String>[];
-  // 1. Update rust/Cargo.toml (upstream dependency tags)
-  if (!silent) logStep('Updating rust/Cargo.toml...');
-  final cargoFile = File('${packageDir.path}/rust/Cargo.toml');
-  if (!cargoFile.existsSync()) {
-    throw Exception('rust/Cargo.toml not found');
+
+  // 1. Update rust/Cargo.toml (upstream dependency pins). The whole bump is
+  // worked out before anything is written, so a refusal — a yanked release,
+  // a requirement that cannot be followed — leaves every file as it was.
+  final bump = source.crates.isEmpty
+      ? null
+      : await source.planBump(newVersion, upstreamHttp);
+  if (bump != null) {
+    if (!silent) logStep('Updating rust/Cargo.toml...');
+    final cargoFile = File('${packageDir.path}/rust/Cargo.toml');
+    if (!cargoFile.existsSync()) {
+      throw Exception('rust/Cargo.toml not found');
+    }
+    final cargoContent = source.rewriteCargoToml(
+      cargoFile.readAsStringSync(),
+      bump,
+    );
+    // NOTE: the `openmls_frb` crate version is intentionally left
+    // untouched here. It is bumped as a deliberate release step (`make
+    // release-frb`), not on every upstream dependency update, so that
+    // intermediate updates can accumulate on main without publishing a
+    // throwaway native binary.
+
+    await cargoFile.writeAsString(cargoContent);
+    updatedFiles.add('rust/Cargo.toml');
+    if (!silent) {
+      logInfo('Updated rust/Cargo.toml: ${source.pinLiteral(newVersion)}');
+    }
   }
-  var cargoContent = cargoFile.readAsStringSync();
-
-  // Update all upstream dependency tags
-
-  final tagPattern1 = RegExp(r'(openmls\s*=\s*\{[^}]*tag\s*=\s*")[^"]+(")');
-  cargoContent = cargoContent.replaceAllMapped(
-    tagPattern1,
-    (match) => '${match.group(1)}$newVersion${match.group(2)}',
-  );
-
-  final tagPattern2 = RegExp(
-    r'(openmls_rust_crypto\s*=\s*\{[^}]*tag\s*=\s*")[^"]+(")',
-  );
-  cargoContent = cargoContent.replaceAllMapped(
-    tagPattern2,
-    (match) => '${match.group(1)}$newVersion${match.group(2)}',
-  );
-
-  final tagPattern3 = RegExp(
-    r'(openmls_basic_credential\s*=\s*\{[^}]*tag\s*=\s*")[^"]+(")',
-  );
-  cargoContent = cargoContent.replaceAllMapped(
-    tagPattern3,
-    (match) => '${match.group(1)}$newVersion${match.group(2)}',
-  );
-
-  final tagPattern4 = RegExp(
-    r'(openmls_traits\s*=\s*\{[^}]*tag\s*=\s*")[^"]+(")',
-  );
-  cargoContent = cargoContent.replaceAllMapped(
-    tagPattern4,
-    (match) => '${match.group(1)}$newVersion${match.group(2)}',
-  );
-
-  final tagPattern5 = RegExp(
-    r'(openmls_libcrux_crypto\s*=\s*\{[^}]*tag\s*=\s*")[^"]+(")',
-  );
-  cargoContent = cargoContent.replaceAllMapped(
-    tagPattern5,
-    (match) => '${match.group(1)}$newVersion${match.group(2)}',
-  );
-
-  // NOTE: the `openmls_frb` crate version is intentionally left untouched
-  // here. It is bumped as a deliberate release step (`make release-frb`), not
-  // on every upstream dependency update, so that intermediate updates can
-  // accumulate on main without publishing a throwaway native binary.
-
-  await cargoFile.writeAsString(cargoContent);
-  updatedFiles.add('rust/Cargo.toml');
-  if (!silent) logInfo('Updated rust/Cargo.toml: tag = "$newVersion"');
 
   // 2. Update README.md badge (if exists)
   final readmeFile = File('${packageDir.path}/README.md');
   if (readmeFile.existsSync()) {
     if (!silent) logStep('Updating README.md badge...');
     final content = readmeFile.readAsStringSync();
-    final updated = updateReadmeBadge(content, newVersion);
+    final updated = updateReadmeBadge(content, source.semverOf(newVersion));
     if (updated != content) {
       await readmeFile.writeAsString(updated);
       updatedFiles.add('README.md');
@@ -331,31 +235,27 @@ Future<UpdateFilesResult> updateVersionFiles({
   if (claudeFile.existsSync()) {
     if (!silent) logStep('Updating CLAUDE.md...');
     var content = claudeFile.readAsStringSync();
-    // Replace version in example: tag = "vX.Y.Z"
-    content = content.replaceAll('tag = "$oldVersion"', 'tag = "$newVersion"');
+    // Replace the pin where the documentation quotes the dependency line.
+    content = content.replaceAll(
+      source.pinLiteral(oldVersion),
+      source.pinLiteral(newVersion),
+    );
     await claudeFile.writeAsString(content);
     updatedFiles.add('CLAUDE.md');
     if (!silent) logInfo('Updated CLAUDE.md example');
   }
 
-  // 4. Update .copier-answers.yml (if exists)
+  // 4. Update .copier-answers.yml (if exists), so the next `copier update`
+  // renders the dependency lines this project now has.
   final copierFile = File('${packageDir.path}/.copier-answers.yml');
-  if (copierFile.existsSync()) {
+  if (bump != null && copierFile.existsSync()) {
     if (!silent) logStep('Updating .copier-answers.yml...');
-    var content = copierFile.readAsStringSync();
-    // Accept double-quoted ("vX.Y.Z"), single-quoted ('vX.Y.Z'), and
-    // unquoted (vX.Y.Z) YAML values — preserve the original quoting style.
-    final copierPattern = RegExp(
-      '''(upstream_version:\\s*)(["']?)([^"'\\s]+)\\2''',
-    );
-    if (copierPattern.hasMatch(content)) {
-      content = content.replaceFirstMapped(copierPattern, (match) {
-        final quote = match.group(2) ?? '';
-        return '${match.group(1)}$quote$newVersion$quote';
-      });
-      await copierFile.writeAsString(content);
+    final content = copierFile.readAsStringSync();
+    final updated = source.rewriteAnswers(content, bump);
+    if (updated != content) {
+      await copierFile.writeAsString(updated);
       updatedFiles.add('.copier-answers.yml');
-      if (!silent) logInfo('Updated .copier-answers.yml: upstream_version');
+      if (!silent) logInfo('Updated .copier-answers.yml');
     }
   }
 

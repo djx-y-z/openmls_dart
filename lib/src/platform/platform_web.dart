@@ -21,6 +21,11 @@ ExternalLibrary openLibraryFromPath(String path) {
   );
 }
 
+/// Nothing to install on web: flutter_rust_bridge keeps neither a post
+/// function nor an isolate count there, and its init steps for both are
+/// no-ops.
+void reinstallDartPostCObject(ExternalLibrary library) {}
+
 /// Finding library paths is not applicable on web.
 String? findLibraryPath(String libraryName, String? packageRoot) => null;
 

@@ -85,15 +85,17 @@ Options:
   --version <X.Y.Z>  New package version [required]
   --no-push          Commit and tag locally, but do not push
   --yes, -y          Skip the confirmation prompt
-  --skip-frb-check   Skip the stage-1 native-binary existence check
-                     (only if you have verified it manually)
+  --skip-frb-check   Skip both stage-1 checks in step 2 (only if you have
+                     verified the native binary by hand)
   --date <Y-M-D>     CHANGELOG date to stamp (default: today)
   --help, -h         Show this help
 
 What it does:
   1. Verifies you are on a clean, up-to-date main.
   2. Verifies the stage-1 native release openmls_frb-<crate version> exists
-     on GitHub Releases (the published build hook downloads it).
+     on GitHub Releases (the published build hook downloads it), and that
+     rust/ (all but rust/fuzz and rust/deny.toml) and lib/src/rust/ at its
+     tag equal HEAD's: a commit to them after stage 1 needs a new crate.
   3. Validates the package with `make publish-dry-run` on the clean, pre-bump
      tree (dry-run exits non-zero on any warning, so it runs before the bump).
   4. Bumps the version in pubspec.yaml.

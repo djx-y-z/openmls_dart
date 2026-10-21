@@ -46,7 +46,7 @@ jobs:
   # ============================================
   audit:
     name: Security Audit (Rust)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@v7
 
@@ -61,7 +61,7 @@ jobs:
   # ============================================
   deny:
     name: Dependency Policy (cargo-deny)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@v7
 
@@ -82,7 +82,7 @@ jobs:
   # is checking.
   msrv:
     name: MSRV (rust-version from Cargo.toml)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@v7
 
@@ -119,7 +119,7 @@ jobs:
   # `make actionlint` on a laptop reports exactly what this job reports.
   workflow-lint:
     name: Workflow Lint (actionlint)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@v7
 
@@ -192,7 +192,7 @@ jobs:
   # toolchain than the release is not a gate.
   android:
     name: Cross-compile (Android ${{ matrix.abi }})
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     strategy:
       fail-fast: false
       matrix:
@@ -263,15 +263,47 @@ jobs:
       - name: Verify 16 KB alignment
         run: make verify-android-alignment
 
+  # ============================================
+  # iOS type-check
+  # ============================================
+  # The only place outside a release tag where this package is compiled for
+  # iOS. `build-openmls.yml` builds the three iOS targets only on a release
+  # tag, and its `create-release` needs every one of them, so an iOS-only
+  # compile failure is invisible on main under every green gate and spends a
+  # crate version when the tag finds it. Not hypothetical: `libc` 0.2.190 put
+  # the dyld functions `backtrace` calls behind `target_os = "macos"`, every
+  # iOS build failed with E0425, and every pull request stayed green.
+  #
+  # A type-check, not a build: it catches compile errors like that one, not
+  # link errors. Deliberately not a required context yet; add it to
+  # `.github/rulesets/protect-main.json` once it has proved stable.
+  ios:
+    name: Type-check (iOS)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Setup Rust
+        uses: ./.github/actions/setup-rust
+        with:
+          targets: aarch64-apple-ios,aarch64-apple-ios-sim,x86_64-apple-ios
+
+      - name: Type-check for iOS
+        run: make rust-check-ios
+
   test:
     strategy:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-latest
+          # Named by version, like every Ubuntu job in these workflows:
+          # `ubuntu-latest` changes image without a commit (GitHub scheduled its
+          # move from 24.04 to 26.04 job by job, 2026-10-19 to 2026-11-19), and
+          # a leg that moves on its own makes a red run no commit caused.
+          - os: ubuntu-26.04
             name: Linux x86_64
             coverage: true
-          - os: ubuntu-24.04-arm
+          - os: ubuntu-26.04-arm
             name: Linux ARM64
             coverage: false
           - os: macos-latest
@@ -495,6 +527,17 @@ jobs:
         run: make verify-frb-pins
         shell: bash
 
+      # pub.dev refuses a README, CHANGELOG, LICENSE or example over 256 KiB at
+      # UPLOAD, and the dry-run does not measure them, so without this the
+      # first sign is the publish job failing after the tag. A CHANGELOG
+      # crosses the line by growing a release at a time; this makes the commit
+      # that takes it over the one that goes red, and puts a warning on the run
+      # page from 200 KiB.
+      - name: Verify pub.dev size limits
+        if: matrix.name == 'Linux x86_64'
+        run: make verify-pub-limits
+        shell: bash
+
       # `rust/Cargo.toml` states which features this crate ASKS for; it cannot
       # state which features a dependency is BUILT with, because cargo unifies
       # features across the graph. A transitive dependency — arriving in a
@@ -513,7 +556,7 @@ jobs:
     name: Update Coverage Badge
     needs: test
     if: inputs.update-badge && inputs.run-coverage
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
       - name: Update coverage badge
         uses: schneegans/dynamic-badges-action@28b0fa8bdeb46170ac397105ece0c1fe58f68910 # v1.9.0

@@ -22,6 +22,7 @@ library;
 import 'dart:io';
 
 import 'src/common.dart';
+import 'src/upstream_source.dart';
 
 void main(List<String> args) async {
   final isCi = args.contains('--ci');

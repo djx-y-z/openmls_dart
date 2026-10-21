@@ -1,130 +1,13 @@
 import 'package:test/test.dart';
 
 import '../../scripts/src/check_updates.dart';
-import '../../scripts/src/common.dart';
+import '../../scripts/src/upstream_source.dart';
 
-/// The configured upstream tag prefix ('openmls-v').
-///
-/// Tests build their fixtures from this rather than hardcoding a prefix, so a
-/// project generated with a non-default prefix still exercises its own format.
-const _prefix = 'openmls-v';
+// What a pin looks like, and how one is read, validated and written, belongs
+// to the upstream source and is tested with it, in upstream_source_test.dart.
+// What is left here is what this file does with a version once it has one.
 
 void main() {
-  group('validateUpstreamTag', () {
-    test('accepts the exact upstream tag form', () {
-      expect(validateUpstreamTag('${_prefix}0.8.1'), '${_prefix}0.8.1');
-      expect(validateUpstreamTag('${_prefix}1.0.0'), '${_prefix}1.0.0');
-      expect(validateUpstreamTag('${_prefix}10.20.30'), '${_prefix}10.20.30');
-    });
-
-    test('accepts semver prerelease identifiers', () {
-      expect(
-        validateUpstreamTag('${_prefix}0.9.0-pre.1'),
-        '${_prefix}0.9.0-pre.1',
-      );
-      // Kept wrapped: on one line this renders to 82 columns and `dart format`
-      // rewrites it, so every generated project would ship a file its own
-      // `make format-check` rejects. Nothing on this line is interpolated by
-      // Jinja, so the width is identical for every project.
-      expect(
-        validateUpstreamTag('${_prefix}1.0.0-rc-2'),
-        '${_prefix}1.0.0-rc-2',
-      );
-    });
-
-    // Regression guard: an earlier version of this template hardcoded
-    // `^v?\d+\.\d+\.\d+$` here, which silently rejected every tag of a project
-    // whose upstream uses a non-default prefix. The scheduled update check then
-    // failed on every run, hidden behind a `|| true` in the workflow. The
-    // pattern must be derived from the configured prefix, never hardcoded.
-    test('accepts the tag recorded in rust/Cargo.toml', () {
-      expect(() => validateUpstreamTag(getUpstreamVersion()), returnsNormally);
-    });
-
-    test('rejects a bare version without the configured prefix', () {
-      expect(() => validateUpstreamTag('0.8.1'), throwsFormatException);
-      // `v` is the default prefix, so a tag in that shape is the likeliest
-      // thing to reach a project that overrides it — from a copied command
-      // line, or from a sibling repo. It names a different upstream naming
-      // scheme and must be rejected just like a bare version.
-      expect(() => validateUpstreamTag('v0.8.1'), throwsFormatException);
-    });
-
-    test('rejects shell metacharacters', () {
-      for (final tag in <String>[
-        '${_prefix}0.8.1; rm -rf /',
-        '${_prefix}0.8.1\$(whoami)',
-        '${_prefix}0.8.1`id`',
-        '${_prefix}0.8.1 --force',
-        '${_prefix}0.8.1 && echo pwned',
-      ]) {
-        expect(
-          () => validateUpstreamTag(tag),
-          throwsFormatException,
-          reason: 'must reject: $tag',
-        );
-      }
-    });
-
-    test('rejects newline injection, including a bare trailing newline', () {
-      expect(
-        () => validateUpstreamTag('${_prefix}0.8.1\nmalicious'),
-        throwsFormatException,
-      );
-      expect(
-        () => validateUpstreamTag('${_prefix}0.8.1\n'),
-        throwsFormatException,
-      );
-    });
-
-    test('rejects path traversal', () {
-      expect(
-        // No braces: the next character is not identifier-continuation, so
-        // `unnecessary_brace_in_string_interps` fires under --fatal-infos.
-        () => validateUpstreamTag('$_prefix../../etc/passwd'),
-        throwsFormatException,
-      );
-      expect(
-        () => validateUpstreamTag('${_prefix}0.8.1/../evil'),
-        throwsFormatException,
-      );
-    });
-
-    test('rejects a prefix that is not at the start', () {
-      expect(
-        () => validateUpstreamTag('x${_prefix}0.8.1'),
-        throwsFormatException,
-      );
-    });
-
-    test('rejects non-canonical numeric segments', () {
-      expect(
-        () => validateUpstreamTag('${_prefix}0.08.1'),
-        throwsFormatException,
-      );
-      expect(() => validateUpstreamTag('${_prefix}0.8'), throwsFormatException);
-      expect(
-        () => validateUpstreamTag('${_prefix}0.8.1.2'),
-        throwsFormatException,
-      );
-    });
-
-    test('names the rejected source in the message', () {
-      // The call sites (API response, --version argument, recorded pin) fail
-      // for different reasons; the message has to say which one to look at.
-      expect(
-        () => validateUpstreamTag('nope', source: '--version argument'),
-        throwsA(
-          isA<FormatException>().having(
-            (e) => e.message,
-            'message',
-            contains('--version argument'),
-          ),
-        ),
-      );
-    });
-  });
-
   group('updateReadmeBadge', () {
     // Held in a Dart const rather than interpolated at every use, so the lines
     // below have the same width in every generated project and `dart format`
@@ -133,35 +16,33 @@ void main() {
     String badge(String version) =>
         '[![$lib](https://img.shields.io/badge/$lib-$version-orange.svg)]';
 
-    test('writes the version, not the tag', () {
-      expect(
-        updateReadmeBadge(badge('v0.8.1'), '${_prefix}0.9.0'),
-        badge('v0.9.0'),
-      );
+    test('writes the version', () {
+      expect(updateReadmeBadge(badge('v0.8.1'), '0.9.0'), badge('v0.9.0'));
     });
 
     test('keeps a badge that omits the leading v', () {
-      expect(
-        updateReadmeBadge(badge('0.8.1'), '${_prefix}0.9.0'),
-        badge('0.9.0'),
-      );
+      expect(updateReadmeBadge(badge('0.8.1'), '0.9.0'), badge('0.9.0'));
     });
 
     test('leaves content with no badge alone', () {
       const readme = 'no badge here';
-      expect(updateReadmeBadge(readme, '${_prefix}0.9.0'), readme);
+      expect(updateReadmeBadge(readme, '0.9.0'), readme);
     });
 
     // Regression: the badge was written from the raw tag, which every other
-    // file this script rewrites genuinely needs. Here it spelled the prefix
-    // twice — `badge/openmls-openmls-v0.9.0`
-    // — because the badge text already carries the library name. Only a
-    // project whose prefix is not a bare `v` can see it, which is why this
-    // test exists only for those.
-    test('never writes the tag prefix into the badge text', () {
+    // file a bump rewrites genuinely needs. With a prefix other than a bare
+    // `v` it spelled the prefix twice — `badge/<lib>-<prefix>0.9.0` — because
+    // the badge text already carries the library name. What is written is the
+    // source's `semverOf` of the pin, whichever source it is.
+    test('never writes a tag prefix into the badge text', () {
+      const source = GitTagSource(
+        repo: 'owner/upstream',
+        crates: ['upstream-core'],
+        tagPrefix: 'upstream-v',
+      );
       expect(
-        updateReadmeBadge(badge('v0.8.1'), '${_prefix}0.9.0'),
-        isNot(contains('$lib-$_prefix')),
+        updateReadmeBadge(badge('v0.8.1'), source.semverOf('upstream-v0.9.0')),
+        badge('v0.9.0'),
       );
     });
   });

@@ -435,7 +435,7 @@ The CI automatically checks for new openmls releases daily and creates PRs. The 
 make check-new-openmls-version
 
 # 2. Apply update
-make check-new-openmls-version ARGS="--update"
+make check-new-openmls-version ARGS="--update --version openmls-v1.0.0"
 
 # 3. Update Cargo.lock (also regenerates THIRD_PARTY_NOTICES.txt, which is
 #    derived from the dependency graph and verified against it in CI)
@@ -446,7 +446,7 @@ make codegen
 
 # 5. Update CHANGELOG with AI (see "Setting up AI Changelog" below)
 AI_MODELS=anthropic/claude-opus-5 ANTHROPIC_API_KEY=xxx \
-  make update-changelog ARGS="--version vX.Y.Z"
+  make update-changelog ARGS="--version openmls-v1.0.0"
 
 # 6. Test
 make test
@@ -547,6 +547,11 @@ repository is supposed to look like.
 4. Optional: `REVIEW_ALLOWED_BOTS`, a comma-separated list including your App's
    slug. Only the `claude-code` engine reads it, and without it that engine
    refuses to review pull requests opened by a bot — which is most of them here.
+5. Optional, `opencode` only: `AGENT_OPENCODE_TITLE_MODEL`, in the same
+   `provider/model` form, names the model OpenCode titles its sessions with.
+   Unset, that call is not made at all — left to itself OpenCode picks a model
+   from the provider's catalogue, another vendor's through the same key, and a
+   title is thrown away with the runner. Both workflows check what it resolved.
 
 Both agents hold no write credential: the job that runs the agent cannot reach
 the repository, and the job that publishes runs no agent. Read the header of
@@ -759,8 +764,9 @@ be published without the right people and review:
 
 - **Signed commits** required on all branches (configure SSH or GPG signing).
 - **`main`** protected (changes land via PR; force-push and deletion blocked).
-- **Tags** — all tags creatable only by Admins/Maintainers and must be signed;
-  the release-triggering `openmls_frb-*` / `v*` are the critical subset (they
+- **Tags** — creating, moving and deleting tags is reserved to Admins, who also
+  skip the ruleset's signature rule (the release scripts sign their tags). The
+  release-triggering `openmls_frb-*` / `v*` are the critical subset (they
   start native / pub.dev publishing).
 - The **native-build publish** waits on a required reviewer (the `native-build`
   environment), mirroring the `pub.dev` environment that gates pub.dev publishing.

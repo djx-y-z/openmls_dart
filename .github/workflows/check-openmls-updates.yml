@@ -31,7 +31,7 @@ on:
 
 jobs:
   check-updates:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     # All writes (checkout push, PR creation, branch push) go through the App
     # token; the default GITHUB_TOKEN needs no write access here.
     permissions:
@@ -80,11 +80,14 @@ jobs:
           ARGS="--ci"
 
           if [ -n "$TARGET_VERSION" ]; then
-            # Manual input is interpolated into ARGS and reaches a shell before
-            # the Dart checker can validate it. Reject anything that is not the
-            # exact upstream tag form here as well.
-            if [[ ! "$TARGET_VERSION" =~ ^openmls-v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$ ]]; then
-              echo "::error::target_version must use the exact openmls-vX.Y.Z form."
+            # Manual input is interpolated into ARGS and reaches a make recipe's
+            # shell before the Dart checker sees it, so it is held here to
+            # characters a shell reads literally. Whether it is a well-formed pin
+            # for this project's upstream source is the checker's call
+            # (`validatePin` in scripts/src/upstream_source.dart): one rule per
+            # source, in one place, rather than a copy of each in this file.
+            if [[ ! "$TARGET_VERSION" =~ ^[0-9A-Za-z][0-9A-Za-z._/+-]{0,127}$ ]]; then
+              echo "::error::target_version may contain only letters, digits and . _ / + -"
               exit 2
             fi
             ARGS="$ARGS --version $TARGET_VERSION"
@@ -149,11 +152,14 @@ jobs:
           ARGS="--update --ci"
 
           if [ -n "$TARGET_VERSION" ]; then
-            # Manual input is interpolated into ARGS and reaches a shell before
-            # the Dart checker can validate it. Reject anything that is not the
-            # exact upstream tag form here as well.
-            if [[ ! "$TARGET_VERSION" =~ ^openmls-v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$ ]]; then
-              echo "::error::target_version must use the exact openmls-vX.Y.Z form."
+            # Manual input is interpolated into ARGS and reaches a make recipe's
+            # shell before the Dart checker sees it, so it is held here to
+            # characters a shell reads literally. Whether it is a well-formed pin
+            # for this project's upstream source is the checker's call
+            # (`validatePin` in scripts/src/upstream_source.dart): one rule per
+            # source, in one place, rather than a copy of each in this file.
+            if [[ ! "$TARGET_VERSION" =~ ^[0-9A-Za-z][0-9A-Za-z._/+-]{0,127}$ ]]; then
+              echo "::error::target_version may contain only letters, digits and . _ / + -"
               exit 2
             fi
             ARGS="$ARGS --version $TARGET_VERSION"
@@ -346,8 +352,9 @@ jobs:
                you are ready to ship, run the two-stage release:
                - **Stage 1 — native crate:** `make release-frb ARGS="--version X.Y.Z"`
                  (bumps `openmls_frb`, tags `openmls_frb-X.Y.Z`, builds binaries)
-               - **Stage 2 — Dart package:** bump `pubspec.yaml`, move CHANGELOG
-                 `[Unreleased]` → version, tag `vX.Y.Z` (release-package skill)
+               - **Stage 2 — Dart package:** `make release ARGS="--version X.Y.Z"`
+                 (checks the stage-1 release, bumps `pubspec.yaml`, finalizes
+                 the CHANGELOG, tags `vX.Y.Z`; release-package skill)
 
             ---
             *This PR was created automatically by the openmls update checker.*

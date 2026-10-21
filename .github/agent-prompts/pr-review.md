@@ -63,7 +63,10 @@ newly load-bearing, or now wrong because of what changed around it.
 
 The one exception is a claim the diff makes about itself. A CHANGELOG entry or a
 comment added by this diff that describes something the diff does not do is
-introduced by the diff and is in scope.
+introduced by the diff and is in scope — and so is an entry that describes how
+it was written instead of the change: the material it was given, what that
+material did or did not say, a list it found truncated. A reader of the
+CHANGELOG has none of that material.
 
 ## What to look for
 
@@ -97,7 +100,8 @@ that has actually happened here, repeatedly, so give it real attention:
    changed source or registry. Note what appeared and what moved; you are not
    expected to audit the package, only to make the change visible.
 6. **A public API change with no CHANGELOG entry**, or a CHANGELOG entry that
-   describes something the diff does not do.
+   describes something the diff does not do, names a version or a crate no hunk
+   shows, or narrates its own inputs instead of the change.
 
 ## What NOT to report
 

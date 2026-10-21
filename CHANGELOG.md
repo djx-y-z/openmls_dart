@@ -2,6 +2,21 @@
 
 ### For Users
 
+#### Changed
+
+- **The build hook uses a local host build only when `make build` stamped it
+  with the current crate version** (`hook/build.dart`, `Makefile`) — a
+  library in `rust/target/release/` or `rust/target/debug/` took priority over
+  the released one on the sole condition that it existed, so one left over
+  from an earlier crate loaded silently, and `rustContentHash`, which hashes
+  only the names of the bridged functions, could not notice a moved wire
+  format. `make build` now writes `rust/target/release/.crate-version`, as
+  `make build-web` already did beside the WASM module; the hook refuses a
+  missing or stale stamp with a `HookException`, and no longer reads
+  `rust/target/debug/`. Only a local build is affected — the published package
+  carries no `rust/target/` — and one built before this change is refused
+  until `make build` runs again.
+
 #### Security
 
 - **A malformed X-Wing key from a peer no longer panics (RUSTSEC-2026-0331)**
@@ -20,6 +35,42 @@
   (`libcrux-hmac-drbg`) and RUSTSEC-2026-0330 (`libcrux-kem`), which nothing
   in the dependency graph can reach; `SECURITY.md` (Known Limitations #13)
   covers the releases that still panic.
+
+#### Fixed
+
+- **An async call could wait forever when another isolate shut down during
+  `Openmls.init()`** (`lib/src/openmls.dart`,
+  `lib/src/platform/platform_io.dart`, `lib/src/platform/platform_web.dart`) —
+  flutter_rust_bridge sends every Rust-to-Dart message (an async call's
+  result, a store callback) through one process-wide `Dart_PostCObject`
+  pointer and replaces it with a no-op when its count of initialized isolates
+  drops to zero. `RustLib.init()` installs the real pointer *before* it counts
+  the new isolate, so when the last other counted isolate group shut down in
+  that window, the new isolate kept the no-op: sync calls worked, and every
+  async call waited for an answer that had been dropped. `Openmls.init()` now
+  installs the real pointer again once the isolate is counted, on native
+  platforms; the web has neither the pointer nor the count. ⚠ **Not fixed by
+  this: several flutter_rust_bridge libraries in one application.** An
+  isolate is counted only by the *first* such library it initializes, so when
+  the main isolate initialized a library second, a worker isolate that
+  initializes that library alone and exits switches its channel off for the
+  whole process. Initialize them in the same order in every isolate, workers
+  included; the fix belongs in flutter_rust_bridge.
+
+#### Documentation
+
+- **A missing `web/pkg/` leaves `RustLib.init()` pending; it does not fail on
+  a 404** (`README.md`, *Known Limitations*) — flutter_rust_bridge 2.13.0
+  injects the module as a `<script>` and awaits its `load` event with no error
+  path or timeout, and under `flutter run` the dev server answers the missing
+  `pkg/openmls_frb.js` with the app's own page and a 200, so the call neither
+  returns nor throws.
+- **`SECURITY.md` no longer says the tag ruleset stops a `write`
+  collaborator** — it reserved tags to "Admins/Maintainers", but the
+  ruleset's bypass list also held role 4, which GitHub names `write`. The list
+  now holds Admin only (`.github/rulesets/protect-release-tags.json`), and the
+  text says that Admins bypass the ruleset's signature rule as well; the
+  release scripts sign their tags.
 
 ### For Contributors
 
@@ -77,6 +128,56 @@
   and need not be signed, and the App signs regardless. `main` keeps its
   pull-request gate, its signatures and its no-bypass ban on force-pushes,
   and the branches stay under `Delete branches`.
+
+- **copier template adopted: v4.15.2 -> v4.17.0** — by hand, superseding the
+  update bot's #55 (v4.16.1). `.copier-answers.yml` records the new revision
+  and the new question's answer, `upstream_source: git_tag`; switching the
+  source is a change of its own.
+
+  **pub.dev's upload limits are measured** (`make verify-pub-limits`) —
+  pub.dev refuses a README.md, CHANGELOG.md, LICENSE or example over 256 KiB,
+  or a pubspec.yaml over 128 KiB, at upload, after the tag, and the dry-run
+  checks none of them. CI runs it on the Linux x86_64 leg and warns from
+  200 KiB, `make publish-dry-run` runs it first, and `make release` measures
+  the finalized CHANGELOG before committing.
+
+  **iOS is type-checked on every push and pull request**
+  (`make rust-check-ios`, the `Type-check (iOS)` job) — the three iOS targets
+  were compiled only by a release tag, so an iOS-only compile error first
+  showed up there.
+
+  **`make release` refuses a stage-1 release whose native sources moved since
+  its tag** — `rust/` (except `rust/fuzz` and `rust/deny.toml`) and
+  `lib/src/rust/` are compared with the `openmls_frb-*` tag, so any commit
+  there after stage 1 needs a new crate.
+
+  **Every Ubuntu job names its image, `ubuntu-26.04`** — the Linux release
+  builds move from `ubuntu-latest` (x86_64) and `ubuntu-24.04-arm` (arm64) to
+  `ubuntu-26.04` and `ubuntu-26.04-arm`; a Linux library records the glibc
+  symbol versions of the image that built it.
+
+  **An upstream bump moves only what the new tag requires** —
+  `make rust-update` is `cargo update --workspace`, and the rest of the graph
+  moves in Dependabot's weekly cargo pull request, which now takes transitive
+  crates too (`allow: dependency-type: all`).
+
+  **Only an Admin can create, move or delete a tag** — see *Documentation*
+  above; on GitHub the ruleset changes when
+  `make setup-repo-protections ARGS="--update"` applies it.
+
+  **The agent workflows** — OpenCode is pinned at 1.18.35 and makes no
+  session-title call unless `AGENT_OPENCODE_TITLE_MODEL` names a model; the AI
+  reviewer is told where each file's hunks start and who wrote each commit;
+  the build repair leaves drafts alone, re-runs a first failure once, leaves a
+  commit to a person after two runs that ended without a verdict, and can run
+  the wasm32 half of `make rust-doc`; the update bot's CHANGELOG entry is
+  written from the lockfile diff and the bound upstream files' patches.
+
+  **`make get` passes `ARGS` on**, so
+  `make get ARGS="--directory=example_cli"` resolves that package.
+
+  The App-token checkout hardening and the update checkers' branch exclusion,
+  both above, now come from the template.
 
 ## [3.2.1] - 2026-09-29
 

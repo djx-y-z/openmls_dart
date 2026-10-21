@@ -223,7 +223,7 @@ Concurrent Dart calls on one `MlsEngine` are safe: each operation loads its snap
 
 The native binaries above are published by `build-openmls.yml`, triggered by a `openmls_frb-*` tag push or by manual dispatch. Two controls restrict who can cause a publish, mirroring the `pub.dev` environment that gates the pub.dev publish:
 
-- **Tag protection** — a repository ruleset restricts creating, moving, and deleting **all tags** to Admins/Maintainers (and requires them signed), so a plain `write` collaborator cannot mint a release tag (`openmls_frb-*` / `v*`) or any other tag.
+- **Tag protection** — a repository ruleset reserves creating, moving, and deleting **all tags** to repository Admins, so a `write` collaborator cannot mint a release tag (`openmls_frb-*` / `v*`) or any other tag. Admins bypass it, its signature rule included; the release scripts sign their tags.
 - **Approval gate** — the publishing job runs in the `native-build` environment, whose required reviewers must approve before any binary is released. Unlike the tag ruleset, this also covers the `workflow_dispatch` path.
 
 Setup, the exact `gh` commands to apply / verify / roll back, and residual risks are in [`.github/rulesets/README.md`](.github/rulesets/README.md).

@@ -326,7 +326,7 @@ make check-new-openmls-version
 make check-new-openmls-version ARGS="--update"
 
 # Update to specific version
-make check-new-openmls-version ARGS="--update --version vX.Y.Z"
+make check-new-openmls-version ARGS="--update --version openmls-vX.Y.Z"
 
 # Force update even if versions match
 make check-new-openmls-version ARGS="--update --force"
@@ -342,6 +342,7 @@ Files automatically updated by `make check-new-openmls-version ARGS="--update"`:
 | File | What | Description |
 |------|------|-------------|
 | `rust/Cargo.toml` | upstream tags | Native library dependency version |
+| `.copier-answers.yml` | `upstream_version` | What the next `copier update` renders |
 | `rust/Cargo.toml` | `version` | `openmls_frb` bump mirroring upstream SemVer delta (adjust manually if wrapper API changed differently) |
 | `README.md` | Badge | Version badge in header |
 | `CLAUDE.md` | Example | Code example in documentation |

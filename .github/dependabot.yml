@@ -163,6 +163,16 @@ updates:
   # shipped code rather than as a build-time inconvenience — `make rust-audit`
   # already fails on one, and this is how the fix arrives.
   #
+  # Transitive crates included (`allow` below): without it Dependabot updates
+  # only what rust/Cargo.toml names, and the transitive graph used to move as a
+  # side effect of every upstream bump, whose `cargo update` swept the whole
+  # lockfile. The bump now moves only what the new tag requires
+  # (`make rust-update`), so this is where everything else moves — on its own
+  # CI run, rather than riding along with a dependency update and breaking a
+  # platform nobody was looking at: in a generated project, `libc` 0.2.190 on
+  # iOS did exactly that. Any `ignore` entry keeps its meaning for the crate it
+  # names, transitive occurrences of those versions included.
+  #
   # The upstream crates are ignored rather than left to chance. They are git
   # dependencies pinned to a tag, and Dependabot's cargo updater does follow git
   # refs — so without this it would open its own pull request for the same bump
@@ -172,6 +182,8 @@ updates:
   # cheaper one merges first.
   - package-ecosystem: "cargo"
     directory: "/rust"
+    allow:
+      - dependency-type: "all"
     schedule:
       interval: "weekly"
       day: "monday"
