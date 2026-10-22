@@ -13,6 +13,7 @@
   `Openmls.init()`** — native platforms; see *Fixed*.
 - **openmls v0.9.1** — a patch release: the GHSA-gc79-23g3-8g52 fix, and
   nothing else this package's API exposes.
+- **openmls v0.9.2** — dependency update; bindings unchanged
 
 #### Changed
 
@@ -28,6 +29,11 @@
   `rust/target/debug/`. Only a local build is affected — the published package
   carries no `rust/target/` — and one built before this change is refused
   until `make build` runs again.
+- **The openmls dependency advances without regenerating the Dart bindings** — openmls 0.9.1 → 0.9.2 ([compare](https://github.com/openmls/openmls/compare/1762090a4523cdd241f454b4058e91b64bbdc6de...8a8f83b4b61fc45f28facec25e914992b3465de6).
+
+  `make codegen` produced no changes to `lib/src/rust/`.
+
+  No third-party crate moves with it. None is added or removed.
 
 #### Security
 
