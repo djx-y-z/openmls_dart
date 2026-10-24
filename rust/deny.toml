@@ -59,6 +59,14 @@ ignore = [
     # them (`XWING_PUBLIC_KEY_LEN`). Listed regardless: it is in the lockfile.
     "RUSTSEC-2026-0331",
 
+    # --- crypto-bigint (see .cargo/audit.toml for the full notes) ---
+    # crypto-bigint 0.5.5: constant-time operations could compile to secret-
+    # dependent branches. REACHABLE on secret data in the three P-curve suites
+    # (every P-256 ECDSA signature runs its add_mod/sub_mod on the key and the
+    # nonce); not measured; accepted 2026-10-24. Patched only in 0.7.6, which
+    # needs the openmls release that moves p256/p384 to 0.14 — delete with it.
+    "RUSTSEC-2026-0387",
+
     # --- Unmaintained transitive build dependencies (informational) ---
     # cargo-deny flags unmaintained advisories that `cargo audit` does not fail
     # on. This crate is pulled transitively by upstream, is not in the shipped
