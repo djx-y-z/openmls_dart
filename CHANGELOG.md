@@ -9,6 +9,9 @@
   of this package is affected.
 - **A malformed X-Wing key from a peer no longer panics** — RUSTSEC-2026-0331,
   on the 0x004D suite only.
+- **The P-256 and P-384 suites carry an open constant-time advisory** —
+  RUSTSEC-2026-0387 (`crypto-bigint` 0.5.5), accepted until OpenMLS moves to
+  `p256`/`p384` 0.14; the other ten suites are unaffected. See *Security*.
 - **Async calls no longer wait forever when another isolate shuts down during
   `Openmls.init()`** — native platforms; see *Fixed*.
 - **openmls v0.9.1** — a patch release: the GHSA-gc79-23g3-8g52 fix, and
@@ -74,6 +77,35 @@
   (`libcrux-hmac-drbg`) and RUSTSEC-2026-0330 (`libcrux-kem`), which nothing
   in the dependency graph can reach; `SECURITY.md` (Known Limitations #13)
   covers the releases that still panic.
+- **The post-quantum suites' constant-time helper is fixed
+  (RUSTSEC-2026-0385)** — `ctutils` 0.4.2 → 0.4.5 (`rust/Cargo.lock`).
+  RustCrypto's ML-KEM decapsulation selects its result with it, and ML-DSA's
+  signing arithmetic compares and selects with it, on secret values, so every
+  post-quantum suite except X-Wing (0x004D, which runs on libcrux) relies on
+  it. Before 0.4.4 its masks could compile to a branch on commonly used
+  platforms, and its `u128` comparisons did on 32-bit targets; a branch on a
+  secret value can leak it through a side channel. 0.4.4 fixes both, and
+  0.4.5 also hardens `Choice` composition and Thumb-1 comparisons.
+  `openmls_frb` 2.1.0 to 2.3.1 carry 0.4.2; nothing was measured here
+  ([advisory](https://rustsec.org/advisories/RUSTSEC-2026-0385)).
+- **The P-256 and P-384 suites carry an open constant-time advisory
+  (RUSTSEC-2026-0387)** — `crypto-bigint` 0.5.5, in every release since
+  1.0.0, has operations meant to be constant-time that could compile to
+  branches on secret values, depending on the compiler and CPU. Its fix,
+  0.7.6, cannot be taken: `elliptic-curve` 0.13 requires 0.5, and only an
+  OpenMLS release on `p256`/`p384` 0.14 lifts that. Reviewed before it was
+  accepted: P-256's scalar arithmetic is crypto-bigint's, so every signature
+  on `mls128DhkemP256Aes128GcmSha256P256` (0x0002) and
+  `mls128Mlkem768Aes256GcmSha384P256` computes with the private key and the
+  nonce through its modular addition and subtraction, which turn a borrow
+  into a mask with no optimization barrier — the construct the fixed release
+  guards. On `mls192Mlkem1024Aes256GcmSha384P384` the arithmetic is
+  fiat-crypto, and crypto-bigint only range-checks, zero-checks and encodes
+  the secrets; the other ten suites do not run it on secret data. Whether
+  the compiled code branches was not measured. The advisory is accepted in
+  `.cargo/audit.toml` and `rust/deny.toml`, and `SECURITY.md` (Known
+  Limitations #15) says which suites to prefer
+  ([advisory](https://rustsec.org/advisories/RUSTSEC-2026-0387)).
 
 #### Fixed
 

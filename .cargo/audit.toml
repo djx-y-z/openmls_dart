@@ -1,10 +1,12 @@
 # cargo-audit configuration.
 #
-# Every entry below is a libcrux advisory that reaches this crate only through
-# the X-Wing provider (openmls_libcrux_crypto) and that `cargo update` cannot
-# move: the fixed versions lie outside openmls's own version requirements, so
-# each clears only with an upstream OpenMLS release that raises them. Each
-# carries its reachability argument inline; add an entry only the same way.
+# Every entry below is an advisory that `cargo update` cannot move: the fixed
+# versions lie outside openmls's own version requirements, so each clears only
+# with an upstream OpenMLS release that raises them. Three are libcrux
+# advisories that reach this crate only through the X-Wing provider
+# (openmls_libcrux_crypto); one is crypto-bigint, under the RustCrypto P-256
+# and P-384 code. Each carries its reachability argument inline; add an entry
+# only the same way.
 #
 # The list was empty from the openmls-v0.9.0 bump until the 2026-10 batch
 # below. Every entry it held before was a libcrux advisory that openmls-v0.8.1
@@ -109,4 +111,38 @@ ignore = [
     # The entry stays all the same: `cargo audit` reads the lockfile, and
     # libcrux-kem 0.0.9 is in it until upstream releases the fix.
     "RUSTSEC-2026-0331",
+
+    # --- 2026-10-23: crypto-bigint (RustCrypto, the P-256/P-384 suites) ---
+    #
+    # crypto-bigint 0.5.5: operations meant to be constant-time could compile
+    # to secret-dependent branches, depending on the compiler and target CPU
+    # (subtraction, zero counting, division, Montgomery multiplication).
+    # Patched only in >= 0.7.6, which cannot be reached from here:
+    # elliptic-curve 0.13.8 requires "0.5", and openmls_rust_crypto 0.6.0,
+    # openmls_basic_credential 0.6.0 and hpke-rs-rust-crypto 0.7.0 pin
+    # p256/p384 "0.13". openmls main is on p256/p384 0.14 (elliptic-curve
+    # 0.14 requires crypto-bigint ^0.7.5) and has not released.
+    # REACHABLE on secret data, accepted (decision 2026-10-24) — never write
+    # "unreachable" here. Three of the thirteen suites use a P curve:
+    #   - P-256 (0x0002, MLS_128_MLKEM768_AES256GCM_SHA384_P256): p256's
+    #     scalar arithmetic is crypto-bigint's — `Scalar::add`/`sub` are
+    #     `add_mod`/`sub_mod` (p256 0.13.2 scalar.rs:99-111), which turn the
+    #     borrow into a mask and add the modulus back with no optimization
+    #     barrier; ctutils 0.4.5 (primitives.rs:103-105), which 0.7.6 requires,
+    #     adds that barrier "so a caller's masked add-back cannot be folded
+    #     into a secret-dependent branch". Every ECDSA signature runs it on
+    #     the private key and nonce (ecdsa 0.16.9 hazmat.rs:
+    #     `s = k_inv * (z + (r * d))`). 0x0002's DHKEM multiplies with p256's
+    #     own field arithmetic and uses crypto-bigint only to range-check
+    #     (`ct_lt`) and encode.
+    #   - P-384 (MLS_192_MLKEM1024_AES256GCM_SHA384_P384): field and scalar
+    #     arithmetic are fiat-crypto; crypto-bigint only range-checks, zero-
+    #     checks and encodes the secrets.
+    #   - The other ten suites never run crypto-bigint on secret data; k256 has
+    #     no MLS suite, and DHKEM P-384 (0x0007) is refused by `supports()`.
+    # Whether the compiled code branches on our targets was NOT measured.
+    # Every openmls_frb release since 1.0.0 carries 0.5.5, so a red gate would
+    # protect no one while blocking the GHSA fixes. Delete this entry with the
+    # openmls release that moves p256/p384 to 0.14.
+    "RUSTSEC-2026-0387",
 ]
