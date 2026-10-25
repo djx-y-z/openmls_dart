@@ -99,11 +99,12 @@
   medium, CWE-459).
 - **A malformed X-Wing key from a peer no longer panics (RUSTSEC-2026-0331)**
   — up to `openmls_frb` 2.3.1, an X-Wing (0x004D) public key shorter than
-  1184 bytes made the next encryption to it panic inside `libcrux-kem` 0.0.9:
-  a `PanicException` on native, and on the web an abort that left the
-  database unusable until the page was reloaded. The key is peer data — the
-  init key of a key package being added, another member's tree node, the
-  `GroupInfo` of an external join. The native library now checks its length
+  1184 bytes made the next encryption to it panic inside `libcrux-kem` (0.0.9
+  from `openmls_frb` 2.1.0, 0.0.7 before it, with the same defect): a
+  `PanicException` on native, and on the web an abort that left the database
+  unusable until the page was reloaded. The key is peer data — the init key
+  of a key package being added, another member's tree node, the `GroupInfo`
+  of an external join. The native library now checks its length
   before libcrux sees it, and the operation fails with the ordinary error the
   fixed `libcrux-kem` 0.0.10 returns. Nothing leaked and nothing could be
   forged (CVSS `VC:N/VI:N/VA:H`), and no other suite touches libcrux. The
@@ -218,11 +219,12 @@
 
   `.copier-answers.yml` records the new template revision.
 
-  **The agent workflows now use `anthropics/claude-code-action` v1.0.236**
+  **The agent workflows now use `anthropics/claude-code-action` v1.0.240**
   (`.github/workflows/ai-review.yml`,
-  `.github/workflows/repair-build.yml`) — both pins move from v1.0.228 to
-  v1.0.236, bringing the generated workflows onto the newer bundled Claude
-  Code and Agent SDK versions.
+  `.github/workflows/repair-build.yml`) — both pins move from v1.0.235, to
+  v1.0.236 with this adoption and on to v1.0.240 in Dependabot's #54,
+  bringing the generated workflows onto the newer bundled Claude Code and
+  Agent SDK versions.
 
   **The notices refresh now supplies the repository to its signed commit**
   (`.github/workflows/refresh-notices.yml`) — the `Commit and push` step's
