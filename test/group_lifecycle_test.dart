@@ -380,6 +380,106 @@ void main() {
       final aliceMembers = await alice.groupMembers(groupIdBytes: groupIdBytes);
       expect(aliceMembers, hasLength(2));
     });
+
+    // GHSA-94v4-rg25-x625, fixed in openmls 0.9.2. A client that rejoins with
+    // the signature key of an existing leaf makes its external commit remove
+    // that leaf. When the removal truncates the tree and the joiner's own leaf
+    // extends it again, an affected openmls reads the regrown part back from
+    // the tree before the commit, so the removed leaf stays — measured on
+    // 0.9.1 through both calls, with index 3 still listed after the commit
+    // reported it removed.
+    for (final v2 in [false, true]) {
+      test(
+        'a resync by external commit${v2 ? ' v2' : ''} drops the old leaf',
+        () async {
+          final carol = await createTestEngine();
+          final dave = await createTestEngine();
+          final carolId = TestIdentity.create('carol');
+          final daveId = TestIdentity.create('dave');
+          Future<Uint8List> keyPackage(
+            MlsEngine engine,
+            TestIdentity id,
+          ) async => (await engine.createKeyPackage(
+            ciphersuite: ciphersuite,
+            signerBytes: id.signerBytes,
+            credentialIdentity: id.credentialIdentity,
+            signerPublicKey: id.publicKey,
+          )).keyPackageBytes;
+
+          // Leaves 0 to 3, then leaf 2 removed: [alice, bob, _, dave].
+          final addResult = await alice.addMembers(
+            groupIdBytes: groupIdBytes,
+            signerBytes: aliceId.signerBytes,
+            keyPackagesBytes: [
+              await keyPackage(bob, bobId),
+              await keyPackage(carol, carolId),
+              await keyPackage(dave, daveId),
+            ],
+          );
+          await bob.joinGroupFromWelcome(
+            config: defaultConfig(),
+            welcomeBytes: addResult.welcome,
+            signerBytes: bobId.signerBytes,
+          );
+          final removeResult = await alice.removeMembers(
+            groupIdBytes: groupIdBytes,
+            signerBytes: aliceId.signerBytes,
+            memberIndices: [2],
+          );
+          await bob.processMessage(
+            groupIdBytes: groupIdBytes,
+            messageBytes: removeResult.commit,
+          );
+
+          // Dave's state is lost; a fresh engine rejoins with his signer.
+          final groupInfo = await alice.exportGroupInfo(
+            groupIdBytes: groupIdBytes,
+            signerBytes: aliceId.signerBytes,
+          );
+          final ratchetTree = await alice.exportRatchetTree(
+            groupIdBytes: groupIdBytes,
+          );
+          final rejoined = await createTestEngine();
+          final joinResult = v2
+              ? await rejoined.joinGroupExternalCommitV2(
+                  config: defaultConfig(),
+                  groupInfoBytes: groupInfo,
+                  ratchetTreeBytes: ratchetTree,
+                  signerBytes: daveId.signerBytes,
+                  credentialIdentity: daveId.credentialIdentity,
+                  signerPublicKey: daveId.publicKey,
+                  skipLifetimeValidation: false,
+                )
+              : await rejoined.joinGroupExternalCommit(
+                  config: defaultConfig(),
+                  groupInfoBytes: groupInfo,
+                  ratchetTreeBytes: ratchetTree,
+                  signerBytes: daveId.signerBytes,
+                  credentialIdentity: daveId.credentialIdentity,
+                  signerPublicKey: daveId.publicKey,
+                );
+          final processed = await alice.processMessageWithInspect(
+            groupIdBytes: groupIdBytes,
+            messageBytes: joinResult.commit,
+          );
+          expect(processed.stagedCommitInfo!.removeIndices, equals([3]));
+          await bob.processMessage(
+            groupIdBytes: groupIdBytes,
+            messageBytes: joinResult.commit,
+          );
+
+          // The rejoined client took leaf 2, and leaf 3 is gone for everyone.
+          for (final engine in [alice, bob, rejoined]) {
+            final members = await engine.groupMembers(
+              groupIdBytes: groupIdBytes,
+            );
+            expect(members.map((m) => m.index), equals([0, 1, 2]));
+            final keys = members.map((m) => base64.encode(m.signatureKey));
+            expect(keys.toSet(), hasLength(members.length));
+          }
+        },
+      );
+    }
   });
 
   group('post-quantum ciphersuite (X-Wing)', () {

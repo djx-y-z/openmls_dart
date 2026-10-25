@@ -359,7 +359,7 @@ See `.github/rulesets/README.md`.
 Two different versions live here and neither is in `pubspec.yaml`:
 
 - **The upstream openmls version** is the crates.io version
-  `rust/Cargo.toml` pins `openmls` to — exactly, `"=0.9.1"`, on both
+  `rust/Cargo.toml` pins `openmls` to — exactly, `"=0.9.2"`, on both
   declarations of it (the second is the `wasm32` target table). The other four
   openmls crates are at the requirement that release itself declares,
   recorded in `upstream_crate_versions` in `.copier-answers.yml`. That is what

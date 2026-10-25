@@ -32,4 +32,4 @@ topics: mls,encryption,messaging,e2ee,rust
 upstream_crate_versions: openmls_rust_crypto=0.6.0,openmls_basic_credential=0.6.0,openmls_traits=0.6.0,openmls_libcrux_crypto=0.4.0
 upstream_crates: openmls,openmls_rust_crypto,openmls_basic_credential,openmls_traits,openmls_libcrux_crypto
 upstream_source: crates_io
-upstream_version: 0.9.1
+upstream_version: 0.9.2

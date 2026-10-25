@@ -42,7 +42,7 @@ ignore = [
     # Both crates reach the graph only through openmls_libcrux_crypto 0.4.0,
     # the X-Wing provider, and only an upstream OpenMLS release can move them:
     # the fixes need hpke-rs-libcrux 0.8, which openmls main adopted (#2261)
-    # and has not released. openmls 0.9.1 does not carry it.
+    # and has not released. Neither openmls 0.9.1 nor 0.9.2 carries it.
     # libcrux-hmac-drbg `HmacDrbgRng::fill_bytes` panic on lengths that are a
     # multiple of 65,536. Unreachable: nothing in the graph calls it —
     # openmls_libcrux_crypto uses the raw `HmacDrbgSha256::generate`.

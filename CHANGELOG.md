@@ -7,6 +7,10 @@
 - **A peer can no longer crash the application with nested extensions** —
   GHSA-gc79-23g3-8g52, fixed upstream in openmls 0.9.1; every earlier release
   of this package is affected.
+- **A member an external commit removes no longer stays in the group** —
+  GHSA-94v4-rg25-x625, fixed upstream in openmls 0.9.2; every earlier release
+  of this package is affected, and upgrading does not repair a group it
+  already damaged; see *Security*.
 - **A malformed X-Wing key from a peer no longer panics** — RUSTSEC-2026-0331,
   on the 0x004D suite only.
 - **The P-256 and P-384 suites carry an open constant-time advisory** —
@@ -14,8 +18,9 @@
   `p256`/`p384` 0.14; the other ten suites are unaffected. See *Security*.
 - **Async calls no longer wait forever when another isolate shuts down during
   `Openmls.init()`** — native platforms; see *Fixed*.
-- **openmls v0.9.1** — a patch release: the GHSA-gc79-23g3-8g52 fix, and
-  nothing else this package's API exposes.
+- **openmls v0.9.2** — two patch releases: 0.9.1 with the
+  GHSA-gc79-23g3-8g52 fix, 0.9.2 with the GHSA-94v4-rg25-x625 and
+  GHSA-p276-g3f3-wwgh fixes, and nothing else this package's API exposes.
 
 #### Changed
 
@@ -35,7 +40,7 @@
 #### Security
 
 - **A peer can no longer crash the application with nested extensions
-  (GHSA-gc79-23g3-8g52)** — openmls 0.9.0 → 0.9.1 (`rust/Cargo.toml`,
+  (GHSA-gc79-23g3-8g52)** — fixed in openmls 0.9.1 (`rust/Cargo.toml`,
   `rust/Cargo.lock`). openmls 0.9.0 decoded an extension's body before
   checking that its type is allowed where it appears, so a `ratchet_tree`
   extension inside a leaf node was decoded in full, its leaf nodes and their
@@ -61,17 +66,49 @@
   high, CVSS 4.0 8.7, CWE-674). Every native library released before this
   one carries an affected openmls, `openmls_frb` 2.3.1 (package 3.2.1)
   included; `SECURITY.md` (Known Limitations #14) covers them.
+- **A member an external commit removes no longer stays in the group
+  (GHSA-94v4-rg25-x625)** — fixed in openmls 0.9.2 (`rust/Cargo.toml`,
+  `rust/Cargo.lock`). When an external commit removed a member and the
+  removal truncated the ratchet tree, adding the joiner's own leaf extended
+  the tree again with the removed leaf, and some parent nodes, restored from
+  before the commit. The committer and every member processing the commit
+  computed the same tree, so nothing diverged, but the removed leaf kept its
+  encryption key and later commits kept encrypting path secrets to it: a
+  party that holds the removed client's state and keeps processing the
+  group's handshake messages can derive the secrets of every later epoch
+  until the leaf is removed again. In this package the commit is a resync —
+  `joinGroupExternalCommit` and `joinGroupExternalCommitV2` remove any member
+  that has the joiner's signature key — or another client's external commit
+  that includes a SelfRemove (`leaveGroupViaSelfRemove`) by reference, and
+  every member that processes either with `processMessage` or
+  `processMessageWithInspect` computes the same tree. Measured on 0.9.1, with
+  members at leaves 0 to 3, leaf 2 removed and the member at leaf 3 rejoining
+  by either call: `groupMembers` still listed index 3, which
+  `processMessageWithInspect` had reported in `removeIndices`, and while two
+  leaves shared a signature key no new member could join, by Welcome or by
+  external commit. 0.9.2 leaves the regrown part of the tree blank, as RFC
+  9420 requires; the same steps list three members. Only groups that accept
+  external commits are affected, and upgrading does not repair a tree the bug
+  already wrote: a group stays affected until a member removes the restored
+  leaf with `removeMembers`, an ordinary commit every version accepts
+  (`SECURITY.md`, Known Limitations #16). Per the advisory, an external commit
+  that meets the bug is rejected between clients on 0.9.2 and clients on an
+  affected openmls, this package up to 3.2.1 included, with a path length or
+  confirmation tag mismatch, rather than leaving them on different trees
+  ([advisory](https://github.com/openmls/openmls/security/advisories/GHSA-94v4-rg25-x625):
+  medium, CWE-459).
 - **A malformed X-Wing key from a peer no longer panics (RUSTSEC-2026-0331)**
   — up to `openmls_frb` 2.3.1, an X-Wing (0x004D) public key shorter than
-  1184 bytes made the next encryption to it panic inside `libcrux-kem` 0.0.9:
-  a `PanicException` on native, and on the web an abort that left the
-  database unusable until the page was reloaded. The key is peer data — the
-  init key of a key package being added, another member's tree node, the
-  `GroupInfo` of an external join. The native library now checks its length
+  1184 bytes made the next encryption to it panic inside `libcrux-kem` (0.0.9
+  from `openmls_frb` 2.1.0, 0.0.7 before it, with the same defect): a
+  `PanicException` on native, and on the web an abort that left the database
+  unusable until the page was reloaded. The key is peer data — the init key
+  of a key package being added, another member's tree node, the `GroupInfo`
+  of an external join. The native library now checks its length
   before libcrux sees it, and the operation fails with the ordinary error the
   fixed `libcrux-kem` 0.0.10 returns. Nothing leaked and nothing could be
   forged (CVSS `VC:N/VI:N/VA:H`), and no other suite touches libcrux. The
-  crate itself stays at 0.0.9: OpenMLS pins it — 0.9.1 too — and the fix
+  crate itself stays at 0.0.9: OpenMLS pins it — 0.9.2 too — and the fix
   needs an OpenMLS release that does not exist yet. It is recorded in
   `.cargo/audit.toml` and `rust/deny.toml` together with RUSTSEC-2026-0329
   (`libcrux-hmac-drbg`) and RUSTSEC-2026-0330 (`libcrux-kem`), which nothing
@@ -106,6 +143,22 @@
   `.cargo/audit.toml` and `rust/deny.toml`, and `SECURITY.md` (Known
   Limitations #15) says which suites to prefer
   ([advisory](https://rustsec.org/advisories/RUSTSEC-2026-0387)).
+- **GHSA-p276-g3f3-wwgh did not reach this package** — every openmls this
+  package has shipped advanced the claimed sender's ratchet before decrypting
+  a message's content and verifying its signature, and stored it before the
+  signature check, so a member could send a message in another member's name
+  that every receiver rejected and that still made the genuine sender's
+  messages — commits included — fail for the rest of the epoch. Here a failed
+  call writes nothing back: every operation works on a snapshot of the stored
+  state, which `processMessage` and `processMessageWithInspect` have dropped
+  on any error since 1.0.0. Measured on 0.9.1 through both calls: after a
+  message at generation 6 that decrypted and then failed signature
+  verification, the sender's messages 0 to 5 all decrypted; with
+  `processMessage` patched to write the snapshot back on error, messages 0
+  and 1 were lost as too old. 0.9.2 fixes it upstream by applying the ratchet
+  step only once a message is processed successfully
+  ([advisory](https://github.com/openmls/openmls/security/advisories/GHSA-p276-g3f3-wwgh):
+  low, CVSS 3.1 3.7, CWE-460).
 
 #### Fixed
 
@@ -152,17 +205,26 @@
 
 ### For Contributors
 
+#### Added
+
+- **A regression test for GHSA-94v4-rg25-x625**
+  (`test/group_lifecycle_test.dart`) — a resync by `joinGroupExternalCommit`
+  and by `joinGroupExternalCommitV2`, in a group where the removal it carries
+  truncates the tree, must leave three members and no signature key twice.
+  Both cases fail on openmls 0.9.1, which still lists the removed leaf.
+
 #### Changed
 
 - **copier template adopted: v4.15.1 -> v4.15.2** — workflow fixes.
 
   `.copier-answers.yml` records the new template revision.
 
-  **The agent workflows now use `anthropics/claude-code-action` v1.0.236**
+  **The agent workflows now use `anthropics/claude-code-action` v1.0.240**
   (`.github/workflows/ai-review.yml`,
-  `.github/workflows/repair-build.yml`) — both pins move from v1.0.228 to
-  v1.0.236, bringing the generated workflows onto the newer bundled Claude
-  Code and Agent SDK versions.
+  `.github/workflows/repair-build.yml`) — both pins move from v1.0.235, to
+  v1.0.236 with this adoption and on to v1.0.240 in Dependabot's #54,
+  bringing the generated workflows onto the newer bundled Claude Code and
+  Agent SDK versions.
 
   **The notices refresh now supplies the repository to its signed commit**
   (`.github/workflows/refresh-notices.yml`) — the `Commit and push` step's
