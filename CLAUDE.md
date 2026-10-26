@@ -61,6 +61,18 @@ and `test-reusable.yml`, together — a gate on a different tool than the releas
 is not a gate), and `make verify-android-alignment` measures the result rather
 than trusting the pin. Both jobs run it.
 
+⚠ **The Apple libraries are linked with `-headerpad_max_install_names`, by
+`rust/build.rs`.** `dart run`, `dart test` and `flutter test` copy the dylib into
+the consuming project and rewrite its install name to the copy's absolute path;
+without the flag the header has room for a path of about 180 characters, and the
+rewrite fails beyond it ("larger updated load commands do not fit"). A build
+script and not `rust/.cargo/config.toml`, because `make build` runs cargo from
+the repository root, where that file is not read — the trap the wasm32 lint
+below works around with `cd rust` — and a `RUSTFLAGS` in the environment would
+replace it. `make verify-release-artifacts` refuses a Mach-O library with room
+for fewer than 1,024 characters, so a lost flag fails the release rather than a
+consumer's build.
+
 ⚠ **`make build-web` stamps `rust/target/wasm32/.crate-version`, and the build
 hook REFUSES a local WASM build whose stamp is missing or disagrees with
 `rust/Cargo.toml`** — `HookException` and a stopped build, not a silent

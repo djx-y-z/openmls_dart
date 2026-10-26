@@ -402,6 +402,28 @@ Future<ChangelogUpdate> updateChangelog({
 const emptyReleaseNotesPlaceholder =
     'No release notes were published for this release.';
 
+/// A file of the upstream repository that could not be read: GitHub answered
+/// [status] — a rate limit, a server error — or, at 0, nothing answered.
+class UpstreamUnfetched implements Exception {
+  /// The HTTP status of the answer, 0 for none.
+  const UpstreamUnfetched(this.status);
+
+  /// The HTTP status of the answer, 0 for none.
+  final int status;
+
+  @override
+  String toString() => status == 0 ? 'no answer' : 'HTTP $status';
+}
+
+/// What [_fetchReleaseNotes] returns when a file it would have read the notes
+/// from could not be fetched, and nothing that did answer had notes. Not
+/// [emptyReleaseNotesPlaceholder]: that one is a fact about the release, and
+/// this one about the request, which the model must not report as the other.
+/// Pure; exposed for testing.
+String unfetchedReleaseNotes(UpstreamUnfetched failure) =>
+    'The release notes could not be fetched ($failure), so whether this '
+    'release has any is unknown.';
+
 /// Fetch the release's own notes from wherever the upstream source keeps them,
 /// in the order [UpstreamSource.releaseNotesKinds] gives: the GitHub release
 /// when it has a body, then `RELEASE_NOTES.md` and the release's section of
@@ -410,40 +432,51 @@ const emptyReleaseNotesPlaceholder =
 /// When nothing later in the order has more, what the GitHub release said is
 /// what comes back — its "no notes were published" included, which is a fact
 /// about that release. A source with no GitHub release to ask ends at
-/// [emptyReleaseNotesPlaceholder] instead.
+/// [emptyReleaseNotesPlaceholder] instead. Neither is said when a file in the
+/// order could not be read at all: then nobody knows whether there are notes,
+/// and [unfetchedReleaseNotes] says that.
 Future<String> _fetchReleaseNotes(
   String version, {
   required String? ref,
   required List<UpstreamCrate> crates,
 }) async {
   String? fromRelease;
+  UpstreamUnfetched? unfetched;
   for (final kind in upstreamSource.releaseNotesKinds) {
-    switch (kind) {
-      case ReleaseNotesKind.githubRelease:
-        fromRelease = await _fetchGithubReleaseNotes(version);
-        if (fromRelease != emptyReleaseNotesPlaceholder) return fromRelease;
-      case ReleaseNotesKind.releaseNotesFile:
-        if (ref == null) continue;
-        final notes = await _fetchInRepoReleaseNotes(version, ref: ref);
-        if (notes == null) continue;
-        logInfo(
-          fromRelease == null
-              ? 'Using RELEASE_NOTES.md at $ref'
-              : 'Release body was empty; using RELEASE_NOTES.md at $ref',
-        );
-        return notes;
-      case ReleaseNotesKind.changelogSection:
-        if (ref == null) continue;
-        final notes = await _fetchChangelogSection(
-          version,
-          ref: ref,
-          crates: crates,
-        );
-        if (notes == null) continue;
-        logInfo('Using the $version section of CHANGELOG.md at $ref');
-        return notes;
+    try {
+      switch (kind) {
+        case ReleaseNotesKind.githubRelease:
+          fromRelease = await _fetchGithubReleaseNotes(version);
+          if (fromRelease != emptyReleaseNotesPlaceholder) return fromRelease;
+        case ReleaseNotesKind.releaseNotesFile:
+          if (ref == null) continue;
+          final notes = await _fetchInRepoReleaseNotes(version, ref: ref);
+          if (notes == null) continue;
+          logInfo(
+            fromRelease == null
+                ? 'Using RELEASE_NOTES.md at $ref'
+                : 'Release body was empty; using RELEASE_NOTES.md at $ref',
+          );
+          return notes;
+        case ReleaseNotesKind.changelogSection:
+          if (ref == null) continue;
+          final notes = await _fetchChangelogSection(
+            version,
+            ref: ref,
+            crates: crates,
+          );
+          if (notes == null) continue;
+          logInfo('Using the $version section of CHANGELOG.md at $ref');
+          return notes;
+      }
+    } on UpstreamUnfetched catch (e) {
+      unfetched = e;
+      logWarning(
+        'Could not read the upstream notes (${kind.name}) at $ref: $e',
+      );
     }
   }
+  if (unfetched != null) return unfetchedReleaseNotes(unfetched);
   return fromRelease ?? emptyReleaseNotesPlaceholder;
 }
 
@@ -475,22 +508,38 @@ Future<String> _fetchGithubReleaseNotes(String version) async {
   );
 }
 
-/// The upstream repository's file at [path] and [ref], raw, or null when it
-/// cannot be fetched.
-///
-/// Best-effort by design: an upstream that keeps no such file, a network
-/// failure and a rate-limited reply all land as null or as an error payload,
-/// and every reader of the result turns those into "no notes here" and leaves
-/// the caller with what it already had.
+/// The upstream repository's file at [path] and [ref], raw, or null when the
+/// repository keeps no such file — see [upstreamFileFrom], which also throws
+/// [UpstreamUnfetched] when it could not be read.
 Future<String?> _fetchUpstreamFile(String path, {required String ref}) async {
   final result = await Process.run('curl', [
     '-s',
+    '-w',
+    r'\n%{http_code}',
     '-H',
     'Accept: application/vnd.github.raw',
     'https://api.github.com/repos/openmls/openmls/contents/$path?ref=$ref',
   ]);
-  if (result.exitCode != 0) return null;
-  return result.stdout as String;
+  if (result.exitCode != 0) throw const UpstreamUnfetched(0);
+  return upstreamFileFrom(result.stdout as String);
+}
+
+/// One request for a file of the upstream repository, decided: the file at
+/// 200, null at 404 — the repository keeps no such file — and
+/// [UpstreamUnfetched] for any other answer. [curlOutput] is what
+/// `curl -w '\n%{http_code}'` prints: the body, a newline, the status.
+///
+/// `curl -s` carries no `-f`, so it exits 0 on 403, 429 and every 5xx, and
+/// GitHub answers each with a JSON error. Read as the file, that error was
+/// "no notes in it", and a rate-limited request — the requests are
+/// unauthenticated, 60 an hour per IP, and GitHub's runners share IPs — was
+/// written up as a release that published none. Pure; exposed for testing.
+String? upstreamFileFrom(String curlOutput) {
+  final cut = curlOutput.lastIndexOf('\n');
+  final status = int.tryParse(curlOutput.substring(cut + 1).trim()) ?? 0;
+  if (status == 200 && cut >= 0) return curlOutput.substring(0, cut);
+  if (status == 404) return null;
+  throw UpstreamUnfetched(status);
 }
 
 /// Fetch `RELEASE_NOTES.md` at [ref] from the upstream repository, and keep it

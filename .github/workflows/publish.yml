@@ -113,11 +113,16 @@ jobs:
             CHANGELOG="Release version $VERSION"
           fi
 
-          # Use heredoc for multiline output (no escaping needed)
+          # A multiline output, its delimiter random. A fixed one ends the
+          # value at the first line of the section that reads the same and
+          # takes every line after it as more `name=value` outputs; a section
+          # quoting a shell heredoc would have truncated the release notes.
+          # This is GitHub's own recipe for the delimiter.
+          delimiter="CHANGELOG_$(dd if=/dev/urandom bs=15 count=1 status=none | base64)"
           {
-            echo "changelog<<EOF"
+            echo "changelog<<$delimiter"
             echo "$CHANGELOG"
-            echo "EOF"
+            echo "$delimiter"
           } >> "$GITHUB_OUTPUT"
 
       - name: Validate CHANGELOG.md has entry for this version

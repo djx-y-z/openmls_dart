@@ -28,6 +28,16 @@ Deployment targets (`minos`) are PRINTED and not asserted. They are readable
 here and a gate over them is tempting, but the values differ across the iOS
 artefacts for reasons that belong with `check-targets`, not here.
 
+Room for the install name IS asserted, on every Mach-O artefact. `dart run`,
+`dart test` and `flutter test` copy the library into the consuming project and
+rewrite its install name (LC_ID_DYLIB) to the copy's absolute path with
+`install_name_tool -id`, which fails -- "larger updated load commands do not
+fit" -- when the new name does not fit in what the linker left after the load
+commands. A library linked without `-headerpad_max_install_names`
+(`rust/build.rs`) leaves room for a path of about 180 characters, so the
+failure depends on where the consumer's project lives, and nothing that builds
+the library notices it.
+
 Python, in a project whose scripts are otherwise Dart, for the reason
 `verify_android_alignment.py` gives: this runs in workflow jobs that carry no
 Flutter toolchain -- the release job is a checkout and a download -- and
@@ -64,7 +74,12 @@ EM_386, EM_ARM, EM_X86_64, EM_AARCH64 = 0x03, 0x28, 0x3E, 0xB7
 
 # Mach-O (64-bit, little endian: every Apple target this package ships for)
 MACHO_MAGICS = (b"\xcf\xfa\xed\xfe", b"\xce\xfa\xed\xfe")
-LC_BUILD_VERSION = 0x32
+LC_ID_DYLIB, LC_SEGMENT_64, LC_BUILD_VERSION = 0x0D, 0x19, 0x32
+# MAXPATHLEN: with this much room an install name fits any path a consumer's
+# project can live at. Measured on a released library: linked without
+# -headerpad_max_install_names, the macOS and simulator builds left room for
+# 183 to 199 characters and the device build for 14,127; with it, 3,255.
+MIN_INSTALL_NAME_ROOM = 1024
 CPU_ARM64, CPU_X86_64 = 0x0100000C, 0x01000007
 PLATFORM_MACOS, PLATFORM_IOS, PLATFORM_IOS_SIMULATOR = 1, 2, 7
 PLATFORM_NAMES = {1: "macOS", 2: "iOS", 3: "tvOS", 4: "watchOS", 7: "iOS simulator"}
@@ -137,17 +152,37 @@ def elf_facts(data):
 
 
 def macho_facts(data):
-    """(cputype, LC_BUILD_VERSION platform, minos as text)."""
+    """(cputype, LC_BUILD_VERSION platform, minos as text, install-name room).
+
+    The room is the longest install name `install_name_tool -id` can write, in
+    characters: the new LC_ID_DYLIB is 24 bytes of header and the name with
+    its NUL, and it may take the old command's bytes plus the free space
+    between the end of the load commands and the first section's contents.
+    `None` when there is no LC_ID_DYLIB, which a dylib always has.
+    """
     cputype = struct.unpack_from("<I", data, 4)[0]
-    ncmds = struct.unpack_from("<I", data, 16)[0]
+    ncmds, sizeofcmds = struct.unpack_from("<II", data, 16)
     cursor, platform, minos = 32, None, None
+    id_size, first_section = None, None
     for _ in range(ncmds):
         cmd, size = struct.unpack_from("<II", data, cursor)
         if cmd == LC_BUILD_VERSION:
             platform, packed, _sdk = struct.unpack_from("<III", data, cursor + 8)
             minos = f"{packed >> 16}.{(packed >> 8) & 0xFF}"
+        elif cmd == LC_ID_DYLIB:
+            id_size = size
+        elif cmd == LC_SEGMENT_64:
+            for index in range(struct.unpack_from("<I", data, cursor + 64)[0]):
+                # section_64.offset; zero for zero-fill sections, which have
+                # no file contents to come first.
+                offset = struct.unpack_from("<I", data, cursor + 72 + index * 80 + 48)[0]
+                if offset and (first_section is None or offset < first_section):
+                    first_section = offset
         cursor += size
-    return cputype, platform, minos
+    room = None
+    if id_size is not None and first_section is not None:
+        room = first_section - (32 + sizeofcmds) + id_size - 25
+    return cputype, platform, minos, room
 
 
 def check(slug, path, expected, report):
@@ -185,9 +220,20 @@ def check(slug, path, expected, report):
         if data[:4] not in MACHO_MAGICS:
             report.append(f"{slug}: {path.name} is not a Mach-O object")
             return
-        cputype, platform, minos = macho_facts(data)
+        cputype, platform, minos, room = macho_facts(data)
         name = PLATFORM_NAMES.get(platform, "?")
-        print(f"  {slug:22s} {path.name:24s} Mach-O cputype=0x{cputype:08X} platform={name} minos={minos}")
+        print(
+            f"  {slug:22s} {path.name:24s} Mach-O cputype=0x{cputype:08X} platform={name} "
+            f"minos={minos} id-room={room}"
+        )
+        if room is None or room < MIN_INSTALL_NAME_ROOM:
+            report.append(
+                f"{slug}: {path.name} has room for an install name of "
+                f"{'no' if room is None else room} characters, expected at least "
+                f"{MIN_INSTALL_NAME_ROOM} — `dart run`, `dart test` and `flutter test` "
+                f"rewrite it to the absolute path of the consumer's copy and fail when "
+                f"that is longer; link with -headerpad_max_install_names (rust/build.rs)"
+            )
         if cputype != expected["arch"]:
             report.append(
                 f"{slug}: {path.name} is cputype 0x{cputype:08X}, expected "

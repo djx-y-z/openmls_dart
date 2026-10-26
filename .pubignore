@@ -12,6 +12,11 @@ Makefile
 # publish.yml publishes, so the archive is clean without carrying the strictness.
 dartdoc_options.yaml
 
+# Changelog archive — releases 2.0.1 and older. pub.dev refuses a CHANGELOG.md
+# over 256 KiB, so old sections moved here; CHANGELOG.md links to it by absolute
+# GitHub URL, which is the only form that resolves from pub.dev.
+CHANGELOG-ARCHIVE.md
+
 # CI/CD
 .github/
 
