@@ -87,12 +87,16 @@ fn proposal_type_of(proposal: &Proposal) -> MlsProposalType {
 ///
 /// `looks_like_own_commit` only picks the wording. It comes from the content
 /// type in the message header, which is not authenticated until decryption —
-/// and this message is never decrypted — so it must not decide anything.
+/// and this message is never decrypted — so it must not decide anything. Nor
+/// is the sender: every member holds the sender-data key, so any of them can
+/// send a message that names this member's leaf. The hint says so, so that no
+/// application merges on the strength of this error.
 fn own_private_message_error(looks_like_own_commit: bool) -> String {
     if looks_like_own_commit {
-        "Cannot decrypt own message: this looks like this member's own pending commit, \
-         fanned back by the delivery service. Its content cannot be read back; if the \
-         delivery service accepted it, apply it with mergePendingCommit"
+        "Cannot decrypt own message: its header names this member as the sender of a \
+         commit, but any member can write such a header, so the message proves nothing. \
+         If the delivery service confirmed this member's pending commit, apply it with \
+         mergePendingCommit"
             .to_string()
     } else {
         "Cannot decrypt own message: the sender ratchet is encryption-only, \
@@ -311,6 +315,11 @@ pub struct CommitResult {
     /// send the commit, wait for the delivery service to accept it,
     /// `mergePendingCommit`, then send the Welcome.
     pub welcome: Option<Vec<u8>>,
+    /// The GroupInfo of the epoch the commit creates, when it was asked for.
+    ///
+    /// Publish it, like the Welcome, only once the delivery service has
+    /// accepted `commit`: a party joining by external commit from it would
+    /// otherwise enter an epoch that may never happen.
     pub group_info: Option<Vec<u8>>,
 }
 

@@ -77,7 +77,14 @@
   commit of this member's fanned back while it is pending now points to
   `mergePendingCommit` under the ciphertext wire format too. The hint is
   wording only: the content type it reads is not authenticated before
-  decryption, so nothing acts on it.
+  decryption, and any member can send a message that names this one as
+  its sender, so nothing acts on it and the error says the message proves
+  nothing — merge on the delivery service's confirmation, not on it.
+- **`flexibleCommit` refuses to run while a commit is pending** — with or
+  without `keepPending`, which is what lets a commit stay pending. OpenMLS's
+  commit builder replaced a pending commit silently; had the first already
+  reached other members and been replaced, the group would have forked onto
+  incompatible epoch secrets. Merge or clear the pending commit first.
 - **The native library's dependencies move to their latest compatible
   releases** (`rust/Cargo.lock`, #72) — Dependabot's 47 updates, none of them
   an openmls crate and none adding or removing one: among them the
@@ -88,14 +95,6 @@
   macOS and Windows, cross-compiled it for Android, type-checked it for iOS,
   and passed `cargo audit`, `cargo deny` and the fuzz targets. Takes effect
   with the next `openmls_frb` release.
-
-#### Security
-
-- **`flexibleCommit` refuses to replace a pending commit** — with or without
-  `keepPending`. OpenMLS's commit builder replaced it silently; if the first
-  commit had already reached other members and was then merged in its place,
-  the group forked onto incompatible epoch secrets. Merge or clear the
-  pending commit first.
 
 #### Fixed
 
@@ -125,8 +124,29 @@
   claims to verify, that inspecting an application message consumes nothing,
   and that a Welcome goes out only after the delivery service accepted its
   commit.
+- **A commit's GroupInfo waits for the delivery service too** —
+  `CommitResult.groupInfo` and `FlexibleCommitOptions.keepPending` say so: a
+  party joining by external commit from a GroupInfo published early enters an
+  epoch that may never happen. And `MlsSenderInfo.index` of an external sender
+  says which list it counts in: the `ExternalSenders` the message was verified
+  against, which for a commit's proposals is the one before the commit, not
+  `StagedCommitInfo.externalSenders`.
 
 ### For Contributors
+
+#### Added
+
+- **Tests that hold #57's guarantees from the outside**
+  (`test/inspect_guarantees_test.dart`) — written when it was merged, apart
+  from its own tests: `inspectMessage` leaves the database file byte for byte
+  as it was, for a commit, a proposal and an application message, and the
+  same bytes then process, while `processMessageWithInspect` does apply the
+  commit it reports; `decodeExternalSenders` refuses every truncation of a
+  valid body, lengths that claim more than follows and trailing data, and
+  answers boundary mutations and 2,000 random inputs without a panic; no call
+  that makes a commit replaces a pending one, which then merges as the commit
+  the others applied; and an `ExternalSenders` change proposed on its own
+  shows in the inspected proposal and in the commit that applies it.
 
 #### Changed
 

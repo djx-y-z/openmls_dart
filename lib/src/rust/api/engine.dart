@@ -781,6 +781,12 @@ class CommitResult {
   /// send the commit, wait for the delivery service to accept it,
   /// `mergePendingCommit`, then send the Welcome.
   final Uint8List? welcome;
+
+  /// The GroupInfo of the epoch the commit creates, when it was asked for.
+  ///
+  /// Publish it, like the Welcome, only once the delivery service has
+  /// accepted `commit`: a party joining by external commit from it would
+  /// otherwise enter an epoch that may never happen.
   final Uint8List? groupInfo;
 
   const CommitResult({required this.commit, this.welcome, this.groupInfo});

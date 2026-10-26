@@ -339,8 +339,12 @@ pub enum MlsSenderKind {
 /// The sender of a message or a proposal, as MLS authenticated it.
 pub struct MlsSenderInfo {
     pub kind: MlsSenderKind,
-    /// The leaf index for `member`, the position in `ExternalSenders` for
-    /// `external`; `None` for a new member.
+    /// The leaf index for `member`. For `external`, the position in the
+    /// `ExternalSenders` extension of the group context the message was sent
+    /// in, which OpenMLS verified it against — for the proposals of a commit,
+    /// the context before the commit, not the list
+    /// `StagedCommitInfo.externalSenders` reports, which is the one after it.
+    /// `None` for a new member.
     pub index: Option<u32>,
 }
 
@@ -386,8 +390,9 @@ pub struct FlexibleCommitOptions {
     /// have reached other members would fork the group: they would apply one
     /// commit, this member another. Resolve the pending one first.
     ///
-    /// Send the result's Welcome only after `mergePendingCommit`, once the
-    /// delivery service accepted the commit; see `CommitResult.welcome`.
+    /// Send the result's Welcome, and publish its GroupInfo, only after
+    /// `mergePendingCommit`, once the delivery service accepted the commit;
+    /// see `CommitResult.welcome`.
     #[frb(default = false)]
     pub keep_pending: bool,
 }
@@ -565,8 +570,14 @@ pub(crate) fn extension_to_mls(ext: &Extension) -> Result<MlsExtension, String> 
     let wire = ext
         .tls_serialize_detached()
         .map_err(|e| format!("Failed to encode extension 0x{:04x}: {}", extension_type, e))?;
-    // Two bytes of type, then the data behind its variable-length prefix.
-    let data = VLBytes::tls_deserialize_exact_bytes(&wire[2..])
+    // Two bytes of type, then the data behind its variable-length prefix. A
+    // serialized extension is never shorter than three bytes, so `get` cannot
+    // miss here; it is the slice that cannot panic, which on wasm32 would
+    // abort the module.
+    let body = wire
+        .get(2..)
+        .ok_or_else(|| format!("Failed to encode extension 0x{:04x}: too short", extension_type))?;
+    let data = VLBytes::tls_deserialize_exact_bytes(body)
         .map_err(|e| format!("Failed to decode extension 0x{:04x}: {}", extension_type, e))?;
     Ok(MlsExtension { extension_type, data: data.as_slice().to_vec() })
 }

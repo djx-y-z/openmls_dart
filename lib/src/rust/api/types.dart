@@ -63,8 +63,9 @@ class FlexibleCommitOptions {
   /// have reached other members would fork the group: they would apply one
   /// commit, this member another. Resolve the pending one first.
   ///
-  /// Send the result's Welcome only after `mergePendingCommit`, once the
-  /// delivery service accepted the commit; see `CommitResult.welcome`.
+  /// Send the result's Welcome, and publish its GroupInfo, only after
+  /// `mergePendingCommit`, once the delivery service accepted the commit;
+  /// see `CommitResult.welcome`.
   final bool keepPending;
 
   const FlexibleCommitOptions({
@@ -521,8 +522,12 @@ enum MlsProposalType {
 class MlsSenderInfo {
   final MlsSenderKind kind;
 
-  /// The leaf index for `member`, the position in `ExternalSenders` for
-  /// `external`; `None` for a new member.
+  /// The leaf index for `member`. For `external`, the position in the
+  /// `ExternalSenders` extension of the group context the message was sent
+  /// in, which OpenMLS verified it against — for the proposals of a commit,
+  /// the context before the commit, not the list
+  /// `StagedCommitInfo.externalSenders` reports, which is the one after it.
+  /// `None` for a new member.
   final int? index;
 
   const MlsSenderInfo({required this.kind, this.index});
