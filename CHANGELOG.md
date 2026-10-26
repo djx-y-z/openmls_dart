@@ -15,6 +15,7 @@
   project path** — the native library now leaves room for any path in its
   install name; see *Fixed*.
 - **openmls v0.9.2** — unchanged this release.
+- **openmls_frb v2.4.0** — Rust FFI bindings
 
 #### Added
 
