@@ -9,6 +9,19 @@
   install name; see *Fixed*.
 - **openmls v0.9.2** — unchanged this release.
 
+#### Changed
+
+- **The native library's dependencies move to their latest compatible
+  releases** (`rust/Cargo.lock`, #72) — Dependabot's 47 updates, none of them
+  an openmls crate and none adding or removing one: among them the
+  post-quantum `ml-kem` 0.3.2 → 0.3.3 and `x-wing` 0.1.0 → 0.1.1, `sha2`
+  0.11.0 → 0.11.1, `der` 0.8.3, `spki` 0.8.1, `rand` 0.10.3, `zerocopy`
+  0.8.63, `tokio` 1.54.1, and `cc` 1.4.4 → 1.10.0, which compiles the bundled
+  SQLCipher and OpenSSL. CI built and tested the library with them on Linux,
+  macOS and Windows, cross-compiled it for Android, type-checked it for iOS,
+  and passed `cargo audit`, `cargo deny` and the fuzz targets. Takes effect
+  with the next `openmls_frb` release.
+
 #### Fixed
 
 - **On macOS, `dart run`, `dart test` and `flutter test` no longer fail from a
