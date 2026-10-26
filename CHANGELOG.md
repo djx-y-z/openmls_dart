@@ -26,6 +26,7 @@
 - **openmls v0.9.2** — two patch releases: 0.9.1 with the
   GHSA-gc79-23g3-8g52 fix, 0.9.2 with the GHSA-94v4-rg25-x625 and
   GHSA-p276-g3f3-wwgh fixes, and nothing else this package's API exposes.
+- **openmls_frb v2.3.2** — Rust FFI bindings
 
 #### Changed
 
