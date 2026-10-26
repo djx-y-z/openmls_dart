@@ -91,33 +91,69 @@ ExternalLibrary openLibraryFromPath(String path) {
 }
 // coverage:ignore-end
 
-/// Installs the real `Dart_PostCObject` for flutter_rust_bridge again.
+/// Counts this isolate in [library]'s own count of live isolates. Call it
+/// before `RustLib.init`.
 ///
-/// Call it right after `RustLib.init`. Every Rust-to-Dart message - the
-/// result of an async call, the invocation of a store callback - goes through
-/// one process-wide function pointer, and flutter_rust_bridge replaces it with
-/// a no-op when its process-wide count of initialized isolates drops to zero
-/// (its guard against posting after `Dart_Cleanup`). `RustLib.init` installs
-/// the real function BEFORE it counts the isolate. If the last other counted
-/// isolate group shuts down in between, its finalizer installs the no-op after
-/// the real one, and this isolate - initialized and alive - is left with it:
-/// every async call from then on waits forever for an answer that was dropped,
-/// while sync calls, which post nothing, keep working.
+/// Every Rust-to-Dart message - the result of an async call, the invocation of
+/// a store callback - goes through one process-wide function pointer per
+/// native library, and flutter_rust_bridge replaces it with a no-op once that
+/// library's count of live isolates drops to zero (its guard against posting
+/// after `Dart_Cleanup`). An isolate left out of the count is therefore left
+/// with the no-op as soon as the last counted isolate shuts down: every async
+/// call from then on waits forever for an answer that was dropped, while sync
+/// calls, which post nothing, keep working. flutter_rust_bridge 2.13.0 leaves
+/// an isolate out in two ways, and counting it here first closes both:
 ///
-/// Installing it again once the isolate is counted closes that window, since
-/// the count cannot reach zero while this isolate lives. What stays open is a
-/// finalizer that has already taken the count to zero and not yet written the
-/// no-op - a few instructions on another thread. Only flutter_rust_bridge can
-/// close that one, by updating the count and the pointer under one lock.
+/// - **Another FRB library was initialized first in this isolate.** The
+///   watcher that counts an isolate is one per isolate in flutter_rust_bridge's
+///   Dart code, shared by every FRB library, while each native library keeps a
+///   count of its own. `RustLib.init` therefore counts the isolate only in
+///   whichever library initialized first, and a worker isolate that uses only
+///   this one and exits takes its count to zero while this isolate still uses
+///   it. Deterministic, no timing involved.
+/// - **An isolate shut down during `RustLib.init`.** It installs the real
+///   function before it counts the isolate, so the last other counted isolate
+///   can install the no-op in between. Counted first, this isolate keeps the
+///   count above zero for as long as it lives. What stays open is a finalizer
+///   that has already taken the count to zero and not yet written the no-op -
+///   a few instructions on another thread, which only a lock inside
+///   flutter_rust_bridge can close.
 ///
-/// `dart test` runs every suite as its own isolate group in one process, and
-/// that is where this was measured: the first async call of a suite hung until
-/// the test timed out, on every CI platform.
-void reinstallDartPostCObject(ExternalLibrary library) {
-  library.ffiDynamicLibrary.lookupFunction<
-    Void Function(Pointer<Void>),
-    void Function(Pointer<Void>)
-  >('store_dart_post_cobject')(NativeApi.postCObject.cast());
+/// Where this library is the first, `RustLib.init` counts the isolate a second
+/// time. That is harmless: each count is undone by its own finalizer when the
+/// isolate shuts down.
+///
+/// `frb_create_shutdown_callback` is flutter_rust_bridge's internal symbol, not
+/// its API. A release that renames it makes the lookup, and so `init`, fail
+/// loudly rather than hang; this goes once flutter_rust_bridge counts an
+/// isolate in every library it initializes.
+void countIsolateInLibrary(ExternalLibrary library) {
+  _isolateCount ??= _IsolateCount(
+    library.ffiDynamicLibrary.lookupFunction<
+      Pointer<NativeFinalizerFunction> Function(),
+      Pointer<NativeFinalizerFunction> Function()
+    >('frb_create_shutdown_callback')(),
+  );
+}
+
+/// Nothing to check on native platforms, which load no WASM module.
+// coverage:ignore-start
+Future<void> ensureWasmModuleServed(String moduleRoot) async {}
+// coverage:ignore-end
+
+/// This isolate's entry in the library's count; see [countIsolateInLibrary].
+_IsolateCount? _isolateCount;
+
+/// Keeps the isolate counted for as long as it lives: the native finalizer
+/// undoes the count when the isolate shuts down, as flutter_rust_bridge's own
+/// watcher does.
+final class _IsolateCount implements Finalizable {
+  _IsolateCount(Pointer<NativeFinalizerFunction> callback)
+    : _finalizer = NativeFinalizer(callback) {
+    _finalizer.attach(this, Pointer.fromAddress(0));
+  }
+
+  final NativeFinalizer _finalizer;
 }
 
 /// Get the platform-specific library name.

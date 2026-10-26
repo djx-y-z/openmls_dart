@@ -228,8 +228,10 @@ String getPackageVersion() {
 /// - zero if [a] == [b]
 /// - positive if [a] > [b]
 ///
-/// Handles versions with or without 'v' prefix.
-/// Supports prereleases (e.g., "1.0.0-alpha" < "1.0.0").
+/// Handles versions with or without 'v' prefix. Orders prereleases as SemVer
+/// 2.0 does ("1.0.0-beta.2" < "1.0.0-beta.10" < "1.0.0") and ignores build
+/// metadata ("300.6.1+3.6.3" == "300.6.1"): the upstream advisory check decides
+/// by this comparison whether a locked version is affected.
 int compareVersions(String a, String b) {
   final aNorm = _normalizeVersion(a);
   final bNorm = _normalizeVersion(b);
@@ -260,7 +262,7 @@ int compareVersions(String a, String b) {
     return 1; // a is release, b is prerelease
   }
   if (aParts.prerelease != null && bParts.prerelease != null) {
-    return aParts.prerelease!.compareTo(bParts.prerelease!);
+    return _comparePrerelease(aParts.prerelease!, bParts.prerelease!);
   }
 
   return 0;
@@ -284,16 +286,21 @@ class _VersionParts {
 
 /// Parses a version string into components.
 _VersionParts _parseVersionParts(String version) {
+  // Build metadata carries no precedence (SemVer 2.0 §10). Left in, the `1+3`
+  // of `300.6.1+3.6.3` became a main part that parsed as 0.
+  final plusIndex = version.indexOf('+');
+  final core = plusIndex == -1 ? version : version.substring(0, plusIndex);
+
   // Split by hyphen to separate prerelease
-  final dashIndex = version.indexOf('-');
+  final dashIndex = core.indexOf('-');
   String mainVersion;
   String? prerelease;
 
   if (dashIndex != -1) {
-    mainVersion = version.substring(0, dashIndex);
-    prerelease = version.substring(dashIndex + 1);
+    mainVersion = core.substring(0, dashIndex);
+    prerelease = core.substring(dashIndex + 1);
   } else {
-    mainVersion = version;
+    mainVersion = core;
   }
 
   // Parse main version numbers
@@ -303,6 +310,28 @@ _VersionParts _parseVersionParts(String version) {
   }).toList();
 
   return _VersionParts(parts, prerelease);
+}
+
+/// SemVer 2.0 §11: prerelease identifiers compared one by one — numeric ones
+/// as numbers and below any alphanumeric one, the rest in ASCII order — and a
+/// shorter list that the longer one starts with comes first. A plain string
+/// comparison put `beta.10` before `beta.2`.
+int _comparePrerelease(String a, String b) {
+  final left = a.split('.');
+  final right = b.split('.');
+  for (var i = 0; i < left.length && i < right.length; i++) {
+    final l = int.tryParse(left[i]);
+    final r = int.tryParse(right[i]);
+    final c = l != null && r != null
+        ? l.compareTo(r)
+        : l != null
+        ? -1
+        : r != null
+        ? 1
+        : left[i].compareTo(right[i]);
+    if (c != 0) return c;
+  }
+  return left.length.compareTo(right.length);
 }
 
 // =============================================================================

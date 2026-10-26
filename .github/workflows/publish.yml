@@ -163,6 +163,12 @@ jobs:
   # ============================================
   publish:
     needs: [validate, test, validate-package]
+    # A tag only. The pub.dev environment lets in `v*` tags alone (its
+    # deployment policy, set by `make setup-repo-protections`), so a run
+    # started from a branch would be refused there, red. Such a run publishes
+    # nothing anyway, and validate-package has already made its dry run, so
+    # the job is skipped instead.
+    if: github.ref_type == 'tag'
     runs-on: ubuntu-26.04
     environment: pub.dev
     permissions:
@@ -179,14 +185,14 @@ jobs:
         shell: bash
 
       - name: Publish to pub.dev (dry run)
-        if: github.ref_type != 'tag' || inputs.dry-run
+        if: inputs.dry-run
         run: |
           echo "DRY RUN - would publish version ${{ needs.validate.outputs.version }}"
           make publish-dry-run
         shell: bash
 
       - name: Publish to pub.dev
-        if: github.ref_type == 'tag' && !inputs.dry-run
+        if: "!inputs.dry-run"
         run: make publish ARGS="--force"
         shell: bash
 

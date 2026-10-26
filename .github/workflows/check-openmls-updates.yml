@@ -194,6 +194,52 @@ jobs:
             echo "::warning::Failed to update Cargo.lock"
           fi
 
+      # The minimum Rust version, raised to the highest floor a crate of the new
+      # graph declares, everywhere it is stated — see `make check-msrv`. It
+      # reads what crates DECLARE: a crate that uses a feature newer than its
+      # own floor is invisible to it, and the pull request's MSRV job stays the
+      # oracle for that. A floor raised here that still fails there reaches the
+      # build repair, which leaves the manifest alone, so it ends at a person.
+      # A raised floor also keeps the update from being eligible to merge
+      # unread. Needs the new lock: `cargo metadata --locked` reads it.
+      - name: Raise the minimum Rust version
+        id: msrv
+        if: steps.check.outputs.needs_update == 'true' && steps.existing.outputs.skip != 'true' && steps.cargo-lock.outputs.success == 'true'
+        run: |
+          if make check-msrv ARGS="--update --ci-output $GITHUB_OUTPUT"; then
+            echo "success=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "success=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Could not check the minimum Rust version"
+          fi
+
+      # What the update changed, written down for the reviewer of this pull
+      # request: the release notes, the upstream range with the patches to the
+      # crates this package builds, the lockfile diff, and the range of every
+      # git dependency from another repository that moved — the one nothing
+      # else fetches. The build repair writes the same, with the same target,
+      # for its agent. Into the runner's temp directory, never the checkout:
+      # the pull request step commits untracked files. Evidence, not a gate,
+      # and not gated on the lock either: the index says what is missing.
+      - name: Gather the update's evidence
+        id: evidence
+        if: steps.check.outputs.needs_update == 'true' && steps.existing.outputs.skip != 'true'
+        continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          LATEST_VERSION: ${{ steps.check.outputs.latest_version }}
+          CURRENT_VERSION: ${{ steps.check.outputs.current_version }}
+        run: make update-evidence ARGS="--version $LATEST_VERSION --from $CURRENT_VERSION --out $RUNNER_TEMP/update-evidence"
+
+      - name: Upload the update's evidence
+        id: evidence-upload
+        if: steps.evidence.outcome == 'success'
+        continue-on-error: true
+        uses: actions/upload-artifact@v7
+        with:
+          name: update-evidence
+          path: ${{ runner.temp }}/update-evidence
+
       # The codegen binary is not preinstalled on runners; without this step
       # `make codegen` fails with exit 127 on every run. Pinned so CI and
       # local runs generate identical bindings (cached by rust-cache).
@@ -266,8 +312,13 @@ jobs:
           LATEST_VERSION: ${{ steps.check.outputs.latest_version }}
           CURRENT_VERSION: ${{ steps.check.outputs.current_version }}
           BINDINGS: ${{ steps.codegen.outputs.bindings || 'not-run' }}
+          PRERELEASE: ${{ steps.check.outputs.is_prerelease }}
         run: |
-          if make update-changelog ARGS="--version $LATEST_VERSION --from $CURRENT_VERSION --ci --codegen $BINDINGS --ci-output $GITHUB_OUTPUT"; then
+          # A pre-release is never eligible to be merged unread; the script
+          # records that in its verdict, which is the one place it is decided.
+          PRE=""
+          if [ "$PRERELEASE" = "true" ]; then PRE=" --prerelease"; fi
+          if make update-changelog ARGS="--version $LATEST_VERSION --from $CURRENT_VERSION --ci --codegen $BINDINGS --ci-output $GITHUB_OUTPUT$PRE"; then
             echo "success=true" >> "$GITHUB_OUTPUT"
             # The script appends `highlights_stacked` to this same file, so read
             # it back from there rather than adding a step for it: a step cannot
@@ -277,7 +328,7 @@ jobs:
             # this read: move the --ci-output write later and the grep finds
             # nothing, and the warning disappears with nothing to notice.
             if grep -qx 'highlights_stacked=true' "$GITHUB_OUTPUT"; then
-              echo "::warning::[Unreleased] now names two upstream versions — a rewritten Highlights line was kept beside the new one. Collapse them before releasing: make release renames the heading in place, so the section ships as it stands."
+              echo "::warning::[Unreleased] still names more than one upstream version — it already carried several Highlights lines, and this run replaced only the first. Collapse them before releasing: make release renames the heading in place, so the section ships as it stands."
             fi
           else
             echo "success=false" >> "$GITHUB_OUTPUT"
@@ -310,11 +361,13 @@ jobs:
 
             ${{ steps.cargo-lock.outputs.success == 'false' && '> **Warning**: Failed to update Cargo.lock. Run `make rust-update` manually.' || '' }}
 
+            ${{ steps.msrv.outputs.success == 'false' && '> **Warning**: The minimum Rust version could not be checked against the new graph. Run `make check-msrv`.' || '' }}
+
             ${{ steps.codegen.outputs.success == 'false' && '> **Error**: FRB codegen failed. openmls API may have changed. Manual intervention required.' || '' }}
 
             ${{ steps.changelog.outputs.success == 'false' && '> **Warning**: AI changelog update failed. Please update CHANGELOG.md manually.' || '' }}
 
-            ${{ steps.changelog.outputs.success == 'true' && steps.changelog.outputs.highlights_stacked == 'true' && '> **Warning**: `[Unreleased]` now names two upstream versions. The Highlights line states one per release section, and a rewritten one is never replaced automatically — so this run added its line beside it. Collapse them into one before releasing: `make release` renames the heading in place, freezing the section as it stands.' || '' }}
+            ${{ steps.changelog.outputs.success == 'true' && steps.changelog.outputs.highlights_stacked == 'true' && '> **Warning**: `[Unreleased]` still names more than one upstream version. The Highlights line states one per release section; this run replaced the first one it found, and the section already carried others. Collapse them into one before releasing: `make release` renames the heading in place, freezing the section as it stands.' || '' }}
 
             > **Note**: This PR does NOT bump the `openmls_frb` crate version and does NOT build native binaries. It only updates the openmls dependency. Cut a native release later with `make release-frb` (stage 1), then the Dart release (stage 2). See CLAUDE.md → Release Flow.
 
@@ -327,6 +380,16 @@ jobs:
             - `README.md` — ${{ steps.cargo-toml.outputs.success == 'true' && 'version badge' || '**NOT UPDATED**' }}
             - `.copier-answers.yml` — ${{ steps.cargo-toml.outputs.success == 'true' && 'upstream_version and upstream_crate_versions updated' || '**NOT UPDATED**' }}
             - `CLAUDE.md` — ${{ steps.cargo-toml.outputs.success == 'true' && 'example in documentation' || '**NOT UPDATED**' }}
+            ${{ steps.msrv.outputs.msrv_moved == 'true' && format('- **Minimum Rust version** — raised from {0} to {1} in `rust/Cargo.toml`, the `rust_version` answer and the docs that state it: the highest floor a crate of the new graph declares', steps.msrv.outputs.msrv_from, steps.msrv.outputs.msrv_to) || '' }}
+
+            ${{ steps.evidence-upload.outcome == 'success' && format('**Evidence**: the `update-evidence` artifact of [this run]({0}/{1}/actions/runs/{2}) holds the release notes, the upstream range with its patches to the crates this package builds, the lockfile diff, and the range of every other git dependency that moved.', github.server_url, github.repository, github.run_id) || '' }}
+
+            ### Merge without review?
+
+            ${{ steps.changelog.outputs.merge_eligible == 'true' && steps.changelog.outputs.success == 'true' && '**Eligible** — only version strings moved in the crates this package builds, the FFI surface held, and no third-party crate or other git dependency moved. A report, not a decision: nothing merges on it, and a merge would also need green checks and no agent commits on this branch.' || '' }}
+            ${{ steps.changelog.outputs.merge_eligible == 'true' && steps.changelog.outputs.success != 'true' && '**Not eligible** — the CHANGELOG entry was not written.' || '' }}
+            ${{ steps.changelog.outputs.merge_eligible == 'false' && format('**Not eligible** — {0}.', steps.changelog.outputs.merge_blockers) || '' }}
+            ${{ steps.changelog.outputs.merge_eligible == '' && '**Not eligible** — the check did not run: the CHANGELOG step stopped before it.' || '' }}
 
             ### Release Notes
 
@@ -431,3 +494,29 @@ jobs:
             echo "" >> "$GITHUB_STEP_SUMMARY"
             echo "Current version **${CURRENT_VERSION}** is the latest." >> "$GITHUB_STEP_SUMMARY"
           fi
+
+  # openmls/openmls's own published advisories, held against the crates
+  # rust/Cargo.lock resolves — see `make check-upstream-advisories`. A job of
+  # its own, so a finding never stops the update pull request above, which is
+  # often the fix, and the red run is the notification. It fails as well when
+  # the advisories could not be fetched: a check that quietly stopped working
+  # would otherwise look exactly like a clean one.
+  upstream-advisories:
+    name: Upstream security advisories
+    runs-on: ubuntu-26.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Setup FVM and Flutter
+        uses: ./.github/actions/setup-fvm
+
+      # The token is for quota, not access: the advisories are public, and an
+      # anonymous call shares 60 an hour with every job on the runner's address.
+      - name: Check the locked upstream crates against their advisories
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: make check-upstream-advisories ARGS="--ci"

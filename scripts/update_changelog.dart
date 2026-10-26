@@ -12,8 +12,10 @@
 ///   - `--version [ver]`     openmls version (e.g., v1.0.0)
 ///   - `--from [ver]`        Previous version — enables upstream commit analysis
 ///   - `--ci`                CI mode
+///   - `--prerelease`        The release is a pre-release
 ///   - `--codegen [result]`  `unchanged` | `changed` | `not-run`
-///   - `--ci-output [path]`  Append key=value outputs to a file
+///   - `--ci-output [path]`  Append key=value outputs to a file, the merge
+///     eligibility among them
 ///   - `--help, -h`          Show this help
 ///
 /// Environment:
@@ -46,6 +48,7 @@ void main(List<String> args) async {
 
   // Parse arguments
   final ciMode = args.contains('--ci');
+  final prerelease = args.contains('--prerelease');
 
   String? version;
   final versionIndex = args.indexOf('--version');
@@ -120,6 +123,9 @@ void main(List<String> args) async {
     exit(1);
   }
 
+  // Written as soon as it is decided, before the model is asked: a verdict
+  // that only an entry's success could publish would vanish with the entry.
+  final outputPath = ciOutputPath;
   try {
     final update = await updateChangelog(
       version: version,
@@ -127,6 +133,13 @@ void main(List<String> args) async {
       models: resolution.usable,
       codegenResult: codegenResult,
       ciMode: ciMode,
+      prerelease: prerelease,
+      onEligibility: outputPath == null
+          ? null
+          : (eligibility) => File(outputPath).writeAsStringSync(
+              eligibilityOutputsFor(eligibility),
+              mode: FileMode.append,
+            ),
     );
 
     // Published so the pull request can say which model wrote the entry.
@@ -167,6 +180,8 @@ Options:
                       AI for a more complete changelog entry, and a compare
                       link is used instead of a release-notes link
   --ci                CI mode
+  --prerelease        The release is a pre-release, so it is never eligible to
+                      be merged unread
   --codegen <result>  What `make codegen` did in this run:
                       `unchanged` | `changed` | `not-run`. Given, the entry may
                       state the result; omitted, it must not mention codegen at
@@ -175,7 +190,10 @@ Options:
                       `ai_provider=<provider/model>` and
                       `highlights_stacked=<true|false>`, the latter saying
                       whether [Unreleased] was left naming two upstream
-                      versions and needs its Highlights lines collapsed)
+                      versions and needs its Highlights lines collapsed; and,
+                      before the model is asked, `merge_eligible=<true|false>`
+                      and `merge_blockers=<reasons>`, whether the update
+                      could be merged unread — a report, nothing acts on it)
   --help, -h          Show this help
 
 Environment:

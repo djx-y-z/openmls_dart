@@ -25,6 +25,14 @@ It states, up front:
   `rust/Cargo.toml`, `rust/src/frb_generated.rs` and two Dart scripts — and the
   ones in `Makefile` and Markdown pass `format-check`, `rust-check` and
   `analyze` untouched, so a conflicted branch can look perfectly mergeable.
+- **Text merged in twice** — if any, the PR is a **draft** and lists each file
+  with the line numbers of the first repeated line. When the template takes
+  code from this project and files it somewhere else, both sides have added the
+  same lines, and copier keeps both copies without a conflict. Nothing else
+  notices: a real update put three test groups into `release_test.dart` twice,
+  and they simply ran twice. Keep one copy of each. "**not checked**" means the
+  fresh render the check compares against could not be made; look for repeats
+  yourself then.
 - **`_commit` bumped** — if this says NO, fix `.copier-answers.yml` before
   merging. Merging without it leaves the project looking un-updated and the
   workflow re-opens the same PR on every run.
@@ -42,11 +50,12 @@ entry is written only from the diff that actually landed.
 Read the diff itself, not just the summary: a template release describes changes
 for every project generated from it, and parts of it arrive here as a no-op.
 
-### Step 3 (draft PRs only): resolve conflicts
+### Step 3 (draft PRs only): resolve conflicts and repeats
 
-Resolve the listed files, push to the same branch, then mark the PR ready. The
-workflow will **not** regenerate the branch while its PR is open, so your commits
-are safe; only a manual re-run with `force_update` would force-push over them.
+Resolve the listed files and remove the listed repeats, push to the same
+branch, then mark the PR ready. The workflow will **not** regenerate the branch
+while its PR is open, so your commits are safe; only a manual re-run with
+`force_update` would force-push over them.
 
 ---
 
@@ -58,9 +67,17 @@ For a local update, or when the automation could not finish:
 make update-template ARGS="--version vX.Y.Z"
 ```
 
-This runs copier, reports what it could not merge, and checks that `_commit`
-landed. It refuses to start on a dirty tree and names the files — copier rejects
-a dirty destination, **untracked files included**.
+This runs copier, reports what it could not merge and any text it merged in
+twice, and checks that `_commit` landed.
+
+A question the new version adds takes its default unless it is answered:
+`--data key=value`, repeatable —
+`make update-template ARGS="--version vX.Y.Z --data upstream_source=crates_io"`.
+The run then names any answer `.copier-answers.yml` did not record (no such
+question, or one not asked under the other answers), since the next update
+would render without it. It refuses to start on a dirty tree and
+names the files — copier rejects a dirty destination, **untracked files
+included**.
 
 It also writes the CHANGELOG entry, through whichever model `AI_MODELS` names
 first that has a key (`ANTHROPIC_API_KEY`, `GEMINI_API_KEY`,
@@ -204,6 +221,7 @@ git commit -m "feat: adopt copier template for version vX.Y.Z"
 - [ ] `copier update --trust --defaults --skip-tasks --vcs-ref=vX.Y.Z` — apply template changes
 - [ ] Review diff — no unintended changes
 - [ ] Resolve conflicts — `git status --porcelain | grep '^UU'` (not `.rej`)
+- [ ] Remove anything `make update-template` reports as merged in twice
 - [ ] `make analyze` — no issues
 - [ ] `make test` — all tests pass
 - [ ] `.copier-answers.yml` — verify `_commit` updated automatically

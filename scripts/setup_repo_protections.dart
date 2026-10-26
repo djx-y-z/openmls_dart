@@ -1,19 +1,22 @@
 #!/usr/bin/env dart
 
-/// Apply the repository rulesets, repo settings and the `native-build`
-/// environment to the GitHub repo.
+/// Apply the repository rulesets, repo settings and the two release
+/// environments to the GitHub repo.
 ///
 /// The `.github/rulesets/*.json` files are the committed source of truth. This
 /// script applies each to GitHub via `gh api`, idempotent by ruleset name
 /// (existing rulesets are skipped unless `--update`), turns on automatic
-/// head-branch deletion, and configures the `native-build` environment with you
-/// as a required reviewer.
+/// head-branch deletion, and configures the environments the release jobs run
+/// in, `native-build` (the native binaries) and `pub.dev` (the package): you as
+/// the required reviewer, no admin bypass, and entry only from the release tags
+/// their workflows are pushed by. What it sends is in `src/repo_protections.dart`.
 ///
 /// Run it AFTER the GitHub repo exists (i.e. after `gh repo create` / first
 /// push) — rulesets and environments live on GitHub, not in a local repo.
 ///
 /// Usage:
 ///   make setup-repo-protections
+///   make setup-repo-protections ARGS="--dry-run"         # show, change nothing
 ///   make setup-repo-protections ARGS="--update"          # overwrite existing
 ///   make setup-repo-protections ARGS="--no-environment"  # rulesets only
 ///   make setup-repo-protections ARGS="--yes"             # no confirmation
@@ -24,6 +27,7 @@ import 'dart:io';
 
 import 'src/common.dart';
 import 'src/release_common.dart';
+import 'src/repo_protections.dart';
 
 void main(List<String> args) async {
   if (args.contains('--help') || args.contains('-h')) {
@@ -33,10 +37,14 @@ void main(List<String> args) async {
   final update = args.contains('--update');
   final skipEnv = args.contains('--no-environment');
   final assumeYes = args.contains('--yes') || args.contains('-y');
+  final dryRun = args.contains('--dry-run');
 
   try {
     await _requireGh();
     final slug = await _repoSlug();
+    final environments = skipEnv
+        ? const <ReleaseEnvironment>[]
+        : releaseEnvironments(getCrateName());
 
     final dir = Directory('${getPackageDir().path}/.github/rulesets');
     if (!dir.existsSync()) {
@@ -57,10 +65,18 @@ void main(List<String> args) async {
     logInfo('Repository:  $slug');
     logInfo('Rulesets:    ${files.map((f) => _basename(f.path)).join(', ')}');
     logInfo('Settings:    delete_branch_on_merge = true');
-    logInfo(
-      'Environment: ${skipEnv ? 'native-build (skipped)' : 'native-build (reviewer: you)'}',
-    );
-    if (!assumeYes && !confirm('Apply to $slug?')) {
+    if (skipEnv) {
+      logInfo('Environments: skipped (--no-environment)');
+    }
+    for (final env in environments) {
+      logInfo(
+        'Environment: ${env.name} — only ${env.tagPattern} tags may enter, '
+        'you review, no admin bypass',
+      );
+    }
+    if (dryRun) {
+      logInfo('Dry run: reading only, nothing is changed.');
+    } else if (!assumeYes && !confirm('Apply to $slug?')) {
       logWarn('Aborted.');
       return;
     }
@@ -71,7 +87,15 @@ void main(List<String> args) async {
       final name = data['name'] as String;
       final id = existing[name];
       if (id != null) {
-        if (update) {
+        if (!update) {
+          logInfo(
+            'Ruleset "$name" already exists — skipping (--update to overwrite).',
+          );
+        } else if (dryRun) {
+          logInfo(
+            'Would update ruleset "$name" (PUT repos/$slug/rulesets/$id).',
+          );
+        } else {
           logStep('Updating ruleset "$name"...');
           await _ghInput([
             'api',
@@ -80,11 +104,9 @@ void main(List<String> args) async {
             'repos/$slug/rulesets/$id',
           ], file);
           logSuccess('Updated "$name".');
-        } else {
-          logInfo(
-            'Ruleset "$name" already exists — skipping (--update to overwrite).',
-          );
         }
+      } else if (dryRun) {
+        logInfo('Would create ruleset "$name" (POST repos/$slug/rulesets).');
       } else {
         logStep('Creating ruleset "$name"...');
         await _ghInput([
@@ -97,13 +119,21 @@ void main(List<String> args) async {
       }
     }
 
-    await _setupRepoSettings(slug);
+    if (dryRun) {
+      logInfo('Would set delete_branch_on_merge=true (PATCH repos/$slug).');
+    } else {
+      await _setupRepoSettings(slug);
+    }
 
-    if (!skipEnv) {
-      await _setupNativeBuildEnvironment(slug);
+    if (environments.isNotEmpty) {
+      await _setupEnvironments(slug, environments, dryRun: dryRun);
     }
 
     print('');
+    if (dryRun) {
+      logSuccess('Dry run done: nothing was changed.');
+      return;
+    }
     logSuccess('Repository protections applied.');
     logInfo("Verify: gh api repos/$slug/rulesets --jq '.[] | .name'");
   } catch (e) {
@@ -176,6 +206,49 @@ Future<void> _ghInput(List<String> args, File input) async {
   }
 }
 
+/// Runs `gh <args>` with [body] as the JSON request body.
+Future<ProcessResult> _ghWithBody(List<String> args, Object body) async {
+  final tmp = Directory.systemTemp.createTempSync('repo-protections-');
+  try {
+    final file = File('${tmp.path}/body.json')
+      ..writeAsStringSync(jsonEncode(body));
+    return await Process.run('gh', [...args, '--input', file.path]);
+  } finally {
+    tmp.deleteSync(recursive: true);
+  }
+}
+
+/// `GET <path>`: the decoded JSON, or null when GitHub answers 404. Any other
+/// failure throws.
+Future<Object?> _apiGet(String path) async {
+  final result = await Process.run('gh', ['api', path]);
+  if (result.exitCode == 0) return jsonDecode(result.stdout as String);
+  final stderr = (result.stderr as String).trim();
+  if (stderr.contains('HTTP 404')) return null;
+  throw Exception('gh api $path failed: $stderr');
+}
+
+/// An environment's deployment policies, or null when it has none to list:
+/// GitHub answers 404 while the environment is missing or lets every branch in.
+Future<List<Map<String, Object?>>?> _policies(String environmentPath) async {
+  final json = await _apiGet(
+    '$environmentPath/deployment-branch-policies?per_page=100',
+  );
+  if (json == null) return null;
+  return [
+    for (final p in (json as Map)['branch_policies'] as List? ?? const [])
+      (p as Map).cast<String, Object?>(),
+  ];
+}
+
+/// The authenticated user's numeric id, which is what a reviewer entry takes.
+Future<int?> _currentUserId() async {
+  final user = await Process.run('gh', ['api', 'user', '--jq', '.id']);
+  return user.exitCode == 0
+      ? int.tryParse((user.stdout as String).trim())
+      : null;
+}
+
 /// Turns on "Automatically delete head branches" so a merged pull request does
 /// not leave its branch behind. Warns (does not fail the run) if it can't.
 ///
@@ -210,52 +283,117 @@ Future<void> _setupRepoSettings(String slug) async {
   }
 }
 
-/// Creates/updates the `native-build` environment with the current user as a
-/// required reviewer. Warns (does not fail the run) if it can't.
-Future<void> _setupNativeBuildEnvironment(String slug) async {
-  logStep(
-    'Configuring the `native-build` environment (required reviewer: you)...',
-  );
-  final user = await Process.run('gh', ['api', 'user', '--jq', '.id']);
-  final uid = user.exitCode == 0
-      ? int.tryParse((user.stdout as String).trim())
-      : null;
+/// Configures each release environment with [environmentBody], adds the tag
+/// policy [planTagPolicy] calls for, then reads the environment back and
+/// reports whatever still differs. Warns (does not fail the run) when GitHub
+/// refuses: environment protections in a private repository depend on its
+/// plan. With [dryRun] it only reads, and prints what it would send.
+Future<void> _setupEnvironments(
+  String slug,
+  List<ReleaseEnvironment> environments, {
+  required bool dryRun,
+}) async {
+  final uid = await _currentUserId();
   if (uid == null) {
     logWarn(
-      'Could not resolve your GitHub user id — add required reviewers manually '
-      'at Settings → Environments → native-build.',
+      'Could not resolve your GitHub user id — configure the environments '
+      'manually at Settings → Environments.',
     );
     return;
   }
-  final body = jsonEncode({
-    'reviewers': [
-      {'type': 'User', 'id': uid},
-    ],
-  });
-  final tmp = File('${Directory.systemTemp.path}/native-build-env.json')
-    ..writeAsStringSync(body);
-  try {
-    final result = await Process.run('gh', [
-      'api',
-      '--method',
-      'PUT',
-      'repos/$slug/environments/native-build',
-      '--input',
-      tmp.path,
-    ]);
-    if (result.exitCode != 0) {
+  for (final env in environments) {
+    final path = 'repos/$slug/environments/${env.name}';
+    final body = environmentBody(uid);
+    final policyBody = tagPolicyBody(env.tagPattern);
+    print('');
+    logStep(
+      'Environment `${env.name}` (${env.workflow}, job `${env.job}`): '
+      'only `${env.tagPattern}` tags may enter.',
+    );
+
+    if (dryRun) {
+      final live = await _apiGet(path);
+      final policies = live == null ? null : await _policies(path);
+      if (live == null) {
+        logInfo('It does not exist yet.');
+      } else {
+        final changes = environmentMismatches(
+          (live as Map).cast<String, Object?>(),
+          policies ?? const [],
+          reviewerId: uid,
+          tagPattern: env.tagPattern,
+        );
+        if (changes.isEmpty) {
+          logInfo('It already matches; the requests below change nothing.');
+        }
+        for (final change in changes) {
+          logInfo('Now: $change');
+        }
+      }
+      logInfo('Would send: PUT $path');
+      print('    ${jsonEncode(body)}');
+      final plan = planTagPolicy(policies ?? const [], env.tagPattern);
+      if (plan.create) {
+        logInfo('Would send: POST $path/deployment-branch-policies');
+        print('    ${jsonEncode(policyBody)}');
+      }
+      for (final extra in plan.extra) {
+        logWarn(
+          'Left as it is: a policy that also lets in '
+          '${extra['type'] ?? 'branch'} "${extra['name']}" (id ${extra['id']}).',
+        );
+      }
+      continue;
+    }
+
+    final put = await _ghWithBody(['api', '--method', 'PUT', path], body);
+    if (put.exitCode != 0) {
       logWarn(
-        'Could not configure the native-build environment '
-        '(${(result.stderr as String).trim()}). Set required reviewers '
-        'manually at Settings → Environments → native-build.',
+        'GitHub refused the `${env.name}` environment '
+        '(${(put.stderr as String).trim()}). Environment protections in a '
+        'private repository depend on its plan; set them at '
+        'Settings → Environments → ${env.name}.',
       );
-    } else {
+      continue;
+    }
+    final plan = planTagPolicy(
+      await _policies(path) ?? const [],
+      env.tagPattern,
+    );
+    if (plan.create) {
+      final post = await _ghWithBody([
+        'api',
+        '--method',
+        'POST',
+        '$path/deployment-branch-policies',
+      ], policyBody);
+      if (post.exitCode != 0) {
+        logWarn(
+          'Could not add the ${env.tagPattern} tag policy to `${env.name}` '
+          '(${(post.stderr as String).trim()}).',
+        );
+      }
+    }
+
+    // Read back what GitHub now holds, rather than trusting the answers.
+    final live = await _apiGet(path);
+    final problems = live == null
+        ? ['the environment could not be read back']
+        : environmentMismatches(
+            (live as Map).cast<String, Object?>(),
+            await _policies(path) ?? const [],
+            reviewerId: uid,
+            tagPattern: env.tagPattern,
+          );
+    if (problems.isEmpty) {
       logSuccess(
-        'native-build environment now requires your approval to publish.',
+        '`${env.name}`: only ${env.tagPattern} tags may enter, and a run waits '
+        'for your approval, an Admin\'s too.',
       );
     }
-  } finally {
-    if (tmp.existsSync()) tmp.deleteSync();
+    for (final problem in problems) {
+      logWarn('`${env.name}`: $problem');
+    }
   }
 }
 
@@ -263,8 +401,8 @@ String _basename(String path) => path.split(Platform.pathSeparator).last;
 
 void _printUsage() {
   print('''
-Apply repository rulesets, repo settings + the native-build environment to the
-GitHub repo.
+Apply repository rulesets, repo settings and the two release environments
+(native-build, pub.dev) to the GitHub repo.
 
 The .github/rulesets/*.json files are the committed source of truth. Run this
 AFTER the GitHub repo exists (rulesets/environments live on GitHub).
@@ -273,8 +411,10 @@ Usage:
   make setup-repo-protections [ARGS="..."]
 
 Options:
+  --dry-run          Read only: show what would change and the requests it
+                     would send, and change nothing
   --update           Overwrite rulesets that already exist (PUT), not just skip
-  --no-environment   Apply rulesets only; skip the native-build environment
+  --no-environment   Apply rulesets only; skip the release environments
   --yes, -y          Skip the confirmation prompt
   --help, -h         Show this help
 
@@ -283,6 +423,10 @@ Notes:
   - Idempotent by ruleset name: existing rulesets are skipped unless --update.
   - Always sets delete_branch_on_merge=true (merged PRs delete their branch);
     --no-environment does not skip it, and re-running is harmless.
+  - Each environment gets you as its one required reviewer, no admin bypass and
+    a single deployment policy for its release tags: native-build for
+    <crate>-* (rust/Cargo.toml's name), pub.dev for v*. Re-running converges on
+    the same settings; a policy someone added is reported and left in place.
   - Optional/project-specific fields (e.g. a bypass actor for an automation
     GitHub App in signing-commit.json) are edited directly in the JSON files.
     Find an App's Integration id via:

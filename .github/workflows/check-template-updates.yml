@@ -287,8 +287,10 @@ jobs:
           sign-commits: true
           # A draft when a human has to finish it. Conflicts can land in files
           # every gate above passes — Makefile and Markdown among them — so
-          # nothing else would stop this branch being merged as-is.
-          draft: ${{ steps.update.outputs.has_conflicts == 'true' || steps.update.outputs.commit_landed != 'true' }}
+          # nothing else would stop this branch being merged as-is. Text
+          # merged in twice passes every gate as well: a duplicated test runs
+          # twice and passes twice.
+          draft: ${{ steps.update.outputs.has_conflicts == 'true' || steps.update.outputs.commit_landed != 'true' || steps.update.outputs.has_duplicates == 'true' }}
           commit-message: |
             chore: adopt copier template ${{ steps.check.outputs.current_version }} → ${{ steps.check.outputs.latest_version }}
           title: "Adopt copier template ${{ steps.check.outputs.current_version }} → ${{ steps.check.outputs.latest_version }}"
@@ -306,6 +308,11 @@ jobs:
 
             ${{ steps.update.outputs.conflict_files }}
 
+            ${{ steps.update.outputs.has_duplicates == 'true' && '> [!WARNING]' || '' }}
+            ${{ steps.update.outputs.has_duplicates == 'true' && '> **Text merged in twice — this PR is a draft.** The files below hold lines more often than both this project and the template do: the same lines were added on both sides, in different places, and copier kept both without a conflict. No gate catches it — a duplicated test runs twice and passes twice. Keep one copy of each, then mark the PR ready for review.' || '' }}
+
+            ${{ steps.update.outputs.duplicate_files }}
+
             ${{ steps.update.outputs.commit_landed != 'true' && '> [!CAUTION]' || '' }}
             ${{ steps.update.outputs.commit_landed != 'true' && '> **`_commit` did not land.** `.copier-answers.yml` still records the old version, so merging this leaves the project looking un-updated and every future run will re-open this same PR. Fix the file before merging.' || '' }}
 
@@ -315,6 +322,7 @@ jobs:
             |-------|--------|
             | `_commit` bumped | ${{ steps.update.outputs.commit_landed == 'true' && 'yes' || '**NO**' }} |
             | Conflicts | ${{ steps.update.outputs.has_conflicts == 'true' && format('**{0}**', steps.update.outputs.conflict_count) || 'none' }} |
+            | Text merged in twice | ${{ steps.update.outputs.duplicates_checked != 'true' && '**not checked** (see the run log)' || (steps.update.outputs.has_duplicates == 'true' && format('**{0}**', steps.update.outputs.duplicate_count) || 'none') }} |
             | `make format-check` | ${{ steps.gates.outputs.format == 'true' && 'pass' || '**fail**' }} |
             | `make rust-check` | ${{ steps.gates.outputs.rust == 'true' && 'pass' || '**fail**' }} |
             | `make analyze --fatal-infos` | ${{ steps.gates.outputs.analyze == 'true' && 'pass' || '**fail**' }} |
@@ -336,6 +344,7 @@ jobs:
                describes changes for every project generated from it; parts of
                it can arrive as a no-op here.
             3. ${{ steps.update.outputs.has_conflicts == 'true' && '**Resolve the conflicts listed above**, then mark this PR ready for review.' || 'Check that nothing project-specific was overwritten.' }}
+            ${{ steps.update.outputs.has_duplicates == 'true' && '4. **Remove the text merged in twice**, listed above: keep one copy of each.' || '' }}
 
             ### Links
 
@@ -350,6 +359,7 @@ jobs:
             template
             automated
             ${{ steps.update.outputs.has_conflicts == 'true' && 'conflicts' || '' }}
+            ${{ steps.update.outputs.has_duplicates == 'true' && 'merged-twice' || '' }}
             ${{ steps.update.outputs.commit_landed != 'true' && 'commit-not-landed' || '' }}
             ${{ steps.update.outputs.changelog_updated != 'true' && 'changelog-needed' || '' }}
 
@@ -581,6 +591,9 @@ jobs:
           PR_NUMBER: ${{ steps.cpr.outputs.pull-request-number }}
           HAS_CONFLICTS: ${{ steps.update.outputs.has_conflicts }}
           CONFLICT_COUNT: ${{ steps.update.outputs.conflict_count }}
+          HAS_DUPLICATES: ${{ steps.update.outputs.has_duplicates }}
+          DUPLICATE_COUNT: ${{ steps.update.outputs.duplicate_count }}
+          DUPLICATES_CHECKED: ${{ steps.update.outputs.duplicates_checked }}
           COMMIT_LANDED: ${{ steps.update.outputs.commit_landed }}
           CHANGELOG_OK: ${{ steps.update.outputs.changelog_updated }}
         run: |
@@ -604,6 +617,11 @@ jobs:
             echo "| Latest | ${LATEST_VERSION} |" >> "$GITHUB_STEP_SUMMARY"
             echo "| Pull request | ${PR_NUMBER:-**none created**} |" >> "$GITHUB_STEP_SUMMARY"
             echo "| Conflicts | ${CONFLICT_COUNT:-0} |" >> "$GITHUB_STEP_SUMMARY"
+            if [ "$DUPLICATES_CHECKED" = "false" ]; then
+              echo "| Text merged in twice | not checked |" >> "$GITHUB_STEP_SUMMARY"
+            else
+              echo "| Text merged in twice | ${DUPLICATE_COUNT:-did not run} |" >> "$GITHUB_STEP_SUMMARY"
+            fi
             # Defaulted because this step runs with `always()`: when the update
             # step itself failed there are no outputs to read, and an empty
             # cell reads as "no" rather than "never got that far".
@@ -612,6 +630,10 @@ jobs:
             if [ "$HAS_CONFLICTS" = "true" ]; then
               echo "" >> "$GITHUB_STEP_SUMMARY"
               echo "> **Conflicts**: the PR is a draft and needs manual resolution." >> "$GITHUB_STEP_SUMMARY"
+            fi
+            if [ "$HAS_DUPLICATES" = "true" ]; then
+              echo "" >> "$GITHUB_STEP_SUMMARY"
+              echo "> **Text merged in twice**: the PR is a draft; keep one copy of each." >> "$GITHUB_STEP_SUMMARY"
             fi
           else
             echo "## Template Up to Date" >> "$GITHUB_STEP_SUMMARY"

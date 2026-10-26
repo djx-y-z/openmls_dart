@@ -164,10 +164,10 @@ jobs:
       matrix:
         include:
           - arch: arm64
-            runner: macos-latest
+            runner: macos-26
             rust_target: aarch64-apple-darwin
           - arch: x86_64
-            runner: macos-latest
+            runner: macos-26
             rust_target: x86_64-apple-darwin
     runs-on: ${{ matrix.runner }}
     steps:
@@ -214,15 +214,15 @@ jobs:
         include:
           - target: device
             arch: arm64
-            runner: macos-latest
+            runner: macos-26
             rust_target: aarch64-apple-ios
           - target: simulator
             arch: arm64
-            runner: macos-latest
+            runner: macos-26
             rust_target: aarch64-apple-ios-sim
           - target: simulator
             arch: x86_64
-            runner: macos-latest
+            runner: macos-26
             rust_target: x86_64-apple-ios
     runs-on: ${{ matrix.runner }}
     steps:
@@ -350,7 +350,7 @@ jobs:
   build-windows:
     needs: check-release
     if: needs.check-release.outputs.skip != 'true'
-    runs-on: windows-latest
+    runs-on: windows-2025-vs2026
     steps:
       - uses: actions/checkout@v7
 

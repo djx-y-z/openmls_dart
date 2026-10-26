@@ -92,24 +92,20 @@ updates:
       # `make setup-frb-codegen` + `make codegen` is the procedure.
       - dependency-name: "flutter_rust_bridge"
 
-      # The build-hook protocol packages. `hook/build.dart` itself needs a
-      # zero-line diff — it uses only `build()`, `BuildInput` and
-      # `BuildOutputBuilder`, and hooks 2.0.0's one breaking change
-      # (`ProtocolExtension` from interface to base class) touches none of them.
-      #
-      # Majors are blocked by the pinned Flutter SDK rather than by anything in
-      # this repository, so the pull request cannot be merged and cannot be
-      # fixed here either: hooks >= 2.1.0 pulls
-      # `record_use ^1.0.0`, which needs `meta ^1.19.0`, while Flutter
-      # 3.38.4 pins `meta: 1.17.0` exactly (packages/flutter/pubspec.yaml). The
-      # first stable SDK to relax that is 3.47.0.
+      # The build-hook protocol packages. pubspec.yaml admits 1.x and 2.x, so
+      # each Flutter resolves the major it can: hooks >= 2.1.0 pulls
+      # `record_use ^1.0.0`, which needs `meta ^1.19.0`, while Flutter 3.38–3.44
+      # pins `meta` below it exactly (packages/flutter/pubspec.yaml); 3.47.0 is
+      # the first stable SDK to relax that. What stays ignored is the next
+      # major, 3.x — a migration again, which a single-file bump cannot carry.
       #
       # Ignoring rather than merging-and-fixing, because the damage is not
       # local: the root package resolves fine — it has no `flutter: sdk`
-      # dependency — so a bump breaks `example/` and every Flutter *consumer* on
-      # an SDK that pins meta below 1.19.0, while this repository's own CI looks
-      # merely red. code_assets 2.0.0 requires hooks ^2.2.0, so the two move
-      # together and ignoring one alone only changes which pull request arrives.
+      # dependency — so a bump that a supported Flutter cannot resolve breaks
+      # `example/` and every Flutter *consumer* on that SDK, while this
+      # repository's own CI looks merely red. code_assets 2.0.0 requires hooks
+      # ^2.2.0, so the two move together and ignoring one alone only changes
+      # which pull request arrives.
       #
       # ⚠ Written as `update-types` rather than `versions: ["2.x"]` on purpose.
       # A wildcard is not a version requirement: this template already shipped
@@ -119,44 +115,37 @@ updates:
       # ignore sat in the file looking like protection. `update-types` needs no
       # parsing of a version string and says what is meant: no majors.
       #
-      # Lift when .fvmrc moves to Flutter >= 3.47.0. pubspec.yaml says the same
-      # thing in its own comment ("Majors are a deliberate migration, not a
-      # bump"); this is what stops the proposal arriving weekly in the meantime.
+      # Lift once a new major has been measured against hook/build.dart on the
+      # oldest Flutter this package supports. pubspec.yaml says the same thing
+      # in its own comment ("A 3.x is a migration again, not a bump"); this is
+      # what stops the proposal arriving weekly in the meantime.
       - dependency-name: "hooks"
         update-types:
           - "version-update:semver-major"
       - dependency-name: "code_assets"
         update-types:
           - "version-update:semver-major"
-
-      # Two more ways into the same migration. Every ffigen from 21.0.0 on
-      # requires `hooks ^2.0.0`, and coverage 1.16.0 requires `cli_util ^0.6.0`,
-      # which ffigen admits only from 22.1.0 on — so neither can be taken
-      # without hooks 2.
+      # What carried majors into the minor-and-patch group regardless. `coverage`
+      # 1.16.0 is a minor, so the group takes it, and it resolves only one way:
+      # it needs `cli_util ^0.6.0`, every `ffigen` below 23.0.0 needs `^0.4.2`,
+      # and `ffigen` 23 needs hooks and code_assets 2.x. Dependabot moves
+      # whatever an update has to move, past the group's update-types and past
+      # an ignore alike. Measured in a generated project: its pub group pull
+      # request was that one minor plus the ffigen, hooks and code_assets
+      # majors, while the hooks and code_assets majors were ignored here.
       #
-      # ⚠ The two entries above do not stop either, and neither does the
-      # group's `update-types`: Dependabot checks both against the dependency it
-      # is updating, not against what that update drags along. On 2026-10-19
-      # (#58) it took coverage 1.16.0 as a minor in the `pub` group, could not
-      # resolve it by unlocking coverage alone, fell back to unlocking
-      # everything, and the pull request carried ffigen 23.0.0, hooks 2.2.0 and
-      # code_assets 2.1.0 along. ffigen alone takes the same full unlock (its
-      # job logs of 2026-10-05 and 2026-10-12) and is dropped there only by
-      # Dependabot's own "peer dependency can be updated" check, not by anything
-      # in this file.
-      #
-      # So the entry points are ignored instead: ffigen's majors, and the
-      # coverage releases that need the new cli_util. The `versions` entry is a
-      # requirement, which pub's parser accepts, not a wildcard (see above). A
-      # release reachable only through hooks 2 will arrive the same way: a
-      # minor-group pull request carrying majors is this, not a broken group.
-      # Lift all four entries together, with the move to Flutter >= 3.47.0.
-      - dependency-name: "ffigen"
-        update-types:
-          - "version-update:semver-major"
+      # `ffigen` is held on its own account: it generates part of
+      # lib/src/rust/frb_generated.io.dart, `make codegen` runs the version this
+      # project depends on, and flutter_rust_bridge's own frb_dart pins
+      # `^20.1.1` (2.13.0 and master). A major moves generated code, so it
+      # moves with the FRB version and `make codegen`, not as a bump. Lift both
+      # once ffigen has moved.
       - dependency-name: "coverage"
         versions:
           - ">= 1.16.0"
+      - dependency-name: "ffigen"
+        update-types:
+          - "version-update:semver-major"
 
   # The native crate's dependencies. These are compiled into the binary the
   # build hook downloads, so a vulnerable transitive crate reaches consumers as

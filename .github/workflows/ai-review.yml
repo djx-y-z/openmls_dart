@@ -475,8 +475,84 @@ jobs:
               echo "truncated — describes the writer and not the change. Report"
               echo "either under rule 6."
             } >> .agent-scratch/pr-context.md
-          fi
 
+            # The upstream range the entry links, read here so that its claims
+            # about upstream files can be checked at all. Without it the rule
+            # above had only this diff to hold them against, which cannot
+            # contain another repository's files: on a generated project's
+            # dependency bump the reviewer reported every upstream path the
+            # entry named as named by no hunk, and every one of them was true.
+            #
+            # The exception to the rule above is written here, in this section,
+            # and only for the repository it lists. The template-update bot's
+            # entries touch CHANGELOG too, and their commonest failure is to
+            # announce template changes that never landed in this project:
+            # those must still be held against the diff in full.
+            #
+            # The link is the one the update bot gives the model to quote, so
+            # it is taken only when it points at `native_repo` from
+            # `.copier-answers.yml`, and both ends must be plain refs — they go
+            # into an API path. Nothing here may fail the step: a missing link
+            # adds nothing, and a range GitHub will not return says so instead.
+            UPSTREAM=$(sed -n 's/^native_repo:[[:space:]]*//p' .copier-answers.yml \
+              2>/dev/null | head -n 1 | tr -d "\"' " || true)
+            REF='[A-Za-z0-9][A-Za-z0-9._-]*'
+            LINK=""
+            if [[ "$UPSTREAM" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]]; then
+              LINK=$(awk -v file='diff --git a/CHANGELOG.md b/CHANGELOG.md' \
+                  '/^diff --git /{ f = ($0 == file); next } f && /^\+/ && !/^\+\+\+ /' \
+                  .agent-scratch/pr.diff \
+                | grep -oiE "https://github\.com/${UPSTREAM//./\\.}/compare/${REF}\.\.\.${REF}" \
+                | head -n 1 || true)
+            fi
+            if [ -n "$LINK" ]; then
+              RANGE=${LINK##*/compare/}
+              FROM=${RANGE%%...*}
+              TO=${RANGE#*...}
+              # The backticks in the jq program below are Markdown for the
+              # reviewer, not command substitution.
+              # shellcheck disable=SC2016
+              if [[ "$FROM" != *..* && "$TO" != *..* ]] \
+                && FILES=$(gh api "repos/${UPSTREAM}/compare/${FROM}...${TO}" --jq '
+                    "\(.total_commits) commits, \(.files | length) files.", "",
+                    (.files[] | "- \(.status) +\(.additions)/-\(.deletions) `\(.filename)`")
+                  ' 2>/dev/null); then
+                {
+                  echo
+                  echo "## The upstream range the entry links"
+                  echo
+                  echo "Read from GitHub by the workflow: \`${UPSTREAM}\`"
+                  echo "\`${FROM}...${TO}\`. The entry's claims about"
+                  echo "\`${UPSTREAM}\`'s files are the one exception to the rule"
+                  echo "above: no hunk here can show another repository's files,"
+                  echo "so hold them against this list instead, and never report"
+                  echo "one as missing from the diff. Every other claim is held"
+                  echo "against the diff as before. The list says which files"
+                  echo "changed, not what changed in them."
+                  echo
+                  echo "$FILES"
+                  # GitHub's compare returns 300 files at most.
+                  if [ "$(grep -c '^- ' <<<"$FILES")" -ge 300 ]; then
+                    echo
+                    echo "GitHub lists at most 300 files, so a path missing above"
+                    echo "may still have changed."
+                  fi
+                } >> .agent-scratch/pr-context.md
+              else
+                {
+                  echo
+                  echo "## The upstream range the entry links"
+                  echo
+                  echo "The entry links \`${UPSTREAM}\` \`${FROM}...${TO}\`,"
+                  echo "which the workflow could not read. Its claims about"
+                  echo "\`${UPSTREAM}\`'s files cannot be checked here; do not"
+                  echo "report them as missing from the diff. Every other claim"
+                  echo "is held against the diff as before."
+                } >> .agent-scratch/pr-context.md
+                echo "::warning::Could not read ${UPSTREAM} ${FROM}...${TO} for the reviewer."
+              fi
+            fi
+          fi
           # The cold start, enforced here rather than asked for in the prompt.
           #
           # When a bot opened this pull request, its title and body are prose
@@ -533,7 +609,7 @@ jobs:
       - name: Run the reviewer (Claude Code)
         id: claude
         if: needs.config.outputs.engine == 'claude-code'
-        uses: anthropics/claude-code-action@ed670b4cf9de2a5a570d130d2f6197b9e543cd64 # v1.0.240
+        uses: anthropics/claude-code-action@16f9f71ab9c490faf367f94dd294897edc25be33 # v1.0.261
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           github_token: ${{ github.token }}

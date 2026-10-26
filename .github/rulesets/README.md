@@ -9,8 +9,9 @@ make setup-repo-protections
 ```
 
 which reads every `*.json` here, creates it on GitHub (idempotent by ruleset
-name — existing ones are skipped unless `--update`), and configures the
-`native-build` environment with you as a required reviewer.
+name — existing ones are skipped unless `--update`), and configures the two
+release environments, `native-build` and `pub.dev` (*The release
+environments* below).
 
 Rulesets and environments live **on GitHub**, not in a repo file — GitHub does
 not apply this directory automatically. `make setup-repo-protections` (or the
@@ -202,8 +203,8 @@ edit would land in the file and nowhere else. `--update` PUTs the whole ruleset,
 so diff the live one against the file first (see *Verify / roll back* below) —
 anything changed in the UI and not written back here is overwritten. GitHub adds
 its own defaults to what it stores (`do_not_enforce_on_create`,
-`require_extra_approval_for_unattributed_changes`, `required_reviewers`), so
-expect those three back in the response; they are not UI edits.
+`required_reviewers`), so expect those two back in the response; they are not
+UI edits.
 
 ### Why Dependabot branches are excluded
 
@@ -293,6 +294,7 @@ gh api repos/djx-y-z/openmls_dart/rules/branches/update-template-v1.0.0 \
 make setup-repo-protections                   # apply all (skips existing rulesets)
 make setup-repo-protections ARGS="--update"   # overwrite existing rulesets (PUT)
 make setup-repo-protections ARGS="--no-environment"   # rulesets only
+make setup-repo-protections ARGS="--dry-run"   # show what would change; change nothing
 ```
 
 Manual equivalent (per file), if you can't use the script:
@@ -310,11 +312,15 @@ gh api --method PUT repos/djx-y-z/openmls_dart/rulesets/<ID> \
   --input .github/rulesets/protect-release-tags.json
 ```
 
-`--update` sends every file, and a live ruleset can carry a parameter GitHub
-added that its JSON does not name. Measured on a generated project on
-2026-10-08: the live `Protect main branch` had
-`require_extra_approval_for_unattributed_changes: true`, which
-`protect-main.json` does not set. Compare before overwriting.
+`--update` sends every file, so compare before overwriting: anything changed in
+the UI and not written back here is lost. `protect-main.json` names one
+parameter that GitHub documents nowhere, neither in its REST description nor in
+its GraphQL schema: `require_extra_approval_for_unattributed_changes`. A payload
+that leaves it out gets `true` — a generated project's live `Protect main branch`
+read `true` after an `--update` from a file without it — so the file says `true`
+and means what GitHub enforces. Others report, and nothing here has measured,
+that with `true` a pull request carrying commits not linked to a GitHub account
+waits for one human approval even when no approval is required.
 
 **Verify / roll back:**
 
@@ -326,19 +332,45 @@ gh api --method DELETE repos/djx-y-z/openmls_dart/rulesets/<ID>   # roll back on
 Prefer a dry run? Set `"enforcement": "evaluate"` in a JSON file, apply, watch the
 ruleset "insights", then flip back to `"active"` and re-run with `--update`.
 
-## The `native-build` environment (approval gate)
+## The release environments (approval gates)
 
-A tag ruleset does **not** cover the `workflow_dispatch` path, so
-`build-openmls.yml`'s `create-release` job runs in the `native-build`
-environment. `make setup-repo-protections` creates that environment and adds you
-as a required reviewer; until reviewers exist the gate is inactive (GitHub
-auto-creates the environment unprotected, which is safe). To also forbid entering
-it off an arbitrary ref, add a deployment-branch policy allowing only
-`openmls_frb-*` (Settings → Environments → native-build).
+The two jobs that publish each run in an environment: `build-openmls.yml`'s
+`create-release` (the native binaries) in `native-build`, and `publish.yml`'s
+`publish` (the package) in `pub.dev`. A tag ruleset does not cover
+`workflow_dispatch`, so these are what stands between a started run and a
+publish. `make setup-repo-protections` configures both the same way
+(`scripts/src/repo_protections.dart` builds the requests):
 
-> Environment protections (required reviewers, deployment-branch policy) are not
-> expressible as a committed file, so the script sets them via the environments
-> API and this runbook is their source of truth.
+| | `native-build` | `pub.dev` |
+|---|---|---|
+| may enter | `openmls_frb-*` tags | `v*` tags |
+| required reviewer | you | you |
+| admins bypass the review | no | no |
+| approving one's own run | allowed | allowed |
+
+- **Tags only.** Each environment's deployment policy lets in its release tags
+  and nothing else, so GitHub refuses a run started from a branch, `main`
+  included, before the job starts, and one mistaken approval can no longer
+  publish from one. Only an Admin can create those tags (*Protect release
+  tags* above). A run dispatched on a tag, to repeat a release build, still
+  enters. `publish` is skipped on a branch outright, since `validate-package`
+  makes its dry run; `create-release` is left to the policy, which refuses it.
+- **No admin bypass,** so an Admin's run waits for the review too.
+- **Approving one's own run is allowed:** with a single maintainer, whoever
+  pushes the release tag is the only person who can approve it.
+- A wrong pattern stops a real release at the publish job ("not allowed to
+  deploy") without publishing anything: correct the policy, then re-run the
+  job.
+
+`make setup-repo-protections ARGS="--dry-run"` shows each environment's
+settings, what would change and the exact requests, and changes nothing. A
+re-run converges on the same settings; a deployment policy someone added is
+reported and left in place.
+
+> Environment protections are not expressible as a committed file, so the
+> script sets them through the environments API and this section is their
+> source of truth. In a private repository what GitHub allows depends on the
+> plan; when it refuses, the script warns and goes on.
 
 ## Project-specific / optional fields
 

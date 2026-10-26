@@ -22,13 +22,19 @@ dependencies:
   flutter_rust_bridge: ">=2.13.0 <2.13.1"
   # SHA256 verification for native library downloads
   crypto: ^3.0.7
-  # Build hooks for automatic native library download. Left on the caret
-  # deliberately: these define the protocol hook/build.dart implements, and the
-  # SDK is the other half of it — capping them below what the pinned Flutter
-  # expects breaks the hook at a consumer's build, which is worse than the drift.
-  # Majors (hooks 2.x, code_assets 2.x) are a deliberate migration, not a bump.
-  hooks: ^1.0.0
-  code_assets: ^1.0.0
+  # Build hooks for automatic native library download. Open across two majors
+  # on purpose: these define the protocol hook/build.dart implements, and the
+  # SDK is the other half of it, so each Flutter has to be able to resolve the
+  # major it supports. 3.38–3.44 pin `meta` below the 1.19.0 that hooks >= 2.1.0
+  # needs, and an app there resolves hooks 2.0.x with code_assets 1.x; from
+  # 3.47.0 it resolves hooks 2.2 with code_assets 2.1, and a pure-Dart
+  # resolution of this package takes 2.x on either. Measured on 3.38.4 and
+  # 3.47.4: the example app builds and the package's tests pass on both.
+  # code_assets 2.0's one breaking change — `OS`, `Architecture` and `Sanitizer`
+  # define `==` and no longer key a const map — touches nothing the hook uses.
+  # A 3.x is a migration again, not a bump.
+  hooks: ">=1.0.0 <3.0.0"
+  code_assets: ">=1.0.0 <3.0.0"
 
 dev_dependencies:
   # Capped to one minor line, not because 6.1 is bad but because

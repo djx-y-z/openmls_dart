@@ -1093,8 +1093,12 @@ jobs:
       # errors and from the upstream source, rather than from a CI log and an
       # inference.
       - name: Describe the update under repair
+        id: describe
         if: needs.detect.outputs.mode == 'pr'
         env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          SHA: ${{ needs.detect.outputs.sha }}
           BRANCH: ${{ needs.detect.outputs.branch }}
           PR_NUMBER: ${{ needs.detect.outputs.pr_number }}
           CODEGEN_FAILED: ${{ needs.detect.outputs.codegen_failed }}
@@ -1107,8 +1111,20 @@ jobs:
           # What the bot changed, from the repository rather than from the pull
           # request's prose. The body of that pull request is text a workflow
           # composed and a human may since have edited; the diff is the fact.
-          git fetch --no-tags --depth=200 origin main 2>/dev/null || true
-          BASE=$(git merge-base FETCH_HEAD HEAD 2>/dev/null || echo "")
+          #
+          # From the API, as ai-review takes its diff, and not from this
+          # checkout. The checkout is one commit deep, and git treats a shallow
+          # commit as having no parents, so `git merge-base` against a deeper
+          # `main` came back empty on every repair of a pull request and this
+          # file never showed the pin. Deepening the checkout would have fixed
+          # that only where an anonymous fetch works: `persist-credentials:
+          # false` leaves a private repository's fetch without credentials.
+          # `compare` with three dots is the same merge-base comparison and
+          # needs no history. Measured on a rehearsal pull request: the commit
+          # it was cut from and its one changed file, where the local merge
+          # base had been empty.
+          COMPARE=$(gh api "repos/${GH_REPO}/compare/main...${SHA}" 2>/dev/null || echo "")
+          BASE=$(jq -r '.merge_base_commit.sha // empty' <<<"$COMPARE" 2>/dev/null || echo "")
 
           {
             echo "# The update this branch carries"
@@ -1120,16 +1136,49 @@ jobs:
               echo "## The pin that moved"
               echo
               echo '```diff'
-              git --no-pager diff "$BASE" HEAD -- 'rust/Cargo.toml' | head -c 8000
+              jq -r '.files[]? | select(.filename == "rust/Cargo.toml") | .patch // empty' <<<"$COMPARE" | head -c 8000
               echo '```'
               echo
               echo "## Everything the bot changed"
               echo
-              git --no-pager diff --stat "$BASE" HEAD | head -c 8000
+              jq -r '.files[]? | "\(.filename) | +\(.additions) -\(.deletions)"' <<<"$COMPARE" | head -c 8000
             else
               echo "_The merge base could not be resolved, so the bot's own diff is not shown._"
             fi
           } > .agent-scratch/update-context.md
+          echo "base=$BASE" >> "$GITHUB_OUTPUT"
+
+      # What upstream CHANGED, beside `upstream/` below, which is what it IS
+      # now: the release notes, the range with its patches to the crates this
+      # package builds, the lockfile diff, and the range of every other git
+      # dependency that moved. The target the update workflow runs for the
+      # reviewer, fed the files the update started from — through the API,
+      # because this checkout is one commit deep and holds no credential, and
+      # the API works on a private repository too. Evidence rather than a gate,
+      # like the vendoring: what is missing is named in its README.md.
+      - name: Gather the update's evidence
+        if: needs.detect.outputs.mode == 'pr'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          BASE: ${{ steps.describe.outputs.base }}
+        run: |
+          set -uo pipefail
+          if [ -z "$BASE" ]; then
+            echo "::warning::The merge base is unknown, so there is no evidence of what upstream changed. The agent will work without it."
+            exit 0
+          fi
+          B="$RUNNER_TEMP/update-base"
+          mkdir -p "$B/rust"
+          for f in rust/Cargo.lock rust/Cargo.toml .copier-answers.yml; do
+            gh api "repos/${GH_REPO}/contents/${f}?ref=${BASE}" \
+              -H 'Accept: application/vnd.github.raw' > "$B/$f" 2>/dev/null \
+              || rm -f "$B/$f"
+          done
+          if ! make update-evidence ARGS="--base-dir $B --out .agent-scratch/evidence"; then
+            echo "::warning::The update's evidence could not be gathered. The agent will work without it."
+          fi
+          exit 0
 
       # `Grep` and `Glob` are scoped to the workspace — deliberately, so the
       # agent cannot read `/proc/self/environ`, where this job's secrets live.
@@ -1140,11 +1189,14 @@ jobs:
       # which says what no longer fits and never what would. So the source is
       # copied to where the agent can read it, by a step rather than by a grant.
       #
-      # Only git dependencies, which is what an upstream pinned by tag is here;
-      # registry crates are not what this workflow repairs against. Measured on
-      # this repository: five crates, about a megabyte in total.
+      # Only the upstream crates, picked by name: they come from crates.io here,
+      # where a crate's source says nothing about whose it is, and registry
+      # crates in general are not what this workflow repairs against. Measured
+      # on a crates.io project with five upstream crates: about 3.7 MB.
       - name: Vendor the upstream source the agent may read
         if: needs.detect.outputs.mode == 'pr'
+        env:
+          UPSTREAM_CRATES: '["openmls", "openmls_rust_crypto", "openmls_basic_credential", "openmls_traits", "openmls_libcrux_crypto"]'
         run: |
           set -uo pipefail
           UP=.agent-scratch/upstream
@@ -1154,9 +1206,10 @@ jobs:
           # step, and this is evidence rather than a gate. If it fails, the
           # agent is told the directory is absent and carries on without it.
           ( cd rust && cargo metadata --format-version 1 ) 2>/dev/null \
-            | jq -r '.packages[]
-                     | select(.source != null and (.source | startswith("git+")))
-                     | [.name, .manifest_path] | @tsv' > "$RUNNER_TEMP/git-deps.tsv" || true
+            | jq -r --argjson names "$UPSTREAM_CRATES" '.packages[]
+                     | select(.source != null and (.source | startswith("registry+"))
+                              and (.name | IN($names[])))
+                     | [.name, .manifest_path] | @tsv' > "$RUNNER_TEMP/upstream-deps.tsv" || true
 
           COPIED=0
           while IFS=$'\t' read -r name manifest; do
@@ -1165,11 +1218,11 @@ jobs:
             [ -d "$src" ] || continue
             mkdir -p "$UP/$name"
             cp -R "$src" "$UP/$name/" 2>/dev/null && COPIED=$((COPIED + 1))
-          done < "$RUNNER_TEMP/git-deps.tsv"
+          done < "$RUNNER_TEMP/upstream-deps.tsv"
 
           if [ "$COPIED" = 0 ]; then
             rm -rf "$UP"
-            echo "::warning::No git-sourced dependency resolved, so there is no upstream source to read. The agent will be working from error text alone."
+            echo "::warning::None of the upstream crates resolved from crates.io, so there is no upstream source to read. The agent will be working from error text alone."
           else
             echo "Vendored $COPIED upstream crate(s), $(du -sh "$UP" | cut -f1)."
           fi
@@ -1247,7 +1300,7 @@ jobs:
 
       - name: Run the agent (Claude Code)
         if: needs.detect.outputs.engine == 'claude-code' && steps.regenerate.outputs.recovered != 'true'
-        uses: anthropics/claude-code-action@ed670b4cf9de2a5a570d130d2f6197b9e543cd64 # v1.0.240
+        uses: anthropics/claude-code-action@16f9f71ab9c490faf367f94dd294897edc25be33 # v1.0.261
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           # Read-only, and only so the action can resolve repository context.
@@ -1816,6 +1869,11 @@ jobs:
         run: |
           set -euo pipefail
 
+          # A new file counts too, and only because the step before staged it
+          # (`git add -A -- lib/src/rust/`): `git diff HEAD` shows a file the
+          # index knows and never an untracked one. Measured both ways — this
+          # step alone labels a new generated module `unchanged`, after that
+          # one `moved`.
           git diff HEAD -U0 -- 'lib/src/rust/api/' > "$RUNNER_TEMP/api.diff" 2>/dev/null || true
 
           MOVED=$( { grep -E '^[+-]' "$RUNNER_TEMP/api.diff" || true; } \
@@ -1888,10 +1946,15 @@ jobs:
       #                  what reported it. That change has to be a human's.
       #   .githooks/** — carries an executable bit, which the signed-commit API
       #                  cannot represent; the push would be rejected anyway.
+      #
+      # The three documents are in it because the prompt asks for them: a
+      # widened API comes with its README and CHANGELOG entry, and a repair
+      # that changes what a consumer observes has to say so. Without them that
+      # work was refused here, after the agent had done it as asked.
       - name: Reject changes outside the allowlist
         if: steps.verdict.outputs.status == 'fixed'
         env:
-          ALLOWED: '^(rust|lib|test|hook|scripts|example)/|^(Makefile|pubspec\.yaml|analysis_options\.yaml)$'
+          ALLOWED: '^(rust|lib|test|hook|scripts|example)/|^(Makefile|pubspec\.yaml|analysis_options\.yaml|CHANGELOG\.md|README\.md|SECURITY\.md)$'
         run: |
           set -euo pipefail
           OUTSIDE=$(git diff --cached --name-only | grep -Ev "$ALLOWED" || true)
@@ -2166,7 +2229,7 @@ jobs:
       # assertion that the patch that arrived is the patch that was vetted.
       - name: Re-check the allowlist
         env:
-          ALLOWED: '^(rust|lib|test|hook|scripts|example)/|^(Makefile|pubspec\.yaml|analysis_options\.yaml)$'
+          ALLOWED: '^(rust|lib|test|hook|scripts|example)/|^(Makefile|pubspec\.yaml|analysis_options\.yaml|CHANGELOG\.md|README\.md|SECURITY\.md)$'
         run: |
           set -euo pipefail
           OUTSIDE=$(git diff --cached --name-only | grep -Ev "$ALLOWED" || true)
@@ -2331,7 +2394,7 @@ jobs:
       - name: Re-check the allowlist
         if: steps.apply.outputs.changed == 'true'
         env:
-          ALLOWED: '^(rust|lib|test|hook|scripts|example)/|^(Makefile|pubspec\.yaml|analysis_options\.yaml)$'
+          ALLOWED: '^(rust|lib|test|hook|scripts|example)/|^(Makefile|pubspec\.yaml|analysis_options\.yaml|CHANGELOG\.md|README\.md|SECURITY\.md)$'
         run: |
           set -euo pipefail
           OUTSIDE=$(git diff --cached --name-only | grep -Ev "$ALLOWED" || true)
@@ -2613,8 +2676,10 @@ jobs:
             echo "The checks on this pull request are the oracle; they run against the commit"
             echo "above exactly as they would against anybody's. A green matrix says the change"
             echo "compiles and passes, not that the adaptation is the right one — and on this"
-            echo "kind of change those are different questions. The one to ask is whether the"
-            echo "values it threaded through are the values upstream meant."
+            echo "kind of change those are different questions. Two are worth asking: whether"
+            echo "the values it threaded through are the values upstream meant, and whether"
+            echo "what this package does around the call still holds for what upstream now"
+            echo "does inside it."
           } > "$RUNNER_TEMP/comment.md"
 
           gh pr comment "$PR_NUMBER" --repo "$GH_REPO" --body-file "$RUNNER_TEMP/comment.md"
