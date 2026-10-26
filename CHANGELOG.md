@@ -1,4 +1,4 @@
-## [Unreleased]
+## [3.2.2] - 2026-10-26
 
 ### For Users
 
@@ -26,6 +26,7 @@
 - **openmls v0.9.2** — two patch releases: 0.9.1 with the
   GHSA-gc79-23g3-8g52 fix, 0.9.2 with the GHSA-94v4-rg25-x625 and
   GHSA-p276-g3f3-wwgh fixes, and nothing else this package's API exposes.
+- **openmls_frb v2.3.2** — Rust FFI bindings
 
 #### Changed
 
@@ -3111,7 +3112,8 @@
 [om-2116]: https://github.com/openmls/openmls/issues/2116
 [frb2575]: https://github.com/fzyzcjy/flutter_rust_bridge/issues/2575
 [frb3182]: https://github.com/fzyzcjy/flutter_rust_bridge/pull/3182
-[Unreleased]: https://github.com/djx-y-z/openmls_dart/compare/v3.2.1...HEAD
+[Unreleased]: https://github.com/djx-y-z/openmls_dart/compare/v3.2.2...HEAD
+[3.2.2]: https://github.com/djx-y-z/openmls_dart/compare/v3.2.1...v3.2.2
 [3.2.1]: https://github.com/djx-y-z/openmls_dart/compare/v3.2.0...v3.2.1
 [3.2.0]: https://github.com/djx-y-z/openmls_dart/compare/v3.1.0...v3.2.0
 [3.1.0]: https://github.com/djx-y-z/openmls_dart/compare/v3.0.0...v3.1.0
