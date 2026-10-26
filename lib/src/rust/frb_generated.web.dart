@@ -115,13 +115,22 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   MlsGroupConfig dco_decode_box_autoadd_mls_group_config(dynamic raw);
 
   @protected
+  MlsLeafNodeInfo dco_decode_box_autoadd_mls_leaf_node_info(dynamic raw);
+
+  @protected
   MlsMemberInfo dco_decode_box_autoadd_mls_member_info(dynamic raw);
 
   @protected
   MlsProposalType dco_decode_box_autoadd_mls_proposal_type(dynamic raw);
 
   @protected
+  MlsSenderInfo dco_decode_box_autoadd_mls_sender_info(dynamic raw);
+
+  @protected
   StagedCommitInfo dco_decode_box_autoadd_staged_commit_info(dynamic raw);
+
+  @protected
+  StagedProposalInfo dco_decode_box_autoadd_staged_proposal_info(dynamic raw);
 
   @protected
   int dco_decode_box_autoadd_u_32(dynamic raw);
@@ -178,6 +187,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<MlsExtension> dco_decode_list_mls_extension(dynamic raw);
 
   @protected
+  List<MlsExternalSenderInfo> dco_decode_list_mls_external_sender_info(
+    dynamic raw,
+  );
+
+  @protected
   List<MlsMemberInfo> dco_decode_list_mls_member_info(dynamic raw);
 
   @protected
@@ -201,6 +215,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   Uint8List dco_decode_list_prim_u_8_strict(dynamic raw);
 
   @protected
+  List<StagedProposalInfo> dco_decode_list_staged_proposal_info(dynamic raw);
+
+  @protected
   MlsCapabilities dco_decode_mls_capabilities(dynamic raw);
 
   @protected
@@ -208,6 +225,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   MlsExtension dco_decode_mls_extension(dynamic raw);
+
+  @protected
+  MlsExternalSenderInfo dco_decode_mls_external_sender_info(dynamic raw);
 
   @protected
   MlsGroupConfig dco_decode_mls_group_config(dynamic raw);
@@ -228,6 +248,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   MlsProposalType dco_decode_mls_proposal_type(dynamic raw);
 
   @protected
+  MlsSenderInfo dco_decode_mls_sender_info(dynamic raw);
+
+  @protected
+  MlsSenderKind dco_decode_mls_sender_kind(dynamic raw);
+
+  @protected
   MlsWireFormatPolicy dco_decode_mls_wire_format_policy(dynamic raw);
 
   @protected
@@ -237,13 +263,24 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   MlsCapabilities? dco_decode_opt_box_autoadd_mls_capabilities(dynamic raw);
 
   @protected
+  MlsLeafNodeInfo? dco_decode_opt_box_autoadd_mls_leaf_node_info(dynamic raw);
+
+  @protected
   MlsMemberInfo? dco_decode_opt_box_autoadd_mls_member_info(dynamic raw);
 
   @protected
   MlsProposalType? dco_decode_opt_box_autoadd_mls_proposal_type(dynamic raw);
 
   @protected
+  MlsSenderInfo? dco_decode_opt_box_autoadd_mls_sender_info(dynamic raw);
+
+  @protected
   StagedCommitInfo? dco_decode_opt_box_autoadd_staged_commit_info(dynamic raw);
+
+  @protected
+  StagedProposalInfo? dco_decode_opt_box_autoadd_staged_proposal_info(
+    dynamic raw,
+  );
 
   @protected
   int? dco_decode_opt_box_autoadd_u_32(dynamic raw);
@@ -278,6 +315,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   StagedCommitInfo dco_decode_staged_commit_info(dynamic raw);
+
+  @protected
+  StagedProposalInfo dco_decode_staged_proposal_info(dynamic raw);
 
   @protected
   int dco_decode_u_16(dynamic raw);
@@ -384,6 +424,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  MlsLeafNodeInfo sse_decode_box_autoadd_mls_leaf_node_info(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   MlsMemberInfo sse_decode_box_autoadd_mls_member_info(
     SseDeserializer deserializer,
   );
@@ -394,7 +439,17 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  MlsSenderInfo sse_decode_box_autoadd_mls_sender_info(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   StagedCommitInfo sse_decode_box_autoadd_staged_commit_info(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  StagedProposalInfo sse_decode_box_autoadd_staged_proposal_info(
     SseDeserializer deserializer,
   );
 
@@ -473,6 +528,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  List<MlsExternalSenderInfo> sse_decode_list_mls_external_sender_info(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   List<MlsMemberInfo> sse_decode_list_mls_member_info(
     SseDeserializer deserializer,
   );
@@ -498,6 +558,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   Uint8List sse_decode_list_prim_u_8_strict(SseDeserializer deserializer);
 
   @protected
+  List<StagedProposalInfo> sse_decode_list_staged_proposal_info(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   MlsCapabilities sse_decode_mls_capabilities(SseDeserializer deserializer);
 
   @protected
@@ -505,6 +570,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   MlsExtension sse_decode_mls_extension(SseDeserializer deserializer);
+
+  @protected
+  MlsExternalSenderInfo sse_decode_mls_external_sender_info(
+    SseDeserializer deserializer,
+  );
 
   @protected
   MlsGroupConfig sse_decode_mls_group_config(SseDeserializer deserializer);
@@ -529,6 +599,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   MlsProposalType sse_decode_mls_proposal_type(SseDeserializer deserializer);
 
   @protected
+  MlsSenderInfo sse_decode_mls_sender_info(SseDeserializer deserializer);
+
+  @protected
+  MlsSenderKind sse_decode_mls_sender_kind(SseDeserializer deserializer);
+
+  @protected
   MlsWireFormatPolicy sse_decode_mls_wire_format_policy(
     SseDeserializer deserializer,
   );
@@ -538,6 +614,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   MlsCapabilities? sse_decode_opt_box_autoadd_mls_capabilities(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  MlsLeafNodeInfo? sse_decode_opt_box_autoadd_mls_leaf_node_info(
     SseDeserializer deserializer,
   );
 
@@ -552,7 +633,17 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  MlsSenderInfo? sse_decode_opt_box_autoadd_mls_sender_info(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   StagedCommitInfo? sse_decode_opt_box_autoadd_staged_commit_info(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  StagedProposalInfo? sse_decode_opt_box_autoadd_staged_proposal_info(
     SseDeserializer deserializer,
   );
 
@@ -595,6 +686,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   StagedCommitInfo sse_decode_staged_commit_info(SseDeserializer deserializer);
+
+  @protected
+  StagedProposalInfo sse_decode_staged_proposal_info(
+    SseDeserializer deserializer,
+  );
 
   @protected
   int sse_decode_u_16(SseDeserializer deserializer);
@@ -662,6 +758,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   }
 
   @protected
+  JSAny cst_encode_box_autoadd_mls_leaf_node_info(MlsLeafNodeInfo raw) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return cst_encode_mls_leaf_node_info(raw);
+  }
+
+  @protected
   JSAny cst_encode_box_autoadd_mls_member_info(MlsMemberInfo raw) {
     // Codec=Cst (C-struct based), see doc to use other codecs
     return cst_encode_mls_member_info(raw);
@@ -674,9 +776,21 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   }
 
   @protected
+  JSAny cst_encode_box_autoadd_mls_sender_info(MlsSenderInfo raw) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return cst_encode_mls_sender_info(raw);
+  }
+
+  @protected
   JSAny cst_encode_box_autoadd_staged_commit_info(StagedCommitInfo raw) {
     // Codec=Cst (C-struct based), see doc to use other codecs
     return cst_encode_staged_commit_info(raw);
+  }
+
+  @protected
+  JSAny cst_encode_box_autoadd_staged_proposal_info(StagedProposalInfo raw) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return cst_encode_staged_proposal_info(raw);
   }
 
   @protected
@@ -735,6 +849,7 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
       cst_encode_opt_list_prim_u_8_strict(raw.aad),
       cst_encode_bool(raw.createGroupInfo),
       cst_encode_bool(raw.useRatchetTreeExtension),
+      cst_encode_bool(raw.keepPending),
     ].jsify()!;
   }
 
@@ -817,6 +932,14 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   }
 
   @protected
+  JSAny cst_encode_list_mls_external_sender_info(
+    List<MlsExternalSenderInfo> raw,
+  ) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return raw.map(cst_encode_mls_external_sender_info).toList().jsify()!;
+  }
+
+  @protected
   JSAny cst_encode_list_mls_member_info(List<MlsMemberInfo> raw) {
     // Codec=Cst (C-struct based), see doc to use other codecs
     return raw.map(cst_encode_mls_member_info).toList().jsify()!;
@@ -861,6 +984,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   }
 
   @protected
+  JSAny cst_encode_list_staged_proposal_info(List<StagedProposalInfo> raw) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return raw.map(cst_encode_staged_proposal_info).toList().jsify()!;
+  }
+
+  @protected
   JSAny cst_encode_mls_capabilities(MlsCapabilities raw) {
     // Codec=Cst (C-struct based), see doc to use other codecs
     return [
@@ -878,6 +1007,15 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
     return [
       cst_encode_u_16(raw.extensionType),
       cst_encode_list_prim_u_8_strict(raw.data),
+    ].jsify()!;
+  }
+
+  @protected
+  JSAny cst_encode_mls_external_sender_info(MlsExternalSenderInfo raw) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return [
+      cst_encode_list_prim_u_8_strict(raw.credential),
+      cst_encode_list_prim_u_8_strict(raw.signatureKey),
     ].jsify()!;
   }
 
@@ -941,6 +1079,15 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   }
 
   @protected
+  JSAny cst_encode_mls_sender_info(MlsSenderInfo raw) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return [
+      cst_encode_mls_sender_kind(raw.kind),
+      cst_encode_opt_box_autoadd_u_32(raw.index),
+    ].jsify()!;
+  }
+
+  @protected
   String? cst_encode_opt_String(String? raw) {
     // Codec=Cst (C-struct based), see doc to use other codecs
     return raw == null ? null : cst_encode_String(raw);
@@ -950,6 +1097,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   JSAny? cst_encode_opt_box_autoadd_mls_capabilities(MlsCapabilities? raw) {
     // Codec=Cst (C-struct based), see doc to use other codecs
     return raw == null ? null : cst_encode_box_autoadd_mls_capabilities(raw);
+  }
+
+  @protected
+  JSAny? cst_encode_opt_box_autoadd_mls_leaf_node_info(MlsLeafNodeInfo? raw) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return raw == null ? null : cst_encode_box_autoadd_mls_leaf_node_info(raw);
   }
 
   @protected
@@ -965,9 +1118,25 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   }
 
   @protected
+  JSAny? cst_encode_opt_box_autoadd_mls_sender_info(MlsSenderInfo? raw) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return raw == null ? null : cst_encode_box_autoadd_mls_sender_info(raw);
+  }
+
+  @protected
   JSAny? cst_encode_opt_box_autoadd_staged_commit_info(StagedCommitInfo? raw) {
     // Codec=Cst (C-struct based), see doc to use other codecs
     return raw == null ? null : cst_encode_box_autoadd_staged_commit_info(raw);
+  }
+
+  @protected
+  JSAny? cst_encode_opt_box_autoadd_staged_proposal_info(
+    StagedProposalInfo? raw,
+  ) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return raw == null
+        ? null
+        : cst_encode_box_autoadd_staged_proposal_info(raw);
   }
 
   @protected
@@ -1017,6 +1186,8 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
       cst_encode_opt_list_prim_u_8_strict(raw.applicationMessage),
       cst_encode_opt_box_autoadd_staged_commit_info(raw.stagedCommitInfo),
       cst_encode_opt_box_autoadd_mls_proposal_type(raw.proposalType),
+      cst_encode_opt_box_autoadd_mls_sender_info(raw.sender),
+      cst_encode_opt_box_autoadd_staged_proposal_info(raw.proposalInfo),
     ].jsify()!;
   }
 
@@ -1049,6 +1220,25 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
       cst_encode_bool(raw.hasUpdate),
       cst_encode_bool(raw.selfRemoved),
       cst_encode_u_32(raw.pskCount),
+      cst_encode_list_list_prim_u_8_strict(raw.removeCredentials),
+      cst_encode_list_staged_proposal_info(raw.proposals),
+      cst_encode_opt_list_prim_u_8_strict(raw.committerCredential),
+      cst_encode_list_mls_extension(raw.groupContextExtensions),
+      cst_encode_list_mls_external_sender_info(raw.externalSenders),
+    ].jsify()!;
+  }
+
+  @protected
+  JSAny cst_encode_staged_proposal_info(StagedProposalInfo raw) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return [
+      cst_encode_mls_proposal_type(raw.proposalType),
+      cst_encode_opt_box_autoadd_u_32(raw.senderIndex),
+      cst_encode_mls_sender_info(raw.sender),
+      cst_encode_bool(raw.byReference),
+      cst_encode_opt_box_autoadd_mls_leaf_node_info(raw.leaf),
+      cst_encode_opt_box_autoadd_mls_member_info(raw.affectedMember),
+      cst_encode_list_mls_extension(raw.extensions),
     ].jsify()!;
   }
 
@@ -1140,6 +1330,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   int cst_encode_mls_proposal_type(MlsProposalType raw);
+
+  @protected
+  int cst_encode_mls_sender_kind(MlsSenderKind raw);
 
   @protected
   int cst_encode_mls_wire_format_policy(MlsWireFormatPolicy raw);
@@ -1259,6 +1452,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_box_autoadd_mls_leaf_node_info(
+    MlsLeafNodeInfo self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_box_autoadd_mls_member_info(
     MlsMemberInfo self,
     SseSerializer serializer,
@@ -1271,8 +1470,20 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_box_autoadd_mls_sender_info(
+    MlsSenderInfo self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_box_autoadd_staged_commit_info(
     StagedCommitInfo self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_staged_proposal_info(
+    StagedProposalInfo self,
     SseSerializer serializer,
   );
 
@@ -1373,6 +1584,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_list_mls_external_sender_info(
+    List<MlsExternalSenderInfo> self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_list_mls_member_info(
     List<MlsMemberInfo> self,
     SseSerializer serializer,
@@ -1412,6 +1629,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_list_staged_proposal_info(
+    List<StagedProposalInfo> self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_mls_capabilities(
     MlsCapabilities self,
     SseSerializer serializer,
@@ -1425,6 +1648,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_mls_extension(MlsExtension self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_mls_external_sender_info(
+    MlsExternalSenderInfo self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_mls_group_config(
@@ -1460,6 +1689,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_mls_sender_info(MlsSenderInfo self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_mls_sender_kind(MlsSenderKind self, SseSerializer serializer);
+
+  @protected
   void sse_encode_mls_wire_format_policy(
     MlsWireFormatPolicy self,
     SseSerializer serializer,
@@ -1471,6 +1706,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_opt_box_autoadd_mls_capabilities(
     MlsCapabilities? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_box_autoadd_mls_leaf_node_info(
+    MlsLeafNodeInfo? self,
     SseSerializer serializer,
   );
 
@@ -1487,8 +1728,20 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_opt_box_autoadd_mls_sender_info(
+    MlsSenderInfo? self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_opt_box_autoadd_staged_commit_info(
     StagedCommitInfo? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_box_autoadd_staged_proposal_info(
+    StagedProposalInfo? self,
     SseSerializer serializer,
   );
 
@@ -1543,6 +1796,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_staged_commit_info(
     StagedCommitInfo self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_staged_proposal_info(
+    StagedProposalInfo self,
     SseSerializer serializer,
   );
 
@@ -2126,6 +2385,18 @@ class RustLibWire implements BaseWire {
     group_id_bytes,
   );
 
+  void wire__crate__api__engine__MlsEngine_inspect_message(
+    NativePortType port_,
+    int that,
+    JSAny group_id_bytes,
+    JSAny message_bytes,
+  ) => wasmModule.wire__crate__api__engine__MlsEngine_inspect_message(
+    port_,
+    that,
+    group_id_bytes,
+    message_bytes,
+  );
+
   void wire__crate__api__engine__MlsEngine_inspect_welcome(
     NativePortType port_,
     int that,
@@ -2614,6 +2885,10 @@ class RustLibWire implements BaseWire {
   );
 
   JSAny? /* flutter_rust_bridge::for_generated::WireSyncRust2DartDco */
+  wire__crate__api__types__decode_external_senders(JSAny data) =>
+      wasmModule.wire__crate__api__types__decode_external_senders(data);
+
+  JSAny? /* flutter_rust_bridge::for_generated::WireSyncRust2DartDco */
   wire__crate__api__init__init_openmls(String _library_path) =>
       wasmModule.wire__crate__api__init__init_openmls(_library_path);
 
@@ -3044,6 +3319,13 @@ extension type RustLibWasmModule._(JSObject _) implements JSObject {
     JSAny group_id_bytes,
   );
 
+  external void wire__crate__api__engine__MlsEngine_inspect_message(
+    NativePortType port_,
+    int that,
+    JSAny group_id_bytes,
+    JSAny message_bytes,
+  );
+
   external void wire__crate__api__engine__MlsEngine_inspect_welcome(
     NativePortType port_,
     int that,
@@ -3324,6 +3606,9 @@ extension type RustLibWasmModule._(JSObject _) implements JSObject {
     JSAny not_after,
     JSAny now_unix_seconds,
   );
+
+  external JSAny? /* flutter_rust_bridge::for_generated::WireSyncRust2DartDco */
+  wire__crate__api__types__decode_external_senders(JSAny data);
 
   external JSAny? /* flutter_rust_bridge::for_generated::WireSyncRust2DartDco */
   wire__crate__api__init__init_openmls(String _library_path);

@@ -6,7 +6,13 @@
 import '../frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-// These functions are ignored because they are not marked as `pub`: `capabilities_to_native`, `ciphersuite_to_native`, `extensions_from_mls`, `native_to_ciphersuite`, `wire_format_to_native`
+// These functions are ignored because they are not marked as `pub`: `capabilities_to_native`, `ciphersuite_to_native`, `extension_from_mls`, `extension_to_mls`, `extensions_from_mls`, `external_senders_to_mls`, `native_to_ciphersuite`, `wire_format_to_native`
+
+/// Decodes the data of an `ExternalSenders` extension (type 0x0005) — as
+/// `groupContextExtensions` or `exportGroupContext` report it — into its
+/// entries.
+List<MlsExternalSenderInfo> decodeExternalSenders({required List<int> data}) =>
+    RustLib.instance.api.crateApiTypesDecodeExternalSenders(data: data);
 
 /// Returns every ciphersuite this build can execute.
 ///
@@ -43,6 +49,25 @@ class FlexibleCommitOptions {
   /// Whether to include the ratchet tree extension in GroupInfo.
   final bool useRatchetTreeExtension;
 
+  /// Leave the commit pending instead of merging it (default: false).
+  ///
+  /// With a delivery service that orders commits, a commit only becomes the
+  /// next epoch once the service accepts it: another member's commit to the
+  /// same epoch may win. Kept pending, the group stays in its current epoch
+  /// until the application calls `mergePendingCommit` (accepted) or
+  /// `clearPendingCommit` (lost), so a lost race leaves nothing to repair.
+  /// Another member's commit processed meanwhile replaces it.
+  ///
+  /// While a commit is pending, `flexibleCommit` refuses to create another
+  /// one — with or without this option. Replacing a commit that may already
+  /// have reached other members would fork the group: they would apply one
+  /// commit, this member another. Resolve the pending one first.
+  ///
+  /// Send the result's Welcome, and publish its GroupInfo, only after
+  /// `mergePendingCommit`, once the delivery service accepted the commit;
+  /// see `CommitResult.welcome`.
+  final bool keepPending;
+
   const FlexibleCommitOptions({
     required this.addKeyPackages,
     required this.removeIndices,
@@ -52,6 +77,7 @@ class FlexibleCommitOptions {
     this.aad,
     required this.createGroupInfo,
     required this.useRatchetTreeExtension,
+    this.keepPending = false,
   });
 
   @override
@@ -63,7 +89,8 @@ class FlexibleCommitOptions {
       groupContextExtensions.hashCode ^
       aad.hashCode ^
       createGroupInfo.hashCode ^
-      useRatchetTreeExtension.hashCode;
+      useRatchetTreeExtension.hashCode ^
+      keepPending.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -77,7 +104,8 @@ class FlexibleCommitOptions {
           groupContextExtensions == other.groupContextExtensions &&
           aad == other.aad &&
           createGroupInfo == other.createGroupInfo &&
-          useRatchetTreeExtension == other.useRatchetTreeExtension;
+          useRatchetTreeExtension == other.useRatchetTreeExtension &&
+          keepPending == other.keepPending;
 }
 
 /// Options for creating a key package with the builder API.
@@ -328,6 +356,29 @@ class MlsExtension {
           data == other.data;
 }
 
+/// One entry of an `ExternalSenders` group context extension.
+class MlsExternalSenderInfo {
+  /// TLS-serialized Credential. Deserialize with `MlsCredential.deserialize()`.
+  final Uint8List credential;
+  final Uint8List signatureKey;
+
+  const MlsExternalSenderInfo({
+    required this.credential,
+    required this.signatureKey,
+  });
+
+  @override
+  int get hashCode => credential.hashCode ^ signatureKey.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is MlsExternalSenderInfo &&
+          runtimeType == other.runtimeType &&
+          credential == other.credential &&
+          signatureKey == other.signatureKey;
+}
+
 /// Full group context information.
 class MlsGroupContextInfo {
   final Uint8List groupId;
@@ -467,6 +518,48 @@ enum MlsProposalType {
   custom,
 }
 
+/// The sender of a message or a proposal, as MLS authenticated it.
+class MlsSenderInfo {
+  final MlsSenderKind kind;
+
+  /// The leaf index for `member`. For `external`, the position in the
+  /// `ExternalSenders` extension of the group context the message was sent
+  /// in, which OpenMLS verified it against — for the proposals of a commit,
+  /// the context before the commit, not the list
+  /// `StagedCommitInfo.externalSenders` reports, which is the one after it.
+  /// `None` for a new member.
+  final int? index;
+
+  const MlsSenderInfo({required this.kind, this.index});
+
+  @override
+  int get hashCode => kind.hashCode ^ index.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is MlsSenderInfo &&
+          runtimeType == other.runtimeType &&
+          kind == other.kind &&
+          index == other.index;
+}
+
+/// Who sent a message or a proposal.
+enum MlsSenderKind {
+  /// A member of the group; the index is its leaf index.
+  member,
+
+  /// A party listed in the group's `ExternalSenders` extension, not a
+  /// member; the index is its position in that list.
+  external_,
+
+  /// A new member proposing to add itself (an external join proposal).
+  newMemberProposal,
+
+  /// A new member joining through an external commit.
+  newMemberCommit,
+}
+
 /// Wire format policy for MLS messages.
 enum MlsWireFormatPolicy { plaintext, ciphertext }
 
@@ -490,12 +583,52 @@ class StagedCommitInfo {
   /// Number of PSK proposals.
   final int pskCount;
 
+  /// TLS-serialized Credentials of the members being removed, as they stood
+  /// before the commit — one per entry of `remove_indices`, in the same
+  /// order. After the merge those leaves are gone, so this is where an
+  /// application learns *whose* device a Remove takes out.
+  final List<Uint8List> removeCredentials;
+
+  /// Every proposal the commit applies, with who proposed it. A commit can
+  /// carry proposals by reference from other members, so the committer is
+  /// not necessarily the author of each change: an access-control policy
+  /// judges each proposal by its own sender.
+  final List<StagedProposalInfo> proposals;
+
+  /// The committer's new leaf credential when the commit has an update
+  /// path, TLS-serialized. A path can replace the committer's credential,
+  /// which an application binding credentials to identities must check.
+  final Uint8List? committerCredential;
+
+  /// The extensions of the group context the commit leads to — whether or
+  /// not it carries a GroupContextExtensions proposal — so an application
+  /// can check what it binds there (the head of an access-control list,
+  /// say) before accepting the commit.
+  ///
+  /// Every extension, including the types OpenMLS interprets itself:
+  /// `RequiredCapabilities` (0x0003), `ExternalSenders` (0x0005), … — each
+  /// in its wire form, as `MlsExtension` takes it. The data was chosen by
+  /// the committer and is not vouched for by anyone else.
+  final List<MlsExtension> groupContextExtensions;
+
+  /// The external senders the group context the commit leads to admits —
+  /// its `ExternalSenders` extension, decoded. Each may send proposals
+  /// (adds and removes among them) without being a member, so a change
+  /// here hands that power to a new party: compare it with the current
+  /// group context before accepting the commit.
+  final List<MlsExternalSenderInfo> externalSenders;
+
   const StagedCommitInfo({
     required this.addCredentials,
     required this.removeIndices,
     required this.hasUpdate,
     required this.selfRemoved,
     required this.pskCount,
+    this.removeCredentials = const [],
+    this.proposals = const [],
+    this.committerCredential,
+    this.groupContextExtensions = const [],
+    this.externalSenders = const [],
   });
 
   @override
@@ -504,7 +637,12 @@ class StagedCommitInfo {
       removeIndices.hashCode ^
       hasUpdate.hashCode ^
       selfRemoved.hashCode ^
-      pskCount.hashCode;
+      pskCount.hashCode ^
+      removeCredentials.hashCode ^
+      proposals.hashCode ^
+      committerCredential.hashCode ^
+      groupContextExtensions.hashCode ^
+      externalSenders.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -515,7 +653,81 @@ class StagedCommitInfo {
           removeIndices == other.removeIndices &&
           hasUpdate == other.hasUpdate &&
           selfRemoved == other.selfRemoved &&
-          pskCount == other.pskCount;
+          pskCount == other.pskCount &&
+          removeCredentials == other.removeCredentials &&
+          proposals == other.proposals &&
+          committerCredential == other.committerCredential &&
+          groupContextExtensions == other.groupContextExtensions &&
+          externalSenders == other.externalSenders;
+}
+
+/// One proposal of a staged commit, or a proposal inspected on its own.
+///
+/// Everything here except `sender` and `affectedMember` is what the proposer
+/// claims. MLS proves *who signed* it, not that a credential names who it says
+/// it does: binding a credential to an identity is the application's job.
+class StagedProposalInfo {
+  final MlsProposalType proposalType;
+
+  /// The proposer's leaf index when a group member proposed it; `None` for
+  /// an external sender or a new member — `sender` tells those apart.
+  final int? senderIndex;
+
+  /// Who proposed it, external senders and new members included.
+  final MlsSenderInfo sender;
+
+  /// Whether the commit carries it by reference — a proposal sent earlier
+  /// on its own — rather than inline.
+  final bool byReference;
+
+  /// The leaf node the proposal introduces: the new member's for an Add,
+  /// the proposer's replacement leaf for an Update — its credential,
+  /// signature key and encryption key. OpenMLS does not check that an
+  /// Update keeps the proposer's identity; compare this credential with
+  /// `affectedMember`'s.
+  final MlsLeafNodeInfo? leaf;
+
+  /// The member the proposal acts on, as this client's own tree has it
+  /// before the change: the member being removed for a Remove, the member
+  /// whose leaf an Update replaces.
+  final MlsMemberInfo? affectedMember;
+
+  /// The extensions a GroupContextExtensions proposal sets, every type
+  /// included, in wire form.
+  final List<MlsExtension> extensions;
+
+  const StagedProposalInfo({
+    required this.proposalType,
+    this.senderIndex,
+    required this.sender,
+    required this.byReference,
+    this.leaf,
+    this.affectedMember,
+    required this.extensions,
+  });
+
+  @override
+  int get hashCode =>
+      proposalType.hashCode ^
+      senderIndex.hashCode ^
+      sender.hashCode ^
+      byReference.hashCode ^
+      leaf.hashCode ^
+      affectedMember.hashCode ^
+      extensions.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is StagedProposalInfo &&
+          runtimeType == other.runtimeType &&
+          proposalType == other.proposalType &&
+          senderIndex == other.senderIndex &&
+          sender == other.sender &&
+          byReference == other.byReference &&
+          leaf == other.leaf &&
+          affectedMember == other.affectedMember &&
+          extensions == other.extensions;
 }
 
 /// Information extracted from a Welcome message before joining.

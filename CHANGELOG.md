@@ -4,13 +4,87 @@
 
 #### ✨ Highlights
 
+- **Judge a commit before it takes effect** — `inspectMessage` reports what a
+  commit would do, with who proposed each change and whose leaves it removes,
+  and applies nothing.
+- **Merge an own commit only once the delivery service took it** —
+  `FlexibleCommitOptions.keepPending`.
+- **Group-context extensions OpenMLS defines are passed typed** — so an
+  application's own extension can be required with `RequiredCapabilities`.
 - **On macOS, `dart run`, `dart test` and `flutter test` work from a deep
   project path** — the native library now leaves room for any path in its
   install name; see *Fixed*.
 - **openmls v0.9.2** — unchanged this release.
 
+#### Added
+
+- **`MlsEngine.inspectMessage`** — processes a message like
+  `processMessageWithInspect` and reports the same, without merging a commit,
+  storing a proposal, advancing a ratchet or writing to storage. MLS lets any
+  member commit any Add or Remove and leaves who may to the application; with
+  this, an application judges a commit by its own policy and processes it
+  only when it accepts it. A refused commit is never processed by the member
+  that refuses it — which keeps only that member in the current epoch: if
+  others accept it, the refuser is the one left behind (see `SECURITY.md`).
+- **`StagedCommitInfo.removeCredentials`** — the credential of each removed
+  member, read before the merge, one per `removeIndices` entry: after the
+  merge those leaves are gone.
+- **`StagedCommitInfo.proposals`** (`StagedProposalInfo`) — every proposal
+  the commit applies, with its own sender and whether it came by reference.
+  A commit can carry other members' proposals, so the committer is not
+  necessarily the author of each change.
+- **`StagedCommitInfo.committerCredential`** — the committer's new leaf
+  credential when the commit has an update path, which can replace it.
+- **`StagedCommitInfo.groupContextExtensions`** — every extension of the
+  group context the commit leads to, the types OpenMLS interprets itself
+  (`RequiredCapabilities`, `ExternalSenders`, …) included, in wire form.
+- **`StagedCommitInfo.externalSenders`** (`MlsExternalSenderInfo`) — the
+  external senders that group context admits, decoded: each may propose adds
+  and removes without being a member. **`decodeExternalSenders`** decodes the
+  same from an extension's data.
+- **Per-proposal detail in `StagedProposalInfo`** — `sender`
+  (`MlsSenderInfo`: member, external sender, new member), `leaf` (the
+  credential, signature and encryption key an Update or Add introduces),
+  `affectedMember` (the member a Remove takes out or an Update replaces, as
+  this client's tree has it) and `extensions` (what a GroupContextExtensions
+  proposal sets). OpenMLS does not check that an Update keeps the proposer's
+  identity; with `leaf` next to `affectedMember` the application can.
+- **`ProcessedMessageInspectResult.sender` and `.proposalInfo`** — the
+  authenticated sender of any inspected message, external senders included
+  (`senderIndex` is `null` for those), and for a proposal message the same
+  detail as a commit's proposals, before it is stored.
+- **`FlexibleCommitOptions.keepPending`** (default `false`) — leaves the
+  commit pending instead of merging it, for `mergePendingCommit` once the
+  delivery service accepted it or `clearPendingCommit` when another member's
+  commit won the epoch. Processing that member's commit also replaces it.
+
 #### Changed
 
+- **Extensions are decoded as OpenMLS decodes received ones**
+  (`extensions_from_mls`) — a type OpenMLS defines (`RequiredCapabilities`
+  0x0003, `ExternalSenders` 0x0005, …) becomes its typed variant instead of an
+  unknown extension, wherever the API takes `MlsExtension`s: group creation,
+  key packages, leaf nodes, group-context updates and proposals, flexible
+  commits. OpenMLS looks for the typed variants: an application's
+  group-context extension used to be refused for want of a
+  `RequiredCapabilities` listing it, which could not be given. A malformed
+  extension of such a type is now an `Invalid extension 0x….` error at the
+  call.
+- **`StagedCommitInfo` has five more fields, `ProcessedMessageInspectResult`
+  two** — all optional in their constructors (empty lists, `null`), so code
+  that builds one itself, a test double say, compiles unchanged.
+- **Own messages that cannot be read back say so more helpfully** — a
+  commit of this member's fanned back while it is pending now points to
+  `mergePendingCommit` under the ciphertext wire format too. The hint is
+  wording only: the content type it reads is not authenticated before
+  decryption, and any member can send a message that names this one as
+  its sender, so nothing acts on it and the error says the message proves
+  nothing — merge on the delivery service's confirmation, not on it.
+- **`flexibleCommit` refuses to run while a commit is pending** — with or
+  without `keepPending`, which is what lets a commit stay pending. OpenMLS's
+  commit builder replaced a pending commit silently; had the first already
+  reached other members and been replaced, the group would have forked onto
+  incompatible epoch secrets. Merge or clear the pending commit first.
 - **The native library's dependencies move to their latest compatible
   releases** (`rust/Cargo.lock`, #72) — Dependabot's 47 updates, none of them
   an openmls crate and none adding or removing one: among them the
@@ -40,7 +114,39 @@
   framework under a short `@rpath/` name. Takes effect with the next
   `openmls_frb` release.
 
+#### Documentation
+
+- **Commit refusal, forks and Welcome ordering** — `inspectMessage`,
+  `CommitResult.welcome`, `FlexibleCommitOptions.keepPending` and
+  `SECURITY.md` (item 7, which said there was no inspect-then-reject path)
+  now state that a refusal is local, that a delivery service can fork a group
+  and `groupEpochAuthenticator` detects it, that reported credentials are
+  claims to verify, that inspecting an application message consumes nothing,
+  and that a Welcome goes out only after the delivery service accepted its
+  commit.
+- **A commit's GroupInfo waits for the delivery service too** —
+  `CommitResult.groupInfo` and `FlexibleCommitOptions.keepPending` say so: a
+  party joining by external commit from a GroupInfo published early enters an
+  epoch that may never happen. And `MlsSenderInfo.index` of an external sender
+  says which list it counts in: the `ExternalSenders` the message was verified
+  against, which for a commit's proposals is the one before the commit, not
+  `StagedCommitInfo.externalSenders`.
+
 ### For Contributors
+
+#### Added
+
+- **Tests that hold #57's guarantees from the outside**
+  (`test/inspect_guarantees_test.dart`) — written when it was merged, apart
+  from its own tests: `inspectMessage` leaves the database file byte for byte
+  as it was, for a commit, a proposal and an application message, and the
+  same bytes then process, while `processMessageWithInspect` does apply the
+  commit it reports; `decodeExternalSenders` refuses every truncation of a
+  valid body, lengths that claim more than follows and trailing data, and
+  answers boundary mutations and 2,000 random inputs without a panic; no call
+  that makes a commit replaces a pending one, which then merges as the commit
+  the others applied; and an `ExternalSenders` change proposed on its own
+  shows in the inspected proposal and in the commit that applies it.
 
 #### Changed
 

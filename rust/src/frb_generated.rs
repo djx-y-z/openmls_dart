@@ -42,7 +42,7 @@ flutter_rust_bridge::frb_generated_boilerplate!(
     default_rust_auto_opaque = RustAutoOpaqueNom,
 );
 pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.13.0";
-pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -734665338;
+pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = 945868030;
 
 // Section: executor
 
@@ -2384,6 +2384,58 @@ fn wire__crate__api__engine__MlsEngine_group_pending_proposals_impl(
         },
     )
 }
+fn wire__crate__api__engine__MlsEngine_inspect_message_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    that: impl CstDecode<
+        RustOpaqueNom<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<MlsEngine>>,
+    >,
+    group_id_bytes: impl CstDecode<Vec<u8>>,
+    message_bytes: impl CstDecode<Vec<u8>>,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::DcoCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "MlsEngine_inspect_message",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let api_that = that.cst_decode();
+            let api_group_id_bytes = group_id_bytes.cst_decode();
+            let api_message_bytes = message_bytes.cst_decode();
+            move |context| async move {
+                transform_result_dco::<_, _, String>(
+                    (move || async move {
+                        let mut api_that_guard = None;
+                        let decode_indices_ =
+                            flutter_rust_bridge::for_generated::lockable_compute_decode_order(
+                                vec![flutter_rust_bridge::for_generated::LockableOrderInfo::new(
+                                    &api_that, 0, false,
+                                )],
+                            );
+                        for i in decode_indices_ {
+                            match i {
+                                0 => {
+                                    api_that_guard =
+                                        Some(api_that.lockable_decode_async_ref().await)
+                                }
+                                _ => unreachable!(),
+                            }
+                        }
+                        let api_that_guard = api_that_guard.unwrap();
+                        let output_ok = crate::api::engine::MlsEngine::inspect_message(
+                            &*api_that_guard,
+                            api_group_id_bytes,
+                            api_message_bytes,
+                        )
+                        .await?;
+                        std::result::Result::Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
 fn wire__crate__api__engine__MlsEngine_inspect_welcome_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     that: impl CstDecode<
@@ -4235,6 +4287,24 @@ fn wire__crate__api__engine__check_lifetime_at_impl(
         },
     )
 }
+fn wire__crate__api__types__decode_external_senders_impl(
+    data: impl CstDecode<Vec<u8>>,
+) -> flutter_rust_bridge::for_generated::WireSyncRust2DartDco {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_sync::<flutter_rust_bridge::for_generated::DcoCodec, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "decode_external_senders",
+            port: None,
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Sync,
+        },
+        move || {
+            let api_data = data.cst_decode();
+            transform_result_dco::<_, _, String>((move || {
+                let output_ok = crate::api::types::decode_external_senders(api_data)?;
+                std::result::Result::Ok(output_ok)
+            })())
+        },
+    )
+}
 fn wire__crate__api__init__init_openmls_impl(
     _library_path: impl CstDecode<String>,
 ) -> flutter_rust_bridge::for_generated::WireSyncRust2DartDco {
@@ -4458,6 +4528,18 @@ impl CstDecode<crate::api::types::MlsProposalType> for i32 {
         }
     }
 }
+impl CstDecode<crate::api::types::MlsSenderKind> for i32 {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    fn cst_decode(self) -> crate::api::types::MlsSenderKind {
+        match self {
+            0 => crate::api::types::MlsSenderKind::Member,
+            1 => crate::api::types::MlsSenderKind::External,
+            2 => crate::api::types::MlsSenderKind::NewMemberProposal,
+            3 => crate::api::types::MlsSenderKind::NewMemberCommit,
+            _ => unreachable!("Invalid variant for MlsSenderKind: {}", self),
+        }
+    }
+}
 impl CstDecode<crate::api::types::MlsWireFormatPolicy> for i32 {
     // Codec=Cst (C-struct based), see doc to use other codecs
     fn cst_decode(self) -> crate::api::types::MlsWireFormatPolicy {
@@ -4658,6 +4740,7 @@ impl SseDecode for crate::api::types::FlexibleCommitOptions {
         let mut var_aad = <Option<Vec<u8>>>::sse_decode(deserializer);
         let mut var_createGroupInfo = <bool>::sse_decode(deserializer);
         let mut var_useRatchetTreeExtension = <bool>::sse_decode(deserializer);
+        let mut var_keepPending = <bool>::sse_decode(deserializer);
         return crate::api::types::FlexibleCommitOptions {
             add_key_packages: var_addKeyPackages,
             remove_indices: var_removeIndices,
@@ -4667,6 +4750,7 @@ impl SseDecode for crate::api::types::FlexibleCommitOptions {
             aad: var_aad,
             create_group_info: var_createGroupInfo,
             use_ratchet_tree_extension: var_useRatchetTreeExtension,
+            keep_pending: var_keepPending,
         };
     }
 }
@@ -4810,6 +4894,20 @@ impl SseDecode for Vec<crate::api::types::MlsExtension> {
     }
 }
 
+impl SseDecode for Vec<crate::api::types::MlsExternalSenderInfo> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut len_ = <i32>::sse_decode(deserializer);
+        let mut ans_ = Vec::with_capacity(len_ as usize);
+        for idx_ in 0..len_ {
+            ans_.push(<crate::api::types::MlsExternalSenderInfo>::sse_decode(
+                deserializer,
+            ));
+        }
+        return ans_;
+    }
+}
+
 impl SseDecode for Vec<crate::api::types::MlsMemberInfo> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -4872,6 +4970,20 @@ impl SseDecode for Vec<u8> {
     }
 }
 
+impl SseDecode for Vec<crate::api::types::StagedProposalInfo> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut len_ = <i32>::sse_decode(deserializer);
+        let mut ans_ = Vec::with_capacity(len_ as usize);
+        for idx_ in 0..len_ {
+            ans_.push(<crate::api::types::StagedProposalInfo>::sse_decode(
+                deserializer,
+            ));
+        }
+        return ans_;
+    }
+}
+
 impl SseDecode for crate::api::types::MlsCapabilities {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -4923,6 +5035,18 @@ impl SseDecode for crate::api::types::MlsExtension {
         return crate::api::types::MlsExtension {
             extension_type: var_extensionType,
             data: var_data,
+        };
+    }
+}
+
+impl SseDecode for crate::api::types::MlsExternalSenderInfo {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_credential = <Vec<u8>>::sse_decode(deserializer);
+        let mut var_signatureKey = <Vec<u8>>::sse_decode(deserializer);
+        return crate::api::types::MlsExternalSenderInfo {
+            credential: var_credential,
+            signature_key: var_signatureKey,
         };
     }
 }
@@ -5034,6 +5158,32 @@ impl SseDecode for crate::api::types::MlsProposalType {
     }
 }
 
+impl SseDecode for crate::api::types::MlsSenderInfo {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_kind = <crate::api::types::MlsSenderKind>::sse_decode(deserializer);
+        let mut var_index = <Option<u32>>::sse_decode(deserializer);
+        return crate::api::types::MlsSenderInfo {
+            kind: var_kind,
+            index: var_index,
+        };
+    }
+}
+
+impl SseDecode for crate::api::types::MlsSenderKind {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut inner = <i32>::sse_decode(deserializer);
+        return match inner {
+            0 => crate::api::types::MlsSenderKind::Member,
+            1 => crate::api::types::MlsSenderKind::External,
+            2 => crate::api::types::MlsSenderKind::NewMemberProposal,
+            3 => crate::api::types::MlsSenderKind::NewMemberCommit,
+            _ => unreachable!("Invalid variant for MlsSenderKind: {}", inner),
+        };
+    }
+}
+
 impl SseDecode for crate::api::types::MlsWireFormatPolicy {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -5070,6 +5220,19 @@ impl SseDecode for Option<crate::api::types::MlsCapabilities> {
     }
 }
 
+impl SseDecode for Option<crate::api::types::MlsLeafNodeInfo> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        if (<bool>::sse_decode(deserializer)) {
+            return Some(<crate::api::types::MlsLeafNodeInfo>::sse_decode(
+                deserializer,
+            ));
+        } else {
+            return None;
+        }
+    }
+}
+
 impl SseDecode for Option<crate::api::types::MlsMemberInfo> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -5094,11 +5257,35 @@ impl SseDecode for Option<crate::api::types::MlsProposalType> {
     }
 }
 
+impl SseDecode for Option<crate::api::types::MlsSenderInfo> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        if (<bool>::sse_decode(deserializer)) {
+            return Some(<crate::api::types::MlsSenderInfo>::sse_decode(deserializer));
+        } else {
+            return None;
+        }
+    }
+}
+
 impl SseDecode for Option<crate::api::types::StagedCommitInfo> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
         if (<bool>::sse_decode(deserializer)) {
             return Some(<crate::api::types::StagedCommitInfo>::sse_decode(
+                deserializer,
+            ));
+        } else {
+            return None;
+        }
+    }
+}
+
+impl SseDecode for Option<crate::api::types::StagedProposalInfo> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        if (<bool>::sse_decode(deserializer)) {
+            return Some(<crate::api::types::StagedProposalInfo>::sse_decode(
                 deserializer,
             ));
         } else {
@@ -5177,6 +5364,9 @@ impl SseDecode for crate::api::engine::ProcessedMessageInspectResult {
             <Option<crate::api::types::StagedCommitInfo>>::sse_decode(deserializer);
         let mut var_proposalType =
             <Option<crate::api::types::MlsProposalType>>::sse_decode(deserializer);
+        let mut var_sender = <Option<crate::api::types::MlsSenderInfo>>::sse_decode(deserializer);
+        let mut var_proposalInfo =
+            <Option<crate::api::types::StagedProposalInfo>>::sse_decode(deserializer);
         return crate::api::engine::ProcessedMessageInspectResult {
             message_type: var_messageType,
             sender_index: var_senderIndex,
@@ -5184,6 +5374,8 @@ impl SseDecode for crate::api::engine::ProcessedMessageInspectResult {
             application_message: var_applicationMessage,
             staged_commit_info: var_stagedCommitInfo,
             proposal_type: var_proposalType,
+            sender: var_sender,
+            proposal_info: var_proposalInfo,
         };
     }
 }
@@ -5243,12 +5435,48 @@ impl SseDecode for crate::api::types::StagedCommitInfo {
         let mut var_hasUpdate = <bool>::sse_decode(deserializer);
         let mut var_selfRemoved = <bool>::sse_decode(deserializer);
         let mut var_pskCount = <u32>::sse_decode(deserializer);
+        let mut var_removeCredentials = <Vec<Vec<u8>>>::sse_decode(deserializer);
+        let mut var_proposals =
+            <Vec<crate::api::types::StagedProposalInfo>>::sse_decode(deserializer);
+        let mut var_committerCredential = <Option<Vec<u8>>>::sse_decode(deserializer);
+        let mut var_groupContextExtensions =
+            <Vec<crate::api::types::MlsExtension>>::sse_decode(deserializer);
+        let mut var_externalSenders =
+            <Vec<crate::api::types::MlsExternalSenderInfo>>::sse_decode(deserializer);
         return crate::api::types::StagedCommitInfo {
             add_credentials: var_addCredentials,
             remove_indices: var_removeIndices,
             has_update: var_hasUpdate,
             self_removed: var_selfRemoved,
             psk_count: var_pskCount,
+            remove_credentials: var_removeCredentials,
+            proposals: var_proposals,
+            committer_credential: var_committerCredential,
+            group_context_extensions: var_groupContextExtensions,
+            external_senders: var_externalSenders,
+        };
+    }
+}
+
+impl SseDecode for crate::api::types::StagedProposalInfo {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_proposalType = <crate::api::types::MlsProposalType>::sse_decode(deserializer);
+        let mut var_senderIndex = <Option<u32>>::sse_decode(deserializer);
+        let mut var_sender = <crate::api::types::MlsSenderInfo>::sse_decode(deserializer);
+        let mut var_byReference = <bool>::sse_decode(deserializer);
+        let mut var_leaf = <Option<crate::api::types::MlsLeafNodeInfo>>::sse_decode(deserializer);
+        let mut var_affectedMember =
+            <Option<crate::api::types::MlsMemberInfo>>::sse_decode(deserializer);
+        let mut var_extensions = <Vec<crate::api::types::MlsExtension>>::sse_decode(deserializer);
+        return crate::api::types::StagedProposalInfo {
+            proposal_type: var_proposalType,
+            sender_index: var_senderIndex,
+            sender: var_sender,
+            by_reference: var_byReference,
+            leaf: var_leaf,
+            affected_member: var_affectedMember,
+            extensions: var_extensions,
         };
     }
 }
@@ -5496,6 +5724,7 @@ impl flutter_rust_bridge::IntoDart for crate::api::types::FlexibleCommitOptions 
             self.aad.into_into_dart().into_dart(),
             self.create_group_info.into_into_dart().into_dart(),
             self.use_ratchet_tree_extension.into_into_dart().into_dart(),
+            self.keep_pending.into_into_dart().into_dart(),
         ]
         .into_dart()
     }
@@ -5734,6 +5963,27 @@ impl flutter_rust_bridge::IntoIntoDart<crate::api::types::MlsExtension>
     }
 }
 // Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::api::types::MlsExternalSenderInfo {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.credential.into_into_dart().into_dart(),
+            self.signature_key.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::api::types::MlsExternalSenderInfo
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::api::types::MlsExternalSenderInfo>
+    for crate::api::types::MlsExternalSenderInfo
+{
+    fn into_into_dart(self) -> crate::api::types::MlsExternalSenderInfo {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
 impl flutter_rust_bridge::IntoDart for crate::api::config::MlsGroupConfig {
     fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
         [
@@ -5884,6 +6134,50 @@ impl flutter_rust_bridge::IntoIntoDart<crate::api::types::MlsProposalType>
     }
 }
 // Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::api::types::MlsSenderInfo {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.kind.into_into_dart().into_dart(),
+            self.index.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::api::types::MlsSenderInfo
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::api::types::MlsSenderInfo>
+    for crate::api::types::MlsSenderInfo
+{
+    fn into_into_dart(self) -> crate::api::types::MlsSenderInfo {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::api::types::MlsSenderKind {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        match self {
+            Self::Member => 0.into_dart(),
+            Self::External => 1.into_dart(),
+            Self::NewMemberProposal => 2.into_dart(),
+            Self::NewMemberCommit => 3.into_dart(),
+            _ => unreachable!(),
+        }
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::api::types::MlsSenderKind
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::api::types::MlsSenderKind>
+    for crate::api::types::MlsSenderKind
+{
+    fn into_into_dart(self) -> crate::api::types::MlsSenderKind {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
 impl flutter_rust_bridge::IntoDart for crate::api::types::MlsWireFormatPolicy {
     fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
         match self {
@@ -5935,6 +6229,8 @@ impl flutter_rust_bridge::IntoDart for crate::api::engine::ProcessedMessageInspe
             self.application_message.into_into_dart().into_dart(),
             self.staged_commit_info.into_into_dart().into_dart(),
             self.proposal_type.into_into_dart().into_dart(),
+            self.sender.into_into_dart().into_dart(),
+            self.proposal_info.into_into_dart().into_dart(),
         ]
         .into_dart()
     }
@@ -6024,6 +6320,11 @@ impl flutter_rust_bridge::IntoDart for crate::api::types::StagedCommitInfo {
             self.has_update.into_into_dart().into_dart(),
             self.self_removed.into_into_dart().into_dart(),
             self.psk_count.into_into_dart().into_dart(),
+            self.remove_credentials.into_into_dart().into_dart(),
+            self.proposals.into_into_dart().into_dart(),
+            self.committer_credential.into_into_dart().into_dart(),
+            self.group_context_extensions.into_into_dart().into_dart(),
+            self.external_senders.into_into_dart().into_dart(),
         ]
         .into_dart()
     }
@@ -6036,6 +6337,32 @@ impl flutter_rust_bridge::IntoIntoDart<crate::api::types::StagedCommitInfo>
     for crate::api::types::StagedCommitInfo
 {
     fn into_into_dart(self) -> crate::api::types::StagedCommitInfo {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::api::types::StagedProposalInfo {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.proposal_type.into_into_dart().into_dart(),
+            self.sender_index.into_into_dart().into_dart(),
+            self.sender.into_into_dart().into_dart(),
+            self.by_reference.into_into_dart().into_dart(),
+            self.leaf.into_into_dart().into_dart(),
+            self.affected_member.into_into_dart().into_dart(),
+            self.extensions.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::api::types::StagedProposalInfo
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::api::types::StagedProposalInfo>
+    for crate::api::types::StagedProposalInfo
+{
+    fn into_into_dart(self) -> crate::api::types::StagedProposalInfo {
         self
     }
 }
@@ -6186,6 +6513,7 @@ impl SseEncode for crate::api::types::FlexibleCommitOptions {
         <Option<Vec<u8>>>::sse_encode(self.aad, serializer);
         <bool>::sse_encode(self.create_group_info, serializer);
         <bool>::sse_encode(self.use_ratchet_tree_extension, serializer);
+        <bool>::sse_encode(self.keep_pending, serializer);
     }
 }
 
@@ -6291,6 +6619,16 @@ impl SseEncode for Vec<crate::api::types::MlsExtension> {
     }
 }
 
+impl SseEncode for Vec<crate::api::types::MlsExternalSenderInfo> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(self.len() as _, serializer);
+        for item in self {
+            <crate::api::types::MlsExternalSenderInfo>::sse_encode(item, serializer);
+        }
+    }
+}
+
 impl SseEncode for Vec<crate::api::types::MlsMemberInfo> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -6341,6 +6679,16 @@ impl SseEncode for Vec<u8> {
     }
 }
 
+impl SseEncode for Vec<crate::api::types::StagedProposalInfo> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(self.len() as _, serializer);
+        for item in self {
+            <crate::api::types::StagedProposalInfo>::sse_encode(item, serializer);
+        }
+    }
+}
+
 impl SseEncode for crate::api::types::MlsCapabilities {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -6377,6 +6725,14 @@ impl SseEncode for crate::api::types::MlsExtension {
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
         <u16>::sse_encode(self.extension_type, serializer);
         <Vec<u8>>::sse_encode(self.data, serializer);
+    }
+}
+
+impl SseEncode for crate::api::types::MlsExternalSenderInfo {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <Vec<u8>>::sse_encode(self.credential, serializer);
+        <Vec<u8>>::sse_encode(self.signature_key, serializer);
     }
 }
 
@@ -6456,6 +6812,32 @@ impl SseEncode for crate::api::types::MlsProposalType {
     }
 }
 
+impl SseEncode for crate::api::types::MlsSenderInfo {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <crate::api::types::MlsSenderKind>::sse_encode(self.kind, serializer);
+        <Option<u32>>::sse_encode(self.index, serializer);
+    }
+}
+
+impl SseEncode for crate::api::types::MlsSenderKind {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(
+            match self {
+                crate::api::types::MlsSenderKind::Member => 0,
+                crate::api::types::MlsSenderKind::External => 1,
+                crate::api::types::MlsSenderKind::NewMemberProposal => 2,
+                crate::api::types::MlsSenderKind::NewMemberCommit => 3,
+                _ => {
+                    unimplemented!("");
+                }
+            },
+            serializer,
+        );
+    }
+}
+
 impl SseEncode for crate::api::types::MlsWireFormatPolicy {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -6492,6 +6874,16 @@ impl SseEncode for Option<crate::api::types::MlsCapabilities> {
     }
 }
 
+impl SseEncode for Option<crate::api::types::MlsLeafNodeInfo> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <bool>::sse_encode(self.is_some(), serializer);
+        if let Some(value) = self {
+            <crate::api::types::MlsLeafNodeInfo>::sse_encode(value, serializer);
+        }
+    }
+}
+
 impl SseEncode for Option<crate::api::types::MlsMemberInfo> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -6512,12 +6904,32 @@ impl SseEncode for Option<crate::api::types::MlsProposalType> {
     }
 }
 
+impl SseEncode for Option<crate::api::types::MlsSenderInfo> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <bool>::sse_encode(self.is_some(), serializer);
+        if let Some(value) = self {
+            <crate::api::types::MlsSenderInfo>::sse_encode(value, serializer);
+        }
+    }
+}
+
 impl SseEncode for Option<crate::api::types::StagedCommitInfo> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
         <bool>::sse_encode(self.is_some(), serializer);
         if let Some(value) = self {
             <crate::api::types::StagedCommitInfo>::sse_encode(value, serializer);
+        }
+    }
+}
+
+impl SseEncode for Option<crate::api::types::StagedProposalInfo> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <bool>::sse_encode(self.is_some(), serializer);
+        if let Some(value) = self {
+            <crate::api::types::StagedProposalInfo>::sse_encode(value, serializer);
         }
     }
 }
@@ -6582,6 +6994,8 @@ impl SseEncode for crate::api::engine::ProcessedMessageInspectResult {
             serializer,
         );
         <Option<crate::api::types::MlsProposalType>>::sse_encode(self.proposal_type, serializer);
+        <Option<crate::api::types::MlsSenderInfo>>::sse_encode(self.sender, serializer);
+        <Option<crate::api::types::StagedProposalInfo>>::sse_encode(self.proposal_info, serializer);
     }
 }
 
@@ -6630,6 +7044,30 @@ impl SseEncode for crate::api::types::StagedCommitInfo {
         <bool>::sse_encode(self.has_update, serializer);
         <bool>::sse_encode(self.self_removed, serializer);
         <u32>::sse_encode(self.psk_count, serializer);
+        <Vec<Vec<u8>>>::sse_encode(self.remove_credentials, serializer);
+        <Vec<crate::api::types::StagedProposalInfo>>::sse_encode(self.proposals, serializer);
+        <Option<Vec<u8>>>::sse_encode(self.committer_credential, serializer);
+        <Vec<crate::api::types::MlsExtension>>::sse_encode(
+            self.group_context_extensions,
+            serializer,
+        );
+        <Vec<crate::api::types::MlsExternalSenderInfo>>::sse_encode(
+            self.external_senders,
+            serializer,
+        );
+    }
+}
+
+impl SseEncode for crate::api::types::StagedProposalInfo {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <crate::api::types::MlsProposalType>::sse_encode(self.proposal_type, serializer);
+        <Option<u32>>::sse_encode(self.sender_index, serializer);
+        <crate::api::types::MlsSenderInfo>::sse_encode(self.sender, serializer);
+        <bool>::sse_encode(self.by_reference, serializer);
+        <Option<crate::api::types::MlsLeafNodeInfo>>::sse_encode(self.leaf, serializer);
+        <Option<crate::api::types::MlsMemberInfo>>::sse_encode(self.affected_member, serializer);
+        <Vec<crate::api::types::MlsExtension>>::sse_encode(self.extensions, serializer);
     }
 }
 
@@ -6829,6 +7267,13 @@ mod io {
             CstDecode::<crate::api::config::MlsGroupConfig>::cst_decode(*wrap).into()
         }
     }
+    impl CstDecode<crate::api::types::MlsLeafNodeInfo> for *mut wire_cst_mls_leaf_node_info {
+        // Codec=Cst (C-struct based), see doc to use other codecs
+        fn cst_decode(self) -> crate::api::types::MlsLeafNodeInfo {
+            let wrap = unsafe { flutter_rust_bridge::for_generated::box_from_leak_ptr(self) };
+            CstDecode::<crate::api::types::MlsLeafNodeInfo>::cst_decode(*wrap).into()
+        }
+    }
     impl CstDecode<crate::api::types::MlsMemberInfo> for *mut wire_cst_mls_member_info {
         // Codec=Cst (C-struct based), see doc to use other codecs
         fn cst_decode(self) -> crate::api::types::MlsMemberInfo {
@@ -6843,11 +7288,25 @@ mod io {
             CstDecode::<crate::api::types::MlsProposalType>::cst_decode(*wrap).into()
         }
     }
+    impl CstDecode<crate::api::types::MlsSenderInfo> for *mut wire_cst_mls_sender_info {
+        // Codec=Cst (C-struct based), see doc to use other codecs
+        fn cst_decode(self) -> crate::api::types::MlsSenderInfo {
+            let wrap = unsafe { flutter_rust_bridge::for_generated::box_from_leak_ptr(self) };
+            CstDecode::<crate::api::types::MlsSenderInfo>::cst_decode(*wrap).into()
+        }
+    }
     impl CstDecode<crate::api::types::StagedCommitInfo> for *mut wire_cst_staged_commit_info {
         // Codec=Cst (C-struct based), see doc to use other codecs
         fn cst_decode(self) -> crate::api::types::StagedCommitInfo {
             let wrap = unsafe { flutter_rust_bridge::for_generated::box_from_leak_ptr(self) };
             CstDecode::<crate::api::types::StagedCommitInfo>::cst_decode(*wrap).into()
+        }
+    }
+    impl CstDecode<crate::api::types::StagedProposalInfo> for *mut wire_cst_staged_proposal_info {
+        // Codec=Cst (C-struct based), see doc to use other codecs
+        fn cst_decode(self) -> crate::api::types::StagedProposalInfo {
+            let wrap = unsafe { flutter_rust_bridge::for_generated::box_from_leak_ptr(self) };
+            CstDecode::<crate::api::types::StagedProposalInfo>::cst_decode(*wrap).into()
         }
     }
     impl CstDecode<u32> for *mut u32 {
@@ -6910,6 +7369,7 @@ mod io {
                 aad: self.aad.cst_decode(),
                 create_group_info: self.create_group_info.cst_decode(),
                 use_ratchet_tree_extension: self.use_ratchet_tree_extension.cst_decode(),
+                keep_pending: self.keep_pending.cst_decode(),
             }
         }
     }
@@ -7013,6 +7473,18 @@ mod io {
             vec.into_iter().map(CstDecode::cst_decode).collect()
         }
     }
+    impl CstDecode<Vec<crate::api::types::MlsExternalSenderInfo>>
+        for *mut wire_cst_list_mls_external_sender_info
+    {
+        // Codec=Cst (C-struct based), see doc to use other codecs
+        fn cst_decode(self) -> Vec<crate::api::types::MlsExternalSenderInfo> {
+            let vec = unsafe {
+                let wrap = flutter_rust_bridge::for_generated::box_from_leak_ptr(self);
+                flutter_rust_bridge::for_generated::vec_from_leak_ptr(wrap.ptr, wrap.len)
+            };
+            vec.into_iter().map(CstDecode::cst_decode).collect()
+        }
+    }
     impl CstDecode<Vec<crate::api::types::MlsMemberInfo>> for *mut wire_cst_list_mls_member_info {
         // Codec=Cst (C-struct based), see doc to use other codecs
         fn cst_decode(self) -> Vec<crate::api::types::MlsMemberInfo> {
@@ -7080,6 +7552,18 @@ mod io {
             }
         }
     }
+    impl CstDecode<Vec<crate::api::types::StagedProposalInfo>>
+        for *mut wire_cst_list_staged_proposal_info
+    {
+        // Codec=Cst (C-struct based), see doc to use other codecs
+        fn cst_decode(self) -> Vec<crate::api::types::StagedProposalInfo> {
+            let vec = unsafe {
+                let wrap = flutter_rust_bridge::for_generated::box_from_leak_ptr(self);
+                flutter_rust_bridge::for_generated::vec_from_leak_ptr(wrap.ptr, wrap.len)
+            };
+            vec.into_iter().map(CstDecode::cst_decode).collect()
+        }
+    }
     impl CstDecode<crate::api::types::MlsCapabilities> for wire_cst_mls_capabilities {
         // Codec=Cst (C-struct based), see doc to use other codecs
         fn cst_decode(self) -> crate::api::types::MlsCapabilities {
@@ -7098,6 +7582,15 @@ mod io {
             crate::api::types::MlsExtension {
                 extension_type: self.extension_type.cst_decode(),
                 data: self.data.cst_decode(),
+            }
+        }
+    }
+    impl CstDecode<crate::api::types::MlsExternalSenderInfo> for wire_cst_mls_external_sender_info {
+        // Codec=Cst (C-struct based), see doc to use other codecs
+        fn cst_decode(self) -> crate::api::types::MlsExternalSenderInfo {
+            crate::api::types::MlsExternalSenderInfo {
+                credential: self.credential.cst_decode(),
+                signature_key: self.signature_key.cst_decode(),
             }
         }
     }
@@ -7162,6 +7655,15 @@ mod io {
             }
         }
     }
+    impl CstDecode<crate::api::types::MlsSenderInfo> for wire_cst_mls_sender_info {
+        // Codec=Cst (C-struct based), see doc to use other codecs
+        fn cst_decode(self) -> crate::api::types::MlsSenderInfo {
+            crate::api::types::MlsSenderInfo {
+                kind: self.kind.cst_decode(),
+                index: self.index.cst_decode(),
+            }
+        }
+    }
     impl CstDecode<crate::api::engine::PastEpochDeletionPolicyResult>
         for wire_cst_past_epoch_deletion_policy_result
     {
@@ -7185,6 +7687,8 @@ mod io {
                 application_message: self.application_message.cst_decode(),
                 staged_commit_info: self.staged_commit_info.cst_decode(),
                 proposal_type: self.proposal_type.cst_decode(),
+                sender: self.sender.cst_decode(),
+                proposal_info: self.proposal_info.cst_decode(),
             }
         }
     }
@@ -7219,6 +7723,25 @@ mod io {
                 has_update: self.has_update.cst_decode(),
                 self_removed: self.self_removed.cst_decode(),
                 psk_count: self.psk_count.cst_decode(),
+                remove_credentials: self.remove_credentials.cst_decode(),
+                proposals: self.proposals.cst_decode(),
+                committer_credential: self.committer_credential.cst_decode(),
+                group_context_extensions: self.group_context_extensions.cst_decode(),
+                external_senders: self.external_senders.cst_decode(),
+            }
+        }
+    }
+    impl CstDecode<crate::api::types::StagedProposalInfo> for wire_cst_staged_proposal_info {
+        // Codec=Cst (C-struct based), see doc to use other codecs
+        fn cst_decode(self) -> crate::api::types::StagedProposalInfo {
+            crate::api::types::StagedProposalInfo {
+                proposal_type: self.proposal_type.cst_decode(),
+                sender_index: self.sender_index.cst_decode(),
+                sender: self.sender.cst_decode(),
+                by_reference: self.by_reference.cst_decode(),
+                leaf: self.leaf.cst_decode(),
+                affected_member: self.affected_member.cst_decode(),
+                extensions: self.extensions.cst_decode(),
             }
         }
     }
@@ -7310,6 +7833,7 @@ mod io {
                 aad: core::ptr::null_mut(),
                 create_group_info: Default::default(),
                 use_ratchet_tree_extension: Default::default(),
+                keep_pending: Default::default(),
             }
         }
     }
@@ -7441,6 +7965,19 @@ mod io {
             Self::new_with_null_ptr()
         }
     }
+    impl NewWithNullPtr for wire_cst_mls_external_sender_info {
+        fn new_with_null_ptr() -> Self {
+            Self {
+                credential: core::ptr::null_mut(),
+                signature_key: core::ptr::null_mut(),
+            }
+        }
+    }
+    impl Default for wire_cst_mls_external_sender_info {
+        fn default() -> Self {
+            Self::new_with_null_ptr()
+        }
+    }
     impl NewWithNullPtr for wire_cst_mls_group_config {
         fn new_with_null_ptr() -> Self {
             Self {
@@ -7520,6 +8057,19 @@ mod io {
             Self::new_with_null_ptr()
         }
     }
+    impl NewWithNullPtr for wire_cst_mls_sender_info {
+        fn new_with_null_ptr() -> Self {
+            Self {
+                kind: Default::default(),
+                index: core::ptr::null_mut(),
+            }
+        }
+    }
+    impl Default for wire_cst_mls_sender_info {
+        fn default() -> Self {
+            Self::new_with_null_ptr()
+        }
+    }
     impl NewWithNullPtr for wire_cst_past_epoch_deletion_policy_result {
         fn new_with_null_ptr() -> Self {
             Self {
@@ -7542,6 +8092,8 @@ mod io {
                 application_message: core::ptr::null_mut(),
                 staged_commit_info: core::ptr::null_mut(),
                 proposal_type: core::ptr::null_mut(),
+                sender: core::ptr::null_mut(),
+                proposal_info: core::ptr::null_mut(),
             }
         }
     }
@@ -7588,10 +8140,33 @@ mod io {
                 has_update: Default::default(),
                 self_removed: Default::default(),
                 psk_count: Default::default(),
+                remove_credentials: core::ptr::null_mut(),
+                proposals: core::ptr::null_mut(),
+                committer_credential: core::ptr::null_mut(),
+                group_context_extensions: core::ptr::null_mut(),
+                external_senders: core::ptr::null_mut(),
             }
         }
     }
     impl Default for wire_cst_staged_commit_info {
+        fn default() -> Self {
+            Self::new_with_null_ptr()
+        }
+    }
+    impl NewWithNullPtr for wire_cst_staged_proposal_info {
+        fn new_with_null_ptr() -> Self {
+            Self {
+                proposal_type: Default::default(),
+                sender_index: core::ptr::null_mut(),
+                sender: Default::default(),
+                by_reference: Default::default(),
+                leaf: core::ptr::null_mut(),
+                affected_member: core::ptr::null_mut(),
+                extensions: core::ptr::null_mut(),
+            }
+        }
+    }
+    impl Default for wire_cst_staged_proposal_info {
         fn default() -> Self {
             Self::new_with_null_ptr()
         }
@@ -8231,6 +8806,21 @@ mod io {
     }
 
     #[unsafe(no_mangle)]
+    pub extern "C" fn frbgen_openmls_wire__crate__api__engine__MlsEngine_inspect_message(
+        port_: i64,
+        that: usize,
+        group_id_bytes: *mut wire_cst_list_prim_u_8_loose,
+        message_bytes: *mut wire_cst_list_prim_u_8_loose,
+    ) {
+        wire__crate__api__engine__MlsEngine_inspect_message_impl(
+            port_,
+            that,
+            group_id_bytes,
+            message_bytes,
+        )
+    }
+
+    #[unsafe(no_mangle)]
     pub extern "C" fn frbgen_openmls_wire__crate__api__engine__MlsEngine_inspect_welcome(
         port_: i64,
         that: usize,
@@ -8796,6 +9386,13 @@ mod io {
     }
 
     #[unsafe(no_mangle)]
+    pub extern "C" fn frbgen_openmls_wire__crate__api__types__decode_external_senders(
+        data: *mut wire_cst_list_prim_u_8_loose,
+    ) -> flutter_rust_bridge::for_generated::WireSyncRust2DartDco {
+        wire__crate__api__types__decode_external_senders_impl(data)
+    }
+
+    #[unsafe(no_mangle)]
     pub extern "C" fn frbgen_openmls_wire__crate__api__init__init_openmls(
         _library_path: *mut wire_cst_list_prim_u_8_strict,
     ) -> flutter_rust_bridge::for_generated::WireSyncRust2DartDco {
@@ -8945,6 +9542,14 @@ mod io {
     }
 
     #[unsafe(no_mangle)]
+    pub extern "C" fn frbgen_openmls_cst_new_box_autoadd_mls_leaf_node_info(
+    ) -> *mut wire_cst_mls_leaf_node_info {
+        flutter_rust_bridge::for_generated::new_leak_box_ptr(
+            wire_cst_mls_leaf_node_info::new_with_null_ptr(),
+        )
+    }
+
+    #[unsafe(no_mangle)]
     pub extern "C" fn frbgen_openmls_cst_new_box_autoadd_mls_member_info(
     ) -> *mut wire_cst_mls_member_info {
         flutter_rust_bridge::for_generated::new_leak_box_ptr(
@@ -8958,10 +9563,26 @@ mod io {
     }
 
     #[unsafe(no_mangle)]
+    pub extern "C" fn frbgen_openmls_cst_new_box_autoadd_mls_sender_info(
+    ) -> *mut wire_cst_mls_sender_info {
+        flutter_rust_bridge::for_generated::new_leak_box_ptr(
+            wire_cst_mls_sender_info::new_with_null_ptr(),
+        )
+    }
+
+    #[unsafe(no_mangle)]
     pub extern "C" fn frbgen_openmls_cst_new_box_autoadd_staged_commit_info(
     ) -> *mut wire_cst_staged_commit_info {
         flutter_rust_bridge::for_generated::new_leak_box_ptr(
             wire_cst_staged_commit_info::new_with_null_ptr(),
+        )
+    }
+
+    #[unsafe(no_mangle)]
+    pub extern "C" fn frbgen_openmls_cst_new_box_autoadd_staged_proposal_info(
+    ) -> *mut wire_cst_staged_proposal_info {
+        flutter_rust_bridge::for_generated::new_leak_box_ptr(
+            wire_cst_staged_proposal_info::new_with_null_ptr(),
         )
     }
 
@@ -9007,6 +9628,20 @@ mod io {
         let wrap = wire_cst_list_mls_extension {
             ptr: flutter_rust_bridge::for_generated::new_leak_vec_ptr(
                 <wire_cst_mls_extension>::new_with_null_ptr(),
+                len,
+            ),
+            len,
+        };
+        flutter_rust_bridge::for_generated::new_leak_box_ptr(wrap)
+    }
+
+    #[unsafe(no_mangle)]
+    pub extern "C" fn frbgen_openmls_cst_new_list_mls_external_sender_info(
+        len: i32,
+    ) -> *mut wire_cst_list_mls_external_sender_info {
+        let wrap = wire_cst_list_mls_external_sender_info {
+            ptr: flutter_rust_bridge::for_generated::new_leak_vec_ptr(
+                <wire_cst_mls_external_sender_info>::new_with_null_ptr(),
                 len,
             ),
             len,
@@ -9097,6 +9732,20 @@ mod io {
         flutter_rust_bridge::for_generated::new_leak_box_ptr(ans)
     }
 
+    #[unsafe(no_mangle)]
+    pub extern "C" fn frbgen_openmls_cst_new_list_staged_proposal_info(
+        len: i32,
+    ) -> *mut wire_cst_list_staged_proposal_info {
+        let wrap = wire_cst_list_staged_proposal_info {
+            ptr: flutter_rust_bridge::for_generated::new_leak_vec_ptr(
+                <wire_cst_staged_proposal_info>::new_with_null_ptr(),
+                len,
+            ),
+            len,
+        };
+        flutter_rust_bridge::for_generated::new_leak_box_ptr(wrap)
+    }
+
     #[repr(C)]
     #[derive(Clone, Copy)]
     pub struct wire_cst_add_members_result {
@@ -9139,6 +9788,7 @@ mod io {
         aad: *mut wire_cst_list_prim_u_8_strict,
         create_group_info: bool,
         use_ratchet_tree_extension: bool,
+        keep_pending: bool,
     }
     #[repr(C)]
     #[derive(Clone, Copy)]
@@ -9205,6 +9855,12 @@ mod io {
     }
     #[repr(C)]
     #[derive(Clone, Copy)]
+    pub struct wire_cst_list_mls_external_sender_info {
+        ptr: *mut wire_cst_mls_external_sender_info,
+        len: i32,
+    }
+    #[repr(C)]
+    #[derive(Clone, Copy)]
     pub struct wire_cst_list_mls_member_info {
         ptr: *mut wire_cst_mls_member_info,
         len: i32,
@@ -9247,6 +9903,12 @@ mod io {
     }
     #[repr(C)]
     #[derive(Clone, Copy)]
+    pub struct wire_cst_list_staged_proposal_info {
+        ptr: *mut wire_cst_staged_proposal_info,
+        len: i32,
+    }
+    #[repr(C)]
+    #[derive(Clone, Copy)]
     pub struct wire_cst_mls_capabilities {
         versions: *mut wire_cst_list_prim_u_16_strict,
         ciphersuites: *mut wire_cst_list_prim_u_16_strict,
@@ -9259,6 +9921,12 @@ mod io {
     pub struct wire_cst_mls_extension {
         extension_type: u16,
         data: *mut wire_cst_list_prim_u_8_strict,
+    }
+    #[repr(C)]
+    #[derive(Clone, Copy)]
+    pub struct wire_cst_mls_external_sender_info {
+        credential: *mut wire_cst_list_prim_u_8_strict,
+        signature_key: *mut wire_cst_list_prim_u_8_strict,
     }
     #[repr(C)]
     #[derive(Clone, Copy)]
@@ -9306,6 +9974,12 @@ mod io {
     }
     #[repr(C)]
     #[derive(Clone, Copy)]
+    pub struct wire_cst_mls_sender_info {
+        kind: i32,
+        index: *mut u32,
+    }
+    #[repr(C)]
+    #[derive(Clone, Copy)]
     pub struct wire_cst_past_epoch_deletion_policy_result {
         keep_all: bool,
         max_epochs: u32,
@@ -9319,6 +9993,8 @@ mod io {
         application_message: *mut wire_cst_list_prim_u_8_strict,
         staged_commit_info: *mut wire_cst_staged_commit_info,
         proposal_type: *mut i32,
+        sender: *mut wire_cst_mls_sender_info,
+        proposal_info: *mut wire_cst_staged_proposal_info,
     }
     #[repr(C)]
     #[derive(Clone, Copy)]
@@ -9344,6 +10020,22 @@ mod io {
         has_update: bool,
         self_removed: bool,
         psk_count: u32,
+        remove_credentials: *mut wire_cst_list_list_prim_u_8_strict,
+        proposals: *mut wire_cst_list_staged_proposal_info,
+        committer_credential: *mut wire_cst_list_prim_u_8_strict,
+        group_context_extensions: *mut wire_cst_list_mls_extension,
+        external_senders: *mut wire_cst_list_mls_external_sender_info,
+    }
+    #[repr(C)]
+    #[derive(Clone, Copy)]
+    pub struct wire_cst_staged_proposal_info {
+        proposal_type: i32,
+        sender_index: *mut u32,
+        sender: wire_cst_mls_sender_info,
+        by_reference: bool,
+        leaf: *mut wire_cst_mls_leaf_node_info,
+        affected_member: *mut wire_cst_mls_member_info,
+        extensions: *mut wire_cst_list_mls_extension,
     }
     #[repr(C)]
     #[derive(Clone, Copy)]
@@ -9500,8 +10192,8 @@ mod web {
                 .unwrap();
             assert_eq!(
                 self_.length(),
-                8,
-                "Expected 8 elements, got {}",
+                9,
+                "Expected 9 elements, got {}",
                 self_.length()
             );
             crate::api::types::FlexibleCommitOptions {
@@ -9513,6 +10205,7 @@ mod web {
                 aad: self_.get(5).cst_decode(),
                 create_group_info: self_.get(6).cst_decode(),
                 use_ratchet_tree_extension: self_.get(7).cst_decode(),
+                keep_pending: self_.get(8).cst_decode(),
             }
         }
     }
@@ -9693,6 +10386,18 @@ mod web {
                 .collect()
         }
     }
+    impl CstDecode<Vec<crate::api::types::MlsExternalSenderInfo>>
+        for flutter_rust_bridge::for_generated::wasm_bindgen::JsValue
+    {
+        // Codec=Cst (C-struct based), see doc to use other codecs
+        fn cst_decode(self) -> Vec<crate::api::types::MlsExternalSenderInfo> {
+            self.dyn_into::<flutter_rust_bridge::for_generated::js_sys::Array>()
+                .unwrap()
+                .iter()
+                .map(CstDecode::cst_decode)
+                .collect()
+        }
+    }
     impl CstDecode<Vec<crate::api::types::MlsMemberInfo>>
         for flutter_rust_bridge::for_generated::wasm_bindgen::JsValue
     {
@@ -9735,6 +10440,18 @@ mod web {
             self.into_vec()
         }
     }
+    impl CstDecode<Vec<crate::api::types::StagedProposalInfo>>
+        for flutter_rust_bridge::for_generated::wasm_bindgen::JsValue
+    {
+        // Codec=Cst (C-struct based), see doc to use other codecs
+        fn cst_decode(self) -> Vec<crate::api::types::StagedProposalInfo> {
+            self.dyn_into::<flutter_rust_bridge::for_generated::js_sys::Array>()
+                .unwrap()
+                .iter()
+                .map(CstDecode::cst_decode)
+                .collect()
+        }
+    }
     impl CstDecode<crate::api::types::MlsCapabilities>
         for flutter_rust_bridge::for_generated::wasm_bindgen::JsValue
     {
@@ -9775,6 +10492,26 @@ mod web {
             crate::api::types::MlsExtension {
                 extension_type: self_.get(0).cst_decode(),
                 data: self_.get(1).cst_decode(),
+            }
+        }
+    }
+    impl CstDecode<crate::api::types::MlsExternalSenderInfo>
+        for flutter_rust_bridge::for_generated::wasm_bindgen::JsValue
+    {
+        // Codec=Cst (C-struct based), see doc to use other codecs
+        fn cst_decode(self) -> crate::api::types::MlsExternalSenderInfo {
+            let self_ = self
+                .dyn_into::<flutter_rust_bridge::for_generated::js_sys::Array>()
+                .unwrap();
+            assert_eq!(
+                self_.length(),
+                2,
+                "Expected 2 elements, got {}",
+                self_.length()
+            );
+            crate::api::types::MlsExternalSenderInfo {
+                credential: self_.get(0).cst_decode(),
+                signature_key: self_.get(1).cst_decode(),
             }
         }
     }
@@ -9892,6 +10629,26 @@ mod web {
             }
         }
     }
+    impl CstDecode<crate::api::types::MlsSenderInfo>
+        for flutter_rust_bridge::for_generated::wasm_bindgen::JsValue
+    {
+        // Codec=Cst (C-struct based), see doc to use other codecs
+        fn cst_decode(self) -> crate::api::types::MlsSenderInfo {
+            let self_ = self
+                .dyn_into::<flutter_rust_bridge::for_generated::js_sys::Array>()
+                .unwrap();
+            assert_eq!(
+                self_.length(),
+                2,
+                "Expected 2 elements, got {}",
+                self_.length()
+            );
+            crate::api::types::MlsSenderInfo {
+                kind: self_.get(0).cst_decode(),
+                index: self_.get(1).cst_decode(),
+            }
+        }
+    }
     impl CstDecode<Option<String>> for Option<String> {
         // Codec=Cst (C-struct based), see doc to use other codecs
         fn cst_decode(self) -> Option<String> {
@@ -9934,8 +10691,8 @@ mod web {
                 .unwrap();
             assert_eq!(
                 self_.length(),
-                6,
-                "Expected 6 elements, got {}",
+                8,
+                "Expected 8 elements, got {}",
                 self_.length()
             );
             crate::api::engine::ProcessedMessageInspectResult {
@@ -9945,6 +10702,8 @@ mod web {
                 application_message: self_.get(3).cst_decode(),
                 staged_commit_info: self_.get(4).cst_decode(),
                 proposal_type: self_.get(5).cst_decode(),
+                sender: self_.get(6).cst_decode(),
+                proposal_info: self_.get(7).cst_decode(),
             }
         }
     }
@@ -10002,8 +10761,8 @@ mod web {
                 .unwrap();
             assert_eq!(
                 self_.length(),
-                5,
-                "Expected 5 elements, got {}",
+                10,
+                "Expected 10 elements, got {}",
                 self_.length()
             );
             crate::api::types::StagedCommitInfo {
@@ -10012,6 +10771,36 @@ mod web {
                 has_update: self_.get(2).cst_decode(),
                 self_removed: self_.get(3).cst_decode(),
                 psk_count: self_.get(4).cst_decode(),
+                remove_credentials: self_.get(5).cst_decode(),
+                proposals: self_.get(6).cst_decode(),
+                committer_credential: self_.get(7).cst_decode(),
+                group_context_extensions: self_.get(8).cst_decode(),
+                external_senders: self_.get(9).cst_decode(),
+            }
+        }
+    }
+    impl CstDecode<crate::api::types::StagedProposalInfo>
+        for flutter_rust_bridge::for_generated::wasm_bindgen::JsValue
+    {
+        // Codec=Cst (C-struct based), see doc to use other codecs
+        fn cst_decode(self) -> crate::api::types::StagedProposalInfo {
+            let self_ = self
+                .dyn_into::<flutter_rust_bridge::for_generated::js_sys::Array>()
+                .unwrap();
+            assert_eq!(
+                self_.length(),
+                7,
+                "Expected 7 elements, got {}",
+                self_.length()
+            );
+            crate::api::types::StagedProposalInfo {
+                proposal_type: self_.get(0).cst_decode(),
+                sender_index: self_.get(1).cst_decode(),
+                sender: self_.get(2).cst_decode(),
+                by_reference: self_.get(3).cst_decode(),
+                leaf: self_.get(4).cst_decode(),
+                affected_member: self_.get(5).cst_decode(),
+                extensions: self_.get(6).cst_decode(),
             }
         }
     }
@@ -10179,6 +10968,14 @@ mod web {
     {
         // Codec=Cst (C-struct based), see doc to use other codecs
         fn cst_decode(self) -> crate::api::types::MlsProposalType {
+            (self.unchecked_into_f64() as i32).cst_decode()
+        }
+    }
+    impl CstDecode<crate::api::types::MlsSenderKind>
+        for flutter_rust_bridge::for_generated::wasm_bindgen::JsValue
+    {
+        // Codec=Cst (C-struct based), see doc to use other codecs
+        fn cst_decode(self) -> crate::api::types::MlsSenderKind {
             (self.unchecked_into_f64() as i32).cst_decode()
         }
     }
@@ -10848,6 +11645,21 @@ mod web {
     }
 
     #[wasm_bindgen]
+    pub fn wire__crate__api__engine__MlsEngine_inspect_message(
+        port_: flutter_rust_bridge::for_generated::MessagePort,
+        that: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
+        group_id_bytes: Box<[u8]>,
+        message_bytes: Box<[u8]>,
+    ) {
+        wire__crate__api__engine__MlsEngine_inspect_message_impl(
+            port_,
+            that,
+            group_id_bytes,
+            message_bytes,
+        )
+    }
+
+    #[wasm_bindgen]
     pub fn wire__crate__api__engine__MlsEngine_inspect_welcome(
         port_: flutter_rust_bridge::for_generated::MessagePort,
         that: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
@@ -11410,6 +12222,13 @@ mod web {
         now_unix_seconds: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
     ) -> flutter_rust_bridge::for_generated::WireSyncRust2DartDco {
         wire__crate__api__engine__check_lifetime_at_impl(not_before, not_after, now_unix_seconds)
+    }
+
+    #[wasm_bindgen]
+    pub fn wire__crate__api__types__decode_external_senders(
+        data: Box<[u8]>,
+    ) -> flutter_rust_bridge::for_generated::WireSyncRust2DartDco {
+        wire__crate__api__types__decode_external_senders_impl(data)
     }
 
     #[wasm_bindgen]
