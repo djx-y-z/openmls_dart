@@ -1,3 +1,53 @@
+## [Unreleased]
+
+### For Users
+
+#### ✨ Highlights
+
+- **On macOS, `dart run`, `dart test` and `flutter test` work from a deep
+  project path** — the native library now leaves room for any path in its
+  install name; see *Fixed*.
+- **openmls v0.9.2** — unchanged this release.
+
+#### Fixed
+
+- **On macOS, `dart run`, `dart test` and `flutter test` no longer fail from a
+  deep project path** (`rust/build.rs`) — each copies the native library into
+  the project and rewrites its install name to the copy's absolute path
+  (`install_name_tool -id`), and the released libraries left room in their
+  Mach-O header for about 180 characters of it: 183 for the arm64 build, 199
+  for x86_64. A project whose copy landed deeper failed with "larger updated
+  load commands do not fit". `openmls_frb` is now linked with
+  `-headerpad_max_install_names` on Apple targets, which leaves room for any
+  path, and the release workflow refuses a library without that room.
+  Measured on a local build: room for 3,255 characters instead of 183, a
+  library no larger, and consumers at a 186-character path, which failed under
+  both `dart run` and `flutter test`, now pass, as do ones at 400. Flutter app
+  builds for macOS and iOS were never affected: they install the library as a
+  framework under a short `@rpath/` name. Takes effect with the next
+  `openmls_frb` release.
+
+### For Contributors
+
+#### Changed
+
+- **Copier template v4.18.0 → v4.19.0** — `repair-build` refuses a named run
+  built from a fork, by the run's `head_repository`, instead of checking out
+  the fork's tree beside the agent's provider key; an AI provider key holding
+  anything but printable ASCII is refused when it is read, by the name of its
+  variable, so `dart:io`'s header error can no longer carry it into a
+  template-update pull request; an upstream `RELEASE_NOTES.md` or
+  `CHANGELOG.md` that could not be fetched (a rate-limited anonymous request
+  answers 403, and `curl -s` exits 0) is reported as unknown instead of as "No
+  release notes were published"; `finalizeChangelog` rewrites only the
+  footer's `[Unreleased]:` link and refuses a second one; `publish.yml` passes
+  the release notes behind a random delimiter; `CONTRIBUTING.md` names the bot
+  branches the signing ruleset leaves out; and `verify_release_artifacts.py`
+  refuses an Apple library with less than 1,024 characters of install-name
+  room. One conflict, in `CONTRIBUTING.md`: the template places its
+  *Releasing* and *Repository rulesets* sections elsewhere than this file
+  does, so this file's layout was kept with the template's one changed line.
+
 ## [3.2.2] - 2026-10-26
 
 ### For Users

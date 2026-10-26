@@ -382,8 +382,9 @@ void _finalizeChangelogFile(Directory packageDir, String version, String date) {
 /// intentionally retained even though no `## [Unreleased]` heading references it
 /// between releases: it is load-bearing (this function and the section-creating
 /// scripts read it), so do NOT delete it as "stale". Throws if the CHANGELOG
-/// lacks a `## [Unreleased]` heading or an `[Unreleased]:` compare link, or
-/// already has a `## [version]` section.
+/// lacks a `## [Unreleased]` heading or an `[Unreleased]:` compare link, holds
+/// more than one such link or one above a release's heading, or already has a
+/// `## [version]` section.
 String finalizeChangelog(
   String content, {
   required String version,
@@ -413,27 +414,41 @@ String finalizeChangelog(
 
   // 2. Locate + parse the `[Unreleased]:` compare link (base URL + previous
   //    version). Its left side is, by construction, the last released version.
+  //    It has to be the footer's: one line, below every release heading. The
+  //    first match from the top used to be taken, so an entry quoting the link
+  //    at the start of a line would have been rewritten instead, the new
+  //    compare link inserted into that entry and the footer left stale.
   final linkPattern = RegExp(
     r'^\[Unreleased\]:\s*(\S+?)/compare/v(\d+\.\d+\.\d+)\.\.\.HEAD\s*$',
   );
-  var linkIdx = -1;
-  String? base;
-  String? previous;
-  for (var i = 0; i < lines.length; i++) {
-    final m = linkPattern.firstMatch(lines[i]);
-    if (m != null) {
-      linkIdx = i;
-      base = m.group(1);
-      previous = m.group(2);
-      break;
-    }
-  }
-  if (linkIdx == -1) {
+  final linkIdxs = [
+    for (var i = 0; i < lines.length; i++)
+      if (linkPattern.hasMatch(lines[i])) i,
+  ];
+  if (linkIdxs.isEmpty) {
     throw Exception(
       'No "[Unreleased]: <base>/compare/vX.Y.Z...HEAD" link found at the '
       'bottom of the CHANGELOG.',
     );
   }
+  if (linkIdxs.length > 1) {
+    throw Exception(
+      'The CHANGELOG has ${linkIdxs.length} "[Unreleased]: <base>/compare/'
+      'vX.Y.Z...HEAD" lines (${linkIdxs.map((i) => 'line ${i + 1}').join(', ')}); '
+      'only the footer may — indent or reword the others.',
+    );
+  }
+  final linkIdx = linkIdxs.single;
+  final lastHeading = lines.lastIndexWhere((l) => l.startsWith('## ['));
+  if (linkIdx < lastHeading) {
+    throw Exception(
+      'The "[Unreleased]:" link on line ${linkIdx + 1} sits above the '
+      '"${lines[lastHeading]}" heading, not in the footer below every release.',
+    );
+  }
+  final link = linkPattern.firstMatch(lines[linkIdx])!;
+  final base = link.group(1);
+  final previous = link.group(2);
 
   // Rewrite the compare links first (they sit below the heading, so editing
   // them by value is unaffected by the heading edit that follows).

@@ -780,7 +780,11 @@ This repository should be guarded by GitHub **repository rulesets** and a
 required-reviewer **environment**, so the native/crypto library's releases can't
 be published without the right people and review:
 
-- **Signed commits** required on all branches (configure SSH or GPG signing).
+- **Signed commits** required on every branch except the bots' own —
+  `dependabot/**`, `update-openmls-*` and `update-template-v*`, which
+  their bots rebase and force-push (configure SSH or GPG signing). What those
+  bots push is signed by GitHub all the same, and it reaches `main` as a squash
+  merge that GitHub signs.
 - **`main`** protected (changes land via PR; force-push and deletion blocked).
 - **Tags** — creating, moving and deleting tags is reserved to Admins, who also
   skip the ruleset's signature rule (the release scripts sign their tags). The

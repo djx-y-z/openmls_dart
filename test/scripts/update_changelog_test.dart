@@ -627,6 +627,50 @@ void _breakingContradictionTests() {
     });
   });
 
+  group('upstreamFileFrom', () {
+    // `curl -s` exits 0 on every HTTP status, so the status `-w` appends is
+    // all that tells a file from GitHub's error about it. A rate-limited
+    // request used to be read as the file, then as "no notes in it", and the
+    // update went out as a release that published none.
+    test('returns the body of a 200, its own newlines kept', () {
+      expect(
+        upstreamFileFrom('v1.2.3\n\n- A change.\n\n200'),
+        'v1.2.3\n\n- A change.\n',
+      );
+    });
+
+    test('returns null for a file the repository does not keep', () {
+      expect(upstreamFileFrom('{"message":"Not Found"}\n404'), isNull);
+    });
+
+    for (final status in [403, 429, 500, 502]) {
+      test('does not take the error of a $status for the file', () {
+        expect(
+          () => upstreamFileFrom(
+            '{"message":"API rate limit exceeded for 203.0.113.7."}\n$status',
+          ),
+          throwsA(
+            isA<UpstreamUnfetched>().having((e) => e.status, 'status', status),
+          ),
+        );
+      });
+    }
+
+    test('does not take output without a status for the file', () {
+      expect(
+        () => upstreamFileFrom('{"message":"API rate limit exceeded"}'),
+        throwsA(isA<UpstreamUnfetched>().having((e) => e.status, 'status', 0)),
+      );
+    });
+
+    test('says the notes are unknown, not absent, when they were not read', () {
+      final text = unfetchedReleaseNotes(const UpstreamUnfetched(403));
+      expect(text, isNot(emptyReleaseNotesPlaceholder));
+      expect(text, contains('HTTP 403'));
+      expect(text, contains('unknown'));
+    });
+  });
+
   group('changelogSectionFrom', () {
     const changelog = '''
 # Changelog

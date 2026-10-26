@@ -201,6 +201,40 @@ void main() {
       expect(resolution.usable.single.apiKey, 'sk-x');
     });
 
+    // `dart:io` refuses such a value as a header with a FormatException that
+    // quotes all of it, and that text used to travel on to the pull request.
+    // Each of these is a key with a pasting mistake *inside* it, which
+    // trimming does not reach.
+    for (final (what, key) in [
+      ('a line break', 'sk-HEAD\nTAIL'),
+      ('a carriage return', 'sk-HEAD\rTAIL'),
+      ('a typographic quote', 'sk-HEADTAIL”'),
+      ('a non-breaking space', 'sk-HEAD TAIL'),
+      ('a space', 'sk-HEAD TAIL'),
+    ]) {
+      test('refuses a key with $what, by its variable and not its value', () {
+        final resolution = resolveAiModels(
+          rawModels: 'anthropic/claude-opus-5',
+          env: {anthropicKey: key},
+        );
+
+        expect(resolution.usable, isEmpty);
+        expect(resolution.warnings.single, contains(anthropicKey));
+        expect(resolution.warnings.single, isNot(contains('HEAD')));
+        expect(resolution.warnings.single, isNot(contains('TAIL')));
+      });
+    }
+
+    test('still takes a key of printable ASCII', () {
+      final resolution = resolveAiModels(
+        rawModels: 'anthropic/claude-opus-5',
+        env: const {anthropicKey: 'sk-ant-api03-AZaz09_-~'},
+      );
+
+      expect(resolution.usable.single.apiKey, 'sk-ant-api03-AZaz09_-~');
+      expect(resolution.warnings, isEmpty);
+    });
+
     // One variable per provider, and nothing else: a key is read only from
     // the variable its own provider owns.
     test('reads a key only from its own provider variable', () {

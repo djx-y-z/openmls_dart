@@ -217,6 +217,20 @@ AiModelResolution resolveAiModels({
       continue;
     }
 
+    // A key that cannot travel in an HTTP header is a pasting mistake — a
+    // quote, a non-breaking space or a line break carried into the secret —
+    // and `dart:io` refuses the header with a FormatException that quotes the
+    // whole value, which is how a key reaches a log or a pull-request body.
+    // Refused here instead, by the name of its variable and never its value.
+    if (!key.codeUnits.every((c) => c >= 0x21 && c <= 0x7E)) {
+      warnings.add(
+        '$keyVar holds a character an HTTP header cannot carry (only printable '
+        'ASCII can) — "$entry" ignored. Set it again without the quotes, '
+        'spaces or line breaks it was pasted with.',
+      );
+      continue;
+    }
+
     usable.add(ResolvedAiModel(model: model, apiKey: key));
   }
 
@@ -921,7 +935,16 @@ Future<_HttpResult> _postJson({
   try {
     final request = await client.postUrl(url).timeout(timeout);
     for (final header in headers.entries) {
-      request.headers.set(header.key, header.value);
+      try {
+        request.headers.set(header.key, header.value);
+      } on FormatException {
+        // `dart:io` quotes the refused value in full, and in the
+        // authentication header that value is the key. Name the header only.
+        throw AiAttemptException(
+          'the ${header.key} header holds a value HTTP cannot carry',
+          retryable: false,
+        );
+      }
     }
     request.add(utf8.encode(jsonEncode(body)));
 

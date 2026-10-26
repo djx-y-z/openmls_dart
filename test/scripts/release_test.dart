@@ -204,6 +204,47 @@ void main() {
       );
     });
 
+    // The first match from the top used to be taken: an entry quoting the
+    // link at the start of a line was rewritten instead of the footer.
+    test('refuses a second [Unreleased] compare link above the footer', () {
+      final quoting = _changelog.replaceFirst(
+        '- Update',
+        '[Unreleased]: $_repoUrl/compare/v1.0.0...HEAD\n\n- Update',
+      );
+      final quoted = _lineStarting(quoting, '[Unreleased]:') + 1;
+      expect(
+        () => finalizeChangelog(quoting, version: '6.1.0', date: '2026-07-16'),
+        throwsA(
+          isA<Exception>().having(
+            (e) => '$e',
+            'message',
+            contains('line $quoted,'),
+          ),
+        ),
+      );
+    });
+
+    test('refuses an [Unreleased] compare link above a release heading', () {
+      const misplaced = '''
+## [Unreleased]
+
+- pending
+
+[Unreleased]: https://github.com/example/repo/compare/v6.0.0...HEAD
+
+## [6.0.0] - 2026-07-14
+
+- something
+''';
+      expect(
+        () =>
+            finalizeChangelog(misplaced, version: '6.1.0', date: '2026-07-16'),
+        throwsA(
+          isA<Exception>().having((e) => '$e', 'message', contains('6.0.0')),
+        ),
+      );
+    });
+
     test(
       'throws when the version is already finalized (no double-finalize)',
       () {

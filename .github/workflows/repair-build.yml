@@ -78,8 +78,11 @@ on:
   # trigger: those carry text written by whoever opened them straight into an
   # agent's context. `workflow_dispatch` is the one manual trigger that requires
   # write access to the repository, so its inputs come from someone who could
-  # push the same content directly — they widen no boundary. Do not add a
-  # trigger that anyone else can reach.
+  # push the same content directly — they widen no boundary, as long as what
+  # they point at is this repository's own. A `run_id` points at a commit, and
+  # the run of a fork's pull request carries one nobody here pushed; `detect`
+  # refuses such a run before it is checked out. Do not add a trigger that
+  # anyone else can reach.
   workflow_dispatch:
     inputs:
       run_id:
@@ -378,6 +381,22 @@ jobs:
             CONCLUSION=$(jq -r '.[0].conclusion // "none"' <<<"$RUN")
             SHA=$(jq -r '.[0].headSha' <<<"$RUN")
             HEAD_BRANCH=$(jq -r '.[0].headBranch' <<<"$RUN")
+
+            # A run built from another repository — a fork's pull request — is
+            # refused before anything else is taken from it. Everything below
+            # would check out its commit and run that tree's Makefile and
+            # composite actions in this repository's context, the agent's
+            # provider key in the environment. The scheduled pick never selects
+            # one (`isCrossRepository == false` below); a named run arrives here
+            # by its number alone, and `gh run view` cannot say which repository
+            # its commit came from, so the REST run is asked.
+            HEAD_REPO=$(gh api "repos/$GH_REPO/actions/runs/$REQUESTED_RUN" \
+                          --jq '.head_repository.full_name // ""')
+            if [ "$HEAD_REPO" != "$GH_REPO" ]; then
+              echo "broken=false" >> "$GITHUB_OUTPUT"
+              echo "::error::Run $REQUESTED_RUN was built from ${HEAD_REPO:-a repository that no longer exists}, not $GH_REPO. A commit from a fork is never checked out here: repair it on a branch of this repository instead."
+              exit 1
+            fi
 
             if [ "$CONCLUSION" != "failure" ]; then
               echo "broken=false" >> "$GITHUB_OUTPUT"
