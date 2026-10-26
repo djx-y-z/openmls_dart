@@ -16,26 +16,49 @@
 - **The P-256 and P-384 suites carry an open constant-time advisory** —
   RUSTSEC-2026-0387 (`crypto-bigint` 0.5.5), accepted until OpenMLS moves to
   `p256`/`p384` 0.14; the other ten suites are unaffected. See *Security*.
-- **Async calls no longer wait forever when another isolate shuts down during
-  `Openmls.init()`** — native platforms; see *Fixed*.
+- **Async calls no longer stop answering when another isolate shuts down** —
+  native platforms, also when an application initializes several
+  flutter_rust_bridge packages, in any order; see *Fixed*.
+- **On the web, `Openmls.init()` throws when the WASM module is not served** —
+  instead of waiting forever; see *Fixed*.
+- **`hooks` and `code_assets` 2.x are admitted beside 1.x** — each Flutter
+  resolves the major it supports; see *Changed*.
 - **openmls v0.9.2** — two patch releases: 0.9.1 with the
   GHSA-gc79-23g3-8g52 fix, 0.9.2 with the GHSA-94v4-rg25-x625 and
   GHSA-p276-g3f3-wwgh fixes, and nothing else this package's API exposes.
 
 #### Changed
 
-- **The build hook uses a local host build only when `make build` stamped it
-  with the current crate version** (`hook/build.dart`, `Makefile`) — a
+- **The build hook uses a local build only when `make build` made it from the
+  current crate version and lock file** (`hook/build.dart`, `Makefile`) — a
   library in `rust/target/release/` or `rust/target/debug/` took priority over
   the released one on the sole condition that it existed, so one left over
   from an earlier crate loaded silently, and `rustContentHash`, which hashes
   only the names of the bridged functions, could not notice a moved wire
   format. `make build` now writes `rust/target/release/.crate-version`, as
-  `make build-web` already did beside the WASM module; the hook refuses a
-  missing or stale stamp with a `HookException`, and no longer reads
-  `rust/target/debug/`. Only a local build is affected — the published package
-  carries no `rust/target/` — and one built before this change is refused
-  until `make build` runs again.
+  `make build-web` already did beside the WASM module, and both leave
+  `.cargo-lock` beside the stamp, a copy of the `rust/Cargo.lock` the build
+  was made from: an upstream update moves the dependencies but not the crate
+  version, so a build from before it passed the version check and ran the
+  previous upstream code. The hook refuses a missing or stale stamp, and a
+  copy that differs from `rust/Cargo.lock`, with a `HookException`, and no
+  longer reads `rust/target/debug/`. `make build` also drops the hook's cached
+  result for this package (`.dart_tool/hooks_runner/openmls/`), which kept
+  `dart test` on a downloaded library after a host build. Only a local build
+  is affected — the published package carries no `rust/target/` — and one
+  built before this change is refused until `make build` (or
+  `make build-web`) runs again.
+- **`hooks` and `code_assets` admit 2.x as well as 1.x** (`pubspec.yaml`) —
+  `^1.0.0` held every application on 1.x, and pub.dev took 10 of its 160
+  points for it on 3.2.1 ("Support up-to-date dependencies"). The range is
+  now `>=1.0.0 <3.0.0`, so each Flutter resolves the major it supports:
+  Flutter 3.38 to 3.44 pin `meta` below the 1.19.0 that `hooks` 2.1 needs, and
+  an application on 3.38.4 resolves `hooks` 2.0.2 with `code_assets` 1.2.1
+  (measured on `example/`), while this package resolved on its own takes
+  `hooks` 2.2.0 with `code_assets` 2.1.0. `hook/build.dart` needs no change:
+  it analyzes clean and its tests pass with 2.2.0/2.1.0, 2.0.2/1.2.1 and
+  1.0.1/1.0.0, and the whole suite passes with 2.2.0/2.1.0 and with
+  1.0.1/1.0.0. A 3.x is a migration again, and Dependabot holds it back.
 
 #### Security
 
@@ -162,33 +185,64 @@
 
 #### Fixed
 
-- **An async call could wait forever when another isolate shut down during
-  `Openmls.init()`** (`lib/src/openmls.dart`,
-  `lib/src/platform/platform_io.dart`, `lib/src/platform/platform_web.dart`) —
-  flutter_rust_bridge sends every Rust-to-Dart message (an async call's
-  result, a store callback) through one process-wide `Dart_PostCObject`
-  pointer and replaces it with a no-op when its count of initialized isolates
-  drops to zero. `RustLib.init()` installs the real pointer *before* it counts
-  the new isolate, so when the last other counted isolate group shut down in
-  that window, the new isolate kept the no-op: sync calls worked, and every
-  async call waited for an answer that had been dropped. `Openmls.init()` now
-  installs the real pointer again once the isolate is counted, on native
-  platforms; the web has neither the pointer nor the count. ⚠ **Not fixed by
-  this: several flutter_rust_bridge libraries in one application.** An
-  isolate is counted only by the *first* such library it initializes, so when
-  the main isolate initialized a library second, a worker isolate that
-  initializes that library alone and exits switches its channel off for the
-  whole process. Initialize them in the same order in every isolate, workers
-  included; the fix belongs in flutter_rust_bridge.
+- **Async calls no longer stop answering when another isolate shuts down**
+  (`lib/src/openmls.dart`, `lib/src/platform/platform_io.dart`,
+  `lib/src/platform/platform_web.dart`) — flutter_rust_bridge sends every
+  Rust-to-Dart message (an async call's result, a store callback) through one
+  process-wide `Dart_PostCObject` pointer per native library, and replaces it
+  with a no-op when that library's count of live isolates drops to zero. An
+  isolate missing from the count kept its sync calls, while every async call
+  waited for an answer that had been dropped, and flutter_rust_bridge 2.13.0
+  leaves one out in two ways. `RustLib.init()` installs the pointer *before*
+  it counts the new isolate, so the last other counted isolate shutting down
+  in between left the no-op behind. And the watcher that counts an isolate is
+  one per isolate for every flutter_rust_bridge library, so an isolate is
+  counted only by the first library it initializes: when the main isolate had
+  initialized another flutter_rust_bridge package first, a worker that used
+  openmls alone — a `compute()` or `Isolate.run` worker included — took
+  openmls's count to zero for the whole process, once the exited worker's
+  watcher was garbage-collected. `Openmls.init()` now counts its isolate in
+  openmls's own library before `RustLib.init()`, through flutter_rust_bridge's
+  `frb_create_shutdown_callback`, which closes both; the order in which an
+  application initializes its flutter_rust_bridge packages no longer matters
+  for this one. Measured with a copy of the library initialized first in the
+  other package's place: once a worker that used only openmls had exited and
+  been collected, the main isolate's next async call went unanswered for 15 s
+  with the previous code and was answered with this one; openmls alone, five
+  workers in a row, was answered with both. The symbol is internal to
+  flutter_rust_bridge, which this package pins to 2.13.0; a version that
+  renamed it would make `init()` fail rather than hang. Two things stay open:
+  a finalizer on another thread that has counted to zero and not yet written
+  the no-op, which only flutter_rust_bridge can close, and another
+  flutter_rust_bridge package without this change, which still needs the same
+  initialization order in every isolate for itself. The web has neither the
+  pointer nor the count.
+- **On the web, `Openmls.init()` throws when the WASM module is not served,
+  instead of waiting forever** (`lib/src/openmls.dart`,
+  `lib/src/platform/platform_web.dart`) — flutter_rust_bridge loads
+  `pkg/openmls_frb.js` through a `<script>` tag and waits for its `load` event
+  with no error path or timeout, so a missing module — a 404, or the app's own
+  HTML page that a development server sends in its place with a 200 — left
+  `init()` pending with nothing reported. `init()` now fetches the script
+  first and throws a `StateError` naming it, its HTTP status and content type,
+  and the ways out, when the answer is not a success or is HTML. A request
+  that fails outright, under a Content Security Policy that forbids `fetch`
+  say, throws nothing, and the loader runs as before. Measured in headless
+  Chrome: with no module served, `init()` threw at once with
+  `pkg/openmls_frb.js is not served (HTTP 404, text/plain; charset=utf-8)`;
+  with it served, `init()` completed, and a sync call
+  (`supportedCiphersuites()`) and an async one (`MlsEngine.create`) answered.
 
 #### Documentation
 
-- **A missing `web/pkg/` leaves `RustLib.init()` pending; it does not fail on
-  a 404** (`README.md`, *Known Limitations*) — flutter_rust_bridge 2.13.0
-  injects the module as a `<script>` and awaits its `load` event with no error
-  path or timeout, and under `flutter run` the dev server answers the missing
-  `pkg/openmls_frb.js` with the app's own page and a 200, so the call neither
-  returns nor throws.
+- **The README says when `web/pkg/` can be left empty, and what `init()` then
+  does** (`README.md`, *Known Limitations*) — a `flutter run -d chrome` that
+  skips the build hook after a run for another platform is Flutter 3.38 to
+  3.41's: 3.38.4 runs the hooks through the `dart_build` target, whose stamp
+  does not include the target platform, while 3.44.8 and 3.47.4 call them
+  directly with the target platform (3.41 not checked here). Where it still
+  happens, `init()` throws the `StateError` above; the README no longer says
+  the call stays pending.
 - **`SECURITY.md` no longer says the tag ruleset stops a `write`
   collaborator** — it reserved tags to "Admins/Maintainers", but the
   ruleset's bypass list also held role 4, which GitHub names `write`. The list
@@ -219,12 +273,12 @@
 
   `.copier-answers.yml` records the new template revision.
 
-  **The agent workflows now use `anthropics/claude-code-action` v1.0.240**
+  **The agent workflows now use `anthropics/claude-code-action` v1.0.261**
   (`.github/workflows/ai-review.yml`,
-  `.github/workflows/repair-build.yml`) — both pins move from v1.0.235, to
-  v1.0.236 with this adoption and on to v1.0.240 in Dependabot's #54,
-  bringing the generated workflows onto the newer bundled Claude Code and
-  Agent SDK versions.
+  `.github/workflows/repair-build.yml`) — both pins move from v1.0.235: to
+  v1.0.236 with this adoption, to v1.0.240 in Dependabot's #54 and to
+  v1.0.261 with the v4.18.0 adoption below, bringing the generated workflows
+  onto the newer bundled Claude Code and Agent SDK versions.
 
   **The notices refresh now supplies the repository to its signed commit**
   (`.github/workflows/refresh-notices.yml`) — the `Commit and push` step's
@@ -334,6 +388,73 @@
   `rust/deny.toml` no longer allows the openmls git repository, and Dependabot
   ignores the four openmls crates that arrive only through the others, so they
   move with the openmls release that requires them.
+
+- **copier template adopted: v4.17.0 -> v4.18.0** — by hand.
+  `.copier-answers.yml` records the new revision and the new question's
+  answer, `enable_upstream_advisories: true`. Three files conflicted, each
+  resolved to the template's side: the `claude-code-action` pin in both agent
+  workflows and a comment in `.github/dependabot.yml`. What a consumer
+  observes is under *For Users*: the isolate count in `init()`, the web module
+  check, the `hooks`/`code_assets` range and the build hook's lock-file check.
+
+  **openmls/openmls's own security advisories are checked every day**
+  (`make check-upstream-advisories`, a job of `check-openmls-updates.yml`) —
+  `make rust-audit` and `make rust-deny` read RustSec and Dependabot reads
+  GitHub's global database, and GHSA-gc79-23g3-8g52 reached none of them. The
+  check reads the repository's published advisories and holds them against
+  every version `rust/Cargo.lock` resolves; on this tree none of the seven
+  covers one.
+
+  **`make setup-repo-protections` configures both release environments** —
+  `native-build` and `pub.dev` get the owner as the one required reviewer, no
+  admin bypass, and a deployment policy that admits only `openmls_frb-*` and
+  `v*` tags; `publish.yml`'s `publish` job now runs on a tag only. GitHub
+  changes when the command runs: `--dry-run` on this repository shows
+  `native-build` letting an Admin skip the review and both environments
+  admitting any ref.
+
+  **The minimum Rust version is checked against the dependency graph**
+  (`make check-msrv`, on the Linux x86_64 leg) — 1.91 everywhere it is stated,
+  the floor openmls 0.9.2 declares.
+
+  **cargo-deny fails on a yanked crate version and on a wildcard dependency**
+  (`rust/deny.toml`) — `yanked = "deny"`, and with every crate from crates.io
+  `wildcards = "deny"`, path dependencies allowed; `make rust-deny` passes.
+
+  **The update tooling** — `make update-template ARGS="--version vX.Y.Z --data
+  key=value"` answers a question a new version adds, and from the next
+  adoption on reports text a merge put in twice (none in this one: every
+  merged file was compared with a fresh render of both versions); and
+  `make update-evidence` writes down what an upstream update changed, attached
+  to the update pull request, which now also says whether it could be merged
+  unread, as a report only. The build repair reads the openmls crates' source
+  from crates.io, takes the update it repairs from the compare API, may write
+  `CHANGELOG.md`, `README.md` and `SECURITY.md`, and asks what moved behind a
+  changed signature; the AI reviewer holds a bot entry's upstream claims
+  against the upstream range; the update bot replaces the upstream Highlights
+  line whoever last wrote it.
+
+  **The macOS and Windows jobs name their images, `macos-26` and
+  `windows-2025-vs2026`** — the release builds included, and the images
+  `-latest` already gave them: `openmls_frb` 2.3.1 was built on
+  `macos-26-arm64` and `windows-2025-vs2026`.
+
+  **`Swatinem/rust-cache` moves to v2.9.3** — and `claude-code-action` to
+  v1.0.261 (see the v4.15.2 entry above); both upstream tags dereferenced to
+  the pinned commits. This supersedes Dependabot's #71.
+
+  **Dependabot** — the `coverage >= 1.16.0` and `ffigen`-major ignores now come
+  from the template, which took them from this repository: its text replaces
+  ours and gives `ffigen` a reason of its own, flutter_rust_bridge's
+  `frb_dart` pinning `^20.1.1`, where ours named hooks 2. The
+  `hooks`/`code_assets` ignore now holds back 3.x.
+
+  Smaller: `compareVersions` orders prereleases and build metadata as SemVer
+  does; the update-openmls skill no longer describes a crate bump the update
+  never makes; README and CONTRIBUTING say what the update pull request
+  changes; `protect-main.json` names
+  `require_extra_approval_for_unattributed_changes: true`, which the live
+  ruleset already holds.
 
 ## [3.2.1] - 2026-09-29
 

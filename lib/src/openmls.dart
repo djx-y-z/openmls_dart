@@ -65,7 +65,8 @@ class Openmls {
   /// Track initialization per isolate (or single instance on web).
   static final Set<int> _initializedIsolates = {};
 
-  /// Track if FRB has been initialized (global, not per-isolate).
+  /// Whether flutter_rust_bridge is initialized in this isolate. Static fields
+  /// are per isolate in Dart, so every isolate initializes it once.
   static bool _frbInitialized = false;
 
   /// Initialize the openmls library.
@@ -86,14 +87,14 @@ class Openmls {
       return;
     }
 
-    // Initialize FRB (Flutter Rust Bridge) only once
+    // Initialize FRB (Flutter Rust Bridge) once in this isolate
     if (!_frbInitialized) {
       final library = await _loadLibrary(libraryPath);
+      // Before RustLib.init, not after: an isolate the library does not count
+      // loses every async answer once the last counted isolate shuts down, and
+      // RustLib.init can leave this one out. See the function.
+      platform.countIsolateInLibrary(library);
       await RustLib.init(externalLibrary: library);
-      // After init, not before: RustLib.init counts this isolate only after
-      // installing the Rust-to-Dart post function, and an isolate shutting
-      // down in between can leave a no-op in its place. See the function.
-      platform.reinstallDartPostCObject(library);
       _frbInitialized = true;
     }
 
@@ -108,11 +109,15 @@ class Openmls {
   /// 3. FRB default (flutter_rust_bridge's default loader)
   static Future<ExternalLibrary> _loadLibrary(String? customPath) async {
     // coverage:ignore-start
-    // On web, always use the default WASM loading
+    // On web, always use the default WASM loading — after making sure the
+    // module is there, since flutter_rust_bridge's loader waits forever for
+    // one that is not.
     if (platform.kIsWeb) {
-      return await loadExternalLibrary(
-        RustLib.kDefaultExternalLibraryLoaderConfig,
+      const config = RustLib.kDefaultExternalLibraryLoaderConfig;
+      await platform.ensureWasmModuleServed(
+        '${config.webPrefix ?? ''}${config.stem}',
       );
+      return await loadExternalLibrary(config);
     }
     // coverage:ignore-end
 

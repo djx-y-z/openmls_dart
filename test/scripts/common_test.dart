@@ -235,4 +235,24 @@ void main() {
       );
     });
   });
+
+  group('compareVersions', () {
+    test('orders releases by their numbers, with or without a v', () {
+      expect(compareVersions('0.9.0', '0.9.1'), lessThan(0));
+      expect(compareVersions('v1.10.0', '1.9.9'), greaterThan(0));
+      expect(compareVersions('v1.2.3', '1.2.3'), 0);
+    });
+
+    test('orders prereleases as SemVer does', () {
+      expect(compareVersions('1.0.0-beta.2', '1.0.0-beta.10'), lessThan(0));
+      expect(compareVersions('1.0.0-alpha', '1.0.0-alpha.1'), lessThan(0));
+      expect(compareVersions('1.0.0-1', '1.0.0-alpha'), lessThan(0));
+      expect(compareVersions('1.0.0-rc.1', '1.0.0'), lessThan(0));
+    });
+
+    test('ignores build metadata', () {
+      expect(compareVersions('300.6.1+3.6.3', '300.6.1'), 0);
+      expect(compareVersions('300.6.1+3.6.3', '300.6.2+3.6.4'), lessThan(0));
+    });
+  });
 }

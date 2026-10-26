@@ -279,7 +279,7 @@ jobs:
   # `.github/rulesets/protect-main.json` once it has proved stable.
   ios:
     name: Type-check (iOS)
-    runs-on: macos-latest
+    runs-on: macos-26
     steps:
       - uses: actions/checkout@v7
 
@@ -296,20 +296,21 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # Named by version, like every Ubuntu job in these workflows:
-          # `ubuntu-latest` changes image without a commit (GitHub scheduled its
-          # move from 24.04 to 26.04 job by job, 2026-10-19 to 2026-11-19), and
-          # a leg that moves on its own makes a red run no commit caused.
+          # Named by version, like every job in these workflows: a `-latest`
+          # label changes image without a commit (GitHub scheduled
+          # `ubuntu-latest`'s move from 24.04 to 26.04 job by job, 2026-10-19
+          # to 2026-11-19), and a leg that moves on its own makes a red run no
+          # commit caused.
           - os: ubuntu-26.04
             name: Linux x86_64
             coverage: true
           - os: ubuntu-26.04-arm
             name: Linux ARM64
             coverage: false
-          - os: macos-latest
+          - os: macos-26
             name: macOS ARM64
             coverage: false
-          - os: windows-latest
+          - os: windows-2025-vs2026
             name: Windows x86_64
             coverage: false
 
@@ -441,6 +442,16 @@ jobs:
       - name: Check deployment targets
         if: matrix.name == 'Linux x86_64'
         run: make check-targets
+        shell: bash
+
+      # The minimum Rust version against the highest floor a crate of the
+      # resolved graph declares, and against the docs and the copier answer
+      # that state it. Platform-independent too, so once. A floor below the
+      # graph's is what the MSRV job finds the hard way; this names the crate.
+      # Fails on drift (exit 1); fix with `make check-msrv ARGS="--update"`.
+      - name: Check the minimum Rust version
+        if: matrix.name == 'Linux x86_64'
+        run: make check-msrv
         shell: bash
 
       # Documentation gate. The Dart surface in `lib/src/rust/` is generated

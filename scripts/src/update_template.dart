@@ -6,8 +6,8 @@
 // project or its upstream library — it renders unchanged into any project
 // generated from the same template.
 //
-// The two failure modes worth naming, because they are independent and only
-// one of them is loud:
+// The three failure modes worth naming, because they are independent and only
+// the first of them is loud:
 //
 //   * A **conflict** — copier could not merge a hunk and left the file with
 //     both sides in it, and the path unmerged (`UU`) in the index. Conflicts
@@ -21,12 +21,19 @@
 //     `.copier-answers.yml` pointing at the old version. That one is quiet and
 //     self-perpetuating: the next scheduled run sees the same update pending
 //     and opens the same pull request again, forever.
+//   * **Text merged in twice** — the same lines added on both sides of the
+//     merge, in different places, which copier keeps twice without a
+//     conflict. It is what happens when the template takes code from a project
+//     and files it somewhere else. Nothing downstream notices: a duplicated
+//     test runs twice and passes twice, and a repeated paragraph is still
+//     valid Markdown.
 //
 // A conflict does not imply the second: verified against a real update where
 // `_commit` moved to the new version while `CONTRIBUTING.md` was still
 // unmerged. They are reported separately for that reason.
 library;
 
+import 'dart:convert';
 import 'dart:io';
 
 import 'ai_client.dart';
@@ -48,8 +55,11 @@ class TemplateUpdateResult {
     required this.commitLanded,
     required this.conflicts,
     required this.changelogUpdated,
+    this.duplicates = const [],
+    this.duplicatesError = '',
     this.changelogError = '',
     this.aiProvider = '',
+    this.unrecordedData = const [],
   });
 
   /// Template version recorded before the update ran.
@@ -64,6 +74,12 @@ class TemplateUpdateResult {
   /// Repository-relative paths copier could not merge, sorted.
   final List<String> conflicts;
 
+  /// Files in which the merge put the same text in twice, sorted by path.
+  final List<DuplicatedText> duplicates;
+
+  /// Why the check for [duplicates] could not run, empty when it ran.
+  final String duplicatesError;
+
   /// Whether a CHANGELOG entry was generated and inserted.
   final bool changelogUpdated;
 
@@ -77,7 +93,15 @@ class TemplateUpdateResult {
   /// shows up only as entries that drift in style, months later.
   final String aiProvider;
 
+  /// `--data` keys `.copier-answers.yml` does not record as given, sorted:
+  /// answers the next update would render without. See [unrecordedData].
+  final List<String> unrecordedData;
+
   bool get hasConflicts => conflicts.isNotEmpty;
+
+  bool get hasDuplicates => duplicates.isNotEmpty;
+
+  bool get duplicatesChecked => duplicatesError.isEmpty;
 
   Map<String, dynamic> toJson() => {
     'from_version': fromVersion,
@@ -85,9 +109,14 @@ class TemplateUpdateResult {
     'commit_landed': commitLanded,
     'has_conflicts': hasConflicts,
     'conflicts': conflicts,
+    'has_duplicates': hasDuplicates,
+    'duplicates': [for (final d in duplicates) d.toJson()],
+    'duplicates_checked': duplicatesChecked,
+    'duplicates_error': duplicatesError,
     'changelog_updated': changelogUpdated,
     'changelog_error': changelogError,
     'ai_provider': aiProvider,
+    'unrecorded_data': unrecordedData,
   };
 }
 
@@ -180,7 +209,110 @@ Future<List<String>> dirtyPaths({String? workingDirectory}) async {
       .toList();
 }
 
+/// A question's name: the key a `--data` answer must have.
+final _questionName = RegExp(r'^[A-Za-z_][A-Za-z0-9_]*$');
+
+/// Every `--data key=value` and `--data=key=value` in [args], in order, as the
+/// answers [runCopierUpdate] hands to copier. A later answer to the same key
+/// wins, as it would on copier's own command line. Pure; exposed for testing.
+///
+/// This is how an update answers what its version newly asks. `copier update`
+/// runs with `--defaults`, so a question nobody answered takes its default:
+/// `forbidden_features` did when 4.15.0 introduced it, and moving a project's
+/// `upstream_source` to `crates_io` meant calling copier by hand.
+///
+/// Throws [FormatException] for a `--data` with nothing after it, or for a key
+/// that cannot be a question's name (`upstream-source=…`, `=…`): copier would
+/// take such a key as data no question reads, and the update would land as
+/// though it had never been given.
+Map<String, String> parseCopierData(List<String> args) {
+  final data = <String, String>{};
+  for (var i = 0; i < args.length; i++) {
+    final String raw;
+    if (args[i] == '--data') {
+      if (i + 1 >= args.length) {
+        throw const FormatException('--data needs a key=value after it');
+      }
+      raw = args[++i];
+    } else if (args[i].startsWith('--data=')) {
+      raw = args[i].substring('--data='.length);
+    } else {
+      continue;
+    }
+    final eq = raw.indexOf('=');
+    if (eq < 0 || !_questionName.hasMatch(raw.substring(0, eq))) {
+      throw FormatException(
+        '--data takes key=value, with a question\'s name as the key; '
+        'got "$raw"',
+      );
+    }
+    data[raw.substring(0, eq)] = raw.substring(eq + 1);
+  }
+  return data;
+}
+
+/// The command line [runCopierUpdate] runs, after `copier`. Pure; exposed for
+/// testing.
+List<String> copierUpdateArguments({
+  required String version,
+  Map<String, String> data = const {},
+}) => [
+  'update',
+  '--trust',
+  '--defaults',
+  '--skip-tasks',
+  '--vcs-ref=$version',
+  for (final answer in data.entries) ...[
+    '--data',
+    '${answer.key}=${answer.value}',
+  ],
+];
+
+/// The keys of [data] that [answers], the text of `.copier-answers.yml` after
+/// the update, does not record with the value given, sorted. Pure; exposed for
+/// testing.
+///
+/// Copier records an answer only for a question it asked. A key that names no
+/// question, or a question whose `when:` is false under the other answers,
+/// never reaches the file — measured on this template: `version_tag_prefix` is
+/// not recorded once `upstream_source` is `crates_io` — so the next update
+/// renders without it, whatever this one did. The file is the one place that
+/// says what an update will be repeated with, so that is what is checked.
+///
+/// Compared as text once YAML's quoting is taken off, which is how copier
+/// writes the scalars these questions take. A value it had to write across
+/// lines reads as unrecorded and is reported rather than assumed.
+List<String> unrecordedData({
+  required String answers,
+  required Map<String, String> data,
+}) {
+  final recorded = <String, String>{};
+  final line = RegExp(r'^([A-Za-z_][A-Za-z0-9_]*):(?: (.*))?$');
+  for (final text in answers.split('\n')) {
+    final m = line.firstMatch(text);
+    if (m != null) recorded[m.group(1)!] = _unquoteYaml(m.group(2) ?? '');
+  }
+  return [
+    for (final answer in data.entries)
+      if (recorded[answer.key] != answer.value) answer.key,
+  ]..sort();
+}
+
+String _unquoteYaml(String raw) {
+  final value = raw.trim();
+  if (value.length >= 2 && value.startsWith("'") && value.endsWith("'")) {
+    return value.substring(1, value.length - 1).replaceAll("''", "'");
+  }
+  if (value.length >= 2 && value.startsWith('"') && value.endsWith('"')) {
+    return value.substring(1, value.length - 1);
+  }
+  return value;
+}
+
 /// Runs `copier update` for [version], streaming its output to this process.
+///
+/// [data] answers questions as `--data` does on copier's own command line —
+/// see [parseCopierData].
 ///
 /// `--defaults` is what makes the run non-interactive: without it copier
 /// re-asks every question and blocks forever on a runner. `--trust` is still
@@ -227,15 +359,19 @@ Future<List<String>> dirtyPaths({String? workingDirectory}) async {
 /// all three renders at once; do not guard them in `copier.yml`.
 Future<int> runCopierUpdate({
   required String version,
+  Map<String, String> data = const {},
   String? workingDirectory,
 }) async {
   await requireCommand('copier');
   final dir = workingDirectory ?? getPackageDir().path;
 
   logStep('Running copier update --vcs-ref=$version ...');
+  for (final answer in data.entries) {
+    logInfo('  answering ${answer.key}=${answer.value}');
+  }
   final process = await Process.start(
     'copier',
-    ['update', '--trust', '--defaults', '--skip-tasks', '--vcs-ref=$version'],
+    copierUpdateArguments(version: version, data: data),
     workingDirectory: dir,
     mode: ProcessStartMode.inheritStdio,
   );
@@ -309,6 +445,351 @@ Future<void> formatAfterUpdate({
 
   logWarn('dart format reported errors:');
   logWarn((result.stderr as String).trim());
+}
+
+/// Lines shorter than this, once trimmed, are never counted. Braces, `});`,
+/// `- name:` and the like repeat all over every file, and say nothing about
+/// where a block came from.
+const _duplicateMinLength = 25;
+
+/// A file in which the update put the same text in twice.
+class DuplicatedText {
+  const DuplicatedText({
+    required this.path,
+    required this.lines,
+    required this.firstAt,
+  });
+
+  /// Repository-relative path.
+  final String path;
+
+  /// The repeated lines, without trailing whitespace, in the order the file
+  /// first shows them.
+  final List<String> lines;
+
+  /// The 1-based line numbers at which the first of [lines] stands, so a
+  /// reviewer can go straight to every copy.
+  final List<int> firstAt;
+
+  /// One line for a person to act on. The repeated text itself is left out:
+  /// it is arbitrary, it goes into a pull-request body, and the line numbers
+  /// are all anyone needs to find it.
+  String describe() =>
+      '`$path` — ${lines.length} line(s) repeated, the first at lines '
+      '${firstAt.join(', ')}';
+
+  Map<String, dynamic> toJson() => {
+    'path': path,
+    'lines': lines.length,
+    'first_at': firstAt,
+  };
+}
+
+/// [content] with every conflict block resolved both ways: once keeping the
+/// side copier marks "before updating", once keeping "after updating". Pure;
+/// exposed for testing.
+///
+/// For a file without conflicts both are the file itself. Copier writes the
+/// two-way shape, `<<<<<<< before updating` / `=======` /
+/// `>>>>>>> after updating` with no base section, and that is all this reads.
+({List<String> before, List<String> after}) resolveConflictsBothWays(
+  String content,
+) {
+  final before = <String>[];
+  final after = <String>[];
+  // 0 outside a block, 1 in its "before updating" side, 2 in the other.
+  var side = 0;
+  for (final line in content.split('\n')) {
+    if (side == 0 && line.startsWith(_conflictMarker)) {
+      side = 1;
+    } else if (side == 1 && line == '=======') {
+      side = 2;
+    } else if (side == 2 && line.startsWith('>>>>>>> ')) {
+      side = 0;
+    } else {
+      if (side != 2) before.add(line);
+      if (side != 1) after.add(line);
+    }
+  }
+  return (before: before, after: after);
+}
+
+/// Lines the update left in [updated] more often than both [before] (the file
+/// at `HEAD`) and [rendered] (the same file in a fresh render of the new
+/// template version) have them. Pure; exposed for testing.
+///
+/// This is the one way a 3-way merge goes wrong without a conflict. When both
+/// sides added the same lines, but in different places, git sees two unrelated
+/// additions and keeps both. It happens when the template takes code from a
+/// project and files it elsewhere: measured on a real update, which put three
+/// test groups into `release_test.dart` a second time. Every gate stayed green
+/// — the tests just ran twice.
+///
+/// Hence the rule. A line counts only when both sides have it and the merge
+/// has more copies than either. A line only one side has was added by that
+/// side, and is a change rather than a duplicate. A line the template itself
+/// repeats is repeated in the render too. Replayed over twelve adoptions that
+/// people had resolved and three raw updates, it flagged the groups above and
+/// one older merge that had put text in twice in two files, which people then
+/// kept — and nothing else. A rule without the render, a block of five lines
+/// that occurs more often after the update than at `HEAD`, raised fourteen
+/// false alarms on the same adoptions, mostly workflows and tests in which the
+/// template repeats a block on purpose.
+///
+/// In a conflicted file a line counts only when it is repeated whichever way
+/// its conflicts are resolved. A line repeated one way only is a choice the
+/// person resolving it will make, not something the merge has done.
+List<String> findDuplicatedLines({
+  required String before,
+  required String updated,
+  required String rendered,
+}) {
+  final atHead = _lineCounts(before.split('\n'));
+  final inRender = _lineCounts(rendered.split('\n'));
+
+  Set<String> repeated(List<String> lines) => {
+    for (final MapEntry(key: line, value: count) in _lineCounts(lines).entries)
+      if (count >= 2 &&
+          (atHead[line] ?? 0) >= 1 &&
+          (inRender[line] ?? 0) >= 1 &&
+          count > atHead[line]! &&
+          count > inRender[line]!)
+        line,
+  };
+
+  final resolved = resolveConflictsBothWays(updated);
+  final found = repeated(
+    resolved.before,
+  ).intersection(repeated(resolved.after));
+
+  final ordered = <String>[];
+  for (final line in updated.split('\n')) {
+    final key = line.trimRight();
+    if (found.remove(key)) ordered.add(key);
+  }
+  return ordered;
+}
+
+/// How often each line long enough to count occurs, keyed without trailing
+/// whitespace. Indentation is kept: the same statement one level deeper is a
+/// different line, and the duplicates this looks for keep theirs.
+Map<String, int> _lineCounts(Iterable<String> lines) {
+  final counts = <String, int>{};
+  for (final line in lines) {
+    if (line.trim().length < _duplicateMinLength) continue;
+    final key = line.trimRight();
+    counts[key] = (counts[key] ?? 0) + 1;
+  }
+  return counts;
+}
+
+/// [bytes] as text, or null for anything that is not UTF-8 text.
+String? _asText(List<int> bytes) {
+  if (bytes.contains(0)) return null;
+  try {
+    return utf8.decode(bytes);
+  } on FormatException {
+    return null;
+  }
+}
+
+/// Paths the update modified, unmerged ones included, sorted.
+///
+/// Files the update added are not among them, and need not be: a file that did
+/// not exist here was copied from the template whole, with nothing to merge.
+Future<List<String>> modifiedPaths({String? workingDirectory}) async {
+  final dir = workingDirectory ?? getPackageDir().path;
+  // `-z`, because git quotes a path with unusual characters otherwise. `M`
+  // covers the files a conflict left unmerged as well: compared with `HEAD`,
+  // git reports them as modified and never as `U` (measured).
+  final diff = await Process.run('git', [
+    'diff',
+    '--name-only',
+    '-z',
+    '--diff-filter=M',
+    'HEAD',
+  ], workingDirectory: dir);
+  if (diff.exitCode != 0) {
+    throw Exception('git diff failed: ${(diff.stderr as String).trim()}');
+  }
+  return (diff.stdout as String)
+      .split('\x00')
+      .where((p) => p.isNotEmpty)
+      .toList()
+    ..sort();
+}
+
+/// Checks each of [paths] for text the update put in twice — see
+/// [findDuplicatedLines]. [renderDirectory] holds a fresh render of the
+/// version just applied.
+Future<List<DuplicatedText>> findDuplicatedText({
+  required List<String> paths,
+  required String renderDirectory,
+  String? workingDirectory,
+}) async {
+  final dir = workingDirectory ?? getPackageDir().path;
+  final found = <DuplicatedText>[];
+
+  for (final path in paths) {
+    final rendered = File('$renderDirectory/$path');
+    final updated = File('$dir/$path');
+    if (!rendered.existsSync() || !updated.existsSync()) continue;
+
+    final head = await Process.run(
+      'git',
+      ['show', 'HEAD:$path'],
+      workingDirectory: dir,
+      stdoutEncoding: null,
+    );
+    if (head.exitCode != 0) continue;
+
+    final beforeText = _asText(head.stdout as List<int>);
+    final updatedText = _asText(updated.readAsBytesSync());
+    final renderedText = _asText(rendered.readAsBytesSync());
+    if (beforeText == null || updatedText == null || renderedText == null) {
+      continue;
+    }
+
+    final lines = findDuplicatedLines(
+      before: beforeText,
+      updated: updatedText,
+      rendered: renderedText,
+    );
+    if (lines.isEmpty) continue;
+
+    final fileLines = updatedText.split('\n');
+    found.add(
+      DuplicatedText(
+        path: path,
+        lines: lines,
+        firstAt: [
+          for (var i = 0; i < fileLines.length; i++)
+            if (fileLines[i].trimRight() == lines.first) i + 1,
+        ],
+      ),
+    );
+  }
+  return found;
+}
+
+/// The answers file as data for a fresh `copier copy`: every answer, without
+/// the `_commit` and `_src_path` that copier keeps there for itself. Pure;
+/// exposed for testing.
+///
+/// Line-based on purpose. Those two keys are written one line each, at the top
+/// level, while an answer's continuation lines are indented — so dropping the
+/// lines that start with `_` cannot cut a value in half.
+String copierDataFromAnswers(String answers) => answers
+    .split('\n')
+    .where((line) => !line.startsWith('_') && !line.startsWith('#'))
+    .join('\n');
+
+/// Renders template [version] with this project's answers into a new
+/// temporary directory, formatted as [formatAfterUpdate] formats the project,
+/// and returns that directory; the render is its `render/`. The caller
+/// deletes it.
+///
+/// This is what `copier update` itself compares against, and it is the only
+/// way to have it: copier renders the new version into a temporary directory
+/// of its own and deletes it before returning. Run after the update, because
+/// the answers file then records what the update rendered with — new
+/// questions answered by their defaults included. That is also why `--data`
+/// answers are not passed again: the ones copier recorded are in the file, and
+/// handing it the rest would render a value the update itself did not keep.
+Future<Directory> renderTemplate({
+  required String version,
+  String? workingDirectory,
+}) async {
+  final dir = workingDirectory ?? getPackageDir().path;
+  final answers = File('$dir/.copier-answers.yml').readAsStringSync();
+  final source = RegExp(
+    r'^_src_path:\s*(.+)$',
+    multiLine: true,
+  ).firstMatch(answers)?.group(1)?.trim();
+  if (source == null || source.isEmpty) {
+    throw Exception('_src_path not found in .copier-answers.yml');
+  }
+
+  final temp = Directory.systemTemp.createTempSync('template_render');
+  try {
+    final data = File('${temp.path}/answers.yml')
+      ..writeAsStringSync(copierDataFromAnswers(answers));
+    final render = '${temp.path}/render';
+    final copy = await Process.run('copier', [
+      'copy',
+      '--trust',
+      '--defaults',
+      '--skip-tasks',
+      '--quiet',
+      '--vcs-ref=$version',
+      '--data-file',
+      data.path,
+      source,
+      render,
+    ], workingDirectory: dir);
+    if (copy.exitCode != 0) {
+      throw Exception(
+        'copier copy exited ${copy.exitCode}: '
+        '${(copy.stderr as String).trim()}',
+      );
+    }
+    await Process.run(Platform.resolvedExecutable, [
+      'format',
+      '.',
+    ], workingDirectory: render);
+    return temp;
+  } catch (_) {
+    temp.deleteSync(recursive: true);
+    rethrow;
+  }
+}
+
+/// Looks for text the update put in twice, in every file it modified.
+///
+/// Never fatal, and never silent about not having looked: a render that fails
+/// — no network, a copier that cannot reach the template — comes back as the
+/// reason, and the pull request says the check did not run rather than that it
+/// found nothing.
+Future<({List<DuplicatedText> found, String error})> checkDuplicatedText({
+  required String version,
+  String? workingDirectory,
+}) async {
+  final dir = workingDirectory ?? getPackageDir().path;
+  logStep('Looking for text the merge put in twice...');
+
+  Directory? temp;
+  try {
+    final paths = await modifiedPaths(workingDirectory: dir);
+    if (paths.isEmpty) return (found: const <DuplicatedText>[], error: '');
+
+    temp = await renderTemplate(version: version, workingDirectory: dir);
+    final found = await findDuplicatedText(
+      paths: paths,
+      renderDirectory: '${temp.path}/render',
+      workingDirectory: dir,
+    );
+    if (found.isEmpty) {
+      logSuccess('No text was merged in twice.');
+    } else {
+      logWarn('The merge put text in twice in ${found.length} file(s):');
+      for (final d in found) {
+        logWarn(
+          '  ${d.path} — ${d.lines.length} line(s), the first at lines '
+          '${d.firstAt.join(', ')}',
+        );
+      }
+    }
+    return (found: found, error: '');
+  } catch (e) {
+    logWarn('Could not check for text merged in twice: $e');
+    return (found: const <DuplicatedText>[], error: '$e');
+  } finally {
+    try {
+      temp?.deleteSync(recursive: true);
+    } on FileSystemException {
+      // A leftover temporary directory is not worth failing the update over.
+    }
+  }
 }
 
 /// Reads the template version currently recorded in `.copier-answers.yml`.
@@ -596,6 +1077,7 @@ Future<TemplateUpdateResult> applyTemplateUpdate({
   required String toVersion,
   List<ResolvedAiModel> models = const [],
   bool skipChangelog = false,
+  Map<String, String> data = const {},
 }) async {
   final packageDir = getPackageDir().path;
 
@@ -638,10 +1120,24 @@ Future<TemplateUpdateResult> applyTemplateUpdate({
 
   final exitCode = await runCopierUpdate(
     version: toVersion,
+    data: data,
     workingDirectory: packageDir,
   );
   if (exitCode != 0) {
     throw Exception('copier update failed with exit code $exitCode');
+  }
+
+  // Read before anything else here touches the answers file. An answer it does
+  // not record is one the next update renders without.
+  final unrecorded = unrecordedData(
+    answers: File('$packageDir/.copier-answers.yml').readAsStringSync(),
+    data: data,
+  );
+  for (final key in unrecorded) {
+    logWarn(
+      '.copier-answers.yml does not record --data $key=${data[key]}: no '
+      'question by that name was asked in this version.',
+    );
   }
 
   final conflicts = await findConflicts(workingDirectory: packageDir);
@@ -658,6 +1154,14 @@ Future<TemplateUpdateResult> applyTemplateUpdate({
   // from a real formatter failure, and before the CHANGELOG entry is written
   // off the diff.
   await formatAfterUpdate(conflicts: conflicts, workingDirectory: packageDir);
+
+  // After formatting, so the comparison sees what will be committed, and
+  // before the CHANGELOG entry, which is this script's own text rather than
+  // the merge's.
+  final duplicateCheck = await checkDuplicatedText(
+    version: toVersion,
+    workingDirectory: packageDir,
+  );
 
   final recorded = readRecordedTemplateVersion();
   final commitLanded = recorded == toVersion;
@@ -719,9 +1223,12 @@ Future<TemplateUpdateResult> applyTemplateUpdate({
     toVersion: toVersion,
     commitLanded: commitLanded,
     conflicts: conflicts,
+    duplicates: duplicateCheck.found,
+    duplicatesError: duplicateCheck.error,
     changelogUpdated: changelogUpdated,
     changelogError: changelogError,
     aiProvider: aiProvider,
+    unrecordedData: unrecorded,
   );
 }
 
@@ -736,6 +1243,12 @@ void writeUpdateGitHubOutputs({
     ..writeln('commit_landed=${result.commitLanded}')
     ..writeln('has_conflicts=${result.hasConflicts}')
     ..writeln('conflict_count=${result.conflicts.length}')
+    ..writeln('has_duplicates=${result.hasDuplicates}')
+    ..writeln('duplicate_count=${result.duplicates.length}')
+    ..writeln('duplicates_checked=${result.duplicatesChecked}')
+    ..writeln(
+      'duplicates_error=${result.duplicatesError.replaceAll('\n', ' ')}',
+    )
     ..writeln('changelog_updated=${result.changelogUpdated}')
     ..writeln('changelog_error=${result.changelogError.replaceAll('\n', ' ')}')
     ..writeln('ai_provider=${result.aiProvider}');
@@ -747,6 +1260,15 @@ void writeUpdateGitHubOutputs({
       ..writeln('conflict_files<<CONFLICTS_EOF')
       ..writeln(result.conflicts.map((p) => '- `$p`').join('\n'))
       ..writeln('CONFLICTS_EOF');
+  }
+
+  if (result.duplicates.isEmpty) {
+    buffer.writeln('duplicate_files=');
+  } else {
+    buffer
+      ..writeln('duplicate_files<<DUPLICATES_EOF')
+      ..writeln(result.duplicates.map((d) => '- ${d.describe()}').join('\n'))
+      ..writeln('DUPLICATES_EOF');
   }
 
   File(outputPath).writeAsStringSync(buffer.toString(), mode: FileMode.append);
@@ -769,6 +1291,25 @@ void printUpdateSummary({required TemplateUpdateResult result}) {
   );
   for (final path in result.conflicts) {
     print('                     $path');
+  }
+  if (result.unrecordedData.isNotEmpty) {
+    print(
+      '  Not recorded:    '
+      '${Colors.colorize(result.unrecordedData.join(', '), Colors.yellow)}',
+    );
+  }
+  print(
+    '  Duplicates:      ${!result.duplicatesChecked
+        ? Colors.colorize('not checked (${result.duplicatesError})', Colors.yellow)
+        : result.duplicates.isEmpty
+        ? Colors.colorize('none', Colors.green)
+        : Colors.colorize('${result.duplicates.length}', Colors.red)}',
+  );
+  for (final d in result.duplicates) {
+    print(
+      '                     ${d.path} — ${d.lines.length} line(s), the first '
+      'at lines ${d.firstAt.join(', ')}',
+    );
   }
   print(
     '  CHANGELOG:       ${result.changelogUpdated ? Colors.colorize('updated', Colors.green) : 'not updated (${result.changelogError})'}',

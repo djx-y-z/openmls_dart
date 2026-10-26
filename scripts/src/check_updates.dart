@@ -175,7 +175,7 @@ String updateReadmeBadge(String readmeContent, String version) {
 ///
 /// Does NOT bump the `openmls_frb` crate version: that is a deliberate
 /// release decision made later via `make release-frb` (which bumps the crate
-/// and pushes the `openmls_frb-v*` tag that triggers the native build). See
+/// and pushes the `openmls_frb-X.Y.Z` tag that triggers the native build). See
 /// the two-stage release flow in CLAUDE.md.
 ///
 /// Returns the list of updated file names.

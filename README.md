@@ -266,21 +266,26 @@ A `dependency_override` in the host app does not work around it. This package's 
 
 The Rust core of openmls ships as a `.wasm` module in both modes — `--wasm` only changes what the *Dart* code compiles to. Crypto performance and functionality are equivalent.
 
-### Web: `flutter run -d chrome` can skip the build hook and leave `web/pkg/` empty
+### Web: on Flutter 3.38 to 3.41, `flutter run -d chrome` can skip the build hook and leave `web/pkg/` empty
 
 The build hook provisions the WASM module into your app's `web/pkg/` directory.
-`flutter build web` always reaches it. `flutter run -d chrome` reaches it only while
-Flutter's build system considers its `dart_build` target out of date — and that target's
-cache key does **not** include the target platform. A debug `flutter run` keys its build
-directory on the engine revision, the entrypoint, the build mode and the output path
-alone, so a debug run for *another* platform (`flutter run -d macos`, say) leaves behind a
-`dart_build` stamp naming its own dependencies; the next `flutter run -d chrome` finds
-every one of them unchanged, logs `Skipping target: dart_build`, and never invokes the
-hook. With `web/pkg/` not already provisioned, `RustLib.init()` then never completes:
-flutter_rust_bridge loads `pkg/openmls_frb.js` through a `<script>` tag and waits for its
-`load` event with no error path or timeout, so a missing module — a 404, or, under
-`flutter run`, the app's own HTML page served in its place with a 200 — leaves the call
-pending with nothing reported to Dart.
+`flutter build web` always reaches it. On Flutter 3.38 to 3.41, `flutter run -d chrome`
+reaches it only while Flutter's build system considers its `dart_build` target out of
+date — and that target's cache key does **not** include the target platform. A debug
+`flutter run` keys its build directory on the engine revision, the entrypoint, the build
+mode and the output path alone, so a debug run for *another* platform (`flutter run -d
+macos`, say) leaves behind a `dart_build` stamp naming its own dependencies; the next
+`flutter run -d chrome` finds every one of them unchanged, logs `Skipping target:
+dart_build`, and never invokes the hook. From Flutter 3.44 on, `flutter run` runs build
+hooks for each target platform with a cache of their own, outside that stamp, so a run
+for another platform no longer makes the web run skip them.
+
+With `web/pkg/` not provisioned, `init()` throws a `StateError` that names the missing
+`pkg/openmls_frb.js`. It checks for the module before handing it to
+flutter_rust_bridge's loader, which loads `pkg/openmls_frb.js` through a `<script>` tag and
+waits for its `load` event with no error path or timeout: a missing module — a 404, or,
+under `flutter run`, the app's own HTML page served in its place with a 200 — would leave
+the call pending with nothing reported to Dart.
 
 The hook cannot defend against this — the skip happens above `hooks_runner`, so nothing
 the hook declares as a dependency is ever read. Any one of these unblocks it, and
@@ -412,11 +417,19 @@ make update-changelog ARGS="--version 1.0.0"
 ```
 
 The CI automatically checks for new openmls releases daily and creates PRs with:
-- Updated `pubspec.yaml` and version badges
-- Updated `Cargo.lock` (if successful)
+- The new version in `rust/Cargo.toml`, the README badge, `CLAUDE.md` and
+  `.copier-answers.yml`
+- Updated `Cargo.lock` and `THIRD_PARTY_NOTICES.txt` (if successful)
 - Regenerated FRB bindings (if successful)
+- The minimum Rust version, raised when a crate of the new graph declares a
+  higher one (`make check-msrv`)
+- An `update-evidence` artifact with what upstream changed: the release notes,
+  the range and its patches, the lockfile diff, and the range of every other
+  git dependency that moved (`make update-evidence`)
 - AI-generated CHANGELOG entry, when `AI_MODELS` names a model with a key
   (see CONTRIBUTING); otherwise the pull request is labelled `changelog-needed`
+- A verdict on whether the update could be merged unread, and if not, why
+  not — a report only; nothing merges on it
 
 It also checks for copier template updates daily. When one is found it applies
 it with `copier update` and opens a pull request carrying the result — a draft

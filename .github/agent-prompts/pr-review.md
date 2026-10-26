@@ -32,7 +32,8 @@ Prepared for you before you started. Read in this order:
    the base branch. This is the object under review.
 2. **`.agent-scratch/pr-context.md`** — facts about the pull request gathered by
    the workflow: which files changed, who opened it, what labels it carries,
-   which commits it contains.
+   which commits it contains, and, when a bot's CHANGELOG entry links an
+   upstream range, which files that range changed upstream.
 
 The working tree is checked out at the pull request's head, so you can read any
 file at its post-change state to see a hunk in context. Reading the surrounding
@@ -101,7 +102,11 @@ that has actually happened here, repeatedly, so give it real attention:
    expected to audit the package, only to make the change visible.
 6. **A public API change with no CHANGELOG entry**, or a CHANGELOG entry that
    describes something the diff does not do, names a version or a crate no hunk
-   shows, or narrates its own inputs instead of the change.
+   shows, or narrates its own inputs instead of the change. The one exception
+   is a repository whose upstream range `pr-context.md` lists or names as
+   unreadable: what the entry says about that repository's files is held
+   against that list, never against this diff, which cannot show them. Every
+   other claim, a template release's included, is held against this diff.
 
 ## What NOT to report
 

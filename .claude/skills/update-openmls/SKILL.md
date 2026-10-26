@@ -14,14 +14,14 @@ When the CI creates an automated PR for openmls update, follow these steps:
 ### Step 1: Analyze Upstream Changes (IMPORTANT — go beyond release notes)
 
 Release notes are often terse or incomplete. Always examine what actually
-changed between the two tags. `vOLD` is the version being replaced (see the
-PR title/diff), `vNEW` is the new one.
+changed between the two releases. `$OLD` is the version being replaced (see the
+PR title/diff), `$NEW` is the new one.
 
 This project takes openmls from crates.io, so the two releases
 are compared by the commits their published crates record rather than by tags —
 which tags upstream cuts, and how it names them, is exactly what a registry
-source does not depend on. Find those commits first, and read `vOLD`/`vNEW`
-below as `$OLD`/`$NEW`:
+source does not depend on. `$OLD` and `$NEW` are those commits, and every
+command below takes them as they are; find them first:
 
 ```bash
 commit_of() {  # the commit `cargo package` recorded inside the published crate
@@ -41,17 +41,17 @@ gh api "repos/openmls/openmls/contents/CHANGELOG.md?ref=$NEW" \
   -H 'Accept: application/vnd.github.raw' | less
 ```
 
-**1b. Full commit list between the tags:**
+**1b. Full commit list between the releases:**
 
 ```bash
-gh api "repos/openmls/openmls/compare/vOLD...vNEW" --paginate \
+gh api "repos/openmls/openmls/compare/$OLD...$NEW" --paginate \
   --jq '.commits[].commit.message | split("\n")[0]'
 ```
 
 **1c. Which files changed, scoped to the crates we bind:**
 
 ```bash
-gh api "repos/openmls/openmls/compare/vOLD...vNEW" --paginate --jq '.files[].filename' \
+gh api "repos/openmls/openmls/compare/$OLD...$NEW" --paginate --jq '.files[].filename' \
   | grep -E 'openmls|openmls_rust_crypto|openmls_basic_credential|openmls_traits|openmls_libcrux_crypto'
 ```
 
@@ -59,7 +59,7 @@ For large ranges the compare API truncates `files` — fall back to a shallow cl
 
 ```bash
 git clone --filter=blob:none https://github.com/openmls/openmls /tmp/upstream
-git -C /tmp/upstream diff vOLD..vNEW --stat -- <crate dirs>
+git -C /tmp/upstream diff $OLD..$NEW --stat -- <crate dirs>
 ```
 
 **1d. Check the public API surface we actually bind.** List the upstream
@@ -67,20 +67,22 @@ types/functions referenced in `rust/src/api/*.rs`, then look for them in the
 diff:
 
 ```bash
-git -C /tmp/upstream diff vOLD..vNEW -- <crate>/src | grep -E '^[-+].*(pub fn|pub struct|pub enum|pub trait)'
+git -C /tmp/upstream diff $OLD..$NEW -- <crate>/src | grep -E '^[-+].*(pub fn|pub struct|pub enum|pub trait)'
 ```
 
 **1e. Upstream `Cargo.toml` deltas** — MSRV bumps, new/removed features,
 dependency updates with security advisories.
 
-⚠ **An MSRV bump moves two files, not one.** `rust-version` in
+⚠ **An MSRV bump moves more than one file.** `rust-version` in
 `rust/Cargo.toml` is what CI reads — `test-reusable.yml` greps it and feeds it
 to the toolchain action — but that line is *rendered* from the `rust_version`
-answer in `.copier-answers.yml`, and so is the version README.md advertises to
-contributors. Raise the answer together with the manifest. Otherwise the README
-keeps promising a toolchain that can no longer build the crate, nothing
-notices (the two are never compared), and the next `copier update` renders the
-stale number straight back over the manifest.
+answer in `.copier-answers.yml`, and so is the version README.md and
+CONTRIBUTING.md advertise to contributors. `make check-msrv ARGS="--update"`
+raises them together, to the highest floor a crate of the resolved graph
+declares, and the update workflow runs it after `make rust-update`. Raised in
+the manifest alone, the next `copier update` renders the stale number straight
+back over it. It reads what crates declare, so a crate that uses a feature
+newer than its own floor still only shows up in the MSRV job.
 
 Summarize findings as:
 - **Breaking changes** (API removals, signature changes) → Rust wrapper must adapt
@@ -162,25 +164,19 @@ Verify the AI-generated entry against YOUR findings from Step 1 — the AI only
 sees the release notes and commit subjects, not the diffs:
 - Fix incorrect descriptions
 - Add breaking changes, workarounds, and security fixes you found in the diff
-- Ensure `openmls_frb` version in Highlights matches `rust/Cargo.toml`
+- Leave the `openmls_frb` line out of Highlights: `make release-frb` stamps
+  it when the crate is released
 
-### Step 8: Verify openmls_frb Version Bump
+### Step 8: Leave the openmls_frb Version Alone
 
-The automated update bumps the version in `rust/Cargo.toml` in two stages:
-a deterministic bump mirroring the upstream SemVer delta, then an AI severity
-check (from the release notes and commit list) that can raise it — e.g. to
-major when a 0.x upstream ships breaking changes in a minor release.
-
-- If the PR carries the **`bump-unverified`** label (or the ⚠️ warning in the
-  PR body), the AI check did not run — classify the update yourself using
-  your Step 1 findings and fix the version if needed.
-- Even when verified, adjust if the *wrapper's own* API changed differently —
-  e.g. bump major if adapting to upstream forced breaking changes in
-  `rust/src/api/`:
-
-```toml
-version = "X.Y.Z"
-```
+The automated update does not touch `[package] version` in `rust/Cargo.toml`,
+and neither should the review. The crate version is chosen when the crate is
+released — `make release-frb ARGS="--version X.Y.Z"`, by SemVer of the FFI
+surface across everything merged since the last `openmls_frb-*` tag — so
+an update that lands now is versioned together with whatever lands after it.
+What this review contributes to that choice is the codegen diff (see *Binding
+Regeneration* below), and, if adapting to upstream forced a breaking change in
+`rust/src/api/`, a CHANGELOG entry that says so.
 
 ### Step 9: Sync Cargo.lock
 
@@ -211,20 +207,20 @@ git commit -m "fix: adapt for openmls vX.Y.Z breaking changes"
 
 ### Checklist Summary
 
-- [ ] Read release notes AND the actual commit list / diff between the tags
+- [ ] Read release notes AND the actual commit list / diff between the releases
 - [ ] Check the diff against the API surface bound in `rust/src/api/`
 - [ ] Fix Rust compilation errors (if any)
 - [ ] `make codegen` — regenerate FRB bindings
 - [ ] `make test` — all tests pass
 - [ ] `make analyze` — no issues
 - [ ] CHANGELOG.md — accurate and complete (breaking changes, security fixes)
-- [ ] `rust/Cargo.toml` — `openmls_frb` version bumped (automatic; verify)
+- [ ] `rust/Cargo.toml` — `[package] version` untouched (`make release-frb` moves it)
 - [ ] An `E0599` was checked against the upstream feature table before being
       treated as a removal
 - [ ] No diagnostic/test-only upstream feature ships — checked with `strings`
       on the built artifacts, not by reading the manifest
 - [ ] Advisory ignores emptied and re-added from what still fires
-- [ ] MSRV: `rust-version` and the `rust_version` answer moved together
+- [ ] MSRV: `make check-msrv` passes (`--update` raises every copy together)
 - [ ] `make rust-check` — sync Cargo.lock
 - [ ] Commit all changes
 
@@ -365,9 +361,11 @@ Files automatically updated by `make check-new-openmls-version ARGS="--update"`:
 |------|------|-------------|
 | `rust/Cargo.toml` | upstream versions | Native library dependency version |
 | `.copier-answers.yml` | `upstream_version`, `upstream_crate_versions` | What the next `copier update` renders |
-| `rust/Cargo.toml` | `version` | `openmls_frb` bump mirroring upstream SemVer delta (adjust manually if wrapper API changed differently) |
 | `README.md` | Badge | Version badge in header |
 | `CLAUDE.md` | Example | Code example in documentation |
+
+Not touched: `[package] version` in `rust/Cargo.toml`. The `openmls_frb`
+version moves with `make release-frb`, not with an upstream update.
 
 Files that need manual update:
 
@@ -410,7 +408,7 @@ match `rust/src/api/`, so committing what it generates is not optional.
 
 ### "No updates available"
 - You're already on the latest version
-- Check https://github.com/openmls/openmls/releases
+- Check https://crates.io/crates/openmls/versions
 
 ### "Cargo build failed"
 - New openmls version may have breaking API changes
@@ -424,5 +422,5 @@ match `rust/src/api/`, so committing what it generates is not optional.
 
 ## Upstream Resources
 
-- [openmls Releases](https://github.com/openmls/openmls/releases)
+- [openmls on crates.io](https://crates.io/crates/openmls)
 - [openmls Repository](https://github.com/openmls/openmls)

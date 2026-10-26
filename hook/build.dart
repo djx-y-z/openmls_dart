@@ -105,6 +105,34 @@ String? readLocalBuildStamp(Directory buildDir) {
   return file.readAsStringSync().trim();
 }
 
+/// Name of the copy of `rust/Cargo.lock` that `make build` and `make build-web`
+/// leave beside their stamps: the dependency graph the build was made from.
+///
+/// The version stamp cannot tell two builds of one crate version apart, and an
+/// upstream update moves the dependencies without moving the crate version,
+/// which moves at release time. A local build from before such an update passes
+/// the version check and runs the previous upstream code. Comparing the lock
+/// file the build was made from with the one in the tree catches that. It is a
+/// copy rather than a hash so that the Makefile needs no hashing tool — they
+/// differ from one platform to the next — and the comparison stays exact.
+const localBuildLockName = '.cargo-lock';
+
+/// Whether a local build was made from the lock file the tree has now.
+///
+/// [built] is the copy in [localBuildLockName] and [current] is
+/// `rust/Cargo.lock`, each null when absent. A build without the copy predates
+/// it and is treated as a mismatch, exactly as a missing version stamp is.
+///
+/// Pure so it is testable without a build tree.
+bool localBuildMatchesLock({
+  required String? built,
+  required String? current,
+}) => built != null && current != null && built == current;
+
+/// Reads [file] as text, or null when it is absent.
+String? readIfPresent(File file) =>
+    file.existsSync() ? file.readAsStringSync() : null;
+
 /// Marker written into a version-keyed download cache directory as the LAST
 /// step of a successful download+verify+extract. Its absence means the cache
 /// entry is incomplete (e.g. an interrupted extraction left a truncated file),
@@ -173,6 +201,25 @@ void main(List<String> args) async {
           'the released library instead.',
         );
       }
+      // The crate version does not move with the dependencies, so the same
+      // version stamp is no proof of the same code: compare the lock file too.
+      final lockUri = packageRoot.resolve('rust/Cargo.lock');
+      final builtLock = readIfPresent(
+        File('${buildDir.path}/$localBuildLockName'),
+      );
+      if (!localBuildMatchesLock(
+        built: builtLock,
+        current: readIfPresent(File.fromUri(lockUri)),
+      )) {
+        throw HookException(
+          'The local build ${localLib.toFilePath()} was made from '
+          '${builtLock == null ? 'an unrecorded rust/Cargo.lock' : 'another rust/Cargo.lock than the tree has now'}: '
+          'its dependencies may have moved while the crate version stayed at '
+          '$version. It takes priority over the released library, so loading '
+          'it could run the wrong code. Run `make build` to rebuild it, or '
+          'delete ${buildDir.path} to use the released library instead.',
+        );
+      }
       // ignore: avoid_print
       print(
         'Using local $targetOS-$targetArch build: ${localLib.toFilePath()}',
@@ -195,8 +242,10 @@ void main(List<String> args) async {
       // asset and the SDK aborts copying a file that is no longer there.
       output.dependencies
         ..add(packageRoot.resolve('rust/Cargo.toml'))
+        ..add(lockUri)
         ..add(localLib)
-        ..add(buildDir.uri.resolve(localBuildStampName));
+        ..add(buildDir.uri.resolve(localBuildStampName))
+        ..add(buildDir.uri.resolve(localBuildLockName));
       return;
     }
 
@@ -372,9 +421,9 @@ Future<void> _handleWebBuild(
       packageRoot.resolve('rust/target/wasm32/$fileName'),
     );
   }
-  output.dependencies.add(
-    packageRoot.resolve('rust/target/wasm32/$localBuildStampName'),
-  );
+  output.dependencies
+    ..add(packageRoot.resolve('rust/target/wasm32/$localBuildStampName'))
+    ..add(packageRoot.resolve('rust/target/wasm32/$localBuildLockName'));
 
   // Find the Flutter app root first
   final appRoot = _findAppRoot(input.outputDirectoryShared);
@@ -415,6 +464,25 @@ Future<void> _handleWebBuild(
         '${localWasmDir.path} to use the released WASM instead.',
       );
     }
+    // Same version, same code only if the dependencies did not move either.
+    final lockUri = packageRoot.resolve('rust/Cargo.lock');
+    final builtLock = readIfPresent(
+      File('${localWasmDir.path}/$localBuildLockName'),
+    );
+    if (!localBuildMatchesLock(
+      built: builtLock,
+      current: readIfPresent(File.fromUri(lockUri)),
+    )) {
+      throw HookException(
+        'The local WASM build in ${localWasmDir.path} was made from '
+        '${builtLock == null ? 'an unrecorded rust/Cargo.lock' : 'another rust/Cargo.lock than the tree has now'}: '
+        'its dependencies may have moved while the crate version stayed at '
+        '$version. It takes priority over the released module, so serving it '
+        'could run the wrong code. Run `make build-web` to rebuild it, or '
+        'delete ${localWasmDir.path} to use the released WASM instead.',
+      );
+    }
+    output.dependencies.add(lockUri);
     // ignore: avoid_print
     print('Using local WASM build from ${localWasmDir.path}');
     await _copyWasmFilesToAppRoot(localWasmDir.uri, webPkgDir);

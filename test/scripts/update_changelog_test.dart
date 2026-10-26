@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:test/test.dart';
 
 import '../../scripts/src/ai_client.dart';
@@ -58,6 +60,8 @@ const _withUnreleased = '''
 
 void main() {
   _breakingContradictionTests();
+  _mergeEligibilityTests();
+  _updateEvidenceTests();
   group('releaseNotesFrom', () {
     // The case that made this function exist. `curl -s` has no `-f`, so a
     // rate-limited reply arrives with exit code 0 and no `tag_name`; before the
@@ -697,67 +701,61 @@ void _breakingContradictionTests() {
       expect(highlightVersionFor(registry, '1.2.3'), 'v1.2.3');
     });
 
-    test('a default line is recognised whatever the version looks like', () {
-      for (final version in ['v1.2.3', '1.2.3', 'upstream-v1.2.3']) {
-        expect(
-          isOwnDefaultHighlight('- ${defaultHighlightFor(version)}'),
-          isTrue,
-          reason: version,
+    // The line the next run must find and replace, whatever the pin looked
+    // like: the prompt always names the version this way.
+    test('a default line is found again whatever the pin looks like', () {
+      const git = GitTagSource(
+        repo: 'owner/upstream',
+        crates: ['upstream-core'],
+        tagPrefix: 'upstream-v',
+      );
+      const registry = CratesIoSource(
+        repo: 'owner/upstream',
+        crates: ['upstream-core'],
+      );
+      for (final (source, pin) in [
+        (git, 'upstream-v1.2.3'),
+        (registry, '1.2.3'),
+      ]) {
+        final line =
+            '- ${defaultHighlightFor(highlightVersionFor(source, pin))}';
+        final changelog = _withUnreleased.replaceFirst(
+          '- **openmls_frb v1.5.2** — Rust FFI bindings',
+          line,
         );
+        expect(nativeHighlightsIn(changelog), [line], reason: pin);
       }
     });
   });
 
-  group('isOwnDefaultHighlight', () {
-    test('matches the prompt default at any version', () {
-      expect(
-        isOwnDefaultHighlight('- ${defaultHighlightFor('v0.102.1')}'),
-        isTrue,
-      );
-      expect(
-        isOwnDefaultHighlight('- ${defaultHighlightFor('v1.2.3')}'),
-        isTrue,
-      );
-    });
-
-    // What it must never match. This entry gets replaced by hand whenever a
-    // release deserves more than the default; superseding one of those would
-    // delete prose the default cannot reproduce.
-    test('does not match a rewritten line', () {
-      expect(
-        isOwnDefaultHighlight(
-          '- **openmls v0.102.1** — upstream bump. Of the four crates from '
-          'that',
-        ),
-        isFalse,
-      );
-    });
-
-    test('does not match the crate line or a Changed bullet', () {
-      expect(
-        isOwnDefaultHighlight('- **openmls_frb v1.5.2** — Rust FFI bindings'),
-        isFalse,
-      );
-      expect(isOwnDefaultHighlight('- Update openmls to v0.8.2'), isFalse);
-    });
-  });
-
-  group('hasRewrittenNativeHighlight', () {
-    test('is false when the only native line is the prompt default', () {
+  group('nativeHighlightsIn', () {
+    test('finds the line, with its continuation lines', () {
+      const bullet =
+          '- **openmls v0.8.1** — upstream bump. Of the four crates\n'
+          '  from that repository, the range changes one file';
       final changelog = _withUnreleased.replaceFirst(
         '- **openmls_frb v1.5.2** — Rust FFI bindings',
+        '- **headline** — first\n'
+            '$bullet\n'
+            '- **openmls_frb v1.5.2** — Rust FFI bindings',
+      );
+      expect(nativeHighlightsIn(changelog), [bullet]);
+    });
+
+    test('finds every one, in order', () {
+      final changelog = _withUnreleased.replaceFirst(
+        '- **openmls_frb v1.5.2** — Rust FFI bindings',
+        '- ${defaultHighlightFor('v0.8.1')}\n'
+            '- **openmls v0.8.2** — another',
+      );
+      expect(nativeHighlightsIn(changelog), [
         '- ${defaultHighlightFor('v0.8.1')}',
-      );
-      expect(hasRewrittenNativeHighlight(changelog), isFalse);
+        '- **openmls v0.8.2** — another',
+      ]);
     });
 
-    test('is true when a rewritten line is standing', () {
-      final changelog = _withUnreleased.replaceFirst(
-        '- **openmls_frb v1.5.2** — Rust FFI bindings',
-        '- **openmls v0.8.1** — upstream bump. Of the four crates from that\n'
-            '  repository in this package, the range changes one file',
-      );
-      expect(hasRewrittenNativeHighlight(changelog), isTrue);
+    test('never takes the crate line or a Changed bullet', () {
+      expect(nativeHighlightsIn(_withUnreleased), isEmpty);
     });
 
     // Released sections are immutable and are not the caller's business.
@@ -780,7 +778,23 @@ void _breakingContradictionTests() {
           '#### ✨ Highlights\n'
           '\n'
           '- **openmls v0.8.0** — shipped then, hand-written\n';
-      expect(hasRewrittenNativeHighlight(changelog), isFalse);
+      expect(nativeHighlightsIn(changelog), isEmpty);
+    });
+  });
+
+  group('asOneLine', () {
+    test('joins a wrapped line', () {
+      expect(
+        asOneLine('**openmls v1.2.3** — a long\n  description,\nwrapped'),
+        '**openmls v1.2.3** — a long description, wrapped',
+      );
+    });
+
+    test('leaves one line as it is', () {
+      expect(
+        asOneLine(defaultHighlightFor('v1.2.3')),
+        defaultHighlightFor('v1.2.3'),
+      );
     });
   });
 
@@ -840,7 +854,7 @@ void _breakingContradictionTests() {
     });
   });
 
-  group('insertChangelogEntry supersedes its own native highlight', () {
+  group('insertChangelogEntry supersedes the upstream highlight', () {
     // Dependency bumps accumulate on the main branch between releases now, so
     // the second bump in a window meets the first one's Highlights line. That
     // line names the version the section ships, so two of them make the
@@ -863,17 +877,54 @@ void _breakingContradictionTests() {
       expect(result, contains('**openmls_frb v1.5.2**'));
     });
 
-    // The safe half of the rule, and the one with the sharp edge: a rewritten
-    // highlight runs onto continuation lines, so dropping it by line match
-    // would leave those behind as a dangling paragraph. It is not dropped.
-    test('keeps a rewritten multi-line highlight intact', () {
+    // A rewritten line used to be kept, and the next bump then stacked its
+    // own beside it for a person to collapse. It is replaced now, continuation
+    // lines and all — the model is shown it and carries forward what holds —
+    // and the bullets around it survive byte for byte.
+    test('replaces a rewritten multi-line highlight, continuation lines too', () {
+      const headline =
+          '- **`ctutils` 0.4.5** — fixes RUSTSEC-2026-0385 in the native library:\n'
+          '  constant-time masks and `u128` comparisons (see Security)';
       const rewritten =
-          '- **openmls v0.8.1** — upstream bump. Of the four crates from that\n'
-          '  repository in this package, the range changes exactly one file,\n'
-          '  and it is the version string';
+          '- **openmls v0.106.0** — session management moves from Sesame to Tahini:\n'
+          '  an archived session is never made current again, and a record keeps at\n'
+          '  most 3 of them instead of 40';
       final before = _withUnreleased.replaceFirst(
         '- **openmls_frb v1.5.2** — Rust FFI bindings',
-        '- **openmls_frb v1.5.2** — Rust FFI bindings\n$rewritten',
+        '$headline\n$rewritten\n- **openmls_frb v1.5.2** — Rust FFI bindings',
+      );
+      final result = insertChangelogEntry(
+        currentChangelog: before,
+        nativeHighlight:
+            '**openmls v0.106.1** — Tahini session management, since v0.106.0',
+        changed: '- **Bumped** — detail',
+      );
+
+      expect(
+        result,
+        contains(
+          '#### ✨ Highlights\n'
+          '\n'
+          '$headline\n'
+          '- **openmls v0.106.1** — Tahini session management, since v0.106.0\n'
+          '- **openmls_frb v1.5.2** — Rust FFI bindings\n'
+          '\n'
+          '#### Changed',
+        ),
+      );
+      expect(result, isNot(contains('most 3 of them')));
+      expect(result, isNot(contains('v0.106.0** —')));
+    });
+
+    // Two already standing is the one case a run cannot settle on its own: it
+    // replaces the first, keeps the second, and reports the section stacked.
+    test('replaces only the first of two standing lines', () {
+      final before = _withUnreleased.replaceFirst(
+        '- **openmls_frb v1.5.2** — Rust FFI bindings',
+        '- **openmls v0.8.0** — first\n'
+            '  continued\n'
+            '- **openmls v0.8.1** — second\n'
+            '- **openmls_frb v1.5.2** — Rust FFI bindings',
       );
       final result = insertChangelogEntry(
         currentChangelog: before,
@@ -881,8 +932,36 @@ void _breakingContradictionTests() {
         changed: '- **Bumped** — detail',
       );
 
-      expect(result, contains(rewritten));
-      expect(result, contains(defaultHighlightFor('v0.8.2')));
+      expect(result, isNot(contains('— first')));
+      expect(result, isNot(contains('  continued')));
+      expect(result, contains('- **openmls v0.8.1** — second'));
+      expect(result, contains('- ${defaultHighlightFor('v0.8.2')}'));
+    });
+
+    // The only line of the block: the replacement takes its place, with one
+    // blank line on either side and no stray continuation.
+    test('replaces a multi-line highlight that was the only bullet', () {
+      final before = _withUnreleased.replaceFirst(
+        '- **openmls_frb v1.5.2** — Rust FFI bindings',
+        '- **openmls v0.8.1** — upstream bump. Of the four crates\n'
+            '  from that repository, the range changes one file',
+      );
+      final result = insertChangelogEntry(
+        currentChangelog: before,
+        nativeHighlight: defaultHighlightFor('v0.8.2'),
+        changed: '- **Bumped** — detail',
+      );
+
+      expect(
+        result,
+        contains(
+          '#### ✨ Highlights\n'
+          '\n'
+          '- ${defaultHighlightFor('v0.8.2')}\n'
+          '\n'
+          '#### Changed',
+        ),
+      );
     });
 
     // Nothing outside [Unreleased] is rewritten, ever.
@@ -1476,6 +1555,32 @@ void _breakingContradictionTests() {
       );
     });
 
+    // The shape of v0.105.2's pull request: the previous bump's default was
+    // the block's only line. Dropping it left the blank line from either side
+    // of it, the new line went in above both, and `#### Changed` ended up two
+    // blank lines below it — removed by hand.
+    test('replaces a lone default, one blank line each side', () {
+      final out = insertChangelogEntry(
+        currentChangelog: window.replaceFirst(
+          RegExp(r'- \*\*A failed call[\s\S]*?see Fixed\n'),
+          '',
+        ),
+        nativeHighlight: defaultHighlightFor('v0.105.0'),
+        changed: '- **The v0.105.0 bump** — detail',
+      );
+      expect(
+        out,
+        contains(
+          '#### ✨ Highlights\n'
+          '\n'
+          '- ${defaultHighlightFor('v0.105.0')}\n'
+          '\n'
+          '#### Changed',
+        ),
+      );
+      expect(out, isNot(contains('v0.104.0** — internal')));
+    });
+
     // A project that has never released has no version heading below
     // [Unreleased]; the link references end the section instead.
     test('stops at the link references when no release follows', () {
@@ -1508,6 +1613,583 @@ void _breakingContradictionTests() {
         out,
         contains('#### ✨ Highlights\n\n- ${defaultHighlightFor('v0.1.0')}'),
       );
+    });
+  });
+}
+
+/// Whether an update could be merged unread: the rule, blocker by blocker.
+///
+/// Every case that should block is written out, because each one guards a
+/// SILENT failure: a rule that stops blocking something still says "eligible",
+/// and nothing downstream checks it.
+void _mergeEligibilityTests() {
+  group('isVersionOnlyPatch', () {
+    // A crate's version constant, as a release script bumps it.
+    test('passes a bumped version constant', () {
+      expect(
+        isVersionOnlyPatch(
+          '@@ -6,4 +6,4 @@\n'
+          ' // The value of this constant is updated by the release script\n'
+          ' // and should not be modified by hand\n'
+          ' \n'
+          '-pub const VERSION: &str = "0.105.2";\n'
+          '+pub const VERSION: &str = "0.105.4";',
+        ),
+        isTrue,
+      );
+    });
+
+    test('passes a manifest version', () {
+      expect(
+        isVersionOnlyPatch(
+          '@@ -1,4 +1,4 @@\n'
+          ' [package]\n'
+          ' name = "upstream-core"\n'
+          '-version = "0.1.0"\n'
+          '+version = "0.1.1"\n'
+          ' edition = "2024"',
+        ),
+        isTrue,
+      );
+    });
+
+    // The case the quoting rule exists for: a protocol version is an integer,
+    // and moving it changes what goes on the wire.
+    test('blocks an integer protocol version', () {
+      expect(
+        isVersionOnlyPatch(
+          '@@ -1,3 +1,3 @@\n'
+          '-pub const CIPHERTEXT_MESSAGE_CURRENT_VERSION: u8 = 4;\n'
+          '+pub const CIPHERTEXT_MESSAGE_CURRENT_VERSION: u8 = 5;',
+        ),
+        isFalse,
+      );
+    });
+
+    test('blocks a quoted version on a line that does not say version', () {
+      expect(isVersionOnlyPatch('-other = "1.2.3"\n+other = "1.2.4"'), isFalse);
+    });
+
+    test('blocks a version line that changes anything else as well', () {
+      expect(
+        isVersionOnlyPatch(
+          '-pub const VERSION: &str = "0.1.0"; // old\n'
+          '+pub const VERSION: &str = "0.2.0"; // new',
+        ),
+        isFalse,
+      );
+    });
+
+    test('blocks a version bump next to a code change', () {
+      expect(
+        isVersionOnlyPatch(
+          '-pub const VERSION: &str = "0.1.0";\n'
+          '+pub const VERSION: &str = "0.2.0";\n'
+          '-    max_archived: 40,\n'
+          '+    max_archived: 3,',
+        ),
+        isFalse,
+      );
+    });
+
+    test('blocks additions or removals alone', () {
+      expect(isVersionOnlyPatch('+version = "0.1.0"'), isFalse);
+      expect(isVersionOnlyPatch('-version = "0.1.0"'), isFalse);
+      expect(isVersionOnlyPatch('@@ -1 +1 @@\n context'), isFalse);
+    });
+
+    // A toolchain floor, not the crate's version: raising it is what the MSRV
+    // check fails on, and what an agent may not touch.
+    test('blocks a rust-version', () {
+      expect(
+        isVersionOnlyPatch(
+          '-rust-version = "1.93.1"\n+rust-version = "1.95.0"',
+        ),
+        isFalse,
+      );
+    });
+
+    test('blocks a patch that changes nothing', () {
+      expect(
+        isVersionOnlyPatch('-version = "0.1.0"\n+version = "0.1.0"'),
+        isFalse,
+      );
+    });
+  });
+
+  group('mergeEligibilityFrom', () {
+    String lock(List<String> packages) =>
+        '# This file is automatically @generated by Cargo.\n'
+        'version = 4\n'
+        '\n${packages.join('\n')}';
+    String reg(String name, String version) =>
+        '[[package]]\n'
+        'name = "$name"\n'
+        'version = "$version"\n'
+        'source = "registry+https://github.com/rust-lang/crates.io-index"\n';
+    String git(String name, String version, String repo, String rev) =>
+        '[[package]]\n'
+        'name = "$name"\n'
+        'version = "$version"\n'
+        'source = "git+https://github.com/$repo?tag=v$version#$rev"\n';
+    Map<String, dynamic> file(
+      String name, {
+      String status = 'modified',
+      String? patch,
+      String? previous,
+    }) => {
+      'filename': name,
+      'status': status,
+      'patch': ?patch,
+      'previous_filename': ?previous,
+    };
+    const versionBump =
+        '-pub const VERSION: &str = "0.1.0";\n'
+        '+pub const VERSION: &str = "0.1.1";';
+    final lockBefore = lock([
+      git('upstream-core', '0.1.0', 'owner/upstream', 'aaaaaaa1111'),
+      git('ratchet', '1.6.0', 'owner/ratchet', '06959b47'),
+      reg('libc', '0.2.189'),
+    ]);
+    final lockAfter = lock([
+      git('upstream-core', '0.1.0', 'owner/upstream', 'bbbbbbb2222'),
+      git('ratchet', '1.6.0', 'owner/ratchet', '06959b47'),
+      reg('libc', '0.2.189'),
+    ]);
+
+    String manifest(String rustVersion) =>
+        '[package]\n'
+        'name = "wrapper_frb"\n'
+        'rust-version = "$rustVersion"\n'
+        '\n'
+        '[dependencies]\n'
+        'upstream-core = { git = "https://github.com/owner/upstream", '
+        'tag = "v0.1.1" }\n';
+
+    MergeEligibility decide({
+      String? codegen = 'unchanged',
+      Object? files = const <Object?>[],
+      bool compareRead = true,
+      bool approximate = false,
+      List<UpstreamCrate> crates = _crates,
+      String? before,
+      String? after,
+      bool lockRead = true,
+      String rustBefore = '1.93.1',
+      String rustAfter = '1.93.1',
+      bool manifestRead = true,
+      Set<String> upstream = const {},
+      bool prerelease = false,
+    }) => mergeEligibilityFrom(
+      codegenResult: codegen,
+      compare: compareRead ? {'files': files} : null,
+      approximateRange: approximate,
+      crates: crates,
+      lockBefore: lockRead ? before ?? lockBefore : null,
+      lockAfter: lockRead ? after ?? lockAfter : null,
+      manifestBefore: manifestRead ? manifest(rustBefore) : null,
+      manifestAfter: manifestRead ? manifest(rustAfter) : null,
+      upstreamRepo: 'owner/upstream',
+      upstream: upstream,
+      prerelease: prerelease,
+    );
+
+    final versionOnly = [
+      file('rust/core/src/version.rs', patch: versionBump),
+      file('README.md', patch: '-old\n+new'),
+      file('bridge/node/index.ts', patch: '-a\n+b'),
+    ];
+
+    test('passes a range that moved only a version string', () {
+      final verdict = decide(files: versionOnly);
+      expect(verdict.blockers, isEmpty);
+      expect(verdict.eligible, isTrue);
+    });
+
+    test('blocks a pre-release', () {
+      expect(
+        decide(files: versionOnly, prerelease: true).blockers.single,
+        contains('pre-release'),
+      );
+    });
+
+    // `make check-msrv` raised it: every contributor building from source on
+    // the old toolchain is dropped, and the repair may not touch it.
+    test('blocks a raised minimum Rust version, naming both', () {
+      expect(
+        decide(files: versionOnly, rustAfter: '1.95.0').blockers.single,
+        'the minimum Rust version moves from 1.93.1 to 1.95.0',
+      );
+    });
+
+    // Anything missing blocks; nothing missing is ever a pass.
+    test('blocks an unreadable manifest', () {
+      expect(
+        decide(files: versionOnly, manifestRead: false).blockers.single,
+        contains('`rust/Cargo.toml` could not be read'),
+      );
+    });
+
+    test('blocks a moved FFI surface', () {
+      expect(
+        decide(files: versionOnly, codegen: 'changed').blockers.single,
+        contains('FFI surface moved'),
+      );
+    });
+
+    // `--codegen not-run` reaches the function as null: unknown is not fine.
+    test('blocks bindings that were not regenerated', () {
+      expect(
+        decide(files: versionOnly, codegen: null).blockers.single,
+        contains('not regenerated'),
+      );
+    });
+
+    test('blocks a range that could not be read', () {
+      expect(
+        decide(compareRead: false).blockers.single,
+        contains('could not be read'),
+      );
+    });
+
+    test('blocks an approximate range', () {
+      expect(
+        decide(files: versionOnly, approximate: true).blockers.single,
+        contains('approximate'),
+      );
+    });
+
+    test('blocks a file list at the API cap', () {
+      final full = [
+        for (var i = 0; i < 300; i++) file('docs/page$i.md', patch: '-a\n+b'),
+      ];
+      expect(decide(files: full).blockers.single, contains('300 files'));
+    });
+
+    test('blocks unknown crates, without guessing which files are theirs', () {
+      expect(
+        decide(files: versionOnly, crates: const []).blockers.single,
+        contains('crates this package builds are unknown'),
+      );
+    });
+
+    test('blocks a code change in a crate this package builds, by name', () {
+      final blockers = decide(
+        files: [
+          file('rust/core/src/version.rs', patch: versionBump),
+          file(
+            'rust/protocol/src/session.rs',
+            patch: '-    max_archived: 40,\n+    max_archived: 3,',
+          ),
+        ],
+      ).blockers;
+      expect(blockers.single, contains('more than a version string'));
+      expect(blockers.single, contains('`rust/protocol/src/session.rs`'));
+      expect(blockers.single, isNot(contains('version.rs')));
+    });
+
+    test('blocks a file added to, or removed from, such a crate', () {
+      for (final status in ['added', 'removed']) {
+        expect(
+          decide(
+            files: [
+              file('rust/protocol/src/new.rs', status: status, patch: '+x'),
+            ],
+          ).blockers.single,
+          contains('`rust/protocol/src/new.rs`'),
+          reason: status,
+        );
+      }
+    });
+
+    test('blocks a file renamed into such a crate', () {
+      expect(
+        decide(
+          files: [
+            file(
+              'rust/protocol/src/moved.rs',
+              status: 'renamed',
+              previous: 'elsewhere/moved.rs',
+            ),
+          ],
+        ).blockers.single,
+        contains('`rust/protocol/src/moved.rs`'),
+      );
+    });
+
+    test('blocks such a file when the payload carries no patch to check', () {
+      expect(
+        decide(files: [file('rust/core/src/big.rs')]).blockers.single,
+        contains('`rust/core/src/big.rs`'),
+      );
+    });
+
+    test('blocks a third-party crate that moved, naming it', () {
+      final blocker = decide(
+        files: versionOnly,
+        after: lockAfter.replaceFirst('0.2.189', '0.2.191'),
+      ).blockers.single;
+      expect(blocker, contains('third-party crates move'));
+      expect(blocker, contains('`libc` 0.2.189 → 0.2.191'));
+    });
+
+    test('blocks a third-party crate added or removed', () {
+      expect(
+        decide(
+          files: versionOnly,
+          after: '$lockAfter\n${reg('fresh', '0.1.0')}',
+        ).blockers.single,
+        contains('`fresh` added'),
+      );
+    });
+
+    // With a registry upstream source, its own crates are the update.
+    test('passes the upstream crates when they come from the registry', () {
+      expect(
+        decide(
+          files: versionOnly,
+          after: lockAfter.replaceFirst('0.2.189', '0.2.191'),
+          upstream: const {'libc'},
+        ).blockers,
+        isEmpty,
+      );
+    });
+
+    test('blocks a git dependency from another repository that moved', () {
+      expect(
+        decide(
+          files: versionOnly,
+          after: lockAfter.replaceFirst('06959b47', '1234567890'),
+        ).blockers.single,
+        contains('another repository moves: `ratchet`'),
+      );
+    });
+
+    test('blocks a lockfile that could not be diffed', () {
+      expect(
+        decide(files: versionOnly, lockRead: false).blockers.single,
+        contains('lockfile diff could not be read'),
+      );
+    });
+  });
+
+  group('eligibilityOutputsFor', () {
+    test('writes both keys when eligible', () {
+      expect(
+        eligibilityOutputsFor(const MergeEligibility([])),
+        'merge_eligible=true\nmerge_blockers=\n',
+      );
+    });
+
+    test('writes both keys, the reasons on one line, when not', () {
+      expect(
+        eligibilityOutputsFor(
+          const MergeEligibility(['the first\nreason', 'the second']),
+        ),
+        'merge_eligible=false\nmerge_blockers=the first reason; the second\n',
+      );
+    });
+  });
+}
+
+void _updateEvidenceTests() {
+  String lock(List<String> packages) =>
+      '# This file is automatically @generated by Cargo.\n'
+      'version = 4\n'
+      '\n${packages.join('\n')}';
+  String git(String name, String version, String repo, String rev) =>
+      '[[package]]\n'
+      'name = "$name"\n'
+      'version = "$version"\n'
+      'source = "git+https://github.com/$repo?tag=v$version#$rev"\n';
+  String reg(String name, String version) =>
+      '[[package]]\n'
+      'name = "$name"\n'
+      'version = "$version"\n'
+      'source = "registry+https://github.com/rust-lang/crates.io-index"\n';
+  const oldRev = 'fd320484dcec89004021e6fdc7481825f5f261fa';
+  const newRev = '06959b4708f9b7b1e94d0f8cc835f3958c077e94';
+
+  group('otherGitDepRangesFrom', () {
+    // The case it exists for: a dependency of upstream's from a repository of
+    // its own, which the upstream compare shows only as a version in a
+    // manifest. Full revisions, because the compare is fetched by them.
+    test('ranges a git dependency from another repository that moved', () {
+      final deps = otherGitDepRangesFrom(
+        lock([
+          git('upstream-core', '0.1.0', 'owner/upstream', 'aaaaaaa1111'),
+          git('ratchet', '1.5.3', 'owner/ratchet', oldRev),
+          reg('libc', '0.2.189'),
+        ]),
+        lock([
+          git('upstream-core', '0.1.1', 'owner/upstream', 'bbbbbbb2222'),
+          git('ratchet', '1.6.0', 'owner/ratchet', newRev),
+          reg('libc', '0.2.191'),
+        ]),
+        upstreamRepo: 'owner/upstream',
+      );
+      // Field by field: a record compares its list by identity.
+      final range = deps.ranges.single;
+      expect(range.crates, ['ratchet']);
+      expect(range.repo, 'owner/ratchet');
+      expect((range.was, range.now), (oldRev, newRev));
+      expect((range.wasVersion, range.nowVersion), ('1.5.3', '1.6.0'));
+      expect(deps.unranged, isEmpty);
+    });
+
+    test('leaves out upstream itself and what did not move', () {
+      final before = lock([
+        git('upstream-core', '0.1.0', 'Owner/Upstream', 'aaaaaaa1111'),
+        git('ratchet', '1.6.0', 'owner/ratchet', newRev),
+      ]);
+      final after = lock([
+        git('upstream-core', '0.1.1', 'owner/upstream', 'bbbbbbb2222'),
+        git('ratchet', '1.6.0', 'owner/ratchet', newRev),
+      ]);
+      final deps = otherGitDepRangesFrom(
+        before,
+        after,
+        upstreamRepo: 'owner/upstream',
+      );
+      expect(deps.ranges, isEmpty);
+      expect(deps.unranged, isEmpty);
+    });
+
+    // One compare per repository and pair of revisions, not one per crate.
+    test('ranges the crates of one repository once', () {
+      final deps = otherGitDepRangesFrom(
+        lock([
+          git('dalek', '4.1.3', 'owner/dalek', oldRev),
+          git('dalek-derive', '0.1.1', 'owner/dalek', oldRev),
+        ]),
+        lock([
+          git('dalek', '4.1.4', 'owner/dalek', newRev),
+          git('dalek-derive', '0.1.1', 'owner/dalek', newRev),
+        ]),
+        upstreamRepo: 'owner/upstream',
+      );
+      expect(deps.ranges.single.crates, ['dalek', 'dalek-derive']);
+    });
+
+    test('names what moved but has no range', () {
+      String elsewhere(String version, String rev) =>
+          '[[package]]\n'
+          'name = "elsewhere"\n'
+          'version = "$version"\n'
+          'source = "git+https://example.org/elsewhere.git#$rev"\n';
+      final deps = otherGitDepRangesFrom(
+        lock([elsewhere('1.0.0', oldRev)]),
+        lock([
+          elsewhere('1.1.0', newRev),
+          git('newcomer', '0.1.0', 'owner/newcomer', newRev),
+        ]),
+        upstreamRepo: 'owner/upstream',
+      );
+      expect(deps.ranges, isEmpty);
+      expect(deps.unranged, hasLength(2));
+      expect(deps.unranged, contains(contains('`newcomer` joins the graph')));
+      // `_gitSource` reads any host; only GitHub has a compare to fetch.
+      expect(
+        deps.unranged,
+        contains(contains('`elsewhere` is not one GitHub')),
+      );
+    });
+  });
+
+  group('gitDepRangeEvidenceFrom', () {
+    test('carries the compare link, the commits, the files and patches', () {
+      final text = gitDepRangeEvidenceFrom(
+        (
+          crates: ['ratchet'],
+          repo: 'owner/ratchet',
+          was: oldRev,
+          now: newRev,
+          wasVersion: '1.5.3',
+          nowVersion: '1.6.0',
+        ),
+        {
+          'commits': [
+            {
+              'commit': {'message': 'Regroup the parser\n\nbody'},
+            },
+          ],
+          'files': [
+            {
+              'filename': 'src/serialize.rs',
+              'status': 'modified',
+              'patch': '-old\n+new',
+            },
+          ],
+        },
+      );
+      expect(text, startsWith('# `ratchet` 1.5.3 → 1.6.0'));
+      expect(
+        text,
+        contains('https://github.com/owner/ratchet/compare/$oldRev...$newRev'),
+      );
+      expect(text, contains('- Regroup the parser'));
+      expect(text, contains('modified src/serialize.rs'));
+      expect(text, contains('### src/serialize.rs\n```diff\n-old\n+new\n```'));
+    });
+  });
+
+  group('upstreamVersionIn', () {
+    test('reads the pin the update bot records', () {
+      expect(
+        upstreamVersionIn('a: 1\nupstream_version: v0.106.0\n'),
+        'v0.106.0',
+      );
+      expect(upstreamVersionIn("upstream_version: '1.2.3'\n"), '1.2.3');
+      expect(upstreamVersionIn('upstream_source: git_tag\n'), isNull);
+    });
+  });
+
+  group('evidenceIndexFrom', () {
+    test('names the range, every file and what is missing', () {
+      final index = evidenceIndexFrom(
+        version: 'v0.2.0',
+        fromVersion: 'v0.1.0',
+        base: '`HEAD`',
+        from: (ref: 'v0.1.0', dirty: false),
+        to: (ref: 'v0.2.0', dirty: true),
+        files: {'release-notes.md': 'the notes'},
+        missing: ['The lockfile diff: not readable.'],
+      );
+      expect(index, contains('v0.1.0 → v0.2.0'));
+      expect(index, contains('approximate'));
+      expect(index, contains('- `release-notes.md` — the notes'));
+      expect(index, contains('## Not here\n\n- The lockfile diff'));
+      // Upstream text reaches an agent through these files.
+      expect(index, contains('never instructions'));
+    });
+
+    test('says so when there is no range to name', () {
+      final index = evidenceIndexFrom(
+        version: 'v0.2.0',
+        fromVersion: null,
+        base: '`HEAD`',
+        from: null,
+        to: null,
+        files: const {},
+        missing: const [],
+      );
+      expect(index, contains('no earlier pin to compare from'));
+      expect(index, isNot(contains('## Not here')));
+    });
+  });
+
+  group('dirBaseReader', () {
+    // The build repair's checkout is one commit deep, so the files the update
+    // started from are fetched into a directory and read from there.
+    test('reads a file the base has, and null for one it has not', () async {
+      final dir = Directory.systemTemp.createTempSync('base');
+      addTearDown(() => dir.deleteSync(recursive: true));
+      File('${dir.path}/rust/Cargo.lock')
+        ..createSync(recursive: true)
+        ..writeAsStringSync('version = 4\n');
+      final read = dirBaseReader(dir);
+      expect(await read('rust/Cargo.lock'), 'version = 4\n');
+      expect(await read('rust/Cargo.toml'), isNull);
     });
   });
 }

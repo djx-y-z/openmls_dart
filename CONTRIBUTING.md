@@ -29,7 +29,8 @@ Please be respectful and considerate of others. We expect all contributors to:
 ### Prerequisites
 
 - [Rust toolchain](https://rustup.rs/) (1.91+) — `rust-version` in
-  `rust/Cargo.toml` is the authority; this is the same number
+  `rust/Cargo.toml` is the authority; this is the same number, and
+  `make check-msrv` keeps the two together
 - [Dart SDK]( https://dart.dev/get-dart ) (^3.10.0) or Flutter
   (>=3.38.0) — `make setup` installs the pinned Flutter through fvm
 - `make` (see **Windows Users** below)
@@ -420,13 +421,30 @@ reverts it, which turns a red build into a red build nobody can reproduce.
 ### Updating Upstream OpenMLS
 
 The CI automatically checks for new openmls releases daily and creates PRs. The automation includes:
-- Updating `pubspec.yaml` with new version
-- Updating `Cargo.lock` dependencies
+- Moving the version in `rust/Cargo.toml`, the README badge, `CLAUDE.md` and
+  `.copier-answers.yml`
+- Updating `Cargo.lock` dependencies and `THIRD_PARTY_NOTICES.txt`
 - Regenerating FRB bindings
+- Raising the minimum Rust version when a crate of the new graph declares a
+  higher one (`make check-msrv ARGS="--update"`), in `rust/Cargo.toml`, the
+  `rust_version` answer and the docs, and saying so in the entry
+- Attaching what upstream changed to the run, as the `update-evidence`
+  artifact the PR links: the release notes, the range with its patches to the
+  crates this package builds, the lockfile diff, and the range of every git
+  dependency from another repository that moved — which the upstream diff
+  shows only as a version. `make update-evidence ARGS="--out <dir>"` writes the
+  same locally, and the build repair gives it to its agent
 - Generating an AI-written CHANGELOG entry, when `AI_MODELS` names a model that
   has a key — see [Setting up AI Changelog](#setting-up-ai-changelog) below.
   Without one the PR is still opened and labelled `changelog-needed`, and the
   entry is written by hand.
+- Saying, under *Merge without review?*, whether the update could be taken
+  unread: only version strings moved in the crates this package builds (read
+  off the upstream diff, so a protocol constant never passes), the FFI surface
+  held, no other crate in `Cargo.lock` moved, and neither did the minimum Rust
+  version. Otherwise it names what stands in the way. A report only — nothing
+  merges on it yet, and a future merge job would also need green checks and no
+  agent commits.
 
 **Manual update:**
 

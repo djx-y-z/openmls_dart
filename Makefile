@@ -8,7 +8,7 @@
 # On Windows CI (Git Bash), use cmd to run fvm.bat from PATH:
 # Example: make build ARGS="--target x86_64-pc-windows-msvc" FVM="cmd //c fvm"
 
-.PHONY: help setup setup-fvm setup-rust-tools setup-frb-codegen setup-android setup-web setup-fuzz codegen regen build build-android build-web run-example-web test-web test coverage analyze format format-check get clean version get-version check-new-openmls-version check-exists-openmls-frb-release check-template-updates update-template check-targets third-party-notices verify-third-party-notices verify-frb-pins verify-pub-limits verify-feature-graph verify-android-alignment verify-release-artifacts verify-library-loads actionlint rust-audit rust-deny rust-check rust-check-ios rust-test rust-clippy rust-clippy-web rust-doc rust-geiger fuzz fuzz-list fuzz-seed doc publish publish-dry-run rust-update update-changelog release-frb release setup-repo-protections
+.PHONY: help setup setup-fvm setup-rust-tools setup-frb-codegen setup-android setup-web setup-fuzz codegen regen build build-android build-web run-example-web test-web test coverage analyze format format-check get clean version get-version check-new-openmls-version check-upstream-advisories check-exists-openmls-frb-release check-template-updates update-template check-targets check-msrv third-party-notices verify-third-party-notices verify-frb-pins verify-pub-limits verify-feature-graph verify-android-alignment verify-release-artifacts verify-library-loads actionlint rust-audit rust-deny rust-check rust-check-ios rust-test rust-clippy rust-clippy-web rust-doc rust-geiger fuzz fuzz-list fuzz-seed doc publish publish-dry-run rust-update update-changelog update-evidence release-frb release setup-repo-protections
 
 # FVM command - can be overridden to provide full path on Windows CI
 FVM ?= fvm
@@ -42,7 +42,7 @@ help:
 	@echo "    make setup-frb-codegen            - Install pinned flutter_rust_bridge_codegen"
 	@echo "    make setup-android                - Install Android build tools (cargo-ndk)"
 	@echo "    make setup-web                    - Install web build tools (wasm-pack)"
-	@echo "    make setup-repo-protections       - Apply GitHub rulesets + native-build env (one-time, needs gh admin)"
+	@echo "    make setup-repo-protections       - Apply GitHub rulesets + both release environments (needs gh admin)"
 	@echo ""
 	@echo "  BUILD & CODEGEN"
 	@echo "    make codegen                      - Generate Dart bindings from Rust code"
@@ -57,10 +57,12 @@ help:
 	@echo "  CI / VERSION CHECKS"
 	@echo "    make check-new-openmls-version  - Check for new upstream openmls version"
 	@echo "                                        Example: make check-new-openmls-version ARGS=\"--update\""
+	@echo "    make check-upstream-advisories    - Check openmls/openmls's published advisories against Cargo.lock"
 	@echo "    make check-exists-openmls-frb-release - Check if FRB release exists on GitHub"
 	@echo "    make check-template-updates       - Check for new copier template version"
 	@echo "    make update-template              - Apply a copier template update"
 	@echo "                                        Example: make update-template ARGS=\"--version v4.3.0\""
+	@echo "                                        Answer a new question: ARGS=\"--version v4.3.0 --data key=value\""
 	@echo "    make third-party-notices          - Regenerate THIRD_PARTY_NOTICES.txt from the dep graph"
 	@echo "    make verify-third-party-notices   - Verify THIRD_PARTY_NOTICES.txt is up to date"
 	@echo "    make verify-frb-pins              - Verify every file names the same flutter_rust_bridge version"
@@ -74,9 +76,13 @@ help:
 	@echo "    make actionlint                   - Lint the GitHub Actions workflows (actionlint)"
 	@echo "    make check-targets                - Check deployment target consistency (iOS/macOS/Android)"
 	@echo "                                        Example: make check-targets ARGS=\"--ios --set 14.0\""
+	@echo "    make check-msrv                   - Check the minimum Rust version against the dependency graph"
+	@echo "                                        Example: make check-msrv ARGS=\"--update\""
 	@echo "    make rust-update                  - Re-resolve Cargo.lock for rust/Cargo.toml (cargo update --workspace)"
 	@echo "    make update-changelog             - Update CHANGELOG.md with AI"
 	@echo "                                        Example: make update-changelog ARGS=\"--version 1.0.0\""
+	@echo "    make update-evidence              - Write down what an upstream update changed"
+	@echo "                                        Example: make update-evidence ARGS=\"--out /tmp/evidence\""
 	@echo ""
 	@echo "  RUST QUALITY"
 	@echo "    make rust-check                   - Check Rust code compiles"
@@ -228,6 +234,7 @@ setup-web:
 # GitHub repo exists). Idempotent by ruleset name; needs `gh` as a repo admin.
 #   make setup-repo-protections                  # apply (skips existing rulesets)
 #   make setup-repo-protections ARGS="--update"  # overwrite existing rulesets
+#   make setup-repo-protections ARGS="--dry-run" # show what would change
 setup-repo-protections:
 	@$(FVM) dart scripts/setup_repo_protections.dart $(ARGS)
 
@@ -268,6 +275,18 @@ build:
 # another crate version. A --target build lands in rust/target/<triple>/,
 # which the hook never reads, and gets no stamp.
 	$(if $(findstring --target,$(ARGS)),,@$(READ_CRATE_VERSION) > rust/target/release/.crate-version)
+# Keep a copy of the lock file the build was made from: an upstream update
+# moves the dependencies under an unchanged crate version, and the hook refuses
+# a build whose copy differs from rust/Cargo.lock.
+	$(if $(findstring --target,$(ARGS)),,@cp rust/Cargo.lock rust/target/release/.cargo-lock)
+# Drop the hook's cached result for this package, or the build may never be
+# used. When the hook last ran without a host build here it downloaded the
+# released library and declared only rust/Cargo.toml — it cannot declare a
+# library that does not exist yet, since hooks_runner re-runs a hook on every
+# build for a missing dependency — so nothing it watches changes now, and
+# `dart test` / `dart run` keep loading the download. The shared download
+# cache stays; Flutter's own dart_build stamp in an app is another matter.
+	$(if $(findstring --target,$(ARGS)),,@rm -rf .dart_tool/hooks_runner/openmls)
 	@echo ""
 	@echo "Build complete! Library at: rust/target/"
 
@@ -299,6 +318,9 @@ build-web:
 # names, which a patch release leaves unchanged while replacing the native
 # code behind them. The same first-`version` match the hook's own parser uses.
 	@$(READ_CRATE_VERSION) > rust/target/wasm32/.crate-version
+# And the lock file it was made from, which the hook compares with
+# rust/Cargo.lock: the dependencies move without the crate version.
+	@cp rust/Cargo.lock rust/target/wasm32/.cargo-lock
 	@echo ""
 	@echo "Build complete! WASM files at: rust/target/wasm32/ (crate $$(cat rust/target/wasm32/.crate-version))"
 
@@ -322,13 +344,14 @@ build-web:
 #      `Skipping target: dart_build`, and the build hook is never invoked at
 #      all. The hook cannot declare its way out of that: the skip happens above
 #      `hooks_runner`, so nothing the hook declares is ever read. Together with
-#      step 2 it turns a stale `web/pkg/` into a missing one, and
-#      `RustLib.init()` then never completes: flutter_rust_bridge waits for
-#      `pkg/openmls_frb.js` to fire `load`, with no error path or timeout,
-#      and a missing module never does — the dev server serves the app's
-#      HTML page in its place, with a 200. A
+#      step 2 it turns a stale `web/pkg/` into a missing one, and `init()`
+#      then throws a StateError for it — flutter_rust_bridge itself would
+#      wait forever for `pkg/openmls_frb.js` to fire `load`, since the dev
+#      server serves the app's HTML page in its place, with a 200. A
 #      stamp that does not exist cannot be stale, and an unmatched glob is
-#      a no-op under `rm -f`.
+#      a no-op under `rm -f`. Flutter 3.44 and later run build hooks per
+#      target platform, outside that stamp, so the step matters on 3.38 to
+#      3.41 only.
 #   4. `flutter run -d chrome` last, and NOT `--wasm`: that flag compiles the
 #      Dart half with dart2wasm, which flutter_rust_bridge's generated decoders
 #      do not support. The Rust side is a wasm module either way.
@@ -575,6 +598,14 @@ fuzz-seed:
 check-new-openmls-version:
 	@$(FVM) dart scripts/check_new_upstream_version.dart $(ARGS)
 
+# openmls/openmls's published security advisories, held against the crates
+# rust/Cargo.lock resolves: neither rust-audit (RustSec) nor Dependabot
+# (GitHub's global database) is guaranteed to see them. Run daily by
+# check-openmls-updates.yml. Exits 1 when one covers a locked
+# version, 2 when they could not be fetched — which make reports as 2 either way.
+check-upstream-advisories:
+	@$(FVM) dart scripts/check_upstream_advisories.dart $(ARGS)
+
 check-exists-openmls-frb-release:
 	@$(FVM) dart scripts/check_exists_frb_release.dart $(ARGS)
 
@@ -590,6 +621,19 @@ update-template:
 
 check-targets:
 	@$(FVM) dart scripts/check_deployment_targets.dart $(ARGS)
+
+# The minimum Rust version: rust/Cargo.toml, the rust_version answer and the
+# docs, against the highest floor a crate of the resolved graph declares.
+# `--update` raises them all; the update workflow runs it after rust-update.
+check-msrv:
+	@$(FVM) dart scripts/check_msrv.dart $(ARGS)
+
+# What an upstream update changed, in one directory: the release notes, the
+# upstream range and its patches, the lockfile diff, and the range of every git
+# dependency from another repository that moved. The update workflow uploads it
+# with the pull request; the build repair reads it. Evidence, not a gate.
+update-evidence:
+	@$(FVM) dart scripts/update_evidence.dart $(ARGS)
 
 # Regenerate the third-party notice inventory for the shipped native library.
 # Run after any dependency change; CI verifies the committed file matches.

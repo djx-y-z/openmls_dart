@@ -3,8 +3,9 @@
 /// Apply a copier template update.
 ///
 /// Runs `copier update` for the requested version, reports whatever copier
-/// could not merge, checks that the version bump actually landed in
-/// `.copier-answers.yml`, and records the adoption in CHANGELOG.md.
+/// could not merge and any text it merged in twice, checks that the version
+/// bump actually landed in `.copier-answers.yml`, and records the adoption in
+/// CHANGELOG.md.
 ///
 /// Usage:
 ///   fvm dart scripts/update_template.dart --version vX.Y.Z [options]
@@ -14,6 +15,7 @@
 ///   - `--skip-changelog`       Apply the update without a CHANGELOG entry
 ///   - `--json`                 Output the result as JSON
 ///   - `--ci-output <path>`     Append key=value outputs to a file
+///   - `--data <key=value>`     Answer a template question; repeatable
 ///   - `--help, -h`             Show this help
 ///
 /// The CHANGELOG entry needs `AI_MODELS` plus a key for each provider it names
@@ -23,9 +25,9 @@
 /// Exit codes are deliberately coarse: 0 means copier ran and the working tree
 /// now holds the update, **including** when it left conflicts, because that
 /// outcome still wants a pull request a human can finish. Anything a caller
-/// needs to branch on — conflicts, a missing version bump, a skipped CHANGELOG
-/// — is reported through `--ci-output`, not through the status. Only a failure
-/// that leaves nothing usable exits non-zero.
+/// needs to branch on — conflicts, text merged in twice, a missing version
+/// bump, a skipped CHANGELOG — is reported through `--ci-output`, not through
+/// the status. Only a failure that leaves nothing usable exits non-zero.
 ///
 /// Examples:
 ///   ```bash
@@ -35,6 +37,10 @@
 ///   # CI: apply and publish the result as step outputs
 ///   fvm dart scripts/update_template.dart --version v4.3.0 \
 ///     --ci-output $GITHUB_OUTPUT
+///
+///   # Answer a question the new version asks, instead of its default
+///   fvm dart scripts/update_template.dart --version v4.3.0 \
+///     --data enable_fuzzing=false
 ///   ```
 library;
 
@@ -82,6 +88,16 @@ void main(List<String> args) async {
     exit(2);
   }
 
+  final Map<String, String> data;
+  try {
+    data = parseCopierData(args);
+  } on FormatException catch (e) {
+    print('Error: ${e.message}');
+    print('');
+    _printUsage();
+    exit(2);
+  }
+
   if (!jsonOutput) {
     print('');
     print('========================================');
@@ -103,6 +119,7 @@ void main(List<String> args) async {
       toVersion: targetVersion,
       models: resolution.usable,
       skipChangelog: skipChangelog,
+      data: data,
     );
 
     if (ciOutputPath != null) {
@@ -134,6 +151,9 @@ Options:
   --skip-changelog       Apply the update without a CHANGELOG entry
   --json                 Output the result as JSON
   --ci-output <path>     Append key=value outputs to a file
+  --data <key=value>     Answer a template question; repeatable. Without one a
+                         question the new version asks takes its default, and
+                         the run says which answers copier did not record.
   --help, -h             Show this help
 
 Environment:
@@ -158,6 +178,10 @@ Examples:
   # CI: apply and publish the result as step outputs
   fvm dart scripts/update_template.dart --version v4.3.0 \\
     --ci-output \$GITHUB_OUTPUT
+
+  # Answer a question the new version asks, instead of its default
+  fvm dart scripts/update_template.dart --version v4.3.0 \\
+    --data enable_fuzzing=false
 
 Exit codes:
   0 - copier ran and the update is in the working tree (conflicts included;
