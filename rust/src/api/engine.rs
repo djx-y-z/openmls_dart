@@ -29,11 +29,12 @@ use openmls_traits::storage::StorageProvider;
 use super::config::MlsGroupConfig;
 use super::keys::signer_from_bytes;
 use super::types::{
-    ciphersuite_to_native, native_to_ciphersuite, capabilities_to_native, extensions_from_mls,
+    ciphersuite_to_native, native_to_ciphersuite, capabilities_to_native, extension_to_mls,
+    extensions_from_mls, external_senders_to_mls,
     FlexibleCommitOptions, KeyPackageOptions, MlsCapabilities, MlsCiphersuite, MlsExtension,
     MlsGroupContextInfo, MlsLeafNodeInfo, MlsMemberInfo, MlsPendingProposalInfo, MlsProposalType,
-    MlsWireFormatPolicy, ProcessedMessageType, StagedCommitInfo, StagedProposalInfo,
-    WelcomeInspectResult,
+    MlsSenderInfo, MlsSenderKind, MlsWireFormatPolicy, ProcessedMessageType, StagedCommitInfo,
+    StagedProposalInfo, WelcomeInspectResult,
 };
 use crate::snapshot_storage::{SnapshotOpenMlsProvider, SnapshotStorageProvider};
 
@@ -81,6 +82,140 @@ fn proposal_type_of(proposal: &Proposal) -> MlsProposalType {
     }
 }
 
+/// The error for a PrivateMessage this client authored itself, which the
+/// encryption-only sender ratchet cannot read back.
+///
+/// `looks_like_own_commit` only picks the wording. It comes from the content
+/// type in the message header, which is not authenticated until decryption —
+/// and this message is never decrypted — so it must not decide anything.
+fn own_private_message_error(looks_like_own_commit: bool) -> String {
+    if looks_like_own_commit {
+        "Cannot decrypt own message: this looks like this member's own pending commit, \
+         fanned back by the delivery service. Its content cannot be read back; if the \
+         delivery service accepted it, apply it with mergePendingCommit"
+            .to_string()
+    } else {
+        "Cannot decrypt own message: the sender ratchet is encryption-only, \
+         so a PrivateMessage this client authored cannot be read back"
+            .to_string()
+    }
+}
+
+/// The binding's form of a sender, as MLS authenticated it.
+fn sender_info(sender: &Sender) -> Result<MlsSenderInfo, String> {
+    Ok(match sender {
+        Sender::Member(index) => MlsSenderInfo { kind: MlsSenderKind::Member, index: Some(index.u32()) },
+        Sender::External(index) => {
+            // OpenMLS keeps the number to itself; on the wire it is a u32.
+            let wire = index
+                .tls_serialize_detached()
+                .map_err(|e| format!("Failed to serialize external sender index: {}", e))?;
+            let index = <[u8; 4]>::try_from(wire.as_slice())
+                .map_err(|_| "External sender index is not four bytes".to_string())?;
+            MlsSenderInfo { kind: MlsSenderKind::External, index: Some(u32::from_be_bytes(index)) }
+        }
+        Sender::NewMemberProposal => MlsSenderInfo { kind: MlsSenderKind::NewMemberProposal, index: None },
+        Sender::NewMemberCommit => MlsSenderInfo { kind: MlsSenderKind::NewMemberCommit, index: None },
+    })
+}
+
+/// `leaf`'s credential, keys, capabilities and extensions. With
+/// `only_unknown_extensions`, only the extensions OpenMLS does not interpret
+/// itself — the application's own.
+fn leaf_node_info(leaf: &LeafNode, only_unknown_extensions: bool) -> Result<MlsLeafNodeInfo, String> {
+    let cred_bytes = leaf.credential()
+        .tls_serialize_detached()
+        .map_err(|e| format!("Failed to serialize credential: {}", e))?;
+
+    let caps = leaf.capabilities();
+    let capabilities = MlsCapabilities {
+        versions: caps.versions().iter().map(|v| match v {
+            ProtocolVersion::Mls10 => 1u16,
+            ProtocolVersion::Other(n) => *n,
+        }).collect(),
+        ciphersuites: caps.ciphersuites().iter().map(|c| c.value()).collect(),
+        extensions: caps.extensions().iter().map(|e| u16::from(*e)).collect(),
+        proposals: caps.proposals().iter().map(|p| u16::from(*p)).collect(),
+        credentials: caps.credentials().iter().map(|c| u16::from(*c)).collect(),
+    };
+
+    let mut extensions = Vec::new();
+    for ext in leaf.extensions().iter() {
+        if let Extension::Unknown(ext_type, data) = ext {
+            extensions.push(MlsExtension {
+                extension_type: *ext_type,
+                data: data.0.clone(),
+            });
+        } else if !only_unknown_extensions {
+            extensions.push(extension_to_mls(ext)?);
+        }
+    }
+
+    let encryption_key_bytes = leaf
+        .encryption_key()
+        .tls_serialize_detached()
+        .map_err(|e| format!("Failed to serialize encryption key: {}", e))?;
+
+    Ok(MlsLeafNodeInfo {
+        credential: cred_bytes,
+        signature_key: leaf.signature_key().as_slice().to_vec(),
+        encryption_key: encryption_key_bytes,
+        capabilities,
+        extensions,
+    })
+}
+
+/// The member at `index` in `group`'s current tree, if there is one.
+fn member_info(group: &MlsGroup, index: LeafNodeIndex) -> Result<Option<MlsMemberInfo>, String> {
+    group.member_at(index)
+        .map(|member| {
+            let credential = member.credential
+                .tls_serialize_detached()
+                .map_err(|e| format!("Failed to serialize member credential: {}", e))?;
+            Ok(MlsMemberInfo {
+                index: member.index.u32(),
+                credential,
+                signature_key: member.signature_key.clone(),
+            })
+        })
+        .transpose()
+}
+
+/// What `queued` proposes, and who it affects in `group` as it stands — which
+/// must still be the epoch the proposal belongs to.
+fn proposal_info(group: &MlsGroup, queued: &QueuedProposal) -> Result<StagedProposalInfo, String> {
+    let (leaf, affected_member, extensions) = match queued.proposal() {
+        Proposal::Add(add) => (Some(leaf_node_info(add.key_package().leaf_node(), false)?), None, Vec::new()),
+        Proposal::Update(update) => {
+            let affected = match queued.sender() {
+                Sender::Member(index) => member_info(group, *index)?,
+                _ => None,
+            };
+            (Some(leaf_node_info(update.leaf_node(), false)?), affected, Vec::new())
+        }
+        Proposal::Remove(remove) => (None, member_info(group, remove.removed())?, Vec::new()),
+        Proposal::GroupContextExtensions(gce) => {
+            let extensions = gce.extensions().iter()
+                .map(extension_to_mls)
+                .collect::<Result<_, _>>()?;
+            (None, None, extensions)
+        }
+        _ => (None, None, Vec::new()),
+    };
+    Ok(StagedProposalInfo {
+        proposal_type: proposal_type_of(queued.proposal()),
+        sender_index: match queued.sender() {
+            Sender::Member(index) => Some(index.u32()),
+            _ => None,
+        },
+        sender: sender_info(queued.sender())?,
+        by_reference: matches!(queued.proposal_or_ref_type(), ProposalOrRefType::Reference),
+        leaf,
+        affected_member,
+        extensions,
+    })
+}
+
 /// Everything an application may want to judge about `staged` before it is
 /// merged into `group` — which must still be in the epoch the commit ends, so
 /// the leaves it removes can still be looked up.
@@ -107,32 +242,25 @@ fn staged_commit_info(group: &MlsGroup, staged: &StagedCommit) -> Result<StagedC
     }
 
     let proposals = staged.queued_proposals()
-        .map(|queued| StagedProposalInfo {
-            proposal_type: proposal_type_of(queued.proposal()),
-            sender_index: match queued.sender() {
-                Sender::Member(index) => Some(index.u32()),
-                _ => None,
-            },
-            by_reference: matches!(queued.proposal_or_ref_type(), ProposalOrRefType::Reference),
-        })
-        .collect();
+        .map(|queued| proposal_info(group, queued))
+        .collect::<Result<_, _>>()?;
 
     let committer_credential = staged.update_path_leaf_node()
         .map(|leaf| leaf.credential().tls_serialize_detached())
         .transpose()
         .map_err(|e| format!("Failed to serialize committer credential: {}", e))?;
 
-    // Only the extensions OpenMLS does not interpret itself — the
-    // application's own, as `groupOwnLeafNode` reports them too.
-    let group_context_extensions = staged.group_context().extensions().iter()
-        .filter_map(|ext| match ext {
-            Extension::Unknown(ext_type, data) => Some(MlsExtension {
-                extension_type: *ext_type,
-                data: data.0.clone(),
-            }),
-            _ => None,
-        })
-        .collect();
+    // Every extension, OpenMLS's own types included: `ExternalSenders` in
+    // particular decides who may propose without being a member, so hiding
+    // the typed ones would hide exactly the change a policy has to see.
+    let context_extensions = staged.group_context().extensions();
+    let group_context_extensions = context_extensions.iter()
+        .map(extension_to_mls)
+        .collect::<Result<_, _>>()?;
+    let external_senders = match context_extensions.external_senders() {
+        Some(senders) => external_senders_to_mls(senders)?,
+        None => Vec::new(),
+    };
 
     Ok(StagedCommitInfo {
         add_credentials,
@@ -144,6 +272,7 @@ fn staged_commit_info(group: &MlsGroup, staged: &StagedCommit) -> Result<StagedC
         proposals,
         committer_credential,
         group_context_extensions,
+        external_senders,
     })
 }
 
@@ -173,6 +302,14 @@ pub struct AddMembersResult {
 
 pub struct CommitResult {
     pub commit: Vec<u8>,
+    /// The Welcome for the members the commit adds, if any.
+    ///
+    /// Send it only once the delivery service has accepted `commit`. A
+    /// Welcome sent earlier admits its recipients into an epoch that never
+    /// happens if another commit wins the race — they join a group nobody
+    /// else is in. With `FlexibleCommitOptions.keepPending` the order is:
+    /// send the commit, wait for the delivery service to accept it,
+    /// `mergePendingCommit`, then send the Welcome.
     pub welcome: Option<Vec<u8>>,
     pub group_info: Option<Vec<u8>>,
 }
@@ -197,11 +334,22 @@ pub struct ProcessedMessageResult {
 
 pub struct ProcessedMessageInspectResult {
     pub message_type: ProcessedMessageType,
+    /// The sender's leaf index when a member sent it; `None` for an external
+    /// sender or a new member — `sender` tells those apart.
     pub sender_index: Option<u32>,
     pub epoch: u64,
     pub application_message: Option<Vec<u8>>,
     pub staged_commit_info: Option<StagedCommitInfo>,
     pub proposal_type: Option<MlsProposalType>,
+    /// Who sent the message, as MLS authenticated it — external senders and
+    /// new members included. Always set by the engine; optional only so code
+    /// that builds a result itself keeps compiling.
+    pub sender: Option<MlsSenderInfo>,
+    /// For a proposal message: what it proposes — the new leaf of an Update,
+    /// the extensions of a GroupContextExtensions proposal, the member a
+    /// Remove takes out — as `stagedCommitInfo.proposals` reports them for a
+    /// commit.
+    pub proposal_info: Option<StagedProposalInfo>,
 }
 
 pub struct KeyPackageResult {
@@ -1298,45 +1446,7 @@ impl MlsEngine {
         let leaf = group
             .own_leaf_node()
             .ok_or_else(|| "No own leaf node (group not active?)".to_string())?;
-
-        let cred_bytes = leaf.credential()
-            .tls_serialize_detached()
-            .map_err(|e| format!("Failed to serialize credential: {}", e))?;
-
-        let caps = leaf.capabilities();
-        let capabilities = MlsCapabilities {
-            versions: caps.versions().iter().map(|v| match v {
-                ProtocolVersion::Mls10 => 1u16,
-                ProtocolVersion::Other(n) => *n,
-            }).collect(),
-            ciphersuites: caps.ciphersuites().iter().map(|c| c.value()).collect(),
-            extensions: caps.extensions().iter().map(|e| u16::from(*e)).collect(),
-            proposals: caps.proposals().iter().map(|p| u16::from(*p)).collect(),
-            credentials: caps.credentials().iter().map(|c| u16::from(*c)).collect(),
-        };
-
-        let mut extensions = Vec::new();
-        for ext in leaf.extensions().iter() {
-            if let Extension::Unknown(ext_type, data) = ext {
-                extensions.push(MlsExtension {
-                    extension_type: *ext_type,
-                    data: data.0.clone(),
-                });
-            }
-        }
-
-        let encryption_key_bytes = leaf
-            .encryption_key()
-            .tls_serialize_detached()
-            .map_err(|e| format!("Failed to serialize encryption key: {}", e))?;
-
-        Ok(MlsLeafNodeInfo {
-            credential: cred_bytes,
-            signature_key: leaf.signature_key().as_slice().to_vec(),
-            encryption_key: encryption_key_bytes,
-            capabilities,
-            extensions,
-        })
+        leaf_node_info(leaf, true)
     }
 
     pub async fn get_past_resumption_psk(
@@ -1938,6 +2048,20 @@ impl MlsEngine {
         let provider = self.load_for_group(&group_id_bytes).await?;
         let mut group = load_group(&group_id_bytes, &provider)?;
 
+        // `commit_builder()` is the one OpenMLS entry point that does not
+        // refuse a group with a pending commit: staging replaces it. If the
+        // replaced commit already reached other members, this member would
+        // then merge a different commit to the same epoch — a fork. The
+        // other commit methods are refused by OpenMLS itself.
+        if group.pending_commit().is_some() {
+            return Err(
+                "A commit is already pending for this group: merge it with \
+                 mergePendingCommit (the delivery service accepted it) or drop it \
+                 with clearPendingCommit (it lost) before creating another"
+                    .to_string(),
+            );
+        }
+
         if let Some(aad_bytes) = options.aad {
             group.set_aad(aad_bytes);
         }
@@ -2026,6 +2150,8 @@ impl MlsEngine {
             .map_err(|e| format!("Failed to deserialize message: {}", e))?;
         let protocol_msg = msg_in.try_into_protocol_message()
             .map_err(|e| format!("Not a protocol message: {}", e))?;
+        let looks_like_own_commit =
+            protocol_msg.content_type() == ContentType::Commit && group.pending_commit().is_some();
 
         let processed = group.process_message(&provider, protocol_msg)
             .map_err(|e| format!("Failed to process message: {}", e))?;
@@ -2078,11 +2204,7 @@ impl MlsEngine {
                 // outcome, different path: the own sender ratchet is
                 // encryption-only, so the content cannot be read back.
                 ProcessedMessageContent::OwnPrivateMessage => {
-                    return Err(
-                        "Cannot decrypt own message: the sender ratchet is encryption-only, \
-                         so a PrivateMessage this client authored cannot be read back"
-                            .to_string(),
-                    );
+                    return Err(own_private_message_error(looks_like_own_commit));
                 }
                 _ => return Err("Unknown processed message content type".to_string()),
             };
@@ -2114,12 +2236,40 @@ impl MlsEngine {
     /// credentials of the members it removes, the group context it leads to —
     /// and only then call `processMessage` (or `processMessageWithInspect`) on
     /// the same bytes to apply it. A commit that is refused is simply never
-    /// processed; the group stays in its epoch.
+    /// processed by this member.
     ///
     /// The message is processed twice when accepted, which costs one more
     /// decryption and signature check. That is what makes this safe: nothing
     /// staged here can be merged by mistake, because nothing staged here
-    /// outlives the call.
+    /// outlives the call. If the group moves on between the two calls, the
+    /// second one fails on the epoch instead of applying something else.
+    ///
+    /// **A refusal is local.** It keeps *this member* in the current epoch;
+    /// it binds nobody else. If any other member accepts the commit, the group
+    /// moves on and the member that refused is the one left behind, unable to
+    /// read what follows. Which commit becomes the next epoch is decided by
+    /// the delivery service, not by a refusal: a policy is only enforced if
+    /// every member applies it, or the delivery service does. A malicious
+    /// delivery service can also hand different members different commits
+    /// for the same epoch; MLS does not prevent that fork, it lets members
+    /// detect it — compare `groupEpochAuthenticator` among members.
+    ///
+    /// **What the result reports is what the sender claims.** MLS proves who
+    /// signed the message; it does not prove that a credential in it — a new
+    /// member's, an Update's replacement leaf, an external sender's — belongs
+    /// to who it names. Verify each against the application's own source of
+    /// trust before acting on it.
+    ///
+    /// An application message inspected here is decrypted without being
+    /// consumed: its key stays in storage and the same bytes can be processed
+    /// (or inspected) again. A successful inspection advances no ratchet —
+    /// forward secrecy for that message only begins once it is processed —
+    /// and is not a delivery or replay record.
+    ///
+    /// A PrivateMessage this member sent itself cannot be inspected, its own
+    /// pending commit under the default ciphertext wire format included: the
+    /// sender ratchet is encryption-only. Apply an own commit the delivery
+    /// service accepted with `mergePendingCommit`.
     pub async fn inspect_message(
         &self,
         group_id_bytes: Vec<u8>,
@@ -2143,6 +2293,8 @@ impl MlsEngine {
             .map_err(|e| format!("Failed to deserialize message: {}", e))?;
         let protocol_msg = msg_in.try_into_protocol_message()
             .map_err(|e| format!("Not a protocol message: {}", e))?;
+        let looks_like_own_commit =
+            protocol_msg.content_type() == ContentType::Commit && group.pending_commit().is_some();
 
         let processed = group.process_message(&provider, protocol_msg)
             .map_err(|e| format!("Failed to process message: {}", e))?;
@@ -2151,12 +2303,13 @@ impl MlsEngine {
             Sender::Member(idx) => Some(idx.u32()),
             _ => None,
         };
+        let sender = Some(sender_info(processed.sender())?);
         let epoch = group.epoch().as_u64();
 
-        let (message_type, application_message, staged_commit_info, proposal_type) =
+        let (message_type, application_message, staged_commit_info, proposal_type, proposal_info) =
             match processed.into_content() {
                 ProcessedMessageContent::ApplicationMessage(app_msg) => {
-                    (ProcessedMessageType::Application, Some(app_msg.into_bytes()), None, None)
+                    (ProcessedMessageType::Application, Some(app_msg.into_bytes()), None, None, None)
                 }
                 ProcessedMessageContent::StagedCommitMessage(staged_commit) => {
                     // Read before the merge: the leaves it removes are gone after.
@@ -2165,15 +2318,16 @@ impl MlsEngine {
                         group.merge_staged_commit(&provider, *staged_commit)
                             .map_err(|e| format!("Failed to merge staged commit: {}", e))?;
                     }
-                    (ProcessedMessageType::StagedCommit, None, Some(info), None)
+                    (ProcessedMessageType::StagedCommit, None, Some(info), None, None)
                 }
                 ProcessedMessageContent::ProposalMessage(queued_proposal) => {
                     let prop_type = proposal_type_of(queued_proposal.proposal());
+                    let info = proposal_info(&group, &queued_proposal)?;
                     if apply {
                         group.store_pending_proposal(provider.storage(), *queued_proposal)
                             .map_err(|e| format!("Failed to store pending proposal: {}", e))?;
                     }
-                    (ProcessedMessageType::Proposal, None, None, Some(prop_type))
+                    (ProcessedMessageType::Proposal, None, None, Some(prop_type), Some(info))
                 }
                 // `OwnPendingCommit` is returned when an incoming commit is this
                 // member's own pending one — fanned back by the delivery service
@@ -2195,11 +2349,7 @@ impl MlsEngine {
                 // outcome, different path: the own sender ratchet is
                 // encryption-only, so the content cannot be read back.
                 ProcessedMessageContent::OwnPrivateMessage => {
-                    return Err(
-                        "Cannot decrypt own message: the sender ratchet is encryption-only, \
-                         so a PrivateMessage this client authored cannot be read back"
-                            .to_string(),
-                    );
+                    return Err(own_private_message_error(looks_like_own_commit));
                 }
                 _ => return Err("Unknown processed message content type".to_string()),
             };
@@ -2212,6 +2362,7 @@ impl MlsEngine {
 
         Ok(ProcessedMessageInspectResult {
             message_type, sender_index, epoch, application_message, staged_commit_info, proposal_type,
+            sender, proposal_info,
         })
     }
 
@@ -2815,6 +2966,148 @@ mod past_epoch_policy_tests {
         assert!(max_epochs_to_native(u32::MAX).is_err());
         assert!(max_epochs_to_native(u32::MAX - 1).is_ok());
         assert!(max_epochs_to_native(0).is_ok());
+    }
+}
+
+/// `inspect_message` on a proposal from an external sender — a party the
+/// group's `ExternalSenders` extension admits without making it a member.
+/// The Dart API cannot sign one, so the proposal is built with OpenMLS here.
+#[cfg(all(test, not(target_arch = "wasm32")))]
+mod external_sender_tests {
+    use super::*;
+    use crate::api::keys::{serialize_signer, MlsSignatureKeyPair};
+    use futures::executor::block_on;
+
+    const SUITE: MlsCiphersuite = MlsCiphersuite::Mls128DhkemX25519Aes128gcmSha256Ed25519;
+
+    /// An engine on its own database in the temp directory, removed on drop.
+    struct TempEngine {
+        engine: MlsEngine,
+        path: std::path::PathBuf,
+    }
+
+    impl TempEngine {
+        fn new(name: &str) -> Self {
+            let path = std::env::temp_dir().join(format!(
+                "openmls_frb_external_sender_{name}_{}.db",
+                std::process::id()
+            ));
+            let _ = std::fs::remove_file(&path);
+            let engine = block_on(MlsEngine::create(
+                path.to_str().expect("temp path is valid UTF-8").to_string(),
+                vec![0x5a; 32],
+            ))
+            .expect("engine opens");
+            Self { engine, path }
+        }
+    }
+
+    impl Drop for TempEngine {
+        fn drop(&mut self) {
+            for suffix in ["", "-journal", ".lock"] {
+                let _ = std::fs::remove_file(format!("{}{suffix}", self.path.display()));
+            }
+        }
+    }
+
+    /// A fresh key pair, as the serialized signer the engine takes and the
+    /// public key.
+    fn identity() -> (Vec<u8>, Vec<u8>) {
+        let keys = MlsSignatureKeyPair::generate(SUITE).expect("signature key pair");
+        let signer = serialize_signer(SUITE, keys.private_key(), keys.public_key())
+            .expect("serialized signer");
+        (signer, keys.public_key())
+    }
+
+    #[test]
+    fn a_proposal_from_an_external_sender_names_it_and_whom_it_removes() {
+        let alice = TempEngine::new("alice");
+        let bob = TempEngine::new("bob");
+        let (alice_signer, alice_key) = identity();
+        let (bob_signer, bob_key) = identity();
+        let (ds_signer, ds_key) = identity();
+
+        let group_id = block_on(alice.engine.create_group(
+            MlsGroupConfig::default_config(SUITE),
+            alice_signer.clone(),
+            b"alice".to_vec(),
+            alice_key,
+            None,
+            None,
+        ))
+        .expect("group is created")
+        .group_id;
+        let key_package = block_on(bob.engine.create_key_package(
+            SUITE,
+            bob_signer,
+            b"bob".to_vec(),
+            bob_key,
+            None,
+        ))
+        .expect("key package")
+        .key_package_bytes;
+        block_on(alice.engine.add_members(group_id.clone(), alice_signer.clone(), vec![key_package]))
+            .expect("bob is added");
+
+        // The group admits the delivery service as external sender 0.
+        let external_senders = Extension::ExternalSenders(vec![ExternalSender::new(
+            SignaturePublicKey::from(ds_key.clone()),
+            BasicCredential::new(b"delivery-service".to_vec()).into(),
+        )]);
+        block_on(alice.engine.update_group_context_extensions(
+            group_id.clone(),
+            alice_signer,
+            vec![extension_to_mls(&external_senders).expect("extension encodes")],
+        ))
+        .expect("external sender is admitted");
+
+        let epoch = block_on(alice.engine.group_epoch(group_id.clone())).expect("epoch");
+        let proposal = ExternalProposal::new_remove::<SnapshotOpenMlsProvider>(
+            LeafNodeIndex::new(1),
+            GroupId::from_slice(&group_id),
+            GroupEpoch::from(epoch),
+            &signer_from_bytes(ds_signer).expect("delivery service signer"),
+            SenderExtensionIndex::new(0),
+        )
+        .expect("external proposal")
+        .tls_serialize_detached()
+        .expect("proposal encodes");
+
+        let inspected = block_on(alice.engine.inspect_message(group_id, proposal))
+            .expect("external proposal inspects");
+        let sender = inspected.sender.expect("sender is reported");
+        assert!(matches!(sender.kind, MlsSenderKind::External));
+        assert_eq!(sender.index, Some(0));
+        assert_eq!(inspected.sender_index, None, "not a member");
+
+        let info = inspected.proposal_info.expect("proposal is described");
+        assert!(matches!(info.proposal_type, MlsProposalType::Remove));
+        assert!(matches!(info.sender.kind, MlsSenderKind::External));
+        let removed = info.affected_member.expect("removed member is named");
+        assert_eq!(removed.index, 1);
+        let credential = Credential::tls_deserialize_exact_bytes(&removed.credential)
+            .expect("credential decodes");
+        assert_eq!(
+            BasicCredential::try_from(credential).expect("basic credential").identity(),
+            b"bob"
+        );
+    }
+
+    #[test]
+    fn external_senders_read_back_as_they_were_written() {
+        let (_, ds_key) = identity();
+        let credential: Credential = BasicCredential::new(b"delivery-service".to_vec()).into();
+        let extension = Extension::ExternalSenders(vec![ExternalSender::new(
+            SignaturePublicKey::from(ds_key.clone()),
+            credential.clone(),
+        )]);
+
+        let wire = extension_to_mls(&extension).expect("extension encodes");
+        assert_eq!(wire.extension_type, 0x0005);
+        let senders = crate::api::types::decode_external_senders(wire.data).expect("decodes");
+        assert_eq!(senders.len(), 1);
+        assert_eq!(senders[0].signature_key, ds_key);
+        assert_eq!(senders[0].credential, credential.tls_serialize_detached().unwrap());
     }
 }
 
