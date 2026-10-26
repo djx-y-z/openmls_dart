@@ -19,7 +19,9 @@
   storing a proposal, advancing a ratchet or writing to storage. MLS lets any
   member commit any Add or Remove and leaves who may to the application; with
   this, an application judges a commit by its own policy and processes it
-  only when it accepts it. A refused commit is simply never processed.
+  only when it accepts it. A refused commit is never processed by the member
+  that refuses it — which keeps only that member in the current epoch: if
+  others accept it, the refuser is the one left behind (see `SECURITY.md`).
 - **`StagedCommitInfo.removeCredentials`** — the credential of each removed
   member, read before the merge, one per `removeIndices` entry: after the
   merge those leaves are gone.
@@ -29,8 +31,24 @@
   necessarily the author of each change.
 - **`StagedCommitInfo.committerCredential`** — the committer's new leaf
   credential when the commit has an update path, which can replace it.
-- **`StagedCommitInfo.groupContextExtensions`** — the application-defined
-  extensions of the group context the commit leads to.
+- **`StagedCommitInfo.groupContextExtensions`** — every extension of the
+  group context the commit leads to, the types OpenMLS interprets itself
+  (`RequiredCapabilities`, `ExternalSenders`, …) included, in wire form.
+- **`StagedCommitInfo.externalSenders`** (`MlsExternalSenderInfo`) — the
+  external senders that group context admits, decoded: each may propose adds
+  and removes without being a member. **`decodeExternalSenders`** decodes the
+  same from an extension's data.
+- **Per-proposal detail in `StagedProposalInfo`** — `sender`
+  (`MlsSenderInfo`: member, external sender, new member), `leaf` (the
+  credential, signature and encryption key an Update or Add introduces),
+  `affectedMember` (the member a Remove takes out or an Update replaces, as
+  this client's tree has it) and `extensions` (what a GroupContextExtensions
+  proposal sets). OpenMLS does not check that an Update keeps the proposer's
+  identity; with `leaf` next to `affectedMember` the application can.
+- **`ProcessedMessageInspectResult.sender` and `.proposalInfo`** — the
+  authenticated sender of any inspected message, external senders included
+  (`senderIndex` is `null` for those), and for a proposal message the same
+  detail as a commit's proposals, before it is stored.
 - **`FlexibleCommitOptions.keepPending`** (default `false`) — leaves the
   commit pending instead of merging it, for `mergePendingCommit` once the
   delivery service accepted it or `clearPendingCommit` when another member's
@@ -48,9 +66,33 @@
   `RequiredCapabilities` listing it, which could not be given. A malformed
   extension of such a type is now an `Invalid extension 0x….` error at the
   call.
-- **`StagedCommitInfo` has four more fields** — all optional in its
-  constructor (empty lists, `null`), so code that builds one itself, a test
-  double say, compiles unchanged.
+- **`StagedCommitInfo` has five more fields, `ProcessedMessageInspectResult`
+  two** — all optional in their constructors (empty lists, `null`), so code
+  that builds one itself, a test double say, compiles unchanged.
+- **Own messages that cannot be read back say so more helpfully** — a
+  commit of this member's fanned back while it is pending now points to
+  `mergePendingCommit` under the ciphertext wire format too. The hint is
+  wording only: the content type it reads is not authenticated before
+  decryption, so nothing acts on it.
+
+#### Security
+
+- **`flexibleCommit` refuses to replace a pending commit** — with or without
+  `keepPending`. OpenMLS's commit builder replaced it silently; if the first
+  commit had already reached other members and was then merged in its place,
+  the group forked onto incompatible epoch secrets. Merge or clear the
+  pending commit first.
+
+#### Documentation
+
+- **Commit refusal, forks and Welcome ordering** — `inspectMessage`,
+  `CommitResult.welcome`, `FlexibleCommitOptions.keepPending` and
+  `SECURITY.md` (item 7, which said there was no inspect-then-reject path)
+  now state that a refusal is local, that a delivery service can fork a group
+  and `groupEpochAuthenticator` detects it, that reported credentials are
+  claims to verify, that inspecting an application message consumes nothing,
+  and that a Welcome goes out only after the delivery service accepted its
+  commit.
 
 ### For Contributors
 

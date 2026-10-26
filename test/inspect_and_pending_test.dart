@@ -237,10 +237,31 @@ void main() {
         info.proposals.map((proposal) => proposal.proposalType),
         contains(MlsProposalType.groupContextExtensions),
       );
-      // The application's own; RequiredCapabilities is OpenMLS's.
-      final extension = info.groupContextExtensions.single;
-      expect(extension.extensionType, appExtensionType);
+      // Every extension: OpenMLS's RequiredCapabilities and the application's
+      // own, each as it was set.
+      expect(
+        info.groupContextExtensions.map((extension) => extension.extensionType),
+        unorderedEquals([0x0003, appExtensionType]),
+      );
+      final extension = info.groupContextExtensions.firstWhere(
+        (extension) => extension.extensionType == appExtensionType,
+      );
       expect(extension.data, [1, 2, 3]);
+      expect(
+        info.groupContextExtensions
+            .firstWhere((extension) => extension.extensionType == 0x0003)
+            .data,
+        requiredCapabilities(extensions: [appExtensionType]).data,
+      );
+      final proposed = info.proposals.firstWhere(
+        (proposal) =>
+            proposal.proposalType == MlsProposalType.groupContextExtensions,
+      );
+      expect(
+        proposed.extensions.map((extension) => extension.extensionType),
+        unorderedEquals([0x0003, appExtensionType]),
+      );
+      expect(info.externalSenders, isEmpty);
 
       // Applied, the group context carries both, and keeps them.
       await bob.processMessage(
@@ -255,8 +276,196 @@ void main() {
         groupIdBytes: groupIdBytes,
         messageBytes: update.commit,
       )).stagedCommitInfo!;
-      expect(later.groupContextExtensions.single.data, [1, 2, 3]);
+      expect(
+        later.groupContextExtensions
+            .firstWhere(
+              (extension) => extension.extensionType == appExtensionType,
+            )
+            .data,
+        [1, 2, 3],
+      );
     });
+
+    test('shows a commit that admits an external sender — the party it '
+        'hands the power to propose to', () async {
+      final ds = TestIdentity.create('delivery-service');
+      final credential = MlsCredential.basic(
+        identity: ds.credentialIdentity,
+      ).serialize();
+      // ExternalSender (RFC 9420, 12.1.8.1): the signature key, then the
+      // credential; the list behind a one-byte length while under 64 bytes.
+      final sender = [ds.publicKey.length, ...ds.publicKey, ...credential];
+      expect(sender.length, lessThan(64));
+      final externalSenders = MlsExtension(
+        extensionType: 0x0005,
+        data: Uint8List.fromList([sender.length, ...sender]),
+      );
+
+      final commit = await alice.flexibleCommit(
+        groupIdBytes: groupIdBytes,
+        signerBytes: aliceId.signerBytes,
+        options: FlexibleCommitOptions(
+          addKeyPackages: const [],
+          removeIndices: Uint32List(0),
+          forceSelfUpdate: false,
+          consumePendingProposals: false,
+          groupContextExtensions: [externalSenders],
+          createGroupInfo: false,
+          useRatchetTreeExtension: false,
+        ),
+      );
+      final info = (await bob.inspectMessage(
+        groupIdBytes: groupIdBytes,
+        messageBytes: commit.commit,
+      )).stagedCommitInfo!;
+
+      final admitted = info.externalSenders.single;
+      expect(admitted.signatureKey, ds.publicKey);
+      expect(
+        utf8.decode(identityFromCredential(admitted.credential)),
+        'delivery-service',
+      );
+      final reported = info.groupContextExtensions.firstWhere(
+        (extension) => extension.extensionType == 0x0005,
+      );
+      expect(reported.data, externalSenders.data);
+      expect(
+        decodeExternalSenders(data: reported.data).single.signatureKey,
+        ds.publicKey,
+      );
+      final proposal = info.proposals.single;
+      expect(proposal.proposalType, MlsProposalType.groupContextExtensions);
+      expect(proposal.sender.kind, MlsSenderKind.member);
+      expect(proposal.extensions.single.extensionType, 0x0005);
+    });
+
+    test('shows the new credential and keys of an Update, next to the '
+        'member it replaces', () async {
+      final bobIndex = await indexOf(alice, bobId);
+      final mallory = TestIdentity.create('mallory');
+      final proposal = await bob.proposeSelfUpdateWithNewSigner(
+        groupIdBytes: groupIdBytes,
+        oldSignerBytes: bobId.signerBytes,
+        newSignerBytes: mallory.signerBytes,
+        newCredentialIdentity: mallory.credentialIdentity,
+        newSignerPublicKey: mallory.publicKey,
+      );
+
+      // Inspected on its own, before it is stored.
+      final inspected = await alice.inspectMessage(
+        groupIdBytes: groupIdBytes,
+        messageBytes: proposal.proposalMessage,
+      );
+      expect(inspected.proposalType, MlsProposalType.update);
+      expect(inspected.sender!.kind, MlsSenderKind.member);
+      expect(inspected.sender!.index, bobIndex);
+      void expectIdentityChange(StagedProposalInfo update) {
+        expect(
+          utf8.decode(identityFromCredential(update.leaf!.credential)),
+          'mallory',
+        );
+        expect(update.leaf!.signatureKey, mallory.publicKey);
+        expect(update.leaf!.encryptionKey, isNotEmpty);
+        expect(update.affectedMember!.index, bobIndex);
+        expect(
+          utf8.decode(
+            identityFromCredential(update.affectedMember!.credential),
+          ),
+          'bob',
+        );
+        expect(update.affectedMember!.signatureKey, bobId.publicKey);
+      }
+
+      expectIdentityChange(inspected.proposalInfo!);
+
+      // And inside the commit that carries it.
+      for (final engine in [alice, carol]) {
+        await engine.processMessage(
+          groupIdBytes: groupIdBytes,
+          messageBytes: proposal.proposalMessage,
+        );
+      }
+      final commit = await alice.commitToPendingProposals(
+        groupIdBytes: groupIdBytes,
+        signerBytes: aliceId.signerBytes,
+      );
+      final info = (await carol.inspectMessage(
+        groupIdBytes: groupIdBytes,
+        messageBytes: commit.commit,
+      )).stagedCommitInfo!;
+      final update = info.proposals.singleWhere(
+        (proposal) => proposal.proposalType == MlsProposalType.update,
+      );
+      expect(update.byReference, isTrue);
+      expect(update.sender.index, bobIndex);
+      expectIdentityChange(update);
+    });
+
+    test('a Remove names the member it takes out, per proposal', () async {
+      final carolIndex = await indexOf(alice, carolId);
+      final commit = await alice.removeMembers(
+        groupIdBytes: groupIdBytes,
+        signerBytes: aliceId.signerBytes,
+        memberIndices: [carolIndex],
+      );
+      final removal = (await bob.inspectMessage(
+        groupIdBytes: groupIdBytes,
+        messageBytes: commit.commit,
+      )).stagedCommitInfo!.proposals.single;
+      expect(removal.leaf, isNull);
+      expect(removal.affectedMember!.index, carolIndex);
+      expect(
+        utf8.decode(identityFromCredential(removal.affectedMember!.credential)),
+        'carol',
+      );
+    });
+
+    test(
+      'an own pending commit, fanned back, points to mergePendingCommit',
+      () async {
+        final commit = await alice.flexibleCommit(
+          groupIdBytes: groupIdBytes,
+          signerBytes: aliceId.signerBytes,
+          options: FlexibleCommitOptions(
+            addKeyPackages: const [],
+            removeIndices: Uint32List(0),
+            forceSelfUpdate: true,
+            consumePendingProposals: false,
+            createGroupInfo: false,
+            useRatchetTreeExtension: false,
+            keepPending: true,
+          ),
+        );
+        for (final process in [alice.inspectMessage, alice.processMessage]) {
+          await expectLater(
+            process(groupIdBytes: groupIdBytes, messageBytes: commit.commit),
+            throwsA(
+              predicate((error) => '$error'.contains('mergePendingCommit')),
+            ),
+          );
+        }
+        // Without a pending commit, an own message gets the plain explanation.
+        await alice.mergePendingCommit(groupIdBytes: groupIdBytes);
+        final message = await alice.createMessage(
+          groupIdBytes: groupIdBytes,
+          signerBytes: aliceId.signerBytes,
+          message: Uint8List.fromList(utf8.encode('mine')),
+        );
+        await expectLater(
+          alice.inspectMessage(
+            groupIdBytes: groupIdBytes,
+            messageBytes: message.ciphertext,
+          ),
+          throwsA(
+            predicate(
+              (error) =>
+                  '$error'.contains('Cannot decrypt own message') &&
+                  !'$error'.contains('mergePendingCommit'),
+            ),
+          ),
+        );
+      },
+    );
 
     test('an extension of a type OpenMLS defines must be well-formed', () {
       expect(
@@ -393,6 +602,85 @@ void main() {
         messageBytes: message.ciphertext,
       );
       expect(utf8.decode(received.applicationMessage!), 'winner');
+    });
+
+    test('a second commit is refused while one is pending — with or without '
+        'keepPending', () async {
+      await alice.flexibleCommit(
+        groupIdBytes: groupIdBytes,
+        signerBytes: aliceId.signerBytes,
+        options: selfUpdate(keepPending: true),
+      );
+      for (final keepPending in [true, false]) {
+        await expectLater(
+          alice.flexibleCommit(
+            groupIdBytes: groupIdBytes,
+            signerBytes: aliceId.signerBytes,
+            options: selfUpdate(keepPending: keepPending),
+          ),
+          throwsA(predicate((error) => '$error'.contains('already pending'))),
+        );
+      }
+
+      // Resolved, the next one goes through.
+      await alice.clearPendingCommit(groupIdBytes: groupIdBytes);
+      await alice.flexibleCommit(
+        groupIdBytes: groupIdBytes,
+        signerBytes: aliceId.signerBytes,
+        options: selfUpdate(keepPending: true),
+      );
+    });
+
+    test('the commit the others accepted stays the one this member merges, '
+        'so the group does not fork', () async {
+      final before = await epochOf(alice);
+      final first = await alice.flexibleCommit(
+        groupIdBytes: groupIdBytes,
+        signerBytes: aliceId.signerBytes,
+        options: selfUpdate(keepPending: true),
+      );
+      // The delivery service delivered it, and the others applied it.
+      for (final engine in [bob, carol]) {
+        await engine.processMessage(
+          groupIdBytes: groupIdBytes,
+          messageBytes: first.commit,
+        );
+      }
+      // Replacing it now would leave Alice on a different epoch than theirs.
+      await expectLater(
+        alice.flexibleCommit(
+          groupIdBytes: groupIdBytes,
+          signerBytes: aliceId.signerBytes,
+          options: selfUpdate(keepPending: true),
+        ),
+        throwsA(predicate((error) => '$error'.contains('already pending'))),
+      );
+      await alice.mergePendingCommit(groupIdBytes: groupIdBytes);
+
+      for (final engine in [alice, bob, carol]) {
+        expect(await epochOf(engine), before + BigInt.one);
+      }
+      final authenticator = await alice.groupEpochAuthenticator(
+        groupIdBytes: groupIdBytes,
+      );
+      for (final engine in [bob, carol]) {
+        expect(
+          await engine.groupEpochAuthenticator(groupIdBytes: groupIdBytes),
+          authenticator,
+        );
+      }
+      final message = await alice.createMessage(
+        groupIdBytes: groupIdBytes,
+        signerBytes: aliceId.signerBytes,
+        message: Uint8List.fromList(utf8.encode('one group')),
+      );
+      for (final engine in [bob, carol]) {
+        final received = await engine.processMessage(
+          groupIdBytes: groupIdBytes,
+          messageBytes: message.ciphertext,
+        );
+        expect(utf8.decode(received.applicationMessage!), 'one group');
+      }
     });
 
     test(

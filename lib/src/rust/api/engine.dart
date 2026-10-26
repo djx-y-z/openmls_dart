@@ -8,7 +8,7 @@ import 'config.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 import 'types.dart';
 
-// These functions are ignored because they are not marked as `pub`: `acquire_locks`, `apply_past_epoch_deletion`, `apply_past_epoch_policy`, `build_credential_with_key`, `commit`, `db`, `load_for_group`, `load_global`, `load_group`, `max_epochs_to_native`, `native_to_past_epoch_policy`, `process_inspected`, `proposal_type_of`, `staged_commit_info`, `unix_seconds_to_system_time`, `with_cap`
+// These functions are ignored because they are not marked as `pub`: `acquire_locks`, `apply_past_epoch_deletion`, `apply_past_epoch_policy`, `build_credential_with_key`, `commit`, `db`, `leaf_node_info`, `load_for_group`, `load_global`, `load_group`, `max_epochs_to_native`, `member_info`, `native_to_past_epoch_policy`, `own_private_message_error`, `process_inspected`, `proposal_info`, `proposal_type_of`, `sender_info`, `staged_commit_info`, `unix_seconds_to_system_time`, `with_cap`
 // These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `OpLocks`, `OpSession`
 // These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `crypto`, `rand`, `storage`
 
@@ -441,12 +441,40 @@ abstract class MlsEngine implements RustOpaqueInterface {
   /// credentials of the members it removes, the group context it leads to —
   /// and only then call `processMessage` (or `processMessageWithInspect`) on
   /// the same bytes to apply it. A commit that is refused is simply never
-  /// processed; the group stays in its epoch.
+  /// processed by this member.
   ///
   /// The message is processed twice when accepted, which costs one more
   /// decryption and signature check. That is what makes this safe: nothing
   /// staged here can be merged by mistake, because nothing staged here
-  /// outlives the call.
+  /// outlives the call. If the group moves on between the two calls, the
+  /// second one fails on the epoch instead of applying something else.
+  ///
+  /// **A refusal is local.** It keeps *this member* in the current epoch;
+  /// it binds nobody else. If any other member accepts the commit, the group
+  /// moves on and the member that refused is the one left behind, unable to
+  /// read what follows. Which commit becomes the next epoch is decided by
+  /// the delivery service, not by a refusal: a policy is only enforced if
+  /// every member applies it, or the delivery service does. A malicious
+  /// delivery service can also hand different members different commits
+  /// for the same epoch; MLS does not prevent that fork, it lets members
+  /// detect it — compare `groupEpochAuthenticator` among members.
+  ///
+  /// **What the result reports is what the sender claims.** MLS proves who
+  /// signed the message; it does not prove that a credential in it — a new
+  /// member's, an Update's replacement leaf, an external sender's — belongs
+  /// to who it names. Verify each against the application's own source of
+  /// trust before acting on it.
+  ///
+  /// An application message inspected here is decrypted without being
+  /// consumed: its key stays in storage and the same bytes can be processed
+  /// (or inspected) again. A successful inspection advances no ratchet —
+  /// forward secrecy for that message only begins once it is processed —
+  /// and is not a delivery or replay record.
+  ///
+  /// A PrivateMessage this member sent itself cannot be inspected, its own
+  /// pending commit under the default ciphertext wire format included: the
+  /// sender ratchet is encryption-only. Apply an own commit the delivery
+  /// service accepted with `mergePendingCommit`.
   Future<ProcessedMessageInspectResult> inspectMessage({
     required List<int> groupIdBytes,
     required List<int> messageBytes,
@@ -743,6 +771,15 @@ class AddMembersResult {
 
 class CommitResult {
   final Uint8List commit;
+
+  /// The Welcome for the members the commit adds, if any.
+  ///
+  /// Send it only once the delivery service has accepted `commit`. A
+  /// Welcome sent earlier admits its recipients into an epoch that never
+  /// happens if another commit wins the race — they join a group nobody
+  /// else is in. With `FlexibleCommitOptions.keepPending` the order is:
+  /// send the commit, wait for the delivery service to accept it,
+  /// `mergePendingCommit`, then send the Welcome.
   final Uint8List? welcome;
   final Uint8List? groupInfo;
 
@@ -992,11 +1029,25 @@ class PastEpochDeletionPolicyResult {
 
 class ProcessedMessageInspectResult {
   final ProcessedMessageType messageType;
+
+  /// The sender's leaf index when a member sent it; `None` for an external
+  /// sender or a new member — `sender` tells those apart.
   final int? senderIndex;
   final BigInt epoch;
   final Uint8List? applicationMessage;
   final StagedCommitInfo? stagedCommitInfo;
   final MlsProposalType? proposalType;
+
+  /// Who sent the message, as MLS authenticated it — external senders and
+  /// new members included. Always set by the engine; optional only so code
+  /// that builds a result itself keeps compiling.
+  final MlsSenderInfo? sender;
+
+  /// For a proposal message: what it proposes — the new leaf of an Update,
+  /// the extensions of a GroupContextExtensions proposal, the member a
+  /// Remove takes out — as `stagedCommitInfo.proposals` reports them for a
+  /// commit.
+  final StagedProposalInfo? proposalInfo;
 
   const ProcessedMessageInspectResult({
     required this.messageType,
@@ -1005,6 +1056,8 @@ class ProcessedMessageInspectResult {
     this.applicationMessage,
     this.stagedCommitInfo,
     this.proposalType,
+    this.sender,
+    this.proposalInfo,
   });
 
   @override
@@ -1014,7 +1067,9 @@ class ProcessedMessageInspectResult {
       epoch.hashCode ^
       applicationMessage.hashCode ^
       stagedCommitInfo.hashCode ^
-      proposalType.hashCode;
+      proposalType.hashCode ^
+      sender.hashCode ^
+      proposalInfo.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -1026,7 +1081,9 @@ class ProcessedMessageInspectResult {
           epoch == other.epoch &&
           applicationMessage == other.applicationMessage &&
           stagedCommitInfo == other.stagedCommitInfo &&
-          proposalType == other.proposalType;
+          proposalType == other.proposalType &&
+          sender == other.sender &&
+          proposalInfo == other.proposalInfo;
 }
 
 class ProcessedMessageResult {

@@ -277,19 +277,78 @@ pub struct StagedCommitInfo {
     /// not it carries a GroupContextExtensions proposal — so an application
     /// can check what it binds there (the head of an access-control list,
     /// say) before accepting the commit.
+    ///
+    /// Every extension, including the types OpenMLS interprets itself:
+    /// `RequiredCapabilities` (0x0003), `ExternalSenders` (0x0005), … — each
+    /// in its wire form, as `MlsExtension` takes it. The data was chosen by
+    /// the committer and is not vouched for by anyone else.
     #[frb(default = [])]
     pub group_context_extensions: Vec<MlsExtension>,
+    /// The external senders the group context the commit leads to admits —
+    /// its `ExternalSenders` extension, decoded. Each may send proposals
+    /// (adds and removes among them) without being a member, so a change
+    /// here hands that power to a new party: compare it with the current
+    /// group context before accepting the commit.
+    #[frb(default = [])]
+    pub external_senders: Vec<MlsExternalSenderInfo>,
 }
 
-/// One proposal of a staged commit.
+/// One proposal of a staged commit, or a proposal inspected on its own.
+///
+/// Everything here except `sender` and `affectedMember` is what the proposer
+/// claims. MLS proves *who signed* it, not that a credential names who it says
+/// it does: binding a credential to an identity is the application's job.
 pub struct StagedProposalInfo {
     pub proposal_type: MlsProposalType,
     /// The proposer's leaf index when a group member proposed it; `None` for
-    /// an external sender or a new member.
+    /// an external sender or a new member — `sender` tells those apart.
     pub sender_index: Option<u32>,
+    /// Who proposed it, external senders and new members included.
+    pub sender: MlsSenderInfo,
     /// Whether the commit carries it by reference — a proposal sent earlier
     /// on its own — rather than inline.
     pub by_reference: bool,
+    /// The leaf node the proposal introduces: the new member's for an Add,
+    /// the proposer's replacement leaf for an Update — its credential,
+    /// signature key and encryption key. OpenMLS does not check that an
+    /// Update keeps the proposer's identity; compare this credential with
+    /// `affectedMember`'s.
+    pub leaf: Option<MlsLeafNodeInfo>,
+    /// The member the proposal acts on, as this client's own tree has it
+    /// before the change: the member being removed for a Remove, the member
+    /// whose leaf an Update replaces.
+    pub affected_member: Option<MlsMemberInfo>,
+    /// The extensions a GroupContextExtensions proposal sets, every type
+    /// included, in wire form.
+    pub extensions: Vec<MlsExtension>,
+}
+
+/// Who sent a message or a proposal.
+pub enum MlsSenderKind {
+    /// A member of the group; the index is its leaf index.
+    Member,
+    /// A party listed in the group's `ExternalSenders` extension, not a
+    /// member; the index is its position in that list.
+    External,
+    /// A new member proposing to add itself (an external join proposal).
+    NewMemberProposal,
+    /// A new member joining through an external commit.
+    NewMemberCommit,
+}
+
+/// The sender of a message or a proposal, as MLS authenticated it.
+pub struct MlsSenderInfo {
+    pub kind: MlsSenderKind,
+    /// The leaf index for `member`, the position in `ExternalSenders` for
+    /// `external`; `None` for a new member.
+    pub index: Option<u32>,
+}
+
+/// One entry of an `ExternalSenders` group context extension.
+pub struct MlsExternalSenderInfo {
+    /// TLS-serialized Credential. Deserialize with `MlsCredential.deserialize()`.
+    pub credential: Vec<u8>,
+    pub signature_key: Vec<u8>,
 }
 
 /// Options for the flexible commit builder.
@@ -321,6 +380,14 @@ pub struct FlexibleCommitOptions {
     /// until the application calls `mergePendingCommit` (accepted) or
     /// `clearPendingCommit` (lost), so a lost race leaves nothing to repair.
     /// Another member's commit processed meanwhile replaces it.
+    ///
+    /// While a commit is pending, `flexibleCommit` refuses to create another
+    /// one — with or without this option. Replacing a commit that may already
+    /// have reached other members would fork the group: they would apply one
+    /// commit, this member another. Resolve the pending one first.
+    ///
+    /// Send the result's Welcome only after `mergePendingCommit`, once the
+    /// delivery service accepted the commit; see `CommitResult.welcome`.
     #[frb(default = false)]
     pub keep_pending: bool,
 }
@@ -488,6 +555,54 @@ fn extension_from_mls(ext: &MlsExtension) -> Result<Extension, String> {
     );
     Extension::tls_deserialize_exact_bytes(&wire)
         .map_err(|e| format!("Invalid extension 0x{:04x}: {}", ext.extension_type, e))
+}
+
+/// `ext` in the form `MlsExtension` holds — the inverse of
+/// `extension_from_mls`, for typed and unknown extensions alike.
+pub(crate) fn extension_to_mls(ext: &Extension) -> Result<MlsExtension, String> {
+    use openmls::prelude::tls_codec::{DeserializeBytes, Serialize, VLBytes};
+    let extension_type = u16::from(ext.extension_type());
+    let wire = ext
+        .tls_serialize_detached()
+        .map_err(|e| format!("Failed to encode extension 0x{:04x}: {}", extension_type, e))?;
+    // Two bytes of type, then the data behind its variable-length prefix.
+    let data = VLBytes::tls_deserialize_exact_bytes(&wire[2..])
+        .map_err(|e| format!("Failed to decode extension 0x{:04x}: {}", extension_type, e))?;
+    Ok(MlsExtension { extension_type, data: data.as_slice().to_vec() })
+}
+
+/// The entries of an `ExternalSenders` extension. OpenMLS keeps their fields
+/// to itself, so each is read back from its wire form: the signature key,
+/// then the credential.
+pub(crate) fn external_senders_to_mls(
+    senders: &ExternalSendersExtension,
+) -> Result<Vec<MlsExternalSenderInfo>, String> {
+    use openmls::prelude::tls_codec::{DeserializeBytes, Serialize, VLBytes};
+    senders
+        .iter()
+        .map(|sender| {
+            let wire = sender
+                .tls_serialize_detached()
+                .map_err(|e| format!("Failed to encode external sender: {}", e))?;
+            let (signature_key, credential) = VLBytes::tls_deserialize_bytes(&wire)
+                .map_err(|e| format!("Failed to decode external sender: {}", e))?;
+            Ok(MlsExternalSenderInfo {
+                credential: credential.to_vec(),
+                signature_key: signature_key.as_slice().to_vec(),
+            })
+        })
+        .collect()
+}
+
+/// Decodes the data of an `ExternalSenders` extension (type 0x0005) — as
+/// `groupContextExtensions` or `exportGroupContext` report it — into its
+/// entries.
+#[flutter_rust_bridge::frb(sync)]
+pub fn decode_external_senders(data: Vec<u8>) -> Result<Vec<MlsExternalSenderInfo>, String> {
+    match extension_from_mls(&MlsExtension { extension_type: 0x0005, data })? {
+        Extension::ExternalSenders(senders) => external_senders_to_mls(&senders),
+        _ => Err("Not an ExternalSenders extension".to_string()),
+    }
 }
 
 /// Returns every ciphersuite this build can execute.
