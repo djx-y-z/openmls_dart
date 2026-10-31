@@ -743,6 +743,29 @@ abstract class MlsEngine implements RustOpaqueInterface {
     required List<int> signerBytes,
     required List<MlsExtension> extensions,
   });
+
+  /// The extensions the committer put into the GroupInfo of a Welcome
+  /// (`FlexibleCommitOptions.groupInfoExtensions`), **verified, without
+  /// joining the group**.
+  ///
+  /// The GroupInfo travels encrypted to the members the Welcome adds, so
+  /// these are readable by them and nobody else. They are returned only
+  /// once the Welcome has been staged exactly as `joinGroupFromWelcome`
+  /// stages it: the GroupInfo's signature checked against the committer's
+  /// leaf in the ratchet tree, and its confirmation tag against the epoch's
+  /// secrets. A Welcome that fails either check fails here.
+  ///
+  /// Writes nothing, like `inspectWelcome` and `exportWelcomeSecret`: the
+  /// key package the Welcome consumes is still there for the join.
+  ///
+  /// The ratchet tree extension is left out — it is the group's tree, not
+  /// something a committer adds — as is the external public key, which a
+  /// Welcome's GroupInfo does not carry.
+  Future<List<MlsExtension>> welcomeGroupInfoExtensions({
+    required MlsGroupConfig config,
+    required List<int> welcomeBytes,
+    Uint8List? ratchetTreeBytes,
+  });
 }
 
 class AddMembersResult {

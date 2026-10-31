@@ -395,6 +395,19 @@ pub struct FlexibleCommitOptions {
     /// see `CommitResult.welcome`.
     #[frb(default = false)]
     pub keep_pending: bool,
+    /// Extensions for the GroupInfo inside the Welcome (default: none).
+    ///
+    /// The Welcome encrypts its GroupInfo to the members it adds, under the
+    /// welcome secret, and the committer signs it; a newcomer reads these
+    /// extensions with `welcomeGroupInfoExtensions` before it joins. That
+    /// makes them the place for what a newcomer needs to know and nobody
+    /// else may read — the delivery service included.
+    ///
+    /// They also go into the exported GroupInfo (`CommitResult.groupInfo`),
+    /// which is not encrypted. With extensions given, that GroupInfo is
+    /// created only when `createGroupInfo` asks for it, even when
+    /// `useRatchetTreeExtension` is set.
+    pub group_info_extensions: Option<Vec<MlsExtension>>,
 }
 
 // ═══════════════════════════════════════════════════════════════

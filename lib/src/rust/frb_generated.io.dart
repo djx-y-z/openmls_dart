@@ -1207,6 +1207,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
       apiObj.useRatchetTreeExtension,
     );
     wireObj.keep_pending = cst_encode_bool(apiObj.keepPending);
+    wireObj.group_info_extensions = cst_encode_opt_list_mls_extension(
+      apiObj.groupInfoExtensions,
+    );
   }
 
   @protected
@@ -4975,6 +4978,48 @@ class RustLibWire implements BaseWire {
             )
           >();
 
+  void wire__crate__api__engine__MlsEngine_welcome_group_info_extensions(
+    int port_,
+    int that,
+    ffi.Pointer<wire_cst_mls_group_config> config,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> welcome_bytes,
+    ffi.Pointer<wire_cst_list_prim_u_8_strict> ratchet_tree_bytes,
+  ) {
+    return _wire__crate__api__engine__MlsEngine_welcome_group_info_extensions(
+      port_,
+      that,
+      config,
+      welcome_bytes,
+      ratchet_tree_bytes,
+    );
+  }
+
+  late final _wire__crate__api__engine__MlsEngine_welcome_group_info_extensionsPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Int64,
+            ffi.UintPtr,
+            ffi.Pointer<wire_cst_mls_group_config>,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Pointer<wire_cst_list_prim_u_8_strict>,
+          )
+        >
+      >(
+        'frbgen_openmls_wire__crate__api__engine__MlsEngine_welcome_group_info_extensions',
+      );
+  late final _wire__crate__api__engine__MlsEngine_welcome_group_info_extensions =
+      _wire__crate__api__engine__MlsEngine_welcome_group_info_extensionsPtr
+          .asFunction<
+            void Function(
+              int,
+              int,
+              ffi.Pointer<wire_cst_mls_group_config>,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              ffi.Pointer<wire_cst_list_prim_u_8_strict>,
+            )
+          >();
+
   WireSyncRust2DartDco
   wire__crate__api__keys__MlsSignatureKeyPair_deserialize_public(
     ffi.Pointer<wire_cst_list_prim_u_8_loose> bytes,
@@ -5923,6 +5968,8 @@ final class wire_cst_flexible_commit_options extends ffi.Struct {
 
   @ffi.Bool()
   external bool keep_pending;
+
+  external ffi.Pointer<wire_cst_list_mls_extension> group_info_extensions;
 }
 
 final class wire_cst_list_prim_u_32_loose extends ffi.Struct {

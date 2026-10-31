@@ -69,7 +69,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.13.0';
 
   @override
-  int get rustContentHash => 945868030;
+  int get rustContentHash => -541303569;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -583,6 +583,13 @@ abstract class RustLibApi extends BaseApi {
     required List<int> groupIdBytes,
     required List<int> signerBytes,
     required List<MlsExtension> extensions,
+  });
+
+  Future<List<MlsExtension>> crateApiEngineMlsEngineWelcomeGroupInfoExtensions({
+    required MlsEngine that,
+    required MlsGroupConfig config,
+    required List<int> welcomeBytes,
+    Uint8List? ratchetTreeBytes,
   });
 
   MlsSignatureKeyPair crateApiKeysMlsSignatureKeyPairDeserializePublic({
@@ -4115,6 +4122,50 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
+  Future<List<MlsExtension>> crateApiEngineMlsEngineWelcomeGroupInfoExtensions({
+    required MlsEngine that,
+    required MlsGroupConfig config,
+    required List<int> welcomeBytes,
+    Uint8List? ratchetTreeBytes,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 =
+              cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsEngine(
+                that,
+              );
+          var arg1 = cst_encode_box_autoadd_mls_group_config(config);
+          var arg2 = cst_encode_list_prim_u_8_loose(welcomeBytes);
+          var arg3 = cst_encode_opt_list_prim_u_8_strict(ratchetTreeBytes);
+          return wire
+              .wire__crate__api__engine__MlsEngine_welcome_group_info_extensions(
+                port_,
+                arg0,
+                arg1,
+                arg2,
+                arg3,
+              );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_list_mls_extension,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiEngineMlsEngineWelcomeGroupInfoExtensionsConstMeta,
+        argValues: [that, config, welcomeBytes, ratchetTreeBytes],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta
+  get kCrateApiEngineMlsEngineWelcomeGroupInfoExtensionsConstMeta =>
+      const TaskConstMeta(
+        debugName: "MlsEngine_welcome_group_info_extensions",
+        argNames: ["that", "config", "welcomeBytes", "ratchetTreeBytes"],
+      );
+
+  @override
   MlsSignatureKeyPair crateApiKeysMlsSignatureKeyPairDeserializePublic({
     required List<int> bytes,
   }) {
@@ -4895,8 +4946,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   FlexibleCommitOptions dco_decode_flexible_commit_options(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 9)
-      throw Exception('unexpected arr length: expect 9 but see ${arr.length}');
+    if (arr.length != 10)
+      throw Exception('unexpected arr length: expect 10 but see ${arr.length}');
     return FlexibleCommitOptions(
       addKeyPackages: dco_decode_list_list_prim_u_8_strict(arr[0]),
       removeIndices: dco_decode_list_prim_u_32_strict(arr[1]),
@@ -4907,6 +4958,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       createGroupInfo: dco_decode_bool(arr[6]),
       useRatchetTreeExtension: dco_decode_bool(arr[7]),
       keepPending: dco_decode_bool(arr[8]),
+      groupInfoExtensions: dco_decode_opt_list_mls_extension(arr[9]),
     );
   }
 
@@ -5747,6 +5799,9 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_createGroupInfo = sse_decode_bool(deserializer);
     var var_useRatchetTreeExtension = sse_decode_bool(deserializer);
     var var_keepPending = sse_decode_bool(deserializer);
+    var var_groupInfoExtensions = sse_decode_opt_list_mls_extension(
+      deserializer,
+    );
     return FlexibleCommitOptions(
       addKeyPackages: var_addKeyPackages,
       removeIndices: var_removeIndices,
@@ -5757,6 +5812,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       createGroupInfo: var_createGroupInfo,
       useRatchetTreeExtension: var_useRatchetTreeExtension,
       keepPending: var_keepPending,
+      groupInfoExtensions: var_groupInfoExtensions,
     );
   }
 
@@ -6946,6 +7002,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_bool(self.createGroupInfo, serializer);
     sse_encode_bool(self.useRatchetTreeExtension, serializer);
     sse_encode_bool(self.keepPending, serializer);
+    sse_encode_opt_list_mls_extension(self.groupInfoExtensions, serializer);
   }
 
   @protected
@@ -8604,6 +8661,34 @@ class MlsEngineImpl extends RustOpaque implements MlsEngine {
         signerBytes: signerBytes,
         extensions: extensions,
       );
+
+  /// The extensions the committer put into the GroupInfo of a Welcome
+  /// (`FlexibleCommitOptions.groupInfoExtensions`), **verified, without
+  /// joining the group**.
+  ///
+  /// The GroupInfo travels encrypted to the members the Welcome adds, so
+  /// these are readable by them and nobody else. They are returned only
+  /// once the Welcome has been staged exactly as `joinGroupFromWelcome`
+  /// stages it: the GroupInfo's signature checked against the committer's
+  /// leaf in the ratchet tree, and its confirmation tag against the epoch's
+  /// secrets. A Welcome that fails either check fails here.
+  ///
+  /// Writes nothing, like `inspectWelcome` and `exportWelcomeSecret`: the
+  /// key package the Welcome consumes is still there for the join.
+  ///
+  /// The ratchet tree extension is left out — it is the group's tree, not
+  /// something a committer adds — as is the external public key, which a
+  /// Welcome's GroupInfo does not carry.
+  Future<List<MlsExtension>> welcomeGroupInfoExtensions({
+    required MlsGroupConfig config,
+    required List<int> welcomeBytes,
+    Uint8List? ratchetTreeBytes,
+  }) => RustLib.instance.api.crateApiEngineMlsEngineWelcomeGroupInfoExtensions(
+    that: this,
+    config: config,
+    welcomeBytes: welcomeBytes,
+    ratchetTreeBytes: ratchetTreeBytes,
+  );
 }
 
 @sealed
