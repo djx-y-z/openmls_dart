@@ -1067,6 +1067,64 @@ impl MlsEngine {
             .map_err(|e| format!("Failed to export secret from welcome: {}", e))
     }
 
+    /// The extensions the committer put into the GroupInfo of a Welcome
+    /// (`FlexibleCommitOptions.groupInfoExtensions`), **verified, without
+    /// joining the group**.
+    ///
+    /// The GroupInfo travels encrypted to the members the Welcome adds, so
+    /// these are readable by them and nobody else. They are returned only
+    /// once the Welcome has been staged exactly as `joinGroupFromWelcome`
+    /// stages it: the GroupInfo's signature checked against the committer's
+    /// leaf in the ratchet tree, and its confirmation tag against the epoch's
+    /// secrets. A Welcome that fails either check fails here.
+    ///
+    /// Writes nothing, like `inspectWelcome` and `exportWelcomeSecret`: the
+    /// key package the Welcome consumes is still there for the join.
+    ///
+    /// The ratchet tree extension is left out — it is the group's tree, not
+    /// something a committer adds — as is the external public key, which a
+    /// Welcome's GroupInfo does not carry.
+    pub async fn welcome_group_info_extensions(
+        &self,
+        config: MlsGroupConfig,
+        welcome_bytes: Vec<u8>,
+        ratchet_tree_bytes: Option<Vec<u8>>,
+    ) -> Result<Vec<MlsExtension>, String> {
+        let provider = self.load_global().await?;
+
+        let welcome_msg = MlsMessageIn::tls_deserialize_exact_bytes(&welcome_bytes)
+            .map_err(|e| format!("Failed to deserialize welcome: {}", e))?;
+        let welcome = match welcome_msg.extract() {
+            MlsMessageBodyIn::Welcome(w) => w,
+            _ => return Err("Message is not a Welcome".to_string()),
+        };
+
+        let join_config = config.to_join_config();
+        let processed = ProcessedWelcome::new_from_welcome(&provider, &join_config, welcome)
+            .map_err(|e| format!("Failed to process welcome: {}", e))?;
+        // Read before staging consumes it; staging below verifies this very
+        // GroupInfo, so they count only once it succeeds.
+        let extensions = processed.unverified_group_info().extensions().clone();
+
+        let ratchet_tree = ratchet_tree_bytes
+            .map(|bytes| {
+                RatchetTreeIn::tls_deserialize_exact_bytes(&bytes)
+                    .map_err(|e| format!("Failed to deserialize ratchet tree: {}", e))
+            })
+            .transpose()?;
+        processed
+            .into_staged_welcome(&provider, ratchet_tree)
+            .map_err(|e| format!("Failed to verify welcome: {}", e))?;
+
+        extensions
+            .iter()
+            .filter(|ext| {
+                !matches!(ext, Extension::RatchetTree(_) | Extension::ExternalPub(_))
+            })
+            .map(extension_to_mls)
+            .collect()
+    }
+
     #[allow(deprecated)]
     #[allow(clippy::too_many_arguments)]
     pub async fn join_group_external_commit(
@@ -2102,7 +2160,18 @@ impl MlsEngine {
         }
 
         let commit_builder = commit_builder.load_psks(provider.storage()).map_err(|e| format!("Failed to load PSKs: {}", e))?;
-        let commit_builder = commit_builder.create_group_info(options.create_group_info).use_ratchet_tree_extension(options.use_ratchet_tree_extension);
+        let mut commit_builder = commit_builder.create_group_info(options.create_group_info).use_ratchet_tree_extension(options.use_ratchet_tree_extension);
+        if let Some(ref gi_exts) = options.group_info_extensions {
+            let ext_vec = extensions_from_mls(gi_exts)?;
+            // Adding them turns the exported GroupInfo on, and so does the
+            // ratchet tree extension. It is not encrypted, so it is created
+            // only when asked for: the Welcome's own GroupInfo carries them
+            // either way.
+            commit_builder = commit_builder
+                .create_group_info_with_extensions(ext_vec)
+                .map_err(|e| format!("Failed to add group info extensions: {}", e))?
+                .create_group_info(options.create_group_info);
+        }
         let commit_builder = commit_builder.build(provider.rand(), provider.crypto(), &signer, |_| true).map_err(|e| format!("Failed to build commit: {}", e))?;
         let bundle = commit_builder.stage_commit(&provider).map_err(|e| format!("Failed to stage commit: {}", e))?;
         if !options.keep_pending {

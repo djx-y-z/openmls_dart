@@ -42,7 +42,7 @@ flutter_rust_bridge::frb_generated_boilerplate!(
     default_rust_auto_opaque = RustAutoOpaqueNom,
 );
 pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.13.0";
-pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = 945868030;
+pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -541303569;
 
 // Section: executor
 
@@ -4056,6 +4056,62 @@ fn wire__crate__api__engine__MlsEngine_update_group_context_extensions_impl(
         },
     )
 }
+fn wire__crate__api__engine__MlsEngine_welcome_group_info_extensions_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    that: impl CstDecode<
+        RustOpaqueNom<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<MlsEngine>>,
+    >,
+    config: impl CstDecode<crate::api::config::MlsGroupConfig>,
+    welcome_bytes: impl CstDecode<Vec<u8>>,
+    ratchet_tree_bytes: impl CstDecode<Option<Vec<u8>>>,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::DcoCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "MlsEngine_welcome_group_info_extensions",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let api_that = that.cst_decode();
+            let api_config = config.cst_decode();
+            let api_welcome_bytes = welcome_bytes.cst_decode();
+            let api_ratchet_tree_bytes = ratchet_tree_bytes.cst_decode();
+            move |context| async move {
+                transform_result_dco::<_, _, String>(
+                    (move || async move {
+                        let mut api_that_guard = None;
+                        let decode_indices_ =
+                            flutter_rust_bridge::for_generated::lockable_compute_decode_order(
+                                vec![flutter_rust_bridge::for_generated::LockableOrderInfo::new(
+                                    &api_that, 0, false,
+                                )],
+                            );
+                        for i in decode_indices_ {
+                            match i {
+                                0 => {
+                                    api_that_guard =
+                                        Some(api_that.lockable_decode_async_ref().await)
+                                }
+                                _ => unreachable!(),
+                            }
+                        }
+                        let api_that_guard = api_that_guard.unwrap();
+                        let output_ok =
+                            crate::api::engine::MlsEngine::welcome_group_info_extensions(
+                                &*api_that_guard,
+                                api_config,
+                                api_welcome_bytes,
+                                api_ratchet_tree_bytes,
+                            )
+                            .await?;
+                        std::result::Result::Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
 fn wire__crate__api__keys__MlsSignatureKeyPair_deserialize_public_impl(
     bytes: impl CstDecode<Vec<u8>>,
 ) -> flutter_rust_bridge::for_generated::WireSyncRust2DartDco {
@@ -4741,6 +4797,8 @@ impl SseDecode for crate::api::types::FlexibleCommitOptions {
         let mut var_createGroupInfo = <bool>::sse_decode(deserializer);
         let mut var_useRatchetTreeExtension = <bool>::sse_decode(deserializer);
         let mut var_keepPending = <bool>::sse_decode(deserializer);
+        let mut var_groupInfoExtensions =
+            <Option<Vec<crate::api::types::MlsExtension>>>::sse_decode(deserializer);
         return crate::api::types::FlexibleCommitOptions {
             add_key_packages: var_addKeyPackages,
             remove_indices: var_removeIndices,
@@ -4751,6 +4809,7 @@ impl SseDecode for crate::api::types::FlexibleCommitOptions {
             create_group_info: var_createGroupInfo,
             use_ratchet_tree_extension: var_useRatchetTreeExtension,
             keep_pending: var_keepPending,
+            group_info_extensions: var_groupInfoExtensions,
         };
     }
 }
@@ -5725,6 +5784,7 @@ impl flutter_rust_bridge::IntoDart for crate::api::types::FlexibleCommitOptions 
             self.create_group_info.into_into_dart().into_dart(),
             self.use_ratchet_tree_extension.into_into_dart().into_dart(),
             self.keep_pending.into_into_dart().into_dart(),
+            self.group_info_extensions.into_into_dart().into_dart(),
         ]
         .into_dart()
     }
@@ -6514,6 +6574,10 @@ impl SseEncode for crate::api::types::FlexibleCommitOptions {
         <bool>::sse_encode(self.create_group_info, serializer);
         <bool>::sse_encode(self.use_ratchet_tree_extension, serializer);
         <bool>::sse_encode(self.keep_pending, serializer);
+        <Option<Vec<crate::api::types::MlsExtension>>>::sse_encode(
+            self.group_info_extensions,
+            serializer,
+        );
     }
 }
 
@@ -7370,6 +7434,7 @@ mod io {
                 create_group_info: self.create_group_info.cst_decode(),
                 use_ratchet_tree_extension: self.use_ratchet_tree_extension.cst_decode(),
                 keep_pending: self.keep_pending.cst_decode(),
+                group_info_extensions: self.group_info_extensions.cst_decode(),
             }
         }
     }
@@ -7834,6 +7899,7 @@ mod io {
                 create_group_info: Default::default(),
                 use_ratchet_tree_extension: Default::default(),
                 keep_pending: Default::default(),
+                group_info_extensions: core::ptr::null_mut(),
             }
         }
     }
@@ -9322,6 +9388,23 @@ mod io {
     }
 
     #[unsafe(no_mangle)]
+    pub extern "C" fn frbgen_openmls_wire__crate__api__engine__MlsEngine_welcome_group_info_extensions(
+        port_: i64,
+        that: usize,
+        config: *mut wire_cst_mls_group_config,
+        welcome_bytes: *mut wire_cst_list_prim_u_8_loose,
+        ratchet_tree_bytes: *mut wire_cst_list_prim_u_8_strict,
+    ) {
+        wire__crate__api__engine__MlsEngine_welcome_group_info_extensions_impl(
+            port_,
+            that,
+            config,
+            welcome_bytes,
+            ratchet_tree_bytes,
+        )
+    }
+
+    #[unsafe(no_mangle)]
     pub extern "C" fn frbgen_openmls_wire__crate__api__keys__MlsSignatureKeyPair_deserialize_public(
         bytes: *mut wire_cst_list_prim_u_8_loose,
     ) -> flutter_rust_bridge::for_generated::WireSyncRust2DartDco {
@@ -9789,6 +9872,7 @@ mod io {
         create_group_info: bool,
         use_ratchet_tree_extension: bool,
         keep_pending: bool,
+        group_info_extensions: *mut wire_cst_list_mls_extension,
     }
     #[repr(C)]
     #[derive(Clone, Copy)]
@@ -10192,8 +10276,8 @@ mod web {
                 .unwrap();
             assert_eq!(
                 self_.length(),
-                9,
-                "Expected 9 elements, got {}",
+                10,
+                "Expected 10 elements, got {}",
                 self_.length()
             );
             crate::api::types::FlexibleCommitOptions {
@@ -10206,6 +10290,7 @@ mod web {
                 create_group_info: self_.get(6).cst_decode(),
                 use_ratchet_tree_extension: self_.get(7).cst_decode(),
                 keep_pending: self_.get(8).cst_decode(),
+                group_info_extensions: self_.get(9).cst_decode(),
             }
         }
     }
@@ -12157,6 +12242,23 @@ mod web {
             group_id_bytes,
             signer_bytes,
             extensions,
+        )
+    }
+
+    #[wasm_bindgen]
+    pub fn wire__crate__api__engine__MlsEngine_welcome_group_info_extensions(
+        port_: flutter_rust_bridge::for_generated::MessagePort,
+        that: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
+        config: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
+        welcome_bytes: Box<[u8]>,
+        ratchet_tree_bytes: Option<Box<[u8]>>,
+    ) {
+        wire__crate__api__engine__MlsEngine_welcome_group_info_extensions_impl(
+            port_,
+            that,
+            config,
+            welcome_bytes,
+            ratchet_tree_bytes,
         )
     }
 

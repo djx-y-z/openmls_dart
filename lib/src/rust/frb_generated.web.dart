@@ -850,6 +850,7 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
       cst_encode_bool(raw.createGroupInfo),
       cst_encode_bool(raw.useRatchetTreeExtension),
       cst_encode_bool(raw.keepPending),
+      cst_encode_opt_list_mls_extension(raw.groupInfoExtensions),
     ].jsify()!;
   }
 
@@ -2832,6 +2833,21 @@ class RustLibWire implements BaseWire {
         extensions,
       );
 
+  void wire__crate__api__engine__MlsEngine_welcome_group_info_extensions(
+    NativePortType port_,
+    int that,
+    JSAny config,
+    JSAny welcome_bytes,
+    JSAny? ratchet_tree_bytes,
+  ) => wasmModule
+      .wire__crate__api__engine__MlsEngine_welcome_group_info_extensions(
+        port_,
+        that,
+        config,
+        welcome_bytes,
+        ratchet_tree_bytes,
+      );
+
   JSAny? /* flutter_rust_bridge::for_generated::WireSyncRust2DartDco */
   wire__crate__api__keys__MlsSignatureKeyPair_deserialize_public(JSAny bytes) =>
       wasmModule.wire__crate__api__keys__MlsSignatureKeyPair_deserialize_public(
@@ -3573,6 +3589,15 @@ extension type RustLibWasmModule._(JSObject _) implements JSObject {
     JSAny group_id_bytes,
     JSAny signer_bytes,
     JSAny extensions,
+  );
+
+  external void
+  wire__crate__api__engine__MlsEngine_welcome_group_info_extensions(
+    NativePortType port_,
+    int that,
+    JSAny config,
+    JSAny welcome_bytes,
+    JSAny? ratchet_tree_bytes,
   );
 
   external JSAny? /* flutter_rust_bridge::for_generated::WireSyncRust2DartDco */
