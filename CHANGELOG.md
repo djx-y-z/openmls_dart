@@ -1,3 +1,21 @@
+## [Unreleased]
+
+### For Users
+
+#### Added
+
+- **`FlexibleCommitOptions.groupInfoExtensions`** (default `null`) — puts
+  the application's own extensions into the GroupInfo of the commit's
+  Welcome, which MLS encrypts under the welcome secret: only the members the
+  commit adds can read them, and the committer's signature and the
+  confirmation tag cover them. They reach the exported GroupInfo, which is
+  not encrypted, only when `createGroupInfo` asks for it.
+- **`MlsEngine.welcomeGroupInfoExtensions`** — reads those extensions from a
+  Welcome before joining, so a newcomer can decide whether to join at all.
+  The Welcome is verified as `joinGroupFromWelcome` verifies it (signature,
+  confirmation tag); nothing is written, so the key package stays for the
+  join. The ratchet tree and external public key extensions are left out.
+
 ## [3.3.0] - 2026-10-26
 
 ### For Users

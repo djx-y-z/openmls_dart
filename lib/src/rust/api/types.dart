@@ -68,6 +68,20 @@ class FlexibleCommitOptions {
   /// see `CommitResult.welcome`.
   final bool keepPending;
 
+  /// Extensions for the GroupInfo inside the Welcome (default: none).
+  ///
+  /// The Welcome encrypts its GroupInfo to the members it adds, under the
+  /// welcome secret, and the committer signs it; a newcomer reads these
+  /// extensions with `welcomeGroupInfoExtensions` before it joins. That
+  /// makes them the place for what a newcomer needs to know and nobody
+  /// else may read — the delivery service included.
+  ///
+  /// They also go into the exported GroupInfo (`CommitResult.groupInfo`),
+  /// which is not encrypted. With extensions given, that GroupInfo is
+  /// created only when `createGroupInfo` asks for it, even when
+  /// `useRatchetTreeExtension` is set.
+  final List<MlsExtension>? groupInfoExtensions;
+
   const FlexibleCommitOptions({
     required this.addKeyPackages,
     required this.removeIndices,
@@ -78,6 +92,7 @@ class FlexibleCommitOptions {
     required this.createGroupInfo,
     required this.useRatchetTreeExtension,
     this.keepPending = false,
+    this.groupInfoExtensions,
   });
 
   @override
@@ -90,7 +105,8 @@ class FlexibleCommitOptions {
       aad.hashCode ^
       createGroupInfo.hashCode ^
       useRatchetTreeExtension.hashCode ^
-      keepPending.hashCode;
+      keepPending.hashCode ^
+      groupInfoExtensions.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -105,7 +121,8 @@ class FlexibleCommitOptions {
           aad == other.aad &&
           createGroupInfo == other.createGroupInfo &&
           useRatchetTreeExtension == other.useRatchetTreeExtension &&
-          keepPending == other.keepPending;
+          keepPending == other.keepPending &&
+          groupInfoExtensions == other.groupInfoExtensions;
 }
 
 /// Options for creating a key package with the builder API.
