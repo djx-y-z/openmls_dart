@@ -5,6 +5,9 @@ import 'package:test/test.dart';
 
 import '../../hook/build.dart' as build_hook;
 
+/// On a line of its own, so that no other line's length depends on it.
+const _packageName = 'openmls';
+
 void main() {
   group('downloadCacheSubdir', () {
     test('distinguishes iOS device from iOS simulator', () {
@@ -91,6 +94,114 @@ void main() {
         ),
         '1.5.0-android-arm64-v8a',
       );
+    });
+  });
+
+  group('localBuildDirectory', () {
+    String? directoryFor(
+      OS targetOS,
+      Architecture targetArchitecture, {
+      IOSSdk? iosSdk,
+    }) => build_hook.localBuildDirectory(
+      targetOS: targetOS,
+      targetArchitecture: targetArchitecture,
+      iosSdk: iosSdk,
+      hostOS: OS.macOS,
+      hostArchitecture: Architecture.arm64,
+    );
+
+    test('the host reads the directory make build writes', () {
+      expect(
+        directoryFor(OS.macOS, Architecture.arm64),
+        'rust/target/release/',
+      );
+    });
+
+    test('another architecture of the host OS is a cross build', () {
+      // `flutter build macos` builds both architectures. The host's library in
+      // the other slice is an architecture error, so it must not read it.
+      expect(
+        directoryFor(OS.macOS, Architecture.x64),
+        'rust/target/x86_64-apple-darwin/release/',
+      );
+    });
+
+    test('a device or a simulator never reads the host build', () {
+      for (final directory in [
+        directoryFor(OS.iOS, Architecture.arm64, iosSdk: IOSSdk.iPhoneOS),
+        directoryFor(
+          OS.iOS,
+          Architecture.arm64,
+          iosSdk: IOSSdk.iPhoneSimulator,
+        ),
+        directoryFor(OS.android, Architecture.arm64),
+      ]) {
+        expect(directory, isNot('rust/target/release/'));
+      }
+    });
+
+    test('iOS device and simulator do not share a directory', () {
+      // They share the OS and, on Apple silicon, the architecture. A device
+      // library in a simulator is rejected by dyld at launch.
+      expect(
+        directoryFor(OS.iOS, Architecture.arm64, iosSdk: IOSSdk.iPhoneOS),
+        'rust/target/aarch64-apple-ios/release/',
+      );
+      expect(
+        directoryFor(
+          OS.iOS,
+          Architecture.arm64,
+          iosSdk: IOSSdk.iPhoneSimulator,
+        ),
+        'rust/target/aarch64-apple-ios-sim/release/',
+      );
+      expect(
+        directoryFor(OS.iOS, Architecture.x64, iosSdk: IOSSdk.iPhoneSimulator),
+        'rust/target/x86_64-apple-ios/release/',
+      );
+    });
+
+    test('every Android ABI has the directory cargo-ndk writes', () {
+      expect(
+        directoryFor(OS.android, Architecture.arm64),
+        'rust/target/aarch64-linux-android/release/',
+      );
+      expect(
+        directoryFor(OS.android, Architecture.arm),
+        'rust/target/armv7-linux-androideabi/release/',
+      );
+      expect(
+        directoryFor(OS.android, Architecture.x64),
+        'rust/target/x86_64-linux-android/release/',
+      );
+    });
+
+    test('names the triples build-openmls.yml builds', () {
+      // A name here the release does not use is a directory no make target
+      // ever writes, and the hook would quietly download instead.
+      final workflow = File(
+        '.github/workflows/build-$_packageName.yml',
+      ).readAsStringSync();
+      for (final (os, arch, sdk) in [
+        (OS.android, Architecture.arm64, null),
+        (OS.android, Architecture.arm, null),
+        (OS.android, Architecture.x64, null),
+        (OS.iOS, Architecture.arm64, IOSSdk.iPhoneOS),
+        (OS.iOS, Architecture.arm64, IOSSdk.iPhoneSimulator),
+        (OS.iOS, Architecture.x64, IOSSdk.iPhoneSimulator),
+        (OS.macOS, Architecture.x64, null),
+        (OS.linux, Architecture.arm64, null),
+        (OS.linux, Architecture.x64, null),
+        (OS.windows, Architecture.x64, null),
+      ]) {
+        final triple = directoryFor(os, arch, iosSdk: sdk)!.split('/')[2];
+        expect(workflow, contains(triple), reason: '$os $arch $sdk');
+      }
+    });
+
+    test('a target with no release has no directory', () {
+      expect(directoryFor(OS.windows, Architecture.arm64), isNull);
+      expect(directoryFor(OS.android, Architecture.riscv64), isNull);
     });
   });
 
@@ -213,5 +324,156 @@ void main() {
         expect(build_hook.readIfPresent(file), equals(lock));
       },
     );
+  });
+
+  group('downloads', () {
+    test('pause a minute in all before the build gives up', () {
+      const delays = build_hook.downloadRetryDelays;
+      expect(delays, hasLength(5));
+      for (var i = 1; i < delays.length; i++) {
+        expect(delays[i], greaterThanOrEqualTo(delays[i - 1]));
+      }
+      expect(
+        delays.fold(Duration.zero, (a, b) => a + b),
+        equals(const Duration(minutes: 1)),
+      );
+    });
+
+    test('cannot skip the checksum', () {
+      // Hook runners give a hook only a fixed list of environment variables,
+      // so the OPENMLS_ALLOW_UNVERIFIED_DOWNLOAD this hook used to read never
+      // reached it, on any SDK. Nothing that reads one is to come back.
+      final source = File('hook/build.dart').readAsStringSync();
+      expect(source, isNot(contains('ALLOW_UNVERIFIED')));
+      expect(source, isNot(contains('Platform.environment')));
+    });
+
+    // Against a server on this machine that answers with [statuses] in turn,
+    // the last of them from then on, and with [body] when the status is 200.
+    final noPauses = List.filled(5, Duration.zero);
+    HttpServer? server;
+    late String base;
+    late int requests;
+    late Directory dir;
+
+    Future<void> serve(List<int> statuses, [String body = '']) async {
+      requests = 0;
+      final s = server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      base = 'http://${s.address.address}:${s.port}';
+      s.listen((request) async {
+        final status =
+            statuses[requests < statuses.length
+                ? requests
+                : statuses.length - 1];
+        requests++;
+        request.response
+          ..statusCode = status
+          ..write(status == 200 ? body : '');
+        await request.response.close();
+      });
+    }
+
+    setUp(() => dir = Directory.systemTemp.createTempSync('hook_download'));
+    tearDown(() async {
+      await server?.close(force: true);
+      server = null;
+      dir.deleteSync(recursive: true);
+    });
+
+    Matcher failsWith(String text) => throwsA(
+      isA<build_hook.HookException>().having(
+        (e) => e.message,
+        'message',
+        contains(text),
+      ),
+    );
+
+    test('are tried again after a 5xx, and succeed', () async {
+      await serve([503, 502, 200], 'library');
+      final file = File('${dir.path}/archive');
+      await build_hook.downloadWithRetry(
+        '$base/archive',
+        file,
+        delays: noPauses,
+      );
+      expect(file.readAsStringSync(), equals('library'));
+      expect(requests, equals(3));
+    });
+
+    test('stop at a 404', () async {
+      await serve([404]);
+      await expectLater(
+        build_hook.downloadWithRetry(
+          '$base/archive',
+          File('${dir.path}/archive'),
+          delays: noPauses,
+        ),
+        failsWith('HTTP 404'),
+      );
+      expect(requests, equals(1));
+    });
+
+    test('give up after the last try, and say how many', () async {
+      await serve([503]);
+      await expectLater(
+        build_hook.downloadWithRetry(
+          '$base/archive',
+          File('${dir.path}/archive'),
+          delays: noPauses,
+        ),
+        failsWith('after 6 attempts'),
+      );
+      expect(requests, equals(6));
+    });
+
+    test('do not try again a file they cannot write', () async {
+      await serve([200], 'library');
+      await expectLater(
+        build_hook.downloadWithRetry(
+          '$base/archive',
+          File('${dir.path}/missing/archive'),
+          delays: noPauses,
+        ),
+        failsWith('Could not write'),
+      );
+      expect(requests, equals(1));
+    });
+
+    group('checksum', () {
+      const hash =
+          '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
+
+      Future<String> resolve() => build_hook.resolveExpectedChecksum(
+        base,
+        '8.0.0',
+        'crate-8.0.0-macos-arm64.tar.gz',
+        delays: noPauses,
+      );
+
+      test('is the one the file gives the archive', () async {
+        await serve([200], '$hash  crate-8.0.0-macos-arm64.tar.gz\n');
+        expect(await resolve(), equals(hash));
+      });
+
+      test('refuses an archive the file has no entry for', () async {
+        await serve([200], '$hash  crate-8.0.0-linux-x64.tar.gz\n');
+        await expectLater(resolve(), failsWith('has no entry'));
+      });
+
+      test('refuses a page that is not a checksums file', () async {
+        await serve([200], '<html><body>Sign in to continue</body></html>');
+        await expectLater(resolve(), failsWith('not a checksums file'));
+        expect(requests, equals(1));
+      });
+
+      test('refuses to go on when the file cannot be had', () async {
+        await serve([503]);
+        await expectLater(
+          resolve(),
+          failsWith('Refusing to use an unverified native library'),
+        );
+        expect(requests, equals(6));
+      });
+    });
   });
 }
