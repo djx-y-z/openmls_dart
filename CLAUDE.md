@@ -42,6 +42,8 @@ make build ARGS="--target <target>"     # Build for specific Rust target
 make build-android                      # Build for Android (all ABIs)
 make build-android ARGS="--target arm64-v8a"  # Build for specific Android ABI
 make verify-android-alignment           # Check the built .so files are 16 KB-aligned
+make build-ios                          # Build for iOS (device + both simulators)
+make build-ios ARGS="--target aarch64-apple-ios-sim"  # Build for one iOS target
 make build-web                          # Build WASM for web (stamps .crate-version)
 ```
 
@@ -91,16 +93,26 @@ the first web build after adopting this looks like: run `make build-web`, or
 delete the directory to use the released module instead.
 
 ⚠ **`make build` stamps the host library the same way, in
-`rust/target/release/.crate-version`, and the hook refuses a local host
-library whose stamp is missing or disagrees** — the same `HookException`, for
-the same reason: a library left over from an earlier crate loads silently, and
-once the way values cross the bridge has moved, its calls fail in ways nothing
-names. Only `rust/target/release/` is read; a `--target` build lands in
-`rust/target/<triple>/`, is never read and gets no stamp. A library built
-before the stamp existed, or by a bare `cargo build`, is refused: run
-`make build`, or delete `rust/target/release/` to use the released library.
+`rust/target/release/.crate-version`, and the hook refuses a local library
+whose stamp is missing or disagrees** — the same `HookException`, for the same
+reason: a library left over from an earlier crate loads silently, and once the
+way values cross the bridge has moved, its calls fail in ways nothing names. A
+library built before the stamp existed, or by a bare `cargo build`, is refused:
+run `make build`, or delete `rust/target/release/` to use the released library.
 So after `make release-frb` bumps the crate, `make test` needs a `make build`
 first.
+
+⚠ **A cross build is read too, under the same rules:** a target other than the
+host reads `rust/target/<triple>/release/`, and `make build-android`,
+`make build-ios` and `make build ARGS="--target <triple>"` stamp that directory.
+It is what lets a pull request run its own Rust on an emulator or a simulator:
+without it those targets could only load the last release, so a test there would
+pass over code the pull request had replaced. The flip side is the same refusal:
+a cross build from a `cargo` line, or one left over from before the stamp, stops
+the app's build until you rebuild it or delete it. The host's own triple is the
+exception: the host reads `rust/target/release/` alone, so a `--target` build for
+it is stamped and never read — build the host with a plain `make build`. A consumer
+never reaches any of this, `rust/target/` not being in the published package.
 
 ⚠ **Each stamp comes with `.cargo-lock`, a copy of the `rust/Cargo.lock` the
 build was made from, and the hook refuses a local build whose copy differs from
@@ -112,7 +124,10 @@ copy existed is refused the same way. `make build` also drops the hook's cached
 result for this package, `.dart_tool/hooks_runner/openmls/`: when the
 hook last ran without a host build here, it downloaded the released library and
 declared only `rust/Cargo.toml`, so `dart test` kept loading that download after
-the build.
+the build. It drops the example's too, and Flutter's stamps above it — the hook's
+target, `dart_build` to Flutter 3.44 and `build_hooks` with `link_hooks` from
+3.47, and `install_code_assets`, which on 3.38 can put the last device build's
+library into a simulator app.
 
 ### Web
 

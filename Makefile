@@ -8,7 +8,7 @@
 # On Windows CI (Git Bash), use cmd to run fvm.bat from PATH:
 # Example: make build ARGS="--target x86_64-pc-windows-msvc" FVM="cmd //c fvm"
 
-.PHONY: help setup setup-fvm setup-rust-tools setup-frb-codegen setup-android setup-web setup-fuzz codegen regen build build-android build-web run-example-web test-web test coverage analyze format format-check get clean version get-version check-new-openmls-version check-upstream-advisories check-exists-openmls-frb-release check-template-updates update-template check-targets check-msrv third-party-notices verify-third-party-notices verify-frb-pins verify-pub-limits verify-feature-graph verify-android-alignment verify-release-artifacts verify-library-loads actionlint rust-audit rust-deny rust-check rust-check-ios rust-test rust-clippy rust-clippy-web rust-doc rust-geiger fuzz fuzz-list fuzz-seed doc publish publish-dry-run rust-update update-changelog update-evidence release-frb release setup-repo-protections
+.PHONY: help setup setup-fvm setup-rust-tools setup-frb-codegen setup-android setup-web setup-fuzz codegen regen build build-android build-ios build-web run-example-web test-web test coverage analyze format format-check get clean version get-version check-new-openmls-version check-upstream-advisories check-exists-openmls-frb-release check-template-updates update-template check-targets check-msrv third-party-notices verify-third-party-notices verify-frb-pins verify-pub-limits verify-feature-graph verify-android-alignment verify-release-artifacts verify-library-loads actionlint rust-audit rust-deny rust-check rust-check-ios rust-test rust-clippy rust-clippy-web rust-doc rust-geiger fuzz fuzz-list fuzz-seed doc publish publish-dry-run rust-update update-changelog update-evidence release-frb release setup-repo-protections
 
 # FVM command - can be overridden to provide full path on Windows CI
 FVM ?= fvm
@@ -50,6 +50,8 @@ help:
 	@echo "                                        Example: make build ARGS=\"--target aarch64-apple-darwin\""
 	@echo "    make build-android                - Build for Android (all ABIs)"
 	@echo "                                        Example: make build-android ARGS=\"--target arm64-v8a\""
+	@echo "    make build-ios                    - Build for iOS (device and both simulators)"
+	@echo "                                        Example: make build-ios ARGS=\"--target aarch64-apple-ios-sim\""
 	@echo "    make build-web                    - Build WASM for web platform"
 	@echo "    make run-example-web              - Build WASM and run example/ in Chrome"
 	@echo "                                        Example: make run-example-web ARGS=\"--web-port=5599\""
@@ -217,6 +219,7 @@ setup-android:
 	@echo ""
 	@echo "Android setup complete!"
 	@echo "Make sure you have Android NDK installed via Android Studio or sdkmanager."
+
 setup-web:
 	@echo "Installing web build tools..."
 	@if ! command -v wasm-pack >/dev/null 2>&1; then \
@@ -259,6 +262,80 @@ regen: codegen
 READ_CRATE_VERSION = grep -m1 -E '^version[[:space:]]*=' rust/Cargo.toml \
 	| sed -E 's/^version[[:space:]]*=[[:space:]]*"([^"]+)".*/\1/'
 
+# Stamp what a build just made, in the directory the build hook reads it from.
+# The hook prefers a local build over the released library, so it refuses one
+# whose stamp is missing or names another crate version — and an upstream update
+# moves the dependencies under an unchanged crate version, so it also compares
+# the copy of the lock file left beside it with rust/Cargo.lock.
+#
+# Each `--target` in ARGS built one directory; with none, `$(1)` lists them. An
+# Android ABI name is what cargo-ndk takes, and the directory is the triple. Only
+# what this run built is stamped: an older build of another target has to go on
+# being refused. So nothing is stamped when the build may have gone elsewhere —
+# `--target-dir`, or cargo's own variables for the directory and the target —
+# since a stale build where the hook looks would then pass for this one.
+stamp_build = stamp() { \
+		[ -d "rust/target/$$1" ] || return 0; \
+		$(READ_CRATE_VERSION) > "rust/target/$$1/.crate-version"; \
+		cp rust/Cargo.lock "rust/target/$$1/.cargo-lock"; \
+	}; \
+	if [ -n "$${CARGO_TARGET_DIR:-}$${CARGO_BUILD_TARGET:-}$${CARGO_NDK_TARGET:-}" ]; then \
+		echo "Not stamped: CARGO_TARGET_DIR, CARGO_BUILD_TARGET or CARGO_NDK_TARGET is set, so the hook would not know this build."; \
+		exit 0; \
+	fi; \
+	stamped=; set -- $(ARGS); \
+	for arg in "$$@"; do \
+		case "$$arg" in \
+			--target-dir|--target-dir=*) \
+				echo "Not stamped: --target-dir puts the build where the hook does not look."; \
+				exit 0 ;; \
+		esac; \
+	done; \
+	while [ $$\# -gt 0 ]; do \
+		target=; \
+		case "$$1" in \
+			--target|-t) target="$$2"; shift ;; \
+			--target=*) target="$${1\#--target=}" ;; \
+		esac; \
+		shift; \
+		case "$$target" in \
+			'') continue ;; \
+			arm64-v8a) target=aarch64-linux-android ;; \
+			armeabi-v7a) target=armv7-linux-androideabi ;; \
+			x86_64) target=x86_64-linux-android ;; \
+			x86) target=i686-linux-android ;; \
+		esac; \
+		stamp "$$target/release"; stamped=1; \
+	done; \
+	if [ -z "$$stamped" ]; then for dir in $(1); do stamp "$$dir"; done; fi
+
+# The app whose caches `forget_hook_results` below clears, besides this
+# package's own: the example.
+EXAMPLE_DIR ?= example
+
+# Forget what was cached about this package's build hook, or the build just made
+# may never be used. When the hook last ran without a local build it downloaded
+# the released library and declared only rust/Cargo.toml — it cannot declare a
+# library that does not exist yet, since hooks_runner re-runs a hook on every
+# build for a missing dependency — so nothing it watches changes now, and `dart
+# test`, `dart run` and an app's next build keep loading the download. The shared
+# download cache stays. The example has a cache of its own, and Flutter a stamp
+# above it that skips the hook altogether; `run-example-web` says more on that.
+#
+# ⚠ `install_code_assets.stamp` as well, and that one is not about a local build.
+# Each build mode has its own stamps, and all of them install into one directory,
+# build/native_assets/<os>/. Measured on 3.38.4 (3.47.4 no longer does it): a
+# simulator build, then a device build, then the simulator build again skips the
+# install and copies the DEVICE's library into the simulator app. Native builds keep
+# their stamps under .dart_tool/flutter_build/, `flutter run -d chrome` under build/.
+#
+# The hook's target is `dart_build` up to Flutter 3.44, and `build_hooks` followed
+# by `link_hooks` from 3.47 (flutter_tools' native_assets.dart): a name missed
+# here is a stamp that survives, and then a hook that does not run again.
+forget_hook_results = rm -rf .dart_tool/hooks_runner/openmls $(EXAMPLE_DIR)/.dart_tool/hooks_runner/openmls; \
+	rm -f $(foreach dir,$(EXAMPLE_DIR)/build $(EXAMPLE_DIR)/.dart_tool/flutter_build, \
+		$(foreach stamp,dart_build build_hooks link_hooks install_code_assets,$(dir)/*/$(stamp).stamp))
+
 # ⚠ Deliberately NOT `--locked`, unlike the release workflow. A project
 # generated from this template has no rust/Cargo.lock until something builds it
 # for the first time — copier's tasks do not create one — and this target is
@@ -269,24 +346,8 @@ READ_CRATE_VERSION = grep -m1 -E '^version[[:space:]]*=' rust/Cargo.toml \
 build:
 	@echo "Building Rust library..."
 	cargo build --release --manifest-path rust/Cargo.toml $(ARGS)
-# Stamp the crate version beside a HOST build, as build-web does beside its
-# module and for the same reason: the hook prefers rust/target/release/ over
-# the released library, so it refuses one whose stamp is missing or names
-# another crate version. A --target build lands in rust/target/<triple>/,
-# which the hook never reads, and gets no stamp.
-	$(if $(findstring --target,$(ARGS)),,@$(READ_CRATE_VERSION) > rust/target/release/.crate-version)
-# Keep a copy of the lock file the build was made from: an upstream update
-# moves the dependencies under an unchanged crate version, and the hook refuses
-# a build whose copy differs from rust/Cargo.lock.
-	$(if $(findstring --target,$(ARGS)),,@cp rust/Cargo.lock rust/target/release/.cargo-lock)
-# Drop the hook's cached result for this package, or the build may never be
-# used. When the hook last ran without a host build here it downloaded the
-# released library and declared only rust/Cargo.toml — it cannot declare a
-# library that does not exist yet, since hooks_runner re-runs a hook on every
-# build for a missing dependency — so nothing it watches changes now, and
-# `dart test` / `dart run` keep loading the download. The shared download
-# cache stays; Flutter's own dart_build stamp in an app is another matter.
-	$(if $(findstring --target,$(ARGS)),,@rm -rf .dart_tool/hooks_runner/openmls)
+	@$(call stamp_build,release)
+	@$(forget_hook_results)
 	@echo ""
 	@echo "Build complete! Library at: rust/target/"
 
@@ -301,8 +362,26 @@ build-android:
 	@echo "Building Rust library for Android..."
 	@PLATFORM=$$(dart scripts/get_android_min_sdk.dart) && \
 		cd rust && cargo ndk --platform $$PLATFORM build --release $(ARGS)
+	@$(call stamp_build,aarch64-linux-android/release armv7-linux-androideabi/release i686-linux-android/release x86_64-linux-android/release)
+	@$(forget_hook_results)
 	@echo ""
 	@echo "Build complete! Library at: rust/target/<arch>/release/"
+
+# The deployment target is what the release builds with, from the same answer
+# `make check-targets` holds everything else to. Rust's own default for these
+# targets is older than the C code Xcode compiles expects: `___chkstk_darwin`
+# and the like, unavailable at link time. IOS_TARGETS is the list `rust-check-ios`
+# below also uses.
+build-ios:
+	@echo "Building Rust library for iOS..."
+	@DEPLOYMENT_TARGET=$$(sed -n "s/^ios_min_version: *'*\([0-9.]*\)'*/\1/p" .copier-answers.yml); \
+		TARGETS="$(if $(filter --target --target=%,$(ARGS)),,$(foreach t,$(IOS_TARGETS),--target $(t)))"; \
+		IPHONEOS_DEPLOYMENT_TARGET=$$DEPLOYMENT_TARGET cargo build --release --manifest-path rust/Cargo.toml $$TARGETS $(ARGS)
+	@$(call stamp_build,$(foreach t,$(IOS_TARGETS),$(t)/release))
+	@$(forget_hook_results)
+	@echo ""
+	@echo "Build complete! Library at: rust/target/<triple>/release/"
+
 build-web:
 	@echo "Building WASM for web..."
 	cd rust && wasm-pack build --target no-modules --release \
@@ -833,7 +912,8 @@ get:
 	@$(FVM) dart pub get --no-example $(ARGS); ret=$$?; rm -f .skip_openmls_hook; exit $$ret
 
 clean:
-	rm -rf .dart_tool build rust/target
+	rm -rf .dart_tool build rust/target \
+		example/.dart_tool example/build example/web/pkg
 	@touch .skip_openmls_hook
 	@$(FVM) dart pub get --no-example; ret=$$?; rm -f .skip_openmls_hook; exit $$ret
 
