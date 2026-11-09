@@ -1,3 +1,23 @@
+## [Unreleased]
+
+### For Contributors
+
+#### Changed
+
+- **copier template adopted: v4.19.0 -> v4.20.0** — adds target-local native
+  builds, more resilient release downloads, and automatic retries for jobs
+  GitHub never started. `Makefile` builds and stamps cross-target libraries;
+  `hook/build.dart` loads the target-specific output and refuses missing or
+  stale builds, preventing an app from silently using an old release. The hook
+  now retries network failures and 5xx/429 responses up to six times, with a
+  connection timeout; `SECURITY.md` and the hook no longer offer the ineffective
+  `*_ALLOW_UNVERIFIED_DOWNLOAD` override. `test/hook/build_hook_test.dart`
+  covers these hook changes. The new `.github/workflows/rerun-unstarted.yml`
+  retries jobs that failed before running any step, but not test failures or
+  runs superseded by a newer branch run; `.github/rulesets/README.md` explains
+  that distinction. `README.md` and `CLAUDE.md` document the updated build
+  behavior and targets.
+
 ## [3.3.0] - 2026-10-26
 
 ### For Users

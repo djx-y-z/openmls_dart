@@ -6,6 +6,11 @@
 /// The hook downloads pre-built native libraries from GitHub Releases
 /// based on the target platform and architecture.
 ///
+/// Every download is checked against the SHA256 the release publishes, and
+/// there is no way to skip the check. Nothing could reach the hook to switch it
+/// off in any case: Dart's and Flutter's hook runners give a hook only a fixed
+/// list of environment variables (`HOME`, `PATH`, `TMPDIR` and a few more).
+///
 /// ## How it works
 ///
 /// ### Native platforms (iOS, Android, macOS, Linux, Windows)
@@ -21,10 +26,15 @@
 /// ## For development
 ///
 /// A locally built library is picked up automatically — no marker needed. The
-/// hook prefers a host-matching `rust/target/` build over downloading:
+/// hook prefers a `rust/target/` build over downloading, as long as the build
+/// is stamped with the current crate version and lock file:
 /// ```bash
-/// # Native platforms → rust/target/release/lib<crate>.<ext>
+/// # This machine → rust/target/release/lib<crate>.<ext>
 /// make build
+///
+/// # A device, a simulator or an emulator → rust/target/<triple>/release/
+/// make build-android ARGS="--target arm64-v8a"
+/// make build-ios ARGS="--target aarch64-apple-ios-sim"
 ///
 /// # Web/WASM → rust/target/wasm32/
 /// make build-web
@@ -68,8 +78,11 @@ const _wasmVersionMarkerName = '.wasm-version';
 const _localWasmMarker = 'local-dev';
 
 /// Name of the stamp `make build` writes beside the host library in
-/// `rust/target/release/`, and `make build-web` beside the module in
-/// `rust/target/wasm32/`, recording the crate version each was built from.
+/// `rust/target/release/`, `make build-web` beside the module in
+/// `rust/target/wasm32/`, and `make build-android`, `make build-ios` and
+/// `make build ARGS="--target <triple>"` beside a cross build in
+/// `rust/target/<triple>/release/`, recording the crate version each was built
+/// from.
 ///
 /// It exists because nothing else can answer the question. A local build
 /// directory is a build artefact: its files change whenever
@@ -105,8 +118,8 @@ String? readLocalBuildStamp(Directory buildDir) {
   return file.readAsStringSync().trim();
 }
 
-/// Name of the copy of `rust/Cargo.lock` that `make build` and `make build-web`
-/// leave beside their stamps: the dependency graph the build was made from.
+/// Name of the copy of `rust/Cargo.lock` that the make targets above leave
+/// beside their stamps: the dependency graph the build was made from.
 ///
 /// The version stamp cannot tell two builds of one crate version apart, and an
 /// upstream update moves the dependencies without moving the crate version,
@@ -182,7 +195,19 @@ void main(List<String> args) async {
 
     // Check for local build first (development mode)
     // This allows developers to use locally built libraries without downloading
-    final localLib = _findLocalBuild(packageRoot, targetOS, targetArch);
+    final localDir = localBuildDirectory(
+      targetOS: targetOS,
+      targetArchitecture: targetArch,
+      iosSdk: iosSdk,
+      hostOS: OS.current,
+      hostArchitecture: Architecture.current,
+    );
+    final localFile = localDir == null
+        ? null
+        : packageRoot.resolve('$localDir${_getLibraryFileName(targetOS)}');
+    final localLib = localFile != null && File.fromUri(localFile).existsSync()
+        ? localFile
+        : null;
     if (localLib != null) {
       // A local build wins over the released one, so it must be shown to
       // belong to THIS crate version, exactly as the local WASM build must.
@@ -197,8 +222,8 @@ void main(List<String> args) async {
           '${stamped == null ? 'an unknown crate version' : 'crate $stamped'}, '
           'but rust/Cargo.toml is at $version. It takes priority over the '
           'released library, so loading it would run the wrong code. '
-          'Run `make build` to rebuild it, or delete ${buildDir.path} to use '
-          'the released library instead.',
+          'Run ${_rebuildCommand(localDir!, targetOS)} to rebuild it, or '
+          'delete ${buildDir.path} to use the released library instead.',
         );
       }
       // The crate version does not move with the dependencies, so the same
@@ -216,8 +241,9 @@ void main(List<String> args) async {
           '${builtLock == null ? 'an unrecorded rust/Cargo.lock' : 'another rust/Cargo.lock than the tree has now'}: '
           'its dependencies may have moved while the crate version stayed at '
           '$version. It takes priority over the released library, so loading '
-          'it could run the wrong code. Run `make build` to rebuild it, or '
-          'delete ${buildDir.path} to use the released library instead.',
+          'it could run the wrong code. Run '
+          '${_rebuildCommand(localDir!, targetOS)} to rebuild it, or delete '
+          '${buildDir.path} to use the released library instead.',
         );
       }
       // ignore: avoid_print
@@ -232,8 +258,8 @@ void main(List<String> args) async {
           file: localLib,
         ),
       );
-      // Declare the library itself, not only the manifest. `_findLocalBuild`
-      // returned it because it exists right now, so this follows the same
+      // Declare the library itself, not only the manifest. It was taken
+      // above because it exists right now, so this follows the same
       // declare-only-while-it-exists rule as the skip marker above. Without it
       // the build system keeps a cached result pointing at this path:
       // rebuilding the crate without touching Cargo.toml keeps serving the
@@ -277,10 +303,10 @@ void main(List<String> args) async {
           'https://github.com/$_githubRepo/releases/download/$_crateName-$version';
 
       // SECURITY: resolve the expected SHA256 before fetching the binary.
-      // Fail-closed — if a trusted checksum cannot be obtained the build aborts
-      // (unless explicitly overridden), so a failed/interfered checksum fetch
-      // cannot silently downgrade to running an unverified native library.
-      final expectedChecksum = await _resolveExpectedChecksum(
+      // Fail-closed — if a trusted checksum cannot be obtained the build
+      // aborts, so a failed or interfered checksum fetch cannot downgrade to
+      // running an unverified native library.
+      final expectedChecksum = await resolveExpectedChecksum(
         baseUrl,
         version,
         assetInfo.archiveFileName,
@@ -434,7 +460,7 @@ Future<void> _handleWebBuild(
   }
 
   final webPkgDir = Directory.fromUri(appRoot.resolve('web/pkg/'));
-  output.dependencies.add(webPkgDir.uri.resolve('$_wasmVersionMarkerName'));
+  output.dependencies.add(webPkgDir.uri.resolve(_wasmVersionMarkerName));
 
   // Read version from rust/Cargo.toml up front — it keys both the download
   // cache and the freshness check below.
@@ -524,7 +550,7 @@ Future<void> _handleWebBuild(
     // SECURITY: resolve the expected SHA256 up front (fail-closed, see the
     // native path above). The WASM assets are shipped in a single archive, so
     // one checksum covers every file extracted from it.
-    final expectedChecksum = await _resolveExpectedChecksum(
+    final expectedChecksum = await resolveExpectedChecksum(
       baseUrl,
       version,
       archiveFileName,
@@ -635,33 +661,80 @@ Future<void> _copyWasmFilesToAppRoot(Uri cacheDir, Directory webPkgDir) async {
 // Native Build Support
 // =============================================================================
 
-/// Looks for a locally built library in `rust/target/<profile>/`.
+/// The directory under the package root that holds a local build for this
+/// target, or null when this target can have none.
 ///
-/// This enables development mode where developers use a locally built library
-/// instead of downloading from GitHub Releases. Only `rust/target/release/` is
-/// read, and the caller refuses it unless `make build` stamped it with the
-/// current crate version.
+/// `make build` puts the host's library in `rust/target/release/`, and only a
+/// target that matches the host OS AND architecture may use it — anything else
+/// would bundle e.g. a macOS dylib into an iOS app, which dyld rejects at
+/// launch, or a library of the wrong architecture.
 ///
-/// A plain `rust/target/release/` build is always a HOST build, so it is only
-/// valid when the target OS AND architecture match the host — otherwise we would
-/// bundle e.g. a macOS dylib into an iOS app (dyld rejects it at launch) or a
-/// wrong-arch `.so`. For any cross-target build this returns null and the hook
-/// downloads the correct released binary instead (cross-compiled outputs land in
-/// `rust/target/<triple>/release/`, which this intentionally does not read).
+/// Every other target has a directory of its own, `rust/target/<triple>/release/`,
+/// where a cross build lands. Reading it is what lets a pull request run its
+/// own Rust on a device: without it those targets could only ever load the last
+/// released library, so a test on an emulator would pass over code the pull
+/// request had replaced, or fail on bindings newer than the release.
 ///
-/// Returns the Uri to the local library if a host-matching build is found, null
-/// otherwise.
-Uri? _findLocalBuild(Uri packageRoot, OS targetOS, Architecture targetArch) {
-  if (targetOS != OS.current || targetArch != Architecture.current) {
-    return null;
+/// The caller refuses whatever it finds here unless `make` stamped it with the
+/// current crate version and lock file, and none of this reaches a consumer:
+/// `rust/target/` is not in the published package.
+///
+/// Pure, and takes the host as arguments, so it is testable on any machine.
+String? localBuildDirectory({
+  required OS targetOS,
+  required Architecture targetArchitecture,
+  required IOSSdk? iosSdk,
+  required OS hostOS,
+  required Architecture hostArchitecture,
+}) {
+  if (targetOS == hostOS && targetArchitecture == hostArchitecture) {
+    return 'rust/target/release/';
   }
+  final triple = _rustTriple(targetOS, targetArchitecture, iosSdk);
+  return triple == null ? null : 'rust/target/$triple/release/';
+}
 
-  final fileName = _getLibraryFileName(targetOS);
+/// The Rust target this package's release builds for this target, or null when
+/// it builds none. The same names as in `build-openmls.yml`.
+String? _rustTriple(OS targetOS, Architecture targetArch, IOSSdk? iosSdk) {
+  switch (targetOS) {
+    case OS.android:
+      if (targetArch == Architecture.arm64) return 'aarch64-linux-android';
+      if (targetArch == Architecture.arm) return 'armv7-linux-androideabi';
+      if (targetArch == Architecture.x64) return 'x86_64-linux-android';
+      return null;
+    case OS.iOS:
+      if (iosSdk != IOSSdk.iPhoneSimulator) {
+        return targetArch == Architecture.arm64 ? 'aarch64-apple-ios' : null;
+      }
+      if (targetArch == Architecture.arm64) return 'aarch64-apple-ios-sim';
+      if (targetArch == Architecture.x64) return 'x86_64-apple-ios';
+      return null;
+    case OS.macOS:
+      if (targetArch == Architecture.arm64) return 'aarch64-apple-darwin';
+      if (targetArch == Architecture.x64) return 'x86_64-apple-darwin';
+      return null;
+    case OS.linux:
+      if (targetArch == Architecture.arm64) return 'aarch64-unknown-linux-gnu';
+      if (targetArch == Architecture.x64) return 'x86_64-unknown-linux-gnu';
+      return null;
+    case OS.windows:
+      return targetArch == Architecture.x64 ? 'x86_64-pc-windows-msvc' : null;
+    default:
+      return null;
+  }
+}
 
-  // The release profile only: `make build` is what writes the crate stamp the
-  // caller requires, and it builds release. A debug build would carry none.
-  final path = packageRoot.resolve('rust/target/release/$fileName');
-  return File.fromUri(path).existsSync() ? path : null;
+/// The make command that rebuilds what is in [directory], one of
+/// [localBuildDirectory]'s answers.
+String _rebuildCommand(String directory, OS targetOS) {
+  if (directory == 'rust/target/release/') return '`make build`';
+  final triple = directory.split('/')[2];
+  return switch (targetOS) {
+    OS.android => '`make build-android ARGS="--target $triple"`',
+    OS.iOS => '`make build-ios ARGS="--target $triple"`',
+    _ => '`make build ARGS="--target $triple"`',
+  };
 }
 
 /// Gets the library filename for the target OS.
@@ -792,14 +865,14 @@ String _androidAbi(Architecture arch) {
 
 /// Downloads and extracts the native library archive with SHA256 verification.
 ///
-/// [expectedChecksum] is the expected SHA256 hash of the archive.
-/// If null, verification is skipped (not recommended for production).
+/// [expectedChecksum] is the expected SHA256 hash of the archive, which is
+/// used only if it matches.
 Future<void> _downloadAndExtract(
   String url,
   Uri outputDir,
   String archiveFileName,
   String libFileName, {
-  String? expectedChecksum,
+  required String expectedChecksum,
 }) async {
   final outDir = Directory.fromUri(outputDir);
   await outDir.create(recursive: true);
@@ -807,12 +880,9 @@ Future<void> _downloadAndExtract(
   final archiveFile = File('${outDir.path}/$archiveFileName');
 
   // Download with retry
-  await _downloadWithRetry(url, archiveFile);
+  await downloadWithRetry(url, archiveFile);
 
-  // Verify SHA256 checksum if provided
-  if (expectedChecksum != null) {
-    await _verifyChecksum(archiveFile, expectedChecksum, archiveFileName);
-  }
+  await _verifyChecksum(archiveFile, expectedChecksum, archiveFileName);
 
   // Extract based on format
   if (url.endsWith('.zip')) {
@@ -857,18 +927,49 @@ void _markCacheComplete(Uri cacheDir) {
   }
 }
 
-/// Downloads a file with retry logic.
-Future<void> _downloadWithRetry(
+/// How long the hook pauses before each retry of a download, in order: it
+/// tries once, then once after each of these, with a minute of pauses in all.
+/// A runner's DNS has been seen failing for longer than the six seconds three
+/// tries used to span. Only a network failure and a 5xx or 429 answer are
+/// retried; a 404, any other answer, and a failure to write the file are not.
+const downloadRetryDelays = [
+  Duration(seconds: 2),
+  Duration(seconds: 4),
+  Duration(seconds: 8),
+  Duration(seconds: 16),
+  Duration(seconds: 30),
+];
+
+/// How long one attempt waits to connect. Without it the operating system's own
+/// limit applies, over a minute on macOS and two on Linux, for each attempt.
+const _connectionTimeout = Duration(seconds: 20);
+
+/// What [delays] add up to, for the message when every attempt failed.
+String _retriesSpent(List<Duration> delays) {
+  final paused = delays.fold(Duration.zero, (a, b) => a + b);
+  return '${delays.length + 1} attempts, with ${paused.inSeconds} seconds of '
+      'pauses between them';
+}
+
+/// What to tell a user when every attempt failed on the network.
+const _networkAdvice =
+    'The build needs to reach GitHub release downloads: check this machine '
+    'can, and build again.';
+
+/// Downloads [url] to [outputFile], trying again after each of [delays].
+///
+/// Public for its tests, which pass no delays.
+Future<void> downloadWithRetry(
   String url,
   File outputFile, {
-  int maxRetries = 3,
-  Duration retryDelay = const Duration(seconds: 2),
+  List<Duration> delays = downloadRetryDelays,
 }) async {
-  final client = HttpClient();
+  final client = HttpClient()..connectionTimeout = _connectionTimeout;
   Exception? lastError;
+  final attempts = delays.length + 1;
 
   try {
-    for (var attempt = 1; attempt <= maxRetries; attempt++) {
+    for (var attempt = 1; attempt <= attempts; attempt++) {
       try {
         final request = await client.getUrl(Uri.parse(url));
         final response = await request.close();
@@ -895,10 +996,13 @@ Future<void> _downloadWithRetry(
         }
       } on HookException {
         rethrow;
+      } on FileSystemException catch (e) {
+        // This machine's, not the network's: another try cannot help.
+        throw HookException('Could not write ${outputFile.path}: $e');
       } catch (e) {
         lastError = e is Exception ? e : Exception(e.toString());
-        if (attempt < maxRetries) {
-          await Future<void>.delayed(retryDelay * attempt);
+        if (attempt < attempts) {
+          await Future<void>.delayed(delays[attempt - 1]);
         }
       }
     }
@@ -907,8 +1011,8 @@ Future<void> _downloadWithRetry(
   }
 
   throw HookException(
-    'Failed to download from $url after $maxRetries attempts. '
-    'Last error: $lastError',
+    'Failed to download from $url after ${_retriesSpent(delays)}. '
+    'Last error: $lastError\n$_networkAdvice',
   );
 }
 
@@ -953,67 +1057,42 @@ Future<void> _extractZip(File archive, Directory outDir) async {
   }
 }
 
-/// Environment variable that downgrades a missing/unfetchable checksum from a
-/// hard build failure to a warning. Unset by default, so verification is
-/// fail-closed: a network problem or an interfered checksum fetch aborts the
-/// build instead of silently loading an unverified native library.
-const _allowUnverifiedEnv = 'OPENMLS_ALLOW_UNVERIFIED_DOWNLOAD';
-
-/// Whether the developer has explicitly opted out of checksum verification.
-bool _allowUnverifiedDownload() {
-  final value = Platform.environment[_allowUnverifiedEnv]?.trim().toLowerCase();
-  return value == '1' || value == 'true' || value == 'yes';
-}
-
 /// Resolves the expected SHA256 for [archiveFileName] from the release's
 /// checksums file.
 ///
 /// Fail-closed: throws a [HookException] if the checksums file cannot be
 /// downloaded or has no entry for the archive, so an unverified binary is never
-/// used. Returns `null` (verification skipped, with a warning) only when the
-/// [_allowUnverifiedEnv] escape hatch is set.
-Future<String?> _resolveExpectedChecksum(
+/// used. There is no override. The hook downloads only the release of its own
+/// crate version, and every such release publishes the file.
+///
+/// Public for its tests, which pass no [delays].
+Future<String> resolveExpectedChecksum(
   String baseUrl,
   String version,
-  String archiveFileName,
-) async {
+  String archiveFileName, {
+  List<Duration> delays = downloadRetryDelays,
+}) async {
   Map<String, String> checksums;
   try {
-    checksums = await _downloadChecksums(baseUrl, version);
+    checksums = await _downloadChecksums(baseUrl, version, delays);
   } catch (e) {
-    if (_allowUnverifiedDownload()) {
-      // ignore: avoid_print
-      print(
-        'Warning: could not download SHA256 checksums: $e\n'
-        '$_allowUnverifiedEnv is set — proceeding WITHOUT verification.',
-      );
-      return null;
-    }
     throw HookException(
-      'Refusing to use an unverified native library: failed to download the '
+      'Refusing to use an unverified native library: could not download the '
       'SHA256 checksums file for $_crateName-$version.\n'
       'Cause: $e\n'
-      'This guards against a corrupted or tampered download. If you are '
-      'deliberately building against a release with no checksums file, set '
-      '$_allowUnverifiedEnv=1 to override (NOT recommended for production).',
+      'The hook checks every library it downloads, and the check cannot be '
+      'skipped.',
     );
   }
 
   final expected = checksums[archiveFileName];
   if (expected == null) {
-    if (_allowUnverifiedDownload()) {
-      // ignore: avoid_print
-      print(
-        'Warning: no checksum entry for $archiveFileName.\n'
-        '$_allowUnverifiedEnv is set — proceeding WITHOUT verification.',
-      );
-      return null;
-    }
     throw HookException(
       'Refusing to use an unverified native library: the checksums file for '
       '$_crateName-$version has no entry for $archiveFileName.\n'
       'Available entries: ${checksums.keys.join(', ')}\n'
-      'Set $_allowUnverifiedEnv=1 to override (NOT recommended for production).',
+      'That release is incomplete. Please report it at '
+      'https://github.com/$_githubRepo/issues.',
     );
   }
   return expected;
@@ -1024,16 +1103,16 @@ Future<String?> _resolveExpectedChecksum(
 /// Returns a map of filename -> expected SHA256 hash.
 Future<Map<String, String>> _downloadChecksums(
   String baseUrl,
-  String version, {
-  int maxRetries = 3,
-  Duration retryDelay = const Duration(seconds: 2),
-}) async {
+  String version,
+  List<Duration> delays,
+) async {
   final checksumsUrl = '$baseUrl/$_crateName-$version-checksums.sha256';
-  final client = HttpClient();
+  final client = HttpClient()..connectionTimeout = _connectionTimeout;
   Object? lastError;
+  final attempts = delays.length + 1;
 
   try {
-    for (var attempt = 1; attempt <= maxRetries; attempt++) {
+    for (var attempt = 1; attempt <= attempts; attempt++) {
       try {
         final request = await client.getUrl(Uri.parse(checksumsUrl));
         final response = await request.close();
@@ -1042,7 +1121,17 @@ Future<Map<String, String>> _downloadChecksums(
           final content = await response
               .transform(systemEncoding.decoder)
               .join();
-          return _parseChecksums(content);
+          final checksums = _parseChecksums(content);
+          if (checksums.isEmpty) {
+            // A page from something between this machine and GitHub, such as
+            // a proxy's or a captive portal's, rather than a checksums file.
+            throw HookException(
+              'What $checksumsUrl returned is not a checksums file: no line '
+              'of it names a file. Something between this machine and GitHub '
+              'may have answered in its place.',
+            );
+          }
+          return checksums;
         }
 
         await response.drain<void>();
@@ -1061,8 +1150,8 @@ Future<Map<String, String>> _downloadChecksums(
         lastError = e;
       }
 
-      if (attempt < maxRetries) {
-        await Future<void>.delayed(retryDelay * attempt);
+      if (attempt < attempts) {
+        await Future<void>.delayed(delays[attempt - 1]);
       }
     }
   } finally {
@@ -1070,8 +1159,8 @@ Future<Map<String, String>> _downloadChecksums(
   }
 
   throw HookException(
-    'Failed to download checksums from $checksumsUrl after $maxRetries '
-    'attempts. Last error: $lastError',
+    'Failed to download checksums from $checksumsUrl after '
+    '${_retriesSpent(delays)}. Last error: $lastError\n$_networkAdvice',
   );
 }
 

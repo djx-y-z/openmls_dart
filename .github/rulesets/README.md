@@ -144,6 +144,14 @@ not: a leg whose platform another required leg already covers is cheap to drop,
 while the only leg covering its platform is not, however often it flakes.
 Diagnosing the flake beats either exclusion.
 
+A leg that never got a runner is not a flake, and does not count. GitHub cancels
+a job it could not give a runner after about a quarter of an hour ("The job was
+not acquired by Runner of type hosted even after multiple attempts"). It happens
+to macOS arm64 jobs above all, `test / Test (macOS ARM64)` included.
+`rerun-unstarted.yml` runs such a job again by itself, twice at most. It does so
+only when no job of that run failed after it had started and no newer run of
+its branch has replaced it.
+
 `test / Update Coverage Badge` belongs in neither list — it is skipped on pull
 requests, so it would be satisfied without asserting anything.
 
