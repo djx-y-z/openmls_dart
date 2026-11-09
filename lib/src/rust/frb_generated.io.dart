@@ -336,6 +336,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   BigInt dco_decode_usize(dynamic raw);
 
   @protected
+  WelcomeGroupInfoExtensions dco_decode_welcome_group_info_extensions(
+    dynamic raw,
+  );
+
+  @protected
   WelcomeInspectResult dco_decode_welcome_inspect_result(dynamic raw);
 
   @protected
@@ -707,6 +712,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   BigInt sse_decode_usize(SseDeserializer deserializer);
+
+  @protected
+  WelcomeGroupInfoExtensions sse_decode_welcome_group_info_extensions(
+    SseDeserializer deserializer,
+  );
 
   @protected
   WelcomeInspectResult sse_decode_welcome_inspect_result(
@@ -1527,6 +1537,15 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   }
 
   @protected
+  void cst_api_fill_to_wire_welcome_group_info_extensions(
+    WelcomeGroupInfoExtensions apiObj,
+    wire_cst_welcome_group_info_extensions wireObj,
+  ) {
+    wireObj.extensions = cst_encode_list_mls_extension(apiObj.extensions);
+    cst_api_fill_to_wire_mls_member_info(apiObj.signer, wireObj.signer);
+  }
+
+  @protected
   void cst_api_fill_to_wire_welcome_inspect_result(
     WelcomeInspectResult apiObj,
     wire_cst_welcome_inspect_result wireObj,
@@ -2094,6 +2113,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_usize(BigInt self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_welcome_group_info_extensions(
+    WelcomeGroupInfoExtensions self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_welcome_inspect_result(
@@ -6240,6 +6265,12 @@ final class wire_cst_processed_message_result extends ffi.Struct {
 
 final class wire_cst_proposal_result extends ffi.Struct {
   external ffi.Pointer<wire_cst_list_prim_u_8_strict> proposal_message;
+}
+
+final class wire_cst_welcome_group_info_extensions extends ffi.Struct {
+  external ffi.Pointer<wire_cst_list_mls_extension> extensions;
+
+  external wire_cst_mls_member_info signer;
 }
 
 final class wire_cst_welcome_inspect_result extends ffi.Struct {

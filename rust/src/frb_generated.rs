@@ -5580,6 +5580,18 @@ impl SseDecode for usize {
     }
 }
 
+impl SseDecode for crate::api::types::WelcomeGroupInfoExtensions {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_extensions = <Vec<crate::api::types::MlsExtension>>::sse_decode(deserializer);
+        let mut var_signer = <crate::api::types::MlsMemberInfo>::sse_decode(deserializer);
+        return crate::api::types::WelcomeGroupInfoExtensions {
+            extensions: var_extensions,
+            signer: var_signer,
+        };
+    }
+}
+
 impl SseDecode for crate::api::types::WelcomeInspectResult {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -6427,6 +6439,27 @@ impl flutter_rust_bridge::IntoIntoDart<crate::api::types::StagedProposalInfo>
     }
 }
 // Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::api::types::WelcomeGroupInfoExtensions {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.extensions.into_into_dart().into_dart(),
+            self.signer.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::api::types::WelcomeGroupInfoExtensions
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::api::types::WelcomeGroupInfoExtensions>
+    for crate::api::types::WelcomeGroupInfoExtensions
+{
+    fn into_into_dart(self) -> crate::api::types::WelcomeGroupInfoExtensions {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
 impl flutter_rust_bridge::IntoDart for crate::api::types::WelcomeInspectResult {
     fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
         [
@@ -7178,6 +7211,14 @@ impl SseEncode for usize {
     }
 }
 
+impl SseEncode for crate::api::types::WelcomeGroupInfoExtensions {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <Vec<crate::api::types::MlsExtension>>::sse_encode(self.extensions, serializer);
+        <crate::api::types::MlsMemberInfo>::sse_encode(self.signer, serializer);
+    }
+}
+
 impl SseEncode for crate::api::types::WelcomeInspectResult {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -7810,6 +7851,17 @@ mod io {
             }
         }
     }
+    impl CstDecode<crate::api::types::WelcomeGroupInfoExtensions>
+        for wire_cst_welcome_group_info_extensions
+    {
+        // Codec=Cst (C-struct based), see doc to use other codecs
+        fn cst_decode(self) -> crate::api::types::WelcomeGroupInfoExtensions {
+            crate::api::types::WelcomeGroupInfoExtensions {
+                extensions: self.extensions.cst_decode(),
+                signer: self.signer.cst_decode(),
+            }
+        }
+    }
     impl CstDecode<crate::api::types::WelcomeInspectResult> for wire_cst_welcome_inspect_result {
         // Codec=Cst (C-struct based), see doc to use other codecs
         fn cst_decode(self) -> crate::api::types::WelcomeInspectResult {
@@ -8233,6 +8285,19 @@ mod io {
         }
     }
     impl Default for wire_cst_staged_proposal_info {
+        fn default() -> Self {
+            Self::new_with_null_ptr()
+        }
+    }
+    impl NewWithNullPtr for wire_cst_welcome_group_info_extensions {
+        fn new_with_null_ptr() -> Self {
+            Self {
+                extensions: core::ptr::null_mut(),
+                signer: Default::default(),
+            }
+        }
+    }
+    impl Default for wire_cst_welcome_group_info_extensions {
         fn default() -> Self {
             Self::new_with_null_ptr()
         }
@@ -10123,6 +10188,12 @@ mod io {
     }
     #[repr(C)]
     #[derive(Clone, Copy)]
+    pub struct wire_cst_welcome_group_info_extensions {
+        extensions: *mut wire_cst_list_mls_extension,
+        signer: wire_cst_mls_member_info,
+    }
+    #[repr(C)]
+    #[derive(Clone, Copy)]
     pub struct wire_cst_welcome_inspect_result {
         group_id: *mut wire_cst_list_prim_u_8_strict,
         ciphersuite: i32,
@@ -10886,6 +10957,26 @@ mod web {
                 leaf: self_.get(4).cst_decode(),
                 affected_member: self_.get(5).cst_decode(),
                 extensions: self_.get(6).cst_decode(),
+            }
+        }
+    }
+    impl CstDecode<crate::api::types::WelcomeGroupInfoExtensions>
+        for flutter_rust_bridge::for_generated::wasm_bindgen::JsValue
+    {
+        // Codec=Cst (C-struct based), see doc to use other codecs
+        fn cst_decode(self) -> crate::api::types::WelcomeGroupInfoExtensions {
+            let self_ = self
+                .dyn_into::<flutter_rust_bridge::for_generated::js_sys::Array>()
+                .unwrap();
+            assert_eq!(
+                self_.length(),
+                2,
+                "Expected 2 elements, got {}",
+                self_.length()
+            );
+            crate::api::types::WelcomeGroupInfoExtensions {
+                extensions: self_.get(0).cst_decode(),
+                signer: self_.get(1).cst_decode(),
             }
         }
     }

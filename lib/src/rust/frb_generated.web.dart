@@ -338,6 +338,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   BigInt dco_decode_usize(dynamic raw);
 
   @protected
+  WelcomeGroupInfoExtensions dco_decode_welcome_group_info_extensions(
+    dynamic raw,
+  );
+
+  @protected
   WelcomeInspectResult dco_decode_welcome_inspect_result(dynamic raw);
 
   @protected
@@ -709,6 +714,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   BigInt sse_decode_usize(SseDeserializer deserializer);
+
+  @protected
+  WelcomeGroupInfoExtensions sse_decode_welcome_group_info_extensions(
+    SseDeserializer deserializer,
+  );
 
   @protected
   WelcomeInspectResult sse_decode_welcome_inspect_result(
@@ -1253,6 +1263,17 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   JSAny cst_encode_usize(BigInt raw) {
     // Codec=Cst (C-struct based), see doc to use other codecs
     return castNativeBigInt(raw);
+  }
+
+  @protected
+  JSAny cst_encode_welcome_group_info_extensions(
+    WelcomeGroupInfoExtensions raw,
+  ) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return [
+      cst_encode_list_mls_extension(raw.extensions),
+      cst_encode_mls_member_info(raw.signer),
+    ].jsify()!;
   }
 
   @protected
@@ -1823,6 +1844,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_usize(BigInt self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_welcome_group_info_extensions(
+    WelcomeGroupInfoExtensions self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_welcome_inspect_result(

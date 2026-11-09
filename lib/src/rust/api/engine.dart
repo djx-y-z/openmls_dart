@@ -745,23 +745,35 @@ abstract class MlsEngine implements RustOpaqueInterface {
   });
 
   /// The extensions the committer put into the GroupInfo of a Welcome
-  /// (`FlexibleCommitOptions.groupInfoExtensions`), **verified, without
-  /// joining the group**.
+  /// (`FlexibleCommitOptions.groupInfoExtensions`), and the member that
+  /// signed them, read **without joining the group**.
   ///
-  /// The GroupInfo travels encrypted to the members the Welcome adds, so
-  /// these are readable by them and nobody else. They are returned only
-  /// once the Welcome has been staged exactly as `joinGroupFromWelcome`
-  /// stages it: the GroupInfo's signature checked against the committer's
-  /// leaf in the ratchet tree, and its confirmation tag against the epoch's
-  /// secrets. A Welcome that fails either check fails here.
+  /// They are returned only once the Welcome has been staged as
+  /// `joinGroupFromWelcome` stages it. That checks the GroupInfo's signature
+  /// against the leaf the GroupInfo names as its signer, in the ratchet
+  /// tree that came with the Welcome, and checks that tree against the
+  /// GroupInfo. A Welcome that fails a check fails here.
+  ///
+  /// What that proves is that the extensions are what `signer` wrote, not
+  /// who `signer` is. Anyone who holds one of this client's key packages
+  /// can create a group of their own and send it a Welcome that passes.
+  /// Judge `signer`'s credential before acting on the extensions, as before
+  /// any join.
+  ///
+  /// Nor are they a secret the newcomer alone holds: the welcome secret
+  /// that encrypts them is derived by every member that processes the
+  /// commit (RFC 9420 §12.4.2).
   ///
   /// Writes nothing, like `inspectWelcome` and `exportWelcomeSecret`: the
-  /// key package the Welcome consumes is still there for the join.
+  /// key package the Welcome is addressed to is still there for the join.
+  /// Unlike `joinGroupFromWelcomeWithOptions`, leaf lifetimes are always
+  /// checked. A Welcome without a ratchet tree extension needs
+  /// `ratchetTreeBytes`: the tree of the epoch the Welcome is for.
   ///
-  /// The ratchet tree extension is left out — it is the group's tree, not
-  /// something a committer adds — as is the external public key, which a
-  /// Welcome's GroupInfo does not carry.
-  Future<List<MlsExtension>> welcomeGroupInfoExtensions({
+  /// The ratchet tree extension is left out, since it is the group's tree
+  /// rather than something a committer adds. So is the external public key,
+  /// which a Welcome's GroupInfo does not carry.
+  Future<WelcomeGroupInfoExtensions> welcomeGroupInfoExtensions({
     required MlsGroupConfig config,
     required List<int> welcomeBytes,
     Uint8List? ratchetTreeBytes,
@@ -810,6 +822,10 @@ class CommitResult {
   /// Publish it, like the Welcome, only once the delivery service has
   /// accepted `commit`: a party joining by external commit from it would
   /// otherwise enter an epoch that may never happen.
+  ///
+  /// It is not encrypted. With `FlexibleCommitOptions.groupInfoExtensions`
+  /// it carries those extensions, and it is created only when
+  /// `createGroupInfo` asks for it.
   final Uint8List? groupInfo;
 
   const CommitResult({required this.commit, this.welcome, this.groupInfo});

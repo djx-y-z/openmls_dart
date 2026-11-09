@@ -44,9 +44,15 @@ class FlexibleCommitOptions {
   final Uint8List? aad;
 
   /// Whether to create a GroupInfo message (default: true).
+  ///
+  /// With `groupInfoExtensions`, this alone decides whether that GroupInfo
+  /// — which carries them unencrypted — is created.
   final bool createGroupInfo;
 
   /// Whether to include the ratchet tree extension in GroupInfo.
+  ///
+  /// On its own this also turns the exported GroupInfo on. Not with
+  /// `groupInfoExtensions`: see there.
   final bool useRatchetTreeExtension;
 
   /// Leave the commit pending instead of merging it (default: false).
@@ -68,18 +74,26 @@ class FlexibleCommitOptions {
   /// see `CommitResult.welcome`.
   final bool keepPending;
 
-  /// Extensions for the GroupInfo inside the Welcome (default: none).
+  /// Extensions of the application's own for the GroupInfo this commit
+  /// creates (default: none; an empty list is the same).
   ///
-  /// The Welcome encrypts its GroupInfo to the members it adds, under the
-  /// welcome secret, and the committer signs it; a newcomer reads these
-  /// extensions with `welcomeGroupInfoExtensions` before it joins. That
-  /// makes them the place for what a newcomer needs to know and nobody
-  /// else may read — the delivery service included.
+  /// The members the commit adds read them before they join, with
+  /// `welcomeGroupInfoExtensions`, from the GroupInfo inside the Welcome:
+  /// signed by the committer and encrypted under the welcome secret.
+  ///
+  /// That secret is not the newcomers' alone. Every member that processes
+  /// the commit derives it too (RFC 9420 §12.4.2), and all the members one
+  /// commit adds get the same copy. So these are for what the whole new
+  /// epoch may know, never for one invitee only. A party outside the group,
+  /// such as a delivery service that is not a member, cannot read them.
   ///
   /// They also go into the exported GroupInfo (`CommitResult.groupInfo`),
   /// which is not encrypted. With extensions given, that GroupInfo is
   /// created only when `createGroupInfo` asks for it, even when
-  /// `useRatchetTreeExtension` is set.
+  /// `useRatchetTreeExtension` is set. A commit that adds no member has no
+  /// Welcome: without `createGroupInfo` it is refused, rather than the
+  /// extensions dropped. Extension types a GroupInfo may not carry are
+  /// refused too, the ratchet tree and external public key among them.
   final List<MlsExtension>? groupInfoExtensions;
 
   const FlexibleCommitOptions({
@@ -745,6 +759,38 @@ class StagedProposalInfo {
           leaf == other.leaf &&
           affectedMember == other.affectedMember &&
           extensions == other.extensions;
+}
+
+/// What `welcomeGroupInfoExtensions` read from a Welcome.
+class WelcomeGroupInfoExtensions {
+  /// The extensions the committer put into the Welcome's GroupInfo, the
+  /// ratchet tree extension aside.
+  final List<MlsExtension> extensions;
+
+  /// The member that signed the GroupInfo, as the ratchet tree that came
+  /// with the Welcome has it: its leaf index, credential and signature key.
+  ///
+  /// The signature proves the extensions are what this member wrote. It
+  /// does not prove who the member is: anyone who holds one of this
+  /// client's key packages can create a group of their own and invite it.
+  /// Judge this credential, as before any join, before acting on them.
+  final MlsMemberInfo signer;
+
+  const WelcomeGroupInfoExtensions({
+    required this.extensions,
+    required this.signer,
+  });
+
+  @override
+  int get hashCode => extensions.hashCode ^ signer.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is WelcomeGroupInfoExtensions &&
+          runtimeType == other.runtimeType &&
+          extensions == other.extensions &&
+          signer == other.signer;
 }
 
 /// Information extracted from a Welcome message before joining.

@@ -34,7 +34,7 @@ use super::types::{
     FlexibleCommitOptions, KeyPackageOptions, MlsCapabilities, MlsCiphersuite, MlsExtension,
     MlsGroupContextInfo, MlsLeafNodeInfo, MlsMemberInfo, MlsPendingProposalInfo, MlsProposalType,
     MlsSenderInfo, MlsSenderKind, MlsWireFormatPolicy, ProcessedMessageType, StagedCommitInfo,
-    StagedProposalInfo, WelcomeInspectResult,
+    StagedProposalInfo, WelcomeGroupInfoExtensions, WelcomeInspectResult,
 };
 use crate::snapshot_storage::{SnapshotOpenMlsProvider, SnapshotStorageProvider};
 
@@ -320,6 +320,10 @@ pub struct CommitResult {
     /// Publish it, like the Welcome, only once the delivery service has
     /// accepted `commit`: a party joining by external commit from it would
     /// otherwise enter an epoch that may never happen.
+    ///
+    /// It is not encrypted. With `FlexibleCommitOptions.groupInfoExtensions`
+    /// it carries those extensions, and it is created only when
+    /// `createGroupInfo` asks for it.
     pub group_info: Option<Vec<u8>>,
 }
 
@@ -1068,28 +1072,40 @@ impl MlsEngine {
     }
 
     /// The extensions the committer put into the GroupInfo of a Welcome
-    /// (`FlexibleCommitOptions.groupInfoExtensions`), **verified, without
-    /// joining the group**.
+    /// (`FlexibleCommitOptions.groupInfoExtensions`), and the member that
+    /// signed them, read **without joining the group**.
     ///
-    /// The GroupInfo travels encrypted to the members the Welcome adds, so
-    /// these are readable by them and nobody else. They are returned only
-    /// once the Welcome has been staged exactly as `joinGroupFromWelcome`
-    /// stages it: the GroupInfo's signature checked against the committer's
-    /// leaf in the ratchet tree, and its confirmation tag against the epoch's
-    /// secrets. A Welcome that fails either check fails here.
+    /// They are returned only once the Welcome has been staged as
+    /// `joinGroupFromWelcome` stages it. That checks the GroupInfo's signature
+    /// against the leaf the GroupInfo names as its signer, in the ratchet
+    /// tree that came with the Welcome, and checks that tree against the
+    /// GroupInfo. A Welcome that fails a check fails here.
+    ///
+    /// What that proves is that the extensions are what `signer` wrote, not
+    /// who `signer` is. Anyone who holds one of this client's key packages
+    /// can create a group of their own and send it a Welcome that passes.
+    /// Judge `signer`'s credential before acting on the extensions, as before
+    /// any join.
+    ///
+    /// Nor are they a secret the newcomer alone holds: the welcome secret
+    /// that encrypts them is derived by every member that processes the
+    /// commit (RFC 9420 §12.4.2).
     ///
     /// Writes nothing, like `inspectWelcome` and `exportWelcomeSecret`: the
-    /// key package the Welcome consumes is still there for the join.
+    /// key package the Welcome is addressed to is still there for the join.
+    /// Unlike `joinGroupFromWelcomeWithOptions`, leaf lifetimes are always
+    /// checked. A Welcome without a ratchet tree extension needs
+    /// `ratchetTreeBytes`: the tree of the epoch the Welcome is for.
     ///
-    /// The ratchet tree extension is left out — it is the group's tree, not
-    /// something a committer adds — as is the external public key, which a
-    /// Welcome's GroupInfo does not carry.
+    /// The ratchet tree extension is left out, since it is the group's tree
+    /// rather than something a committer adds. So is the external public key,
+    /// which a Welcome's GroupInfo does not carry.
     pub async fn welcome_group_info_extensions(
         &self,
         config: MlsGroupConfig,
         welcome_bytes: Vec<u8>,
         ratchet_tree_bytes: Option<Vec<u8>>,
-    ) -> Result<Vec<MlsExtension>, String> {
+    ) -> Result<WelcomeGroupInfoExtensions, String> {
         let provider = self.load_global().await?;
 
         let welcome_msg = MlsMessageIn::tls_deserialize_exact_bytes(&welcome_bytes)
@@ -1112,17 +1128,31 @@ impl MlsEngine {
                     .map_err(|e| format!("Failed to deserialize ratchet tree: {}", e))
             })
             .transpose()?;
-        processed
+        let staged = processed
             .into_staged_welcome(&provider, ratchet_tree)
             .map_err(|e| format!("Failed to verify welcome: {}", e))?;
 
-        extensions
+        let signer_leaf = staged
+            .welcome_sender()
+            .map_err(|e| format!("Failed to read the welcome's signer: {}", e))?;
+        let signer = MlsMemberInfo {
+            index: staged.welcome_sender_index().u32(),
+            credential: signer_leaf
+                .credential()
+                .tls_serialize_detached()
+                .map_err(|e| format!("Failed to serialize the signer's credential: {}", e))?,
+            signature_key: signer_leaf.signature_key().as_slice().to_vec(),
+        };
+
+        let extensions = extensions
             .iter()
             .filter(|ext| {
                 !matches!(ext, Extension::RatchetTree(_) | Extension::ExternalPub(_))
             })
             .map(extension_to_mls)
-            .collect()
+            .collect::<Result<Vec<_>, _>>()?;
+
+        Ok(WelcomeGroupInfoExtensions { extensions, signer })
     }
 
     #[allow(deprecated)]
@@ -2161,7 +2191,13 @@ impl MlsEngine {
 
         let commit_builder = commit_builder.load_psks(provider.storage()).map_err(|e| format!("Failed to load PSKs: {}", e))?;
         let mut commit_builder = commit_builder.create_group_info(options.create_group_info).use_ratchet_tree_extension(options.use_ratchet_tree_extension);
-        if let Some(ref gi_exts) = options.group_info_extensions {
+        // An empty list is the same as none, so the exported GroupInfo is then
+        // created exactly as it is without the option.
+        let group_info_extensions = options
+            .group_info_extensions
+            .as_ref()
+            .filter(|extensions| !extensions.is_empty());
+        if let Some(gi_exts) = group_info_extensions {
             let ext_vec = extensions_from_mls(gi_exts)?;
             // Adding them turns the exported GroupInfo on, and so does the
             // ratchet tree extension. It is not encrypted, so it is created
@@ -2174,6 +2210,17 @@ impl MlsEngine {
         }
         let commit_builder = commit_builder.build(provider.rand(), provider.crypto(), &signer, |_| true).map_err(|e| format!("Failed to build commit: {}", e))?;
         let bundle = commit_builder.stage_commit(&provider).map_err(|e| format!("Failed to stage commit: {}", e))?;
+        // A commit that adds no member has no Welcome, and without
+        // createGroupInfo no exported GroupInfo either: nothing would carry the
+        // extensions. Refused here, before anything is merged or written,
+        // rather than dropping them in silence.
+        if group_info_extensions.is_some() && bundle.welcome().is_none() && bundle.group_info().is_none() {
+            return Err(
+                "groupInfoExtensions have nothing to carry them: the commit adds \
+                 no member, so it has no Welcome, and createGroupInfo is off"
+                    .to_string(),
+            );
+        }
         if !options.keep_pending {
             group.merge_pending_commit(&provider).map_err(|e| format!("Failed to merge pending commit: {}", e))?;
         }

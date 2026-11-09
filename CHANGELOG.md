@@ -4,17 +4,25 @@
 
 #### Added
 
-- **`FlexibleCommitOptions.groupInfoExtensions`** (default `null`) — puts
-  the application's own extensions into the GroupInfo of the commit's
-  Welcome, which MLS encrypts under the welcome secret: only the members the
-  commit adds can read them, and the committer's signature and the
-  confirmation tag cover them. They reach the exported GroupInfo, which is
-  not encrypted, only when `createGroupInfo` asks for it.
-- **`MlsEngine.welcomeGroupInfoExtensions`** — reads those extensions from a
-  Welcome before joining, so a newcomer can decide whether to join at all.
-  The Welcome is verified as `joinGroupFromWelcome` verifies it (signature,
-  confirmation tag); nothing is written, so the key package stays for the
-  join. The ratchet tree and external public key extensions are left out.
+- **`FlexibleCommitOptions.groupInfoExtensions`** — puts an application's
+  own extensions into the GroupInfo the commit creates. The members it adds
+  read them before joining, from the Welcome's GroupInfo, which the
+  committer signs and the welcome secret encrypts. That secret is not the
+  newcomers' alone: every member that processes the commit derives it, and
+  all the members one commit adds get the same copy. So these are for what
+  the whole new epoch may know, not for one invitee. A party outside the
+  group cannot read them. They reach the exported GroupInfo, which is not
+  encrypted, only when `createGroupInfo` asks for it. An empty list is the
+  same as none. A commit with nothing to carry them, with no Welcome and no
+  GroupInfo asked for, is refused rather than losing them.
+- **`MlsEngine.welcomeGroupInfoExtensions`** — reads those extensions, and
+  the member that signed them, from a Welcome without joining. The Welcome is
+  staged as `joinGroupFromWelcome` stages it, so a forged or inconsistent one
+  fails. That proves what the signer wrote, not who the signer is: anyone
+  holding one of the client's key packages can send a Welcome of their own.
+  Judge the signer's credential as before any join. Nothing is written, so
+  the key package stays for the join. The ratchet tree and external public
+  key extensions are left out.
 
 ### For Contributors
 
