@@ -9,8 +9,11 @@
 # 2. Workflow automatically triggers on tag push
 # 3. Validate version tag matches pubspec.yaml
 # 4. Run tests and analysis
-# 5. Publish to pub.dev via OIDC (no tokens needed)
-# 6. Create GitHub Release with changelog
+# 5. Run the package in a real app on every platform, on the released binaries
+# 6. Publish to pub.dev via OIDC (no tokens needed)
+# 7. Create GitHub Release with changelog
+# 8. Run a new app that depends on what just went up, on the pinned Flutter and on
+#    the newest one. It cannot stop the release, only report on it.
 #
 # Prerequisites:
 # - Enable "Automated publishing" in pub.dev publisher settings
@@ -144,6 +147,20 @@ jobs:
       update-badge: false
 
   # ============================================
+  # The package in a real app, on the released binaries
+  # ============================================
+  # The last moment a failure costs nothing. `test` above builds the library from
+  # source, so this is the one check before the upload that runs what a consumer
+  # will download. A tag only: a dry run from a branch may well be on a crate
+  # version with no release yet, and publishes nothing anyway.
+  integration:
+    needs: validate
+    if: github.ref_type == 'tag'
+    uses: ./.github/workflows/integration-reusable.yml
+    with:
+      library: release
+
+  # ============================================
   # Validate package
   # ============================================
   validate-package:
@@ -167,7 +184,7 @@ jobs:
   # Publish to pub.dev
   # ============================================
   publish:
-    needs: [validate, test, validate-package]
+    needs: [validate, test, validate-package, integration]
     # A tag only. The pub.dev environment lets in `v*` tags alone (its
     # deployment policy, set by `make setup-repo-protections`), so a run
     # started from a branch would be refused there, red. Such a run publishes
@@ -234,3 +251,27 @@ jobs:
             --title "v$VERSION" \
             --notes-file release-notes.md
         shell: bash
+
+  # ============================================
+  # What a new consumer gets now
+  # ============================================
+  # After the upload, so nothing here can stop it: a red run means a published
+  # version has a problem, and retracting it or following it up is a decision.
+  # Twice, because the pin is ours and the newest Flutter is what a new consumer
+  # has, and the two have run the build hook differently before.
+  verify-published:
+    needs: [validate, publish]
+    if: github.ref_type == 'tag' && !inputs.dry-run
+    uses: ./.github/workflows/integration-reusable.yml
+    with:
+      library: pub
+      package-version: ${{ needs.validate.outputs.version }}
+
+  verify-published-on-stable:
+    needs: [validate, publish]
+    if: github.ref_type == 'tag' && !inputs.dry-run
+    uses: ./.github/workflows/integration-reusable.yml
+    with:
+      library: pub
+      package-version: ${{ needs.validate.outputs.version }}
+      flutter-version: stable

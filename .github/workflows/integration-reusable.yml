@@ -1,0 +1,723 @@
+# The package inside a real Flutter app, on every platform it claims.
+#
+# Called by:
+# - integration.yml (pull requests, main, a stage 1 release, once a week)
+# - publish.yml (before the upload, and after it)
+#
+# `test-reusable.yml` runs the library on the Dart VM, with a library the VM found
+# for itself. What that cannot see is everything between `flutter pub add` and a
+# working app: the build hook, each platform's way of bundling a native library,
+# the loader, AOT on a release build, the wasm module with the Dart half compiled
+# for the web, and a library actually executing on a phone. Before this, nothing
+# outside a person's desk ran any of it, and nothing at all ran the Android or the
+# iOS library before a release had spent the crate version.
+#
+# THE ONE INPUT THAT MATTERS is where the library comes from:
+#
+#   tree     Built from this checkout, on every leg. Pull requests and main. It is
+#            what lets the update bot's pull request run its new upstream code on
+#            an emulator BEFORE it merges: the build hook prefers a stamped local
+#            build, and so never needs the release to exist.
+#   release  The GitHub Release of the crate version in rust/Cargo.toml, through
+#            the hook's download path, checksums included. The example app, at the
+#            commit under test. Nothing here builds Rust: a local build would be
+#            preferred over the release, and test nothing but itself.
+#   pub      Same binaries, and now the package archive too: a new app made with
+#            `flutter create`, which depends on the version on pub.dev. The tests
+#            are the commit's under test, so `ref` has to be that version's tag
+#            when it has them: integration.yml says why and does it.
+#
+# `make verify-example-library` then checks, after every run, that the app really
+# loaded what the run says. The hook chooses, and a wrong choice is otherwise a
+# green run over the wrong code.
+#
+# ⚠ WHAT THIS CANNOT EXECUTE, since no hosted runner has the hardware: Android on
+# ARM (arm64-v8a, armeabi-v7a: runners cannot nest an ARM emulator), an iOS device,
+# and x86_64 on anything Apple (macOS and the simulator: the runners are ARM). Of
+# the twelve release binaries, seven run here. The `package` job checks the other
+# five get into a real app, and that is all it can check.
+#
+# Not required checks yet, like `test / Type-check (iOS)`: an emulator job has to
+# prove itself stable first. See `.github/rulesets/README.md`.
+#
+# Every step that can hang has a `timeout-minutes` of its own, and each job's is
+# longer than its setup and those added up. A job that runs out of time is
+# cancelled, and its log can go with it (one did, in a project generated from
+# this template, on the branch that added this file); a step that runs out fails,
+# with its log, saying where it hung.
+
+name: Integration Tests (Reusable)
+
+on:
+  workflow_call:
+    inputs:
+      library:
+        description: 'Where the library comes from: tree, release or pub'
+        type: string
+        default: tree
+      ref:
+        description: 'The commit to test. Empty means the one that triggered this.'
+        type: string
+        default: ''
+      package-version:
+        description: 'The version on pub.dev, for library=pub'
+        type: string
+        default: ''
+      flutter-version:
+        description: 'A Flutter other than the pinned one, or stable, for library=pub'
+        type: string
+        default: ''
+      hang:
+        description: "The watchdog's self-test: a test that blocks the app, on Android and iOS"
+        type: boolean
+        default: false
+
+# Least-privilege default: nothing here writes to the repository.
+permissions:
+  contents: read
+
+jobs:
+  # `stable` becomes a number once, here, so that every leg of a run tests the same
+  # Flutter. On this runner because python3 is not on Windows' PATH.
+  flutter:
+    name: Choose Flutter
+    runs-on: ubuntu-26.04
+    outputs:
+      version: ${{ steps.choose.outputs.version }}
+    steps:
+      - name: Resolve the version
+        id: choose
+        env:
+          FLUTTER_VERSION: ${{ inputs.flutter-version }}
+        run: |
+          set -euo pipefail
+          version="$FLUTTER_VERSION"
+          if [ "$version" = stable ]; then
+            version=$(curl -fsSL --retry 3 https://storage.googleapis.com/flutter_infra_release/releases/releases_linux.json |
+              python3 -c "
+          import json, sys
+          releases = json.load(sys.stdin)
+          stable = releases['current_release']['stable']
+          print(next(r['version'] for r in releases['releases'] if r['hash'] == stable))
+          ")
+          fi
+          echo "Flutter: ${version:-the pinned one}" | tee -a "$GITHUB_STEP_SUMMARY"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+  # ============================================
+  # Desktop
+  # ============================================
+  desktop:
+    needs: flutter
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Named by version, as every job here is: `-latest` changes image
+          # without a commit.
+          - os: ubuntu-26.04
+            name: Linux x86_64
+            device: linux
+            # The window needs an X server, and a runner has no display.
+            prefix: xvfb-run -a
+          - os: ubuntu-26.04-arm
+            name: Linux ARM64
+            device: linux
+            prefix: xvfb-run -a
+          - os: macos-26
+            name: macOS ARM64
+            device: macos
+            prefix: ''
+          - os: windows-2025-vs2026
+            name: Windows x86_64
+            device: windows
+            prefix: ''
+
+    name: Integration (${{ matrix.name }})
+    runs-on: ${{ matrix.os }}
+    # Setup, a cold Rust build on Windows included, then two test steps of 30.
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Install the Linux desktop toolchain
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev xvfb
+
+      - name: Setup the app under test
+        uses: ./.github/actions/setup-example
+        with:
+          library: ${{ inputs.library }}
+          package-version: ${{ inputs.package-version }}
+          flutter-version: ${{ needs.flutter.outputs.version }}
+
+      - name: Setup Rust
+        if: inputs.library == 'tree'
+        uses: ./.github/actions/setup-rust
+
+      - name: Build the library from this tree
+        if: inputs.library == 'tree'
+        run: make build
+        shell: bash
+
+      - name: Show the toolchain
+        run: make doctor
+        shell: bash
+
+      # Nothing else analyzes the example: `make analyze` excludes it, so a bug in
+      # its own code or in these tests shows up, if at all, as a failing build.
+      - name: Analyze the example
+        if: matrix.name == 'Linux x86_64' && inputs.library == 'tree'
+        run: make analyze ARGS="example --fatal-infos"
+        shell: bash
+
+      # One platform measures it, and this is the one to measure on, since it is
+      # the fastest: the bridged functions are the same on all of them.
+      - name: Run the tests, and fail on a bridged function none of them calls
+        if: matrix.name == 'Linux x86_64' && inputs.library == 'tree'
+        timeout-minutes: 30
+        run: ${{ matrix.prefix }} make coverage-example ARGS="-d ${{ matrix.device }}"
+        shell: bash
+
+      - name: Run the tests
+        if: matrix.name != 'Linux x86_64' || inputs.library != 'tree'
+        timeout-minutes: 30
+        run: ${{ matrix.prefix }} make test-example ARGS="-d ${{ matrix.device }}"
+        shell: bash
+
+      - name: Check which library that was
+        run: make verify-example-library ARGS="$VERIFY_LIBRARY"
+        shell: bash
+
+      # AOT: what a consumer's release build is compiled to, and `flutter test`
+      # cannot do it. Not on macOS in the tree: its profile build is universal, so
+      # the hook would look for an Intel library this leg did not build, and
+      # download the release's instead.
+      - name: Run the tests in profile mode
+        if: matrix.device != 'macos' || inputs.library != 'tree'
+        timeout-minutes: 30
+        run: ${{ matrix.prefix }} make drive-example ARGS="--profile -d ${{ matrix.device }}"
+        shell: bash
+
+      # A build of its own, so a choice of its own for the hook.
+      - name: Check which library that was, in profile mode
+        if: matrix.device != 'macos' || inputs.library != 'tree'
+        run: make verify-example-library ARGS="$VERIFY_LIBRARY"
+        shell: bash
+
+  # ============================================
+  # Web
+  # ============================================
+  # The only job that runs the Dart half of the web build against the wasm module,
+  # with every call crossing the JavaScript bridge. `make test-web` is
+  # the crate's own Rust tests.
+  web:
+    needs: flutter
+    name: Integration (Web)
+    runs-on: ubuntu-26.04
+    # Setup, a cold wasm build included, then two test steps of 15.
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Setup the app under test
+        uses: ./.github/actions/setup-example
+        with:
+          library: ${{ inputs.library }}
+          package-version: ${{ inputs.package-version }}
+          flutter-version: ${{ needs.flutter.outputs.version }}
+
+      - name: Setup Rust
+        if: inputs.library == 'tree'
+        uses: ./.github/actions/setup-rust
+
+      - name: Setup web build tools
+        if: inputs.library == 'tree'
+        run: make setup-web
+
+      - name: Build the module from this tree
+        if: inputs.library == 'tree'
+        run: make build-web
+
+      # From the runner image and never downloaded, for the reason `Rust unit
+      # tests (browser)` gives. On this image it matches the image's Chrome.
+      - name: Find chromedriver
+        run: |
+          set -euo pipefail
+          if [ -n "${CHROMEWEBDRIVER:-}" ] && [ -x "${CHROMEWEBDRIVER}/chromedriver" ]; then
+            driver="${CHROMEWEBDRIVER}/chromedriver"
+          elif command -v chromedriver >/dev/null 2>&1; then
+            driver="$(command -v chromedriver)"
+          else
+            echo "::error::no preinstalled chromedriver on this runner; refusing to fetch an unpinned one"
+            exit 1
+          fi
+          echo "using $driver ($("$driver" --version))"
+          echo "CHROMEDRIVER=$driver" >> "$GITHUB_ENV"
+
+      - name: Run the tests (debug, compiled by DDC)
+        timeout-minutes: 15
+        run: make test-example-web CHROMEDRIVER="$CHROMEDRIVER"
+
+      - name: Check which module that was
+        run: make verify-example-library ARGS="$VERIFY_LIBRARY --web"
+
+      # A different compiler from the one above, and the one a consumer ships.
+      - name: Run the tests (release, compiled by dart2js)
+        timeout-minutes: 15
+        run: make test-example-web CHROMEDRIVER="$CHROMEDRIVER" ARGS="--release"
+
+      # The target provisions web/pkg/ again for each run.
+      - name: Check which module that was, in release
+        run: make verify-example-library ARGS="$VERIFY_LIBRARY --web"
+
+  # ============================================
+  # iOS simulator
+  # ============================================
+  # Debug only: a simulator has no other mode.
+  #
+  # ⚠ The runner's simulators have never been booted, so the first boot starts with
+  # a data migration, minutes long. Then, now and again, the app launches and
+  # `flutter test` never finds its VM service in the simulator's log: it waits out
+  # its 12-minute load timeout and fails with "Error waiting for a debug
+  # connection", with no test run. Measured on macos-26: 4 runs in the 18 whose
+  # logs survive, in a project generated from this template, on the branch that
+  # added this job (another hung until its job
+  # was cancelled, with no log), all on the image the passing runs had too, and
+  # never locally. Waiting for the simulator's log to answer before the launch did
+  # not prevent it: the log answered at once every time, the failing runs
+  # included. Running the tests again did, every time.
+  ios:
+    needs: flutter
+    name: Integration (iOS simulator)
+    runs-on: macos-26
+    # Booting, the migration included, has taken up to 6 minutes, and its step has
+    # 15. A run that never connects takes about 14 (an Xcode build, then the
+    # 12-minute timeout) and one that passes 4 to 9, so the test step has 60 for
+    # its three, the reboot before the third included, and the job has to outlast
+    # it all.
+    timeout-minutes: 100
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Setup the app under test
+        uses: ./.github/actions/setup-example
+        with:
+          library: ${{ inputs.library }}
+          package-version: ${{ inputs.package-version }}
+          flutter-version: ${{ needs.flutter.outputs.version }}
+
+      - name: Setup Rust
+        if: inputs.library == 'tree'
+        uses: ./.github/actions/setup-rust
+        with:
+          targets: aarch64-apple-ios-sim
+
+      - name: Build the library from this tree
+        if: inputs.library == 'tree'
+        run: make build-ios ARGS="--target aarch64-apple-ios-sim"
+
+      # The newest runtime's first iPhone rather than a name written down here:
+      # the image's list changes with its Xcode, and which iPhone does not matter.
+      - name: Boot a simulator
+        timeout-minutes: 15
+        run: |
+          set -euo pipefail
+          udid=$(xcrun simctl list devices available -j | python3 -c "
+          import json, sys
+          devices = json.load(sys.stdin)['devices']
+          runtimes = sorted(
+              (r for r in devices if 'iOS' in r),
+              key=lambda r: [int(n) for n in r.rsplit('iOS-', 1)[1].split('-')],
+          )
+          print(next(d['udid'] for d in devices[runtimes[-1]] if d['name'].startswith('iPhone')))
+          ")
+          echo "Booting $udid"
+          xcrun simctl boot "$udid"
+          xcrun simctl bootstatus "$udid"
+          echo "SIMULATOR=$udid" >> "$GITHUB_ENV"
+
+      # Each run is judged on what the app reported (`make test-example-ci`). A test
+      # that failed fails the step at once, and is never run again; so does an app
+      # that crashed, which macOS writes a report of, and one that has sent nothing
+      # for 8 minutes into its tests while it still runs, its threads printed. A run
+      # that never got that far — the app never connected, the simulator or the
+      # connection went away — runs again, the third time on a rebooted simulator,
+      # and leaves a warning on the run.
+      - name: Run the tests
+        timeout-minutes: 60
+        env:
+          # The watchdog's self-test, by hand only (integration.yml).
+          HANG_TEST: ${{ inputs.hang && '--dart-define=OPENMLS_EXAMPLE_HANG=true' || '' }}
+        run: make test-example-ci ARGS="--attempts 3 --simulator $SIMULATOR -- -d $SIMULATOR $HANG_TEST"
+
+      - name: Check which library that was
+        run: make verify-example-library ARGS="$VERIFY_LIBRARY"
+
+  # ============================================
+  # Android emulator
+  # ============================================
+  # x86_64, the one ABI a hosted runner can run: it has KVM, and no way to nest an
+  # ARM emulator at a usable speed. Two ends of what the package claims:
+  #
+  # - API 24, the minSdk, on the oldest bionic the library is linked against. A
+  #   call into a newer libc gets past the linker there and fails at load.
+  # - API 36 with 16 KB pages. `make verify-android-alignment` measures the ELF
+  #   headers; this is the library actually loading on such a kernel, which is
+  #   the claim Google Play's requirement is about. Debug only, and more memory:
+  #   this image is the heavier of the two, and in 4 of its 14 runs before the
+  #   retry below it failed, in a way of its own each time — gone in the middle
+  #   of a Gradle build, "No space left on device" unpacking the image, offline
+  #   under the profile run, "Failed to start Dart Development Service". The
+  #   profile run is the API 24 leg's; the library is the same.
+  #
+  # ⚠ THE RUNNER IMAGE MATTERS. GitHub served these jobs two ubuntu-26.04 images
+  # that differ where an emulator feels it: 20261025.179 has a 145 GB disk with
+  # /tmp on it, 20261018.50 a 72 GB one and /tmp in a 7.7 GB tmpfs. Of the 37
+  # Android jobs on the branch that added this, in a project generated from this
+  # template, two landed on the older image and
+  # both failed, each in a way that touches storage: the "No space left on
+  # device" above, and an API 24 install that hung in both tries. On the newer
+  # one API 24 passed 18 of 18, and no install hung. GitHub picks the image, so
+  # neither can be re-run at will: the job prints its image first, and temporary
+  # files go to the runner's disk, which a system image unpacked in that tmpfs
+  # would need. The hung install stays unexplained.
+  #
+  # ⚠ So each run is judged on what the app reported (`make test-example-ci`), and
+  # only a run that never got that far is tried again, on a new emulator, up to
+  # three tries in all: the device went away, the app never connected or never
+  # started the tests, the install did not finish. A test that failed fails the
+  # job at once and is never run again, and so does an app that crashed: Android's
+  # crash log names it. So does an app that has sent nothing for 8 minutes into
+  # its tests while the emulator answers and the app still runs, its threads
+  # printed through `su`: no limit of a test's own fires in an app that a call
+  # blocks. A cause bound to the runner fails every try, the machine being the
+  # same: re-run the job for that. Between the tries the memory and both file
+  # systems are printed, and the emulator and the adb server the last try left
+  # behind are stopped.
+  android:
+    needs: flutter
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: API 24
+            api: 24
+            target: default
+            # Whichever: this leg is about the API level, not the page size.
+            check: adb shell getprop ro.build.version.sdk
+            profile: true
+            # The AVD's own default, which this image runs on.
+            ram: ''
+          - name: API 36, 16 KB pages
+            api: 36
+            target: google_apis_ps16k
+            # This leg means nothing on a 4 KB kernel, so it says so if it is one.
+            check: test "$(adb shell getconf PAGE_SIZE | tr -d '\r')" = 16384
+            profile: false
+            # The default left the guest about 2 GB, and Android kills a debug app
+            # first when memory runs short.
+            ram: 4096M
+
+    name: Integration (Android ${{ matrix.name }})
+    runs-on: ubuntu-26.04
+    # Setup takes up to 20 minutes from the tree, the app's build 20 and each of
+    # the three tries below 30: the job has to outlast them all, or a slow try
+    # takes the next one's log with it.
+    timeout-minutes: 150
+    # The watchdog's self-test, by hand only (integration.yml): the app blocks
+    # under `flutter test` on API 36, and under `flutter drive` on API 24, whose
+    # `flutter test` comes first and has to pass. One run tries both of the ways
+    # the watchdog reads an app. Empty otherwise, and the app is built with it.
+    env:
+      HANG_TEST: ${{ inputs.hang && !matrix.profile && '--dart-define=OPENMLS_EXAMPLE_HANG=true' || '' }}
+      HANG_DRIVE: ${{ inputs.hang && matrix.profile && '--dart-define=OPENMLS_EXAMPLE_HANG=true' || '' }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref }}
+
+      # Measured: "No space left on device" installing the API 36 image, after the
+      # Rust build, two NDKs and the app. What goes is what nothing here uses.
+      - name: Free disk space
+        run: |
+          echo "Runner image: ${ImageOS:-unknown} ${ImageVersion:-unknown}"
+          df -h /
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/.ghcup /usr/local/share/boost \
+            "$AGENT_TOOLSDIRECTORY/CodeQL" /usr/share/swift /usr/local/share/powershell /opt/az
+          df -h / /tmp
+          free -h
+
+      # The image's default JDK is newer than this Gradle runs on.
+      - name: Use the JDK the example builds with
+        run: echo "JAVA_HOME=$JAVA_HOME_17_X64" >> "$GITHUB_ENV"
+
+      # On the older image /tmp is a 7.7 GB tmpfs (see above), and the SDK manager
+      # unpacks a system image of several GB through a temporary directory. Java
+      # does not read TMPDIR, hence the second line. Nothing changes on the newer
+      # image, whose /tmp is on the disk anyway.
+      - name: Keep temporary files on the disk
+        run: |
+          echo "TMPDIR=$RUNNER_TEMP" >> "$GITHUB_ENV"
+          echo "JAVA_TOOL_OPTIONS=-Djava.io.tmpdir=$RUNNER_TEMP" >> "$GITHUB_ENV"
+
+      - name: Setup the app under test
+        uses: ./.github/actions/setup-example
+        with:
+          library: ${{ inputs.library }}
+          package-version: ${{ inputs.package-version }}
+          flutter-version: ${{ needs.flutter.outputs.version }}
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd # v4.0.4
+        with:
+          packages: platform-tools
+
+      - name: Setup Rust
+        if: inputs.library == 'tree'
+        uses: ./.github/actions/setup-rust
+        with:
+          targets: x86_64-linux-android
+
+      # The NDK and cargo-ndk the release builds with, as in `Cross-compile
+      # (Android)`: a test of a library built differently is a test of that one.
+      - name: Install NDK
+        if: inputs.library == 'tree'
+        run: sdkmanager --install "ndk;28.2.13676358"
+
+      - name: Setup cargo-ndk
+        if: inputs.library == 'tree'
+        run: cargo install cargo-ndk --locked --version 4.1.2
+
+      # On this step alone: Gradle goes on to build the app with the NDK Flutter
+      # asks for, and this is the one the library has to be built with.
+      - name: Build the library from this tree
+        if: inputs.library == 'tree'
+        run: |
+          export ANDROID_NDK_HOME="$ANDROID_SDK_ROOT/ndk/28.2.13676358"
+          make build-android ARGS="--target x86_64"
+
+      # The emulator and the app's first Gradle build, side by side, have been
+      # measured to exhaust the runner: the emulator died in the middle of the build,
+      # with nothing in its log, and the tests then had no device. So the build comes
+      # first, every mode the steps below run, and Gradle is held to a share of the
+      # memory in the runner's own gradle.properties, which outranks the app's. That
+      # leaves the app's files as `flutter create` made them.
+      - name: Build the app before the emulator starts
+        timeout-minutes: 20
+        run: |
+          mkdir -p ~/.gradle
+          {
+            echo 'org.gradle.jvmargs=-Xmx3g -XX:MaxMetaspaceSize=1g -XX:+HeapDumpOnOutOfMemoryError'
+            echo 'kotlin.daemon.jvmargs=-Xmx1g'
+          } >> ~/.gradle/gradle.properties
+          make build-example ARGS="apk --debug --target-platform android-x64 $HANG_TEST"
+          if [ "${{ matrix.profile }}" = true ]; then
+            make build-example ARGS="apk --profile --target-platform android-x64 $HANG_DRIVE"
+          fi
+          (cd "${EXAMPLE_DIR:-example}/android" && ./gradlew --stop)
+          df -h / /tmp
+          free -h
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      # Three tries of the same step, each on an emulator of its own, and after each
+      # failed one a step that reads its verdict. The action runs each line of
+      # `script` on its own, and stops at the first that fails; each `make
+      # test-example-ci` writes "unfinished" first, "failed" the moment a test has
+      # failed, and its verdict last. So a try killed in the middle, by the time
+      # limit too, leaves "unfinished" only when no test had failed in it yet.
+      # VERIFY_LIBRARY and EXAMPLE_DIR come through the environment.
+      - name: Run the tests on an emulator
+        id: try1
+        continue-on-error: true
+        timeout-minutes: 30
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
+        with:
+          api-level: ${{ matrix.api }}
+          target: ${{ matrix.target }}
+          arch: x86_64
+          disable-animations: true
+          disk-size: 4096M
+          ram-size: ${{ matrix.ram }}
+          script: |
+            ${{ matrix.check }}
+            make test-example-ci ARGS="--android emulator-5554 --verify=$VERIFY_LIBRARY --verdict $RUNNER_TEMP/verdict-1 -- -d emulator-5554 $HANG_TEST"
+            ${{ matrix.profile && 'make test-example-ci ARGS="--drive --android emulator-5554 --verify=$VERIFY_LIBRARY --verdict $RUNNER_TEMP/verdict-1 -- --profile -d emulator-5554 $HANG_DRIVE"' || 'echo "Profile mode runs on the API 24 leg."' }}
+
+      # A test that failed ends the job here. Anything else is tried again: a try
+      # that ran out of time never reached the action's own cleanup, so its
+      # emulator may still hold the port and the AVD the next one needs, and the
+      # adb server goes too, since a try that hung on the last one's server where
+      # the last one had hung would test nothing new.
+      - name: Read what the first try came to
+        id: after1
+        if: steps.try1.outcome == 'failure'
+        run: |
+          verdict=$(cat "$RUNNER_TEMP/verdict-1" 2>/dev/null || echo none)
+          case "$verdict" in
+            failed) exit 1 ;;
+            unfinished) ;;
+            *) echo "::warning::The emulator step failed outside the runs it judges (verdict: $verdict), before the first or after the last. Trying again on a new emulator." ;;
+          esac
+          echo "again=true" >> "$GITHUB_OUTPUT"
+          adb devices || true
+          adb -s emulator-5554 emu kill 2>/dev/null || true
+          adb kill-server || true
+          for _ in $(seq 1 30); do
+            pgrep -f qemu-system >/dev/null || break
+            sleep 2
+          done
+          pkill -9 -f qemu-system || true
+          df -h / /tmp
+          free -h
+
+      - name: Run the tests on an emulator, second try
+        id: try2
+        if: steps.after1.outputs.again == 'true'
+        continue-on-error: true
+        timeout-minutes: 30
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
+        with:
+          api-level: ${{ matrix.api }}
+          target: ${{ matrix.target }}
+          arch: x86_64
+          disable-animations: true
+          disk-size: 4096M
+          ram-size: ${{ matrix.ram }}
+          script: |
+            ${{ matrix.check }}
+            make test-example-ci ARGS="--android emulator-5554 --verify=$VERIFY_LIBRARY --verdict $RUNNER_TEMP/verdict-2 -- -d emulator-5554 $HANG_TEST"
+            ${{ matrix.profile && 'make test-example-ci ARGS="--drive --android emulator-5554 --verify=$VERIFY_LIBRARY --verdict $RUNNER_TEMP/verdict-2 -- --profile -d emulator-5554 $HANG_DRIVE"' || 'echo "Profile mode runs on the API 24 leg."' }}
+
+      - name: Read what the second try came to
+        id: after2
+        if: steps.try2.outcome == 'failure'
+        run: |
+          verdict=$(cat "$RUNNER_TEMP/verdict-2" 2>/dev/null || echo none)
+          case "$verdict" in
+            failed) exit 1 ;;
+            unfinished) ;;
+            *) echo "::warning::The emulator step failed outside the runs it judges (verdict: $verdict), before the first or after the last. Trying again on a new emulator." ;;
+          esac
+          echo "again=true" >> "$GITHUB_OUTPUT"
+          adb devices || true
+          adb -s emulator-5554 emu kill 2>/dev/null || true
+          adb kill-server || true
+          for _ in $(seq 1 30); do
+            pgrep -f qemu-system >/dev/null || break
+            sleep 2
+          done
+          pkill -9 -f qemu-system || true
+          df -h / /tmp
+          free -h
+
+      - name: Run the tests on an emulator, third try
+        id: try3
+        if: steps.after2.outputs.again == 'true'
+        continue-on-error: true
+        timeout-minutes: 30
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
+        with:
+          api-level: ${{ matrix.api }}
+          target: ${{ matrix.target }}
+          arch: x86_64
+          disable-animations: true
+          disk-size: 4096M
+          ram-size: ${{ matrix.ram }}
+          script: |
+            ${{ matrix.check }}
+            make test-example-ci ARGS="--android emulator-5554 --verify=$VERIFY_LIBRARY --verdict $RUNNER_TEMP/verdict-3 -- -d emulator-5554 $HANG_TEST"
+            ${{ matrix.profile && 'make test-example-ci ARGS="--drive --android emulator-5554 --verify=$VERIFY_LIBRARY --verdict $RUNNER_TEMP/verdict-3 -- --profile -d emulator-5554 $HANG_DRIVE"' || 'echo "Profile mode runs on the API 24 leg."' }}
+
+      - name: Read what the third try came to
+        if: steps.try3.outcome == 'failure'
+        run: |
+          verdict=$(cat "$RUNNER_TEMP/verdict-3" 2>/dev/null || echo none)
+          case "$verdict" in
+            failed) ;;
+            unfinished) echo "::error::None of the three tries finished, each on a new emulator, and no test failed in any of them: the emulator or the runner. A cause bound to the runner fails every try on it: re-run the job." ;;
+            *) echo "::error::The third try failed outside the runs it judges (verdict: $verdict): before the tests started, or after they had passed. The step's log says where; a cause in the step itself fails every try." ;;
+          esac
+          exit 1
+
+  # ============================================
+  # What cannot be executed here
+  # ============================================
+  # Android on ARM, an iOS device, x86_64 on anything Apple: no hosted runner can
+  # run them. This gets their release binaries into a real app, through the hook's
+  # download path, and checks they are there. It says nothing about whether they
+  # work.
+  package:
+    needs: flutter
+    if: inputs.library != 'tree'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-26.04
+            name: Android, all ABIs
+            platform: android
+          - os: macos-26
+            name: iOS device and simulators
+            platform: ios
+          - os: macos-26
+            name: macOS, both architectures
+            platform: macos
+
+    name: Package (${{ matrix.name }})
+    runs-on: ${{ matrix.os }}
+    # Setup, then the build step's 60, which has room for its three tries.
+    timeout-minutes: 80
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Use the JDK the example builds with
+        if: matrix.platform == 'android'
+        run: echo "JAVA_HOME=$JAVA_HOME_17_X64" >> "$GITHUB_ENV"
+
+      - name: Setup the app under test
+        uses: ./.github/actions/setup-example
+        with:
+          library: ${{ inputs.library }}
+          package-version: ${{ inputs.package-version }}
+          flutter-version: ${{ needs.flutter.outputs.version }}
+
+      - name: Setup Android SDK
+        if: matrix.platform == 'android'
+        uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd # v4.0.4
+        with:
+          packages: platform-tools
+
+      # The build hook downloads the release, and tries six times over a minute;
+      # a runner's DNS has failed for longer than that. Its message then starts
+      # "Failed to download", and only that builds again, a minute later.
+      - name: Build the release app, and check the library is in it
+        timeout-minutes: 60
+        run: |
+          set -o pipefail
+          log="$RUNNER_TEMP/package.log"
+          for try in 1 2 3; do
+            if make package-example-${{ matrix.platform }} 2>&1 | tee "$log"; then
+              exit 0
+            fi
+            grep -q 'Failed to download' "$log" || exit 1
+            [ "$try" = 3 ] && break
+            echo "::warning::The build hook could not download the library, try $try of 3: the network, not the package. Building again in a minute."
+            sleep 60
+          done
+          exit 1

@@ -241,6 +241,7 @@ class _AdvancedProposalsDemoTabState extends State<AdvancedProposalsDemoTab> {
   Widget build(BuildContext context) {
     return SingleChildScrollView(
       child: DemoCard(
+        id: 'advanced-proposals',
         title: 'Advanced Proposals',
         description:
             'Propose add/PSK/extensions/custom/remove-by-credential, '

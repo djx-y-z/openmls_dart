@@ -4,8 +4,9 @@
 //   1. openmls_frb native crate — `make release-frb` / release_frb.dart:
 //      bump rust/Cargo.toml, tag `openmls_frb-<version>`, build + publish the
 //      native binaries.
-//   2. Dart package — THIS script: verify the stage-1 native binary exists and
-//      was built from this tree's rust/ and lib/src/rust/, bump pubspec.yaml,
+//   2. Dart package — THIS script: verify the stage-1 native binary exists,
+//      was built from this tree's rust/ and lib/src/rust/, and passed the
+//      integration tests, bump pubspec.yaml,
 //      finalize the CHANGELOG `[Unreleased]` → `[X.Y.Z]`,
 //      validate with a publish dry-run, then commit + tag `vX.Y.Z` + push. The
 //      tag triggers publish.yml, which publishes to pub.dev (its build hook
@@ -23,26 +24,32 @@ import 'common.dart';
 import 'frb_pins.dart';
 import 'pub_limits.dart';
 import 'release_common.dart';
+import 'release_integration.dart';
 import 'third_party_notices.dart';
 import 'upstream_source.dart';
 
 /// Cut a Dart package release for [version] (plain `X.Y.Z`).
 ///
-/// Verifies the stage-1 native release exists and was built from this tree's
-/// native sources, runs `make publish-dry-run` (on the clean, pre-bump tree),
+/// Verifies the stage-1 native release exists, was built from this tree's
+/// native sources and passed the integration tests
+/// (`release_integration.dart`), runs `make publish-dry-run` (on the clean,
+/// pre-bump tree),
 /// bumps `pubspec.yaml`, finalizes the CHANGELOG,
 /// measures the result against pub.dev's size limits, creates a signed commit +
 /// signed tag `vX.Y.Z`, and (unless [push] is false)
 /// pushes `main` and the tag. Prompts
 /// for confirmation before committing unless [assumeYes]. Set [skipFrbCheck]
 /// only if you have manually verified that the native binary exists *and* was
-/// built from this tree — the flag skips both checks. [date] defaults
+/// built from this tree — the flag skips both checks. Set
+/// [skipIntegrationCheck] only if you have seen the integration tests pass on
+/// that binary. [date] defaults
 /// to today (YYYY-MM-DD) and is used for the CHANGELOG heading.
 Future<void> releasePackage({
   required String version,
   bool push = true,
   bool assumeYes = false,
   bool skipFrbCheck = false,
+  bool skipIntegrationCheck = false,
   String? date,
 }) async {
   if (!RegExp(r'^\d+\.\d+\.\d+$').hasMatch(version)) {
@@ -194,6 +201,27 @@ Future<void> releasePackage({
           're-run with --skip-frb-check.',
         );
     }
+  }
+
+  // ---- Stage 1's integration tests must have passed ------------------------
+  // publish.yml runs them again before its upload, but only once the tag is
+  // pushed: a failure there leaves a tag with no version on pub.dev.
+  final frbTag = 'openmls_frb-$crateVersion';
+  if (skipIntegrationCheck) {
+    logWarn(
+      '--skip-integration-check: NOT verifying that the integration tests '
+      'passed on the binaries of $frbTag. publish.yml runs them before its '
+      'upload, after the tag: a failure there leaves the tag with no version '
+      'on pub.dev.',
+    );
+  } else {
+    logStep(
+      'Verifying the integration tests passed on the binaries of $frbTag...',
+    );
+    await verifyIntegrationPassed(
+      tag: frbTag,
+      head: await git(['rev-parse', releaseBaseRev(resuming: resuming)]),
+    );
   }
 
   // ---- Validate (pub.dev dry-run) ------------------------------------------

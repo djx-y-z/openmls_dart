@@ -60,6 +60,12 @@ example/macos/Runner.xcworkspace/
 # CLI example (not part of the Flutter plugin example)
 example_cli/
 
+# The example's own tests. They need this repository's Makefile and CI, and a
+# consumer reading the example on pub.dev reads example/lib/ for what to do.
+example/integration_test/
+example/test_driver/
+example/coverage/
+
 # Downloaded WASM files (auto-downloaded by hook/build.dart)
 example/web/pkg/
 

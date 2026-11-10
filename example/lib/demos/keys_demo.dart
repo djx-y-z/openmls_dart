@@ -121,6 +121,7 @@ class _KeysDemoTabState extends State<KeysDemoTab> {
   Widget build(BuildContext context) {
     return SingleChildScrollView(
       child: DemoCard(
+        id: 'keys',
         title: 'Key Generation & Credentials',
         description:
             'Generate key pairs, serialize/deserialize, create Basic and '

@@ -223,6 +223,7 @@ class _ProposalsDemoTabState extends State<ProposalsDemoTab> {
   Widget build(BuildContext context) {
     return SingleChildScrollView(
       child: DemoCard(
+        id: 'proposals',
         title: 'Proposals & Commits',
         description:
             'Self-update, propose/commit removal, pending proposals, '

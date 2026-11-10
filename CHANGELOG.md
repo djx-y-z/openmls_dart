@@ -28,8 +28,41 @@
 
 ### For Contributors
 
+#### Added
+
+- **The package tested inside a real Flutter app, on every platform** —
+  `example/integration_test/` runs every capability of the package in the
+  example app, so it goes through what a consumer's app goes through: the
+  build hook, the platform's way of bundling a native library, the loader,
+  and on the web the wasm module. The families under `capabilities/` cover
+  keys, credentials, key packages, groups, group state, membership,
+  proposals, messages, past-epoch secrets, storage, each of the 13
+  ciphersuites, `SecureBytes`, and the example's seven demos through its UI.
+  Storage is checked for what each platform guarantees: natively a file,
+  refused to a second engine while one has it, and readable by its owner
+  alone wherever files have permissions; on the web an IndexedDB database,
+  shared with a second engine as with a second tab. `make coverage-example` fails on a bridged function no test
+  calls; `scripts/src/example_coverage_policy.dart` excuses only the two
+  `init` functions the package does not export, and
+  `test/scripts/example_coverage_bindings_test.dart` holds the coverage
+  parser to this project's bindings. The example's demo cards are keyed for
+  the tests to find them.
+
 #### Changed
 
+- **The template's integration tests are on (`enable_integration_tests`)** —
+  `integration.yml` runs the example's integration tests on every pull
+  request and push to `main`: Linux x86_64 and ARM64, macOS, Windows, an iOS
+  simulator, Android API 24 and API 36 with 16 KB pages, and the web
+  compiled both ways. CI judges each run by what the app reported, runs again
+  only a run that never got to its tests, and a watchdog fails a run whose
+  app has sent nothing for 8 minutes. **`make release` now waits for them:**
+  when the native build of an `openmls_frb-*` tag succeeds, they run on the
+  released binaries, and `make release` refuses to tag until that run has
+  passed. `publish.yml` runs them again before the upload. New `make`
+  targets: `test-example`, `test-example-web`, `drive-example`,
+  `coverage-example`, `create-consumer`, `package-example-*`. The example
+  depends on `integration_test` and `flutter_driver` for them.
 - **copier template adopted: v4.19.0 -> v4.20.0** — adds target-local native
   builds, more resilient release downloads, and automatic retries for jobs
   GitHub never started. `Makefile` builds and stamps cross-target libraries;
