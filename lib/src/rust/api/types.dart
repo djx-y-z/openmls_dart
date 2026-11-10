@@ -44,9 +44,15 @@ class FlexibleCommitOptions {
   final Uint8List? aad;
 
   /// Whether to create a GroupInfo message (default: true).
+  ///
+  /// With `groupInfoExtensions`, this alone decides whether that GroupInfo
+  /// — which carries them unencrypted — is created.
   final bool createGroupInfo;
 
   /// Whether to include the ratchet tree extension in GroupInfo.
+  ///
+  /// On its own this also turns the exported GroupInfo on. Not with
+  /// `groupInfoExtensions`: see there.
   final bool useRatchetTreeExtension;
 
   /// Leave the commit pending instead of merging it (default: false).
@@ -68,6 +74,31 @@ class FlexibleCommitOptions {
   /// see `CommitResult.welcome`.
   final bool keepPending;
 
+  /// Extensions of the application's own for the GroupInfo this commit
+  /// creates (default: none; an empty list is the same).
+  ///
+  /// The members the commit adds read them before they join, with
+  /// `welcomeGroupInfoExtensions`, from the GroupInfo inside the Welcome:
+  /// signed by the committer and encrypted under the welcome secret.
+  ///
+  /// That secret is not the newcomers' alone. Every member that processes
+  /// the commit derives it too (RFC 9420 §12.4.2), and all the members one
+  /// commit adds get the same copy. So these are for what the whole new
+  /// epoch may know, never for one invitee only. A party outside the group,
+  /// such as a delivery service that is not a member, cannot read the
+  /// Welcome's copy.
+  ///
+  /// They also go into the exported GroupInfo (`CommitResult.groupInfo`),
+  /// which is not encrypted. Whoever it is published to reads them in the
+  /// clear, including a delivery service that serves external joins. With
+  /// extensions given, that GroupInfo is created only when
+  /// `createGroupInfo` asks for it, even when `useRatchetTreeExtension` is
+  /// set. A commit that adds no member has no
+  /// Welcome: without `createGroupInfo` it is refused, rather than the
+  /// extensions dropped. Extension types a GroupInfo may not carry are
+  /// refused too, the ratchet tree and external public key among them.
+  final List<MlsExtension>? groupInfoExtensions;
+
   const FlexibleCommitOptions({
     required this.addKeyPackages,
     required this.removeIndices,
@@ -78,6 +109,7 @@ class FlexibleCommitOptions {
     required this.createGroupInfo,
     required this.useRatchetTreeExtension,
     this.keepPending = false,
+    this.groupInfoExtensions,
   });
 
   @override
@@ -90,7 +122,8 @@ class FlexibleCommitOptions {
       aad.hashCode ^
       createGroupInfo.hashCode ^
       useRatchetTreeExtension.hashCode ^
-      keepPending.hashCode;
+      keepPending.hashCode ^
+      groupInfoExtensions.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -105,7 +138,8 @@ class FlexibleCommitOptions {
           aad == other.aad &&
           createGroupInfo == other.createGroupInfo &&
           useRatchetTreeExtension == other.useRatchetTreeExtension &&
-          keepPending == other.keepPending;
+          keepPending == other.keepPending &&
+          groupInfoExtensions == other.groupInfoExtensions;
 }
 
 /// Options for creating a key package with the builder API.
@@ -728,6 +762,42 @@ class StagedProposalInfo {
           leaf == other.leaf &&
           affectedMember == other.affectedMember &&
           extensions == other.extensions;
+}
+
+/// What `welcomeGroupInfoExtensions` read from a Welcome.
+class WelcomeGroupInfoExtensions {
+  /// The extensions in the Welcome's GroupInfo, the ratchet tree extension
+  /// aside.
+  final List<MlsExtension> extensions;
+
+  /// The member that signed the GroupInfo, as the ratchet tree that came
+  /// with the Welcome has it: its leaf index, credential and signature key.
+  ///
+  /// The signature proves the extensions are what this member wrote, not
+  /// who the member is. Usually it is the committer. But any member of the
+  /// new epoch can sign a Welcome that passes, and anyone holding one of
+  /// this client's key packages can invite it into a group of their own.
+  ///
+  /// Authenticate the member by `signatureKey`, which the signature binds,
+  /// before acting on the extensions. A basic credential's identity is
+  /// whatever its owner claims.
+  final MlsMemberInfo signer;
+
+  const WelcomeGroupInfoExtensions({
+    required this.extensions,
+    required this.signer,
+  });
+
+  @override
+  int get hashCode => extensions.hashCode ^ signer.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is WelcomeGroupInfoExtensions &&
+          runtimeType == other.runtimeType &&
+          extensions == other.extensions &&
+          signer == other.signer;
 }
 
 /// Information extracted from a Welcome message before joining.
