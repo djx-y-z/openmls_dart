@@ -11,18 +11,20 @@
   newcomers' alone: every member that processes the commit derives it, and
   all the members one commit adds get the same copy. So these are for what
   the whole new epoch may know, not for one invitee. A party outside the
-  group cannot read them. They reach the exported GroupInfo, which is not
-  encrypted, only when `createGroupInfo` asks for it. An empty list is the
-  same as none. A commit with nothing to carry them, with no Welcome and no
-  GroupInfo asked for, is refused rather than losing them.
+  group cannot read the Welcome's copy. The exported GroupInfo, which is not
+  encrypted, carries them in the clear to whoever it is published to. It is
+  created with them only when `createGroupInfo` asks for it. An empty list is
+  the same as none. A commit with nothing to carry them, with no Welcome and
+  no GroupInfo asked for, is refused rather than losing them.
 - **`MlsEngine.welcomeGroupInfoExtensions`** — reads those extensions, and
   the member that signed them, from a Welcome without joining. The Welcome is
-  staged as `joinGroupFromWelcome` stages it, so a forged or inconsistent one
-  fails. That proves what the signer wrote, not who the signer is: anyone
-  holding one of the client's key packages can send a Welcome of their own.
-  Judge the signer's credential as before any join. Nothing is written, so
-  the key package stays for the join. The ratchet tree and external public
-  key extensions are left out.
+  staged as `joinGroupFromWelcome` stages it (signature, tree, confirmation
+  tag), so one that does not stage fails. That proves what the signer wrote,
+  not who it is. Usually it is the committer, but any member of the new
+  epoch, or anyone holding one of the client's key packages, can send a
+  Welcome that passes. Authenticate the signer by its signature key, as
+  before any join. Nothing is written, so the key package stays for the
+  join. The ratchet tree and external public key extensions are left out.
 
 ### For Contributors
 

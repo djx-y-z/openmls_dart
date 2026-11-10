@@ -85,12 +85,15 @@ class FlexibleCommitOptions {
   /// the commit derives it too (RFC 9420 §12.4.2), and all the members one
   /// commit adds get the same copy. So these are for what the whole new
   /// epoch may know, never for one invitee only. A party outside the group,
-  /// such as a delivery service that is not a member, cannot read them.
+  /// such as a delivery service that is not a member, cannot read the
+  /// Welcome's copy.
   ///
   /// They also go into the exported GroupInfo (`CommitResult.groupInfo`),
-  /// which is not encrypted. With extensions given, that GroupInfo is
-  /// created only when `createGroupInfo` asks for it, even when
-  /// `useRatchetTreeExtension` is set. A commit that adds no member has no
+  /// which is not encrypted. Whoever it is published to reads them in the
+  /// clear, including a delivery service that serves external joins. With
+  /// extensions given, that GroupInfo is created only when
+  /// `createGroupInfo` asks for it, even when `useRatchetTreeExtension` is
+  /// set. A commit that adds no member has no
   /// Welcome: without `createGroupInfo` it is refused, rather than the
   /// extensions dropped. Extension types a GroupInfo may not carry are
   /// refused too, the ratchet tree and external public key among them.
@@ -763,17 +766,21 @@ class StagedProposalInfo {
 
 /// What `welcomeGroupInfoExtensions` read from a Welcome.
 class WelcomeGroupInfoExtensions {
-  /// The extensions the committer put into the Welcome's GroupInfo, the
-  /// ratchet tree extension aside.
+  /// The extensions in the Welcome's GroupInfo, the ratchet tree extension
+  /// aside.
   final List<MlsExtension> extensions;
 
   /// The member that signed the GroupInfo, as the ratchet tree that came
   /// with the Welcome has it: its leaf index, credential and signature key.
   ///
-  /// The signature proves the extensions are what this member wrote. It
-  /// does not prove who the member is: anyone who holds one of this
-  /// client's key packages can create a group of their own and invite it.
-  /// Judge this credential, as before any join, before acting on them.
+  /// The signature proves the extensions are what this member wrote, not
+  /// who the member is. Usually it is the committer. But any member of the
+  /// new epoch can sign a Welcome that passes, and anyone holding one of
+  /// this client's key packages can invite it into a group of their own.
+  ///
+  /// Authenticate the member by `signatureKey`, which the signature binds,
+  /// before acting on the extensions. A basic credential's identity is
+  /// whatever its owner claims.
   final MlsMemberInfo signer;
 
   const WelcomeGroupInfoExtensions({

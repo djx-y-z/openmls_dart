@@ -256,7 +256,11 @@ void main() {
       expect(await alice.groupEpoch(groupIdBytes: groupIdBytes), BigInt.zero);
     });
 
-    test('are refused from a Welcome that was tampered with', () async {
+    // The last byte is in encrypted_group_info, which is also the HPKE context
+    // of the group secrets: decryption fails, before staging, as it would
+    // for inspectWelcome. The staging test above is the one that shows the
+    // checks gate the result.
+    test('are refused from a Welcome that does not decrypt', () async {
       final result = await commit(
         keyPackages: [await keyPackage(bob, bobId)],
         extensions: [shared],

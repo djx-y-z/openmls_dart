@@ -744,21 +744,29 @@ abstract class MlsEngine implements RustOpaqueInterface {
     required List<MlsExtension> extensions,
   });
 
-  /// The extensions the committer put into the GroupInfo of a Welcome
+  /// The extensions in the GroupInfo of a Welcome
   /// (`FlexibleCommitOptions.groupInfoExtensions`), and the member that
-  /// signed them, read **without joining the group**.
+  /// signed that GroupInfo, read **without joining the group**.
   ///
   /// They are returned only once the Welcome has been staged as
-  /// `joinGroupFromWelcome` stages it. That checks the GroupInfo's signature
-  /// against the leaf the GroupInfo names as its signer, in the ratchet
-  /// tree that came with the Welcome, and checks that tree against the
-  /// GroupInfo. A Welcome that fails a check fails here.
+  /// `joinGroupFromWelcome` stages it. Staging checks:
+  /// - the GroupInfo's signature, against the leaf the GroupInfo names as
+  ///   its signer, in the ratchet tree that came with the Welcome;
+  /// - that tree, against the GroupInfo;
+  /// - the confirmation tag, against the epoch's secrets.
   ///
-  /// What that proves is that the extensions are what `signer` wrote, not
-  /// who `signer` is. Anyone who holds one of this client's key packages
-  /// can create a group of their own and send it a Welcome that passes.
-  /// Judge `signer`'s credential before acting on the extensions, as before
-  /// any join.
+  /// A Welcome that fails a check fails here.
+  ///
+  /// That proves the extensions are what `signer` wrote. It proves nothing
+  /// about who `signer` is. Usually it is the committer, but two other
+  /// parties can produce a Welcome that passes the same checks:
+  /// - any member of the new epoch, under its own signature;
+  /// - anyone who holds one of this client's key packages, from a group of
+  ///   their own.
+  ///
+  /// Before acting on the extensions, authenticate `signer` as before any
+  /// join: by its signature key, which is what the signature binds. A basic
+  /// credential's identity is whatever its owner claims.
   ///
   /// Nor are they a secret the newcomer alone holds: the welcome secret
   /// that encrypts them is derived by every member that processes the
