@@ -1214,6 +1214,14 @@ mod tests {
                 "{}-journal",
                 self.path.display()
             )));
+            // Only the planted-WAL test leaves these: the database never runs
+            // in WAL mode.
+            for suffix in ["-wal", "-shm"] {
+                let _ = std::fs::remove_file(std::path::PathBuf::from(format!(
+                    "{}{suffix}",
+                    self.path.display()
+                )));
+            }
             // The sidecar lock file is never unlinked in production — see
             // `acquire_single_writer_lock` — so a test has to clean it up.
             let _ = std::fs::remove_file(std::path::PathBuf::from(format!(
@@ -1586,6 +1594,93 @@ mod tests {
             .mode()
             & 0o777;
         assert_eq!(mode, 0o600, "database file mode is {mode:o}");
+    }
+
+    /// Plant `<target>-wal`: the write-ahead log of a fresh database that
+    /// encrypts with the target's key *and* salt, `page_size` bytes a page.
+    /// Its frames hold one table, `planted`, with one row.
+    fn plant_wal(target: &TempDb, page_size: u32) {
+        let header = std::fs::read(&target.path).expect("read the target");
+        let donor = TempDb::new("wal_donor");
+        let conn = rusqlite::Connection::open(donor.as_str()).expect("open the donor");
+        // SQLCipher's raw key with an explicit salt: "x'<key><salt>'".
+        let mut key = raw_key_pragma(&[0x5a; 32]);
+        key.pop();
+        for byte in &header[..16] {
+            key.push_str(&format!("{byte:02x}"));
+        }
+        key.push('\'');
+        conn.pragma_update(None, "key", key.as_str())
+            .expect("set the key and salt");
+        conn.execute_batch(&format!(
+            "PRAGMA cipher_page_size = {page_size};
+             PRAGMA journal_mode = WAL;
+             PRAGMA wal_autocheckpoint = 0;
+             CREATE TABLE planted (x INTEGER);
+             INSERT INTO planted VALUES (1);"
+        ))
+        .expect("write the donor through its WAL");
+        // While the donor is open: closing it checkpoints the log and deletes it.
+        std::fs::copy(
+            format!("{}-wal", donor.as_str()),
+            format!("{}-wal", target.as_str()),
+        )
+        .expect("plant the WAL");
+    }
+
+    #[test]
+    fn a_planted_wal_with_smaller_pages_fails_authentication() {
+        // RUSTSEC-2026-0459 (CVE-2026-119375): before 3.54.0, SQLite read a WAL
+        // frame smaller than the database's page into the page buffer and left
+        // the rest of it uninitialized. The SQLCipher this crate bundles is on
+        // SQLite 3.46.1. A log next to the database is read whatever journal
+        // mode the file is in, from the first read on: the key check in `open`,
+        // before `apply_pragmas` leaves WAL mode.
+        //
+        // The control: a log with the database's own key, salt and page size is
+        // read, authenticated and applied. Without it, the refusal below could
+        // as well be a log nobody reads.
+        let control = TempDb::new("planted_wal_control");
+        let db = open_db(control.as_str()).expect("create the database");
+        store(&db, b"KeyPackage/original", b"value");
+        drop(db);
+        plant_wal(&control, 4096);
+        let db = open_db(control.as_str()).expect("a log of the same page size opens");
+        let planted: i64 = db
+            .conn
+            .lock()
+            .unwrap()
+            .query_row("SELECT count(*) FROM planted", [], |row| row.get(0))
+            .expect("the planted log was applied");
+        assert_eq!(planted, 1);
+        drop(db);
+
+        // The same key and salt with smaller pages. SQLCipher keeps each page's
+        // IV and HMAC at its end, so they lie in the part the frame leaves
+        // stale, and the page fails authentication before any of it reaches a
+        // query.
+        let target = TempDb::new("planted_wal_small_pages");
+        let db = open_db(target.as_str()).expect("create the database");
+        store(&db, b"KeyPackage/original", b"value");
+        drop(db);
+        plant_wal(&target, 1024);
+        let error = open_error(
+            open_db(target.as_str()),
+            "a log with smaller pages must not open",
+        );
+        assert!(
+            error.contains("Encryption key verification failed"),
+            "unexpected error: {error}"
+        );
+
+        // Availability only, and only while the file is there: without it the
+        // database opens as it was.
+        for suffix in ["-wal", "-shm"] {
+            let _ = std::fs::remove_file(format!("{}{suffix}", target.as_str()));
+        }
+        let db = open_db(target.as_str()).expect("the database itself is intact");
+        let entries = block_on(db.load_global()).expect("load_global");
+        assert_eq!(entries.len(), 1);
     }
 }
 

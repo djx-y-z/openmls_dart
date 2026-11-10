@@ -47,7 +47,8 @@ prefer concrete names over categories: a model can check "does this change touch
   take and return. Everything below is reachable from Dart through
   `lib/openmls.dart`:
   - **Group lifecycle**: create a group, join from a Welcome, join by external
-    commit, inspect a Welcome, delete a group, close the engine.
+    commit, inspect a Welcome and read its GroupInfo extensions, delete a
+    group, close the engine.
   - **Membership**: add / remove / swap members, leave, leave via self-remove,
     and the member/leaf accessors (`group_members`, `group_member_at`,
     `group_member_leaf_index`, `group_own_index`, `group_own_leaf_node`).

@@ -338,6 +338,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   BigInt dco_decode_usize(dynamic raw);
 
   @protected
+  WelcomeGroupInfoExtensions dco_decode_welcome_group_info_extensions(
+    dynamic raw,
+  );
+
+  @protected
   WelcomeInspectResult dco_decode_welcome_inspect_result(dynamic raw);
 
   @protected
@@ -711,6 +716,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   BigInt sse_decode_usize(SseDeserializer deserializer);
 
   @protected
+  WelcomeGroupInfoExtensions sse_decode_welcome_group_info_extensions(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   WelcomeInspectResult sse_decode_welcome_inspect_result(
     SseDeserializer deserializer,
   );
@@ -850,6 +860,7 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
       cst_encode_bool(raw.createGroupInfo),
       cst_encode_bool(raw.useRatchetTreeExtension),
       cst_encode_bool(raw.keepPending),
+      cst_encode_opt_list_mls_extension(raw.groupInfoExtensions),
     ].jsify()!;
   }
 
@@ -1252,6 +1263,17 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   JSAny cst_encode_usize(BigInt raw) {
     // Codec=Cst (C-struct based), see doc to use other codecs
     return castNativeBigInt(raw);
+  }
+
+  @protected
+  JSAny cst_encode_welcome_group_info_extensions(
+    WelcomeGroupInfoExtensions raw,
+  ) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return [
+      cst_encode_list_mls_extension(raw.extensions),
+      cst_encode_mls_member_info(raw.signer),
+    ].jsify()!;
   }
 
   @protected
@@ -1822,6 +1844,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_usize(BigInt self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_welcome_group_info_extensions(
+    WelcomeGroupInfoExtensions self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_welcome_inspect_result(
@@ -2832,6 +2860,21 @@ class RustLibWire implements BaseWire {
         extensions,
       );
 
+  void wire__crate__api__engine__MlsEngine_welcome_group_info_extensions(
+    NativePortType port_,
+    int that,
+    JSAny config,
+    JSAny welcome_bytes,
+    JSAny? ratchet_tree_bytes,
+  ) => wasmModule
+      .wire__crate__api__engine__MlsEngine_welcome_group_info_extensions(
+        port_,
+        that,
+        config,
+        welcome_bytes,
+        ratchet_tree_bytes,
+      );
+
   JSAny? /* flutter_rust_bridge::for_generated::WireSyncRust2DartDco */
   wire__crate__api__keys__MlsSignatureKeyPair_deserialize_public(JSAny bytes) =>
       wasmModule.wire__crate__api__keys__MlsSignatureKeyPair_deserialize_public(
@@ -3573,6 +3616,15 @@ extension type RustLibWasmModule._(JSObject _) implements JSObject {
     JSAny group_id_bytes,
     JSAny signer_bytes,
     JSAny extensions,
+  );
+
+  external void
+  wire__crate__api__engine__MlsEngine_welcome_group_info_extensions(
+    NativePortType port_,
+    int that,
+    JSAny config,
+    JSAny welcome_bytes,
+    JSAny? ratchet_tree_bytes,
   );
 
   external JSAny? /* flutter_rust_bridge::for_generated::WireSyncRust2DartDco */

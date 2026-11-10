@@ -336,6 +336,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   BigInt dco_decode_usize(dynamic raw);
 
   @protected
+  WelcomeGroupInfoExtensions dco_decode_welcome_group_info_extensions(
+    dynamic raw,
+  );
+
+  @protected
   WelcomeInspectResult dco_decode_welcome_inspect_result(dynamic raw);
 
   @protected
@@ -707,6 +712,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   BigInt sse_decode_usize(SseDeserializer deserializer);
+
+  @protected
+  WelcomeGroupInfoExtensions sse_decode_welcome_group_info_extensions(
+    SseDeserializer deserializer,
+  );
 
   @protected
   WelcomeInspectResult sse_decode_welcome_inspect_result(
@@ -1207,6 +1217,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
       apiObj.useRatchetTreeExtension,
     );
     wireObj.keep_pending = cst_encode_bool(apiObj.keepPending);
+    wireObj.group_info_extensions = cst_encode_opt_list_mls_extension(
+      apiObj.groupInfoExtensions,
+    );
   }
 
   @protected
@@ -1521,6 +1534,15 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
       apiObj.affectedMember,
     );
     wireObj.extensions = cst_encode_list_mls_extension(apiObj.extensions);
+  }
+
+  @protected
+  void cst_api_fill_to_wire_welcome_group_info_extensions(
+    WelcomeGroupInfoExtensions apiObj,
+    wire_cst_welcome_group_info_extensions wireObj,
+  ) {
+    wireObj.extensions = cst_encode_list_mls_extension(apiObj.extensions);
+    cst_api_fill_to_wire_mls_member_info(apiObj.signer, wireObj.signer);
   }
 
   @protected
@@ -2091,6 +2113,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_usize(BigInt self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_welcome_group_info_extensions(
+    WelcomeGroupInfoExtensions self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_welcome_inspect_result(
@@ -4975,6 +5003,48 @@ class RustLibWire implements BaseWire {
             )
           >();
 
+  void wire__crate__api__engine__MlsEngine_welcome_group_info_extensions(
+    int port_,
+    int that,
+    ffi.Pointer<wire_cst_mls_group_config> config,
+    ffi.Pointer<wire_cst_list_prim_u_8_loose> welcome_bytes,
+    ffi.Pointer<wire_cst_list_prim_u_8_strict> ratchet_tree_bytes,
+  ) {
+    return _wire__crate__api__engine__MlsEngine_welcome_group_info_extensions(
+      port_,
+      that,
+      config,
+      welcome_bytes,
+      ratchet_tree_bytes,
+    );
+  }
+
+  late final _wire__crate__api__engine__MlsEngine_welcome_group_info_extensionsPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Int64,
+            ffi.UintPtr,
+            ffi.Pointer<wire_cst_mls_group_config>,
+            ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+            ffi.Pointer<wire_cst_list_prim_u_8_strict>,
+          )
+        >
+      >(
+        'frbgen_openmls_wire__crate__api__engine__MlsEngine_welcome_group_info_extensions',
+      );
+  late final _wire__crate__api__engine__MlsEngine_welcome_group_info_extensions =
+      _wire__crate__api__engine__MlsEngine_welcome_group_info_extensionsPtr
+          .asFunction<
+            void Function(
+              int,
+              int,
+              ffi.Pointer<wire_cst_mls_group_config>,
+              ffi.Pointer<wire_cst_list_prim_u_8_loose>,
+              ffi.Pointer<wire_cst_list_prim_u_8_strict>,
+            )
+          >();
+
   WireSyncRust2DartDco
   wire__crate__api__keys__MlsSignatureKeyPair_deserialize_public(
     ffi.Pointer<wire_cst_list_prim_u_8_loose> bytes,
@@ -5923,6 +5993,8 @@ final class wire_cst_flexible_commit_options extends ffi.Struct {
 
   @ffi.Bool()
   external bool keep_pending;
+
+  external ffi.Pointer<wire_cst_list_mls_extension> group_info_extensions;
 }
 
 final class wire_cst_list_prim_u_32_loose extends ffi.Struct {
@@ -6193,6 +6265,12 @@ final class wire_cst_processed_message_result extends ffi.Struct {
 
 final class wire_cst_proposal_result extends ffi.Struct {
   external ffi.Pointer<wire_cst_list_prim_u_8_strict> proposal_message;
+}
+
+final class wire_cst_welcome_group_info_extensions extends ffi.Struct {
+  external ffi.Pointer<wire_cst_list_mls_extension> extensions;
+
+  external wire_cst_mls_member_info signer;
 }
 
 final class wire_cst_welcome_inspect_result extends ffi.Struct {

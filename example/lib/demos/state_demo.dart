@@ -178,6 +178,7 @@ class _StateDemoTabState extends State<StateDemoTab> {
   Widget build(BuildContext context) {
     return SingleChildScrollView(
       child: DemoCard(
+        id: 'state',
         title: 'Group State Queries',
         description:
             'Members, epoch, leaf node, group context, exports, '

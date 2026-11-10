@@ -42,6 +42,8 @@ make build ARGS="--target <target>"     # Build for specific Rust target
 make build-android                      # Build for Android (all ABIs)
 make build-android ARGS="--target arm64-v8a"  # Build for specific Android ABI
 make verify-android-alignment           # Check the built .so files are 16 KB-aligned
+make build-ios                          # Build for iOS (device + both simulators)
+make build-ios ARGS="--target aarch64-apple-ios-sim"  # Build for one iOS target
 make build-web                          # Build WASM for web (stamps .crate-version)
 ```
 
@@ -56,10 +58,11 @@ with r26 and r28 measure `p_align=0x4000` alike. Google Play has required it of
 an app's bundled native libraries, for apps targeting Android 15 or later, since
 1 November 2025 — so a cargo-ndk that stopped passing the flag would not break
 anything here, it would make **consumers'** apps unpublishable. The version is
-therefore pinned by hand in both Android jobs (`build-openmls.yml`
-and `test-reusable.yml`, together — a gate on a different tool than the release
-is not a gate), and `make verify-android-alignment` measures the result rather
-than trusting the pin. Both jobs run it.
+therefore pinned by hand in every job that runs it (`build-openmls.yml`,
+`test-reusable.yml` and `integration-reusable.yml`, together — a gate on a
+different tool than the release is not a gate, and a test of a library built
+differently is a test of that one), and `make verify-android-alignment` measures
+the result rather than trusting the pin. The first two run it.
 
 ⚠ **The Apple libraries are linked with `-headerpad_max_install_names`, by
 `rust/build.rs`.** `dart run`, `dart test` and `flutter test` copy the dylib into
@@ -91,16 +94,26 @@ the first web build after adopting this looks like: run `make build-web`, or
 delete the directory to use the released module instead.
 
 ⚠ **`make build` stamps the host library the same way, in
-`rust/target/release/.crate-version`, and the hook refuses a local host
-library whose stamp is missing or disagrees** — the same `HookException`, for
-the same reason: a library left over from an earlier crate loads silently, and
-once the way values cross the bridge has moved, its calls fail in ways nothing
-names. Only `rust/target/release/` is read; a `--target` build lands in
-`rust/target/<triple>/`, is never read and gets no stamp. A library built
-before the stamp existed, or by a bare `cargo build`, is refused: run
-`make build`, or delete `rust/target/release/` to use the released library.
+`rust/target/release/.crate-version`, and the hook refuses a local library
+whose stamp is missing or disagrees** — the same `HookException`, for the same
+reason: a library left over from an earlier crate loads silently, and once the
+way values cross the bridge has moved, its calls fail in ways nothing names. A
+library built before the stamp existed, or by a bare `cargo build`, is refused:
+run `make build`, or delete `rust/target/release/` to use the released library.
 So after `make release-frb` bumps the crate, `make test` needs a `make build`
 first.
+
+⚠ **A cross build is read too, under the same rules:** a target other than the
+host reads `rust/target/<triple>/release/`, and `make build-android`,
+`make build-ios` and `make build ARGS="--target <triple>"` stamp that directory.
+It is what lets a pull request run its own Rust on an emulator or a simulator:
+without it those targets could only load the last release, so a test there would
+pass over code the pull request had replaced. The flip side is the same refusal:
+a cross build from a `cargo` line, or one left over from before the stamp, stops
+the app's build until you rebuild it or delete it. The host's own triple is the
+exception: the host reads `rust/target/release/` alone, so a `--target` build for
+it is stamped and never read — build the host with a plain `make build`. A consumer
+never reaches any of this, `rust/target/` not being in the published package.
 
 ⚠ **Each stamp comes with `.cargo-lock`, a copy of the `rust/Cargo.lock` the
 build was made from, and the hook refuses a local build whose copy differs from
@@ -112,7 +125,10 @@ copy existed is refused the same way. `make build` also drops the hook's cached
 result for this package, `.dart_tool/hooks_runner/openmls/`: when the
 hook last ran without a host build here, it downloaded the released library and
 declared only `rust/Cargo.toml`, so `dart test` kept loading that download after
-the build.
+the build. It drops the example's too, and Flutter's stamps above it — the hook's
+target, `dart_build` to Flutter 3.44 and `build_hooks` with `link_hooks` from
+3.47, and `install_code_assets`, which on 3.38 can put the last device build's
+library into a simulator app.
 
 ### Web
 
@@ -177,6 +193,146 @@ nothing it declares is read. This is Flutter 3.38 to 3.41 only: from 3.44
 `flutter run` runs build hooks per target platform, outside that stamp.
 Consumers of the published package on those versions hit the same thing; the
 README's *Known Limitations* names the escapes.
+
+### The example app (the package in a real Flutter app)
+
+```bash
+make test-example ARGS="-d macos"            # Integration tests on a device
+make test-example-web                        # ...in a real browser (debug, DDC)
+make test-example-web ARGS="--release"       # ...what a consumer ships (dart2js)
+make drive-example ARGS="--profile -d macos" # ...in AOT, under flutter drive
+make test-example-ci ARGS="--attempts 3 -- -d <device>"  # As CI runs them: see below
+make coverage-example ARGS="-d macos"        # ...then fail on a bridged function none calls
+make verify-example-coverage                 # That check alone, over the last run
+make verify-example-library ARGS="--built"   # Check the run loaded the library it meant to
+make create-consumer VERSION=9.0.0           # A new app that uses the package from pub.dev
+make test-example EXAMPLE_DIR=build/consumer ARGS="-d macos"  # ...and any target on it
+make package-example-android                 # Release APK: all ABIs bundled, ELF 16 KB aligned
+make package-example-ios                     # iPhone and simulators: each library in its app
+make package-example-macos                   # Universal app: both architectures in it
+```
+
+`make test` runs the library on the Dart VM. This runs it inside an app, so it goes
+through what a consumer's build goes through: the build hook, the platform's way of
+bundling a native library, the loader, the wasm module with the Dart half compiled
+for the web, and the library actually executing on that platform's architecture.
+The tests are `example/integration_test/`, one entry point (each test file is its
+own build, install and launch on a device) with the families under `capabilities/`.
+
+**The tests are this project's; the harness is the template's.** The entry point
+`example/integration_test/openmls_test.dart`, `capabilities/` and the
+coverage policy `scripts/src/example_coverage_policy.dart` were written once, as a
+start, and no template update touches them again. `support/harness.dart` and
+`test_driver/integration_test.dart` stay under the template's management: they
+are the app's half of what `make test-example-ci` judges a run by, and change with
+the host's half.
+
+**Which library it loads is the hook's choice, so build first:** `make build` for
+the host, `make build-android` / `make build-ios` for a device, `make build-web` for
+the browser. With none of those it downloads the release of the crate version in
+`rust/Cargo.toml`, which is how CI tests a release.
+
+⚠ **A new bridged function needs a test here, or `make coverage-example` fails.**
+That is what keeps "every capability of the library" true as the library grows: it
+is measured, from the coverage of the running app, over every `crateApi*` function
+in `lib/src/rust/frb_generated.dart`. The ones not called on purpose are listed
+with a reason in `scripts/src/example_coverage_policy.dart`, which also holds the
+hand-written lines to a floor, because a new class over already-covered bridged
+functions moves nothing else it can see.
+
+⚠ **Declare a test with `capability(...)`, not `test(...)`, and do not initialize in
+`setUpAll`.** Under `flutter drive`, the only way to run this on the web, the host
+reads `testWidgets` outcomes only: a plain `test` can fail with the run green, and a
+`setUpAll` that throws leaves no tests and no failure, which reads as success.
+`capability` runs the package's initialization first, inside its own limit: the
+entry point hands it over through `declareCapabilities`, which also declares the
+watchdog's self-test first and, last, the test that hands the count of what ran
+to `test_driver/integration_test.dart`, whose absence fails the run.
+
+⚠ **`pump` and `pumpAndSettle` can hang the app test forever.** A live test draws
+only when pumped, `pump` waits for a frame, and an app told it is hidden draws none:
+a desktop window covered by another one is enough. Wait with `scheduleForcedFrame`
+in a loop with a deadline instead, under
+`LiveTestWidgetsFlutterBindingFramePolicy.fullyLive`.
+
+⚠ **Opaque arguments can be taken by value.** A bridged function that takes an
+opaque type by value, not by reference, disposes the Dart object it is given, and
+the next use throws `DroppableDisposedException`. Pass a clone or use it last.
+
+**CI:** `integration.yml` runs `integration-reusable.yml` on every pull request and
+push to main (from the tree), after the native build of a release tag (on the
+released binaries), and weekly (from pub.dev, on the newest Flutter, with the
+tests of that version's tag when it has them). `make release` will not tag before
+the run on the released binaries has passed, and `publish.yml` runs it as a gate
+before its upload and twice more after it. What no hosted runner can execute —
+Android on ARM, an iOS device, x86_64 on anything Apple — is only checked to
+bundle. None of these are required checks: add them once they have proved stable
+(`.github/rulesets/README.md`).
+
+⚠ **The emulator and simulator steps are the flaky part, never the package, so CI
+judges each run on what the app reported** (`make test-example-ci`, in
+`scripts/src/example_run.dart`). Measured on the branch that added them, in a
+project generated from this template: an iOS simulator's first boot can leave the
+app unconnected (4 runs in 18), and the API 36 image with 16 KB pages failed 4 runs
+in 14, four different ways. A test that failed
+fails the job at once and is never run again, and so does an app that crashed, read
+from Android's crash log or from the report macOS writes for a simulator's app: a
+test that fails now and then turns the run red instead of passing on a retry.
+macOS can write that report after its run was judged, so the reports are read once
+more after the last run, back to the first one's start; one written after the step
+has ended is still missed. Only
+a run that never got that far runs again — the app never connected or never
+started the tests, the device or the connection went away — three times in all,
+the third on a rebooted simulator, or each on a new emulator; each leaves a
+warning on the run. `flutter test --file-reporter json:` is what tells them apart:
+a test that failed in the app has an error event of its own, one the app never
+finished has none. The script reads that file while the run goes and writes the
+failure down at once, because CI stops a try at its time limit without asking it:
+read only at the end, a try stopped after a test had failed would count as one
+that never finished, and run again. Under `flutter drive` the driver prints a line
+when the app answers, so keep `writeResponseOnFailure` in
+`test_driver/integration_test.dart`. The 3-minute limit inside each capability is
+a test's failure too: a slow emulator can turn one red, and that is the side to
+err on.
+
+⚠ **A hang in the app fails the run after 8 minutes, and the watchdog behind it is
+the host's, not the app's.** Both of a test's own limits, the 3 minutes and the
+6-minute backstop, are timers of the app's isolate, and a call that blocks the
+isolate keeps either from firing; so does the driver's 20 minutes under `flutter
+drive`, which the app enforces too (the host only prints a warning). So `make
+test-example-ci` reads the run as it goes — the JSON under `flutter test`, the
+line the app prints as each test starts under `flutter drive` — and a run that has
+not moved for `stallLimit`, 8 minutes, once its tests have started, has stopped.
+It asks the device: the app still running on a device that answers is `failed`,
+written down before anything else and never run again; with the app or the
+device gone, the run did not finish. Then the app's threads go to the log —
+`sample` for a simulator, `debuggerd -b` through `su` on an emulator, since
+neither image CI uses gives `debuggerd` to the shell — and it ends the app, and
+flutter with it. Without this, an Android hang was retried as an emulator's
+fault, and one that came now and then ended green. A connection to the app that
+died without a word, the device and the app still up, would read as a hang too:
+none was seen in 226 tries, and the threads in the log tell the two apart (a
+heartbeat from the app is the next step if one ever is). ⚠ Once the app is
+stopped, `flutter test`'s own reporter ticks ✅ every test left, the ones that
+never ran included, then says "No tests were found" (exit 79): read the
+annotation, which is the verdict. To see it work, `gh workflow run
+integration.yml --ref <branch> -f hang=true` adds a test that blocks the app: the
+Android and iOS jobs are to fail on it, saying the app sent nothing for 8 minutes
+(API 24 under `flutter drive`, the others under `flutter test`). The run is titled
+`Watchdog self-test: …`, which `make release` never counts. Run it again after a
+Flutter update.
+
+⚠ **For Android, check the runner image before anything else.** GitHub has served
+two ubuntu-26.04 images at once, measured in a project generated from this
+template: `20261025.179` (145 GB disk, `/tmp` on it) and `20261018.50` (72 GB,
+`/tmp` in a 7.7 GB tmpfs). Both Android jobs that landed on the older one failed.
+API 36 failed with "No space left on device" while unpacking its system image,
+which went through that `/tmp`. API 24 failed with an install that hung in both
+tries. That job had 14 GB free on the disk and an empty `/tmp`, so it was not
+short of space, and no cause was found. On the newer images, one Android job in 32
+failed: API 36, with the emulator gone offline. The job prints its image first,
+and temporary files go to the disk. A cause bound to the runner fails every try on
+it, so re-run the job instead.
 
 
 ### Rust Quality
@@ -348,6 +504,15 @@ make build ARGS="--target aarch64-apple-darwin"
 make test
 ```
 
+### 5. Check it in a real app
+
+```bash
+make test-example ARGS="-d macos"   # needs `make build` first
+```
+
+A new function in `rust/src/api/` also needs a test in
+`example/integration_test/capabilities/`; `make coverage-example` fails without it.
+
 ## Release Flow (two stages)
 
 Releasing is **two independent stages**, each with its own command and tag. The
@@ -386,13 +551,43 @@ make release ARGS="--version X.Y.Z"   # verify frb binary + bump + finalize
                                       # CHANGELOG + dry-run + signed commit/tag/push
 ```
 
-Verifies the stage-1 `openmls_frb-<crate>` release exists, runs
+Verifies the stage-1 `openmls_frb-<crate>` release exists and that the
+integration tests passed on it (below), runs
 `make publish-dry-run` (on the clean, pre-bump tree), bumps `pubspec.yaml`,
 finalizes the CHANGELOG (`[Unreleased]` → `[X.Y.Z]` + compare links; no empty
 `[Unreleased]` is left behind), measures the result against pub.dev's upload
 limits (`make verify-pub-limits` — the dry-run does not check them, and pub.dev
 refuses the upload only after the tag), then signs a commit + tag `vX.Y.Z` and
 pushes — `publish.yml` publishes to pub.dev.
+
+`make release` refuses until the integration tests have passed on the stage-1
+binary. It accepts two kinds of run:
+
+- **The run `integration.yml` starts after the native build.** It is found by its
+  title, `Released binaries of openmls_frb-<crate>`, because GitHub records
+  `main`'s head as the commit of a `workflow_run`, not the tag's. Its `resolve`
+  job tests only when a tag of that name is at the commit the build ran on. The
+  build runs by hand on any ref and checks the crate version only for a tag, so a
+  branch named like one gets the title and no test job, which counts as no run.
+- **A run started by hand on the released binaries at `HEAD`**
+  (`gh workflow run integration.yml -f library=release`). This is the way through
+  for a crate built before the workflow existed.
+
+A newer run decides over an older one, and a run still going makes it wait. A run
+that tested nothing does not count. `--skip-integration-check` skips this check
+(`scripts/src/release_integration.dart`).
+
+**Between the stages, `Integration Tests` runs on the released binary, and
+`make release` waits for it.** `integration.yml` starts by itself when the native
+build of a `openmls_frb-*` tag succeeds. It runs the package in a real app on
+every platform, through the hook's download path, checksums included.
+`publish.yml` runs the same tests again before it uploads, but only after the tag,
+and a failure there leaves a tag pushed with no version on pub.dev. The two can
+still disagree, because commits after stage 1 can change the Dart side and the
+tests, and only `publish.yml` runs those against the binary. After the upload it
+makes a new app that depends on what went up, on the pinned Flutter and on the
+newest, so a problem a consumer would hit shows up as that run going red. That
+last part cannot stop the release; retracting is a decision.
 
 Repository rulesets restrict who can create the `openmls_frb-*` / `v*` release
 tags, and a required-reviewer `native-build` environment gates the native publish.

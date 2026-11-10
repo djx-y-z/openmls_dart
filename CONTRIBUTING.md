@@ -229,6 +229,33 @@ void main() {
 make coverage
 ```
 
+### Testing in a real app
+
+`make test` runs the library on the Dart VM. The integration tests under
+`example/integration_test/` run it inside a Flutter app, on each platform the
+package claims, so they also go through the build hook, the platform's way of
+bundling a native library, and the loader. Build the library for what you are
+running on first, or the hook downloads the last release:
+
+```bash
+make build && make test-example ARGS="-d macos"
+
+make build-ios ARGS="--target aarch64-apple-ios-sim"
+make test-example ARGS="-d <simulator id>"
+
+make build-android ARGS="--target arm64-v8a"    # needs ANDROID_HOME and an NDK
+make test-example ARGS="-d <emulator id>"
+
+make build-web && make test-example-web CHROMEDRIVER=/path/to/chromedriver
+```
+
+**A new function in `rust/src/api/` needs a test there too.** Add it under
+`capabilities/`, with `capability(...)` rather than `test(...)`.
+`make coverage-example ARGS="-d <device>"` measures every bridged function from the
+running app and fails on one nothing called, and CI runs it on every pull request.
+A function the tests are not meant to call goes in
+`scripts/src/example_coverage_policy.dart`, with the reason.
+
 ## Submitting Changes
 
 ### Commit Messages
@@ -296,6 +323,8 @@ Before submitting:
 - [ ] A touched `wasm32` branch was linted and run in a browser
       (`make rust-clippy-web`, `make test-web`)
 - [ ] Generated bindings are regenerated and committed, not hand-edited
+- [ ] A new function in `rust/src/api/` has a test in
+      `example/integration_test/capabilities/` (`make coverage-example`)
 - [ ] Documentation is updated if needed
 - [ ] CHANGELOG.md is updated for user-facing changes
 - [ ] New constraints, pins and caps carry a comment saying why
@@ -373,6 +402,12 @@ All development tasks should be done via Makefile:
 | `make run-example-web` | Build the WASM and run `example/` in Chrome |
 | `make test` | Run all tests |
 | `make test-web` | Run the crate's browser tests (headless Chrome; needs a chromedriver) |
+| `make test-example` | Run the integration tests in the example app, on a device — see [Testing in a real app](#testing-in-a-real-app) |
+| `make test-example-web` | The same in a real browser (headless Chrome) |
+| `make drive-example` | The same under `flutter drive`, for profile mode (AOT) |
+| `make coverage-example` | Run them, then fail on a bridged function none of them calls |
+| `make create-consumer` | Make a new app that depends on a published version |
+| `make package-example-android` / `-ios` / `-macos` | Build the release app for what CI cannot run, and check the library is in it |
 | `make coverage` | Run tests with coverage report |
 | `make analyze` | Run static analysis |
 | `make doc` | Dartdoc GATE — an unresolved doc reference is an error |

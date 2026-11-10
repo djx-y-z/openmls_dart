@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 class DemoCard extends StatelessWidget {
   const DemoCard({
     super.key,
+    required this.id,
     required this.title,
     required this.description,
     required this.onRun,
@@ -12,6 +13,9 @@ class DemoCard extends StatelessWidget {
     this.result,
   });
 
+  /// Names the card's button `run-<id>` and its result `result-<id>`, for the
+  /// integration tests to find them by.
+  final String id;
   final String title;
   final String description;
   final VoidCallback onRun;
@@ -37,6 +41,7 @@ class DemoCard extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             ElevatedButton.icon(
+              key: ValueKey('run-$id'),
               onPressed: isLoading ? null : onRun,
               icon: isLoading
                   ? const SizedBox(
@@ -84,6 +89,7 @@ class DemoCard extends StatelessWidget {
                 ),
                 child: SelectableText(
                   result!,
+                  key: ValueKey('result-$id'),
                   style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
                 ),
               ),

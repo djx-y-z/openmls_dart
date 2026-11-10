@@ -78,6 +78,17 @@ ignore = [
     # needs the openmls release that moves p256/p384 to 0.14 — delete with it.
     "RUSTSEC-2026-0387",
 
+    # --- SQLite in the bundled SQLCipher (see .cargo/audit.toml) ---
+    # libsqlite3-sys 0.35.0: SQLCipher 4.6.1 on SQLite 3.46.1, whose short WAL
+    # frames leave a page buffer partly uninitialized. Not exploitable here,
+    # measured: SQLCipher's per-page HMAC lies in that part, so the page fails
+    # authentication (`a_planted_wal_with_smaller_pages_fails_authentication`).
+    # openmls 0.9.2 holds rusqlite at 0.37, and the "patched" 0.39 still builds
+    # SQLCipher on SQLite 3.53.4. ⚠ This entry stops matching on 0.39 with the
+    # bug still there: delete it with a libsqlite3-sys on SQLCipher 4.20.0
+    # (SQLite 3.54.1) or later, not on `advisory-not-detected` alone.
+    "RUSTSEC-2026-0459",
+
     # --- Unmaintained transitive build dependencies (informational) ---
     # cargo-deny flags unmaintained advisories that `cargo audit` does not fail
     # on. This crate is pulled transitively by upstream, is not in the shipped

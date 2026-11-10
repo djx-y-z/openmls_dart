@@ -5,8 +5,9 @@
 # with an upstream OpenMLS release that raises them. Three are libcrux
 # advisories that reach this crate only through the X-Wing provider
 # (openmls_libcrux_crypto); one is crypto-bigint, under the RustCrypto P-256
-# and P-384 code. Each carries its reachability argument inline; add an entry
-# only the same way.
+# and P-384 code; one is SQLite, inside the SQLCipher that rusqlite bundles,
+# which that release alone does not fix. Each carries its reachability
+# argument inline; add an entry only the same way.
 #
 # The list was empty from the openmls-v0.9.0 bump until the 2026-10 batch
 # below. Every entry it held before was a libcrux advisory that openmls-v0.8.1
@@ -146,4 +147,42 @@ ignore = [
     # protect no one while blocking the GHSA fixes. Delete this entry with the
     # openmls release that moves p256/p384 to 0.14.
     "RUSTSEC-2026-0387",
+
+    # --- 2026-11-10: SQLite, inside the SQLCipher that rusqlite bundles ---
+    #
+    # libsqlite3-sys 0.35.0 builds `bundled-sqlcipher-vendored-openssl` from
+    # SQLCipher 4.6.1, which is SQLite 3.46.1 (`CIPHER_VERSION_NUMBER` and
+    # `SQLITE_VERSION` in its `sqlcipher/sqlite3.c`; the built library carries
+    # the 3.46.1 source id). Before 3.54.0, SQLite read a WAL frame smaller
+    # than the database's page into the page buffer and left the rest of the
+    # buffer uninitialized (CVE-2026-119375; SQLite's fix, e5bf119, zeroes it).
+    # CVSS:4.0/AV:L/AC:L/AT:N/PR:N/UI:P/VC:H/VI:N/VA:N.
+    # Nothing here can move it, and the release the advisory calls patched
+    # would not fix this build:
+    #   - libsqlite3-sys is `links = "sqlite3"`, so the graph holds one, and
+    #     openmls_sqlite_storage 0.3.0, which openmls 0.9.2 brings into the
+    #     lockfile with its feature off, requires rusqlite "0.37", whose
+    #     libsqlite3-sys is 0.35.
+    #   - The "patched" 0.39.0 and 0.39.1 build `bundled-sqlcipher` from
+    #     sqlcipher-src =419.0.6: SQLCipher 4.19.0 on SQLite 3.53.4, affected
+    #     too, as the advisory itself says. sqlcipher-src 420.0.0 (SQLCipher
+    #     4.20.0, SQLite 3.54.1) has no libsqlite3-sys release yet.
+    # NOT EXPLOITABLE through this crate, MEASURED. The web build has no
+    # SQLite. Natively, a `-wal` file next to the database is read whatever
+    # journal mode the file is in, from the first read on: the key check in
+    # `open`, before `apply_pragmas` leaves WAL mode. But SQLCipher keeps each
+    # page's IV and HMAC at the page's end, in the part a short frame leaves
+    # stale, so the page fails authentication before any of it reaches a
+    # query, and `open` fails with "file is not a database".
+    # `a_planted_wal_with_smaller_pages_fails_authentication`
+    # (`rust/src/encrypted_db.rs`) pins that, with a control: a log with the
+    # database's own key, salt and page size is read and applied. SQLCipher's
+    # own log names the cause: "hmac check failed for pgno=1". What is left is
+    # availability, for someone who can already write next to the database:
+    # the planted file keeps it from opening until it is removed.
+    # This entry can stop matching before the bug is gone: on 0.39.0 and
+    # 0.39.1 it would. So check the SQLite inside the SQLCipher the lockfile
+    # builds before deleting it, and delete it with a libsqlite3-sys on
+    # SQLCipher 4.20.0 (SQLite 3.54.1) or later.
+    "RUSTSEC-2026-0459",
 ]

@@ -192,6 +192,7 @@ class _PostQuantumDemoTabState extends State<PostQuantumDemoTab> {
   Widget build(BuildContext context) {
     return SingleChildScrollView(
       child: DemoCard(
+        id: 'post-quantum',
         title: 'Post-Quantum',
         description:
             'Full group lifecycle on three experimental post-quantum '

@@ -69,7 +69,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.13.0';
 
   @override
-  int get rustContentHash => 945868030;
+  int get rustContentHash => -541303569;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -583,6 +583,14 @@ abstract class RustLibApi extends BaseApi {
     required List<int> groupIdBytes,
     required List<int> signerBytes,
     required List<MlsExtension> extensions,
+  });
+
+  Future<WelcomeGroupInfoExtensions>
+  crateApiEngineMlsEngineWelcomeGroupInfoExtensions({
+    required MlsEngine that,
+    required MlsGroupConfig config,
+    required List<int> welcomeBytes,
+    Uint8List? ratchetTreeBytes,
   });
 
   MlsSignatureKeyPair crateApiKeysMlsSignatureKeyPairDeserializePublic({
@@ -4115,6 +4123,51 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
+  Future<WelcomeGroupInfoExtensions>
+  crateApiEngineMlsEngineWelcomeGroupInfoExtensions({
+    required MlsEngine that,
+    required MlsGroupConfig config,
+    required List<int> welcomeBytes,
+    Uint8List? ratchetTreeBytes,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 =
+              cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsEngine(
+                that,
+              );
+          var arg1 = cst_encode_box_autoadd_mls_group_config(config);
+          var arg2 = cst_encode_list_prim_u_8_loose(welcomeBytes);
+          var arg3 = cst_encode_opt_list_prim_u_8_strict(ratchetTreeBytes);
+          return wire
+              .wire__crate__api__engine__MlsEngine_welcome_group_info_extensions(
+                port_,
+                arg0,
+                arg1,
+                arg2,
+                arg3,
+              );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_welcome_group_info_extensions,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiEngineMlsEngineWelcomeGroupInfoExtensionsConstMeta,
+        argValues: [that, config, welcomeBytes, ratchetTreeBytes],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta
+  get kCrateApiEngineMlsEngineWelcomeGroupInfoExtensionsConstMeta =>
+      const TaskConstMeta(
+        debugName: "MlsEngine_welcome_group_info_extensions",
+        argNames: ["that", "config", "welcomeBytes", "ratchetTreeBytes"],
+      );
+
+  @override
   MlsSignatureKeyPair crateApiKeysMlsSignatureKeyPairDeserializePublic({
     required List<int> bytes,
   }) {
@@ -4895,8 +4948,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   FlexibleCommitOptions dco_decode_flexible_commit_options(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 9)
-      throw Exception('unexpected arr length: expect 9 but see ${arr.length}');
+    if (arr.length != 10)
+      throw Exception('unexpected arr length: expect 10 but see ${arr.length}');
     return FlexibleCommitOptions(
       addKeyPackages: dco_decode_list_list_prim_u_8_strict(arr[0]),
       removeIndices: dco_decode_list_prim_u_32_strict(arr[1]),
@@ -4907,6 +4960,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       createGroupInfo: dco_decode_bool(arr[6]),
       useRatchetTreeExtension: dco_decode_bool(arr[7]),
       keepPending: dco_decode_bool(arr[8]),
+      groupInfoExtensions: dco_decode_opt_list_mls_extension(arr[9]),
     );
   }
 
@@ -5446,6 +5500,20 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  WelcomeGroupInfoExtensions dco_decode_welcome_group_info_extensions(
+    dynamic raw,
+  ) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 2)
+      throw Exception('unexpected arr length: expect 2 but see ${arr.length}');
+    return WelcomeGroupInfoExtensions(
+      extensions: dco_decode_list_mls_extension(arr[0]),
+      signer: dco_decode_mls_member_info(arr[1]),
+    );
+  }
+
+  @protected
   WelcomeInspectResult dco_decode_welcome_inspect_result(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
@@ -5747,6 +5815,9 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_createGroupInfo = sse_decode_bool(deserializer);
     var var_useRatchetTreeExtension = sse_decode_bool(deserializer);
     var var_keepPending = sse_decode_bool(deserializer);
+    var var_groupInfoExtensions = sse_decode_opt_list_mls_extension(
+      deserializer,
+    );
     return FlexibleCommitOptions(
       addKeyPackages: var_addKeyPackages,
       removeIndices: var_removeIndices,
@@ -5757,6 +5828,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       createGroupInfo: var_createGroupInfo,
       useRatchetTreeExtension: var_useRatchetTreeExtension,
       keepPending: var_keepPending,
+      groupInfoExtensions: var_groupInfoExtensions,
     );
   }
 
@@ -6480,6 +6552,19 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  WelcomeGroupInfoExtensions sse_decode_welcome_group_info_extensions(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_extensions = sse_decode_list_mls_extension(deserializer);
+    var var_signer = sse_decode_mls_member_info(deserializer);
+    return WelcomeGroupInfoExtensions(
+      extensions: var_extensions,
+      signer: var_signer,
+    );
+  }
+
+  @protected
   WelcomeInspectResult sse_decode_welcome_inspect_result(
     SseDeserializer deserializer,
   ) {
@@ -6946,6 +7031,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_bool(self.createGroupInfo, serializer);
     sse_encode_bool(self.useRatchetTreeExtension, serializer);
     sse_encode_bool(self.keepPending, serializer);
+    sse_encode_opt_list_mls_extension(self.groupInfoExtensions, serializer);
   }
 
   @protected
@@ -7583,6 +7669,16 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   void sse_encode_usize(BigInt self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     serializer.buffer.putBigUint64(self);
+  }
+
+  @protected
+  void sse_encode_welcome_group_info_extensions(
+    WelcomeGroupInfoExtensions self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_list_mls_extension(self.extensions, serializer);
+    sse_encode_mls_member_info(self.signer, serializer);
   }
 
   @protected
@@ -8604,6 +8700,54 @@ class MlsEngineImpl extends RustOpaque implements MlsEngine {
         signerBytes: signerBytes,
         extensions: extensions,
       );
+
+  /// The extensions in the GroupInfo of a Welcome
+  /// (`FlexibleCommitOptions.groupInfoExtensions`), and the member that
+  /// signed that GroupInfo, read **without joining the group**.
+  ///
+  /// They are returned only once the Welcome has been staged as
+  /// `joinGroupFromWelcome` stages it. Staging checks:
+  /// - the GroupInfo's signature, against the leaf the GroupInfo names as
+  ///   its signer, in the ratchet tree that came with the Welcome;
+  /// - that tree, against the GroupInfo;
+  /// - the confirmation tag, against the epoch's secrets.
+  ///
+  /// A Welcome that fails a check fails here.
+  ///
+  /// That proves the extensions are what `signer` wrote. It proves nothing
+  /// about who `signer` is. Usually it is the committer, but two other
+  /// parties can produce a Welcome that passes the same checks:
+  /// - any member of the new epoch, under its own signature;
+  /// - anyone who holds one of this client's key packages, from a group of
+  ///   their own.
+  ///
+  /// Before acting on the extensions, authenticate `signer` as before any
+  /// join: by its signature key, which is what the signature binds. A basic
+  /// credential's identity is whatever its owner claims.
+  ///
+  /// Nor are they a secret the newcomer alone holds: the welcome secret
+  /// that encrypts them is derived by every member that processes the
+  /// commit (RFC 9420 §12.4.2).
+  ///
+  /// Writes nothing, like `inspectWelcome` and `exportWelcomeSecret`: the
+  /// key package the Welcome is addressed to is still there for the join.
+  /// Unlike `joinGroupFromWelcomeWithOptions`, leaf lifetimes are always
+  /// checked. A Welcome without a ratchet tree extension needs
+  /// `ratchetTreeBytes`: the tree of the epoch the Welcome is for.
+  ///
+  /// The ratchet tree extension is left out, since it is the group's tree
+  /// rather than something a committer adds. So is the external public key,
+  /// which a Welcome's GroupInfo does not carry.
+  Future<WelcomeGroupInfoExtensions> welcomeGroupInfoExtensions({
+    required MlsGroupConfig config,
+    required List<int> welcomeBytes,
+    Uint8List? ratchetTreeBytes,
+  }) => RustLib.instance.api.crateApiEngineMlsEngineWelcomeGroupInfoExtensions(
+    that: this,
+    config: config,
+    welcomeBytes: welcomeBytes,
+    ratchetTreeBytes: ratchetTreeBytes,
+  );
 }
 
 @sealed

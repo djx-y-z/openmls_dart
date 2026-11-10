@@ -15,7 +15,8 @@ Guide for publishing a new version of the `openmls` Dart package to pub.dev.
 > **Run stage 1 first and let its native build finish.** The published package's
 > build hook downloads the precompiled `openmls_frb-<crate>` binary, so that
 > binary must already exist before you tag the pub.dev release. `make release`
-> verifies this automatically (see below).
+> verifies this automatically, and that the integration tests passed on it (see
+> below).
 
 ## How to run
 
@@ -39,6 +40,15 @@ command:
    Any commit touching them after stage 1 therefore needs a new crate — a
    test-only change under `rust/src` or a docstring-only regeneration
    included, since the check cannot tell those apart and refuses them all.
+   **Then it requires the integration tests to have passed on that binary.**
+   Two kinds of run count. One is the run `integration.yml` starts after the
+   native build, titled `Released binaries of openmls_frb-<crate>`. The other
+   is a run started by hand on the released binaries at `HEAD`
+   (`gh workflow run integration.yml -f library=release`), which is the way
+   through for a crate built before that workflow existed. The newest run
+   decides. A run still going makes the release wait, a red one stops it with
+   the command to re-run its failed jobs, and a run that tested nothing does not
+   count.
 3. **Validates** the package with `make publish-dry-run` on the clean, pre-bump
    tree, aborting if it reports errors. (Runs before the bump because
    `dart pub publish --dry-run` exits non-zero on any warning, and dry-running a
@@ -92,6 +102,8 @@ edits. Nothing has to be reverted or tagged by hand.
 - `--skip-frb-check` — skip both checks of step 2, that `openmls_frb-<crate>`
   exists and that it was built from this tree (only if you have verified the
   binary by hand)
+- `--skip-integration-check` — skip the integration check of step 2 (only if you
+  have seen the tests pass on that binary)
 - `--date <Y-M-D>` — CHANGELOG date to stamp (default: today)
 
 ## Choosing the version (SemVer for the Dart package)
@@ -121,14 +133,37 @@ first:
 make release-frb ARGS="--version <crate X.Y.Z>"   # then let the build finish
 ```
 
-**Then run the suite against that binary.** No workflow does: `publish.yml`
-and `test.yml` — its `workflow_run` after the native build included — build the
-library from source with `make build`. Check `HEAD` out in a fresh sibling
-worktree, which has no `rust/target/`, and run the suite there without
+**Then wait for `Integration Tests` on that binary.** It starts by itself when
+the native build succeeds, and runs the package in a real app on every platform
+through the hook's download path, checksums included. Its title is
+`Released binaries of openmls_frb-<crate>`:
+
+```bash
+gh run list --workflow=integration.yml --event=workflow_run --limit=5
+```
+
+`make release` refuses to tag until it has passed. `publish.yml` runs the same
+again before it uploads, but after the tag, and a failure there leaves a tag
+pushed with no version on pub.dev. When the run failed because of the runner (a
+job that never started, a device that never came up), re-run its failed jobs
+(`gh run rerun <run-id> --failed`). When the crate's native build came before
+`integration.yml` existed, there is no such run. Start one by hand on the
+released binaries, on the commit you are releasing, with that commit pushed:
+
+```bash
+gh workflow run integration.yml --ref main -f library=release
+```
+
+After
+the upload it makes a new app that depends on what went up, on the pinned Flutter
+and on the newest; a red run there means a published version has a problem, and
+whether to retract it is the user's decision.
+
+For a major, also run the whole unit suite against the binary, which nothing else
+does: `test.yml` builds from source with `make build`. Check `HEAD` out in a fresh
+sibling worktree, which has no `rust/target/`, and run the suite there without
 `make build`: the build hook then downloads `openmls_frb-<crate>` from the
-release, checks it against the release's checksums, and every test runs
-against that release's library for this host, the one platform the check
-covers.
+release, and every test runs against that release's library for this host.
 
 ```bash
 git worktree add --detach ../stage2-check HEAD
@@ -160,7 +195,10 @@ gh release view openmls_frb-<crate>
 git fetch origin tag openmls_frb-<crate>
 git diff --quiet openmls_frb-<crate> HEAD -- rust lib/src/rust ':!rust/fuzz' ':!rust/deny.toml'
 #    Non-zero: those sources moved since the tag, so release a new crate first.
-#    Then run the suite against the release in a fresh worktree, as above.
+#    Then check that `Released binaries of openmls_frb-<crate>` passed (or a
+#    run by hand with library=release on this commit), as `make release` does:
+gh run list --workflow=integration.yml --event=workflow_run --limit=5
+#    And run the suite against the release in a fresh worktree, as above.
 
 # 2. Quality checks
 make analyze && make test && make format-check && make rust-check && make rust-audit

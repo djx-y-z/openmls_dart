@@ -163,6 +163,7 @@ class _GroupsDemoTabState extends State<GroupsDemoTab> {
   Widget build(BuildContext context) {
     return SingleChildScrollView(
       child: DemoCard(
+        id: 'groups',
         title: 'Group Messaging',
         description:
             'Create group, add member, exchange encrypted messages with '

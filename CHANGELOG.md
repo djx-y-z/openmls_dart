@@ -1,3 +1,82 @@
+## [Unreleased]
+
+### For Users
+
+#### Added
+
+- **`FlexibleCommitOptions.groupInfoExtensions`** — puts an application's
+  own extensions into the GroupInfo the commit creates. The members it adds
+  read them before joining, from the Welcome's GroupInfo, which the
+  committer signs and the welcome secret encrypts. That secret is not the
+  newcomers' alone: every member that processes the commit derives it, and
+  all the members one commit adds get the same copy. So these are for what
+  the whole new epoch may know, not for one invitee. A party outside the
+  group cannot read the Welcome's copy. The exported GroupInfo, which is not
+  encrypted, carries them in the clear to whoever it is published to. It is
+  created with them only when `createGroupInfo` asks for it. An empty list is
+  the same as none. A commit with nothing to carry them, with no Welcome and
+  no GroupInfo asked for, is refused rather than losing them.
+- **`MlsEngine.welcomeGroupInfoExtensions`** — reads those extensions, and
+  the member that signed them, from a Welcome without joining. The Welcome is
+  staged as `joinGroupFromWelcome` stages it (signature, tree, confirmation
+  tag), so one that does not stage fails. That proves what the signer wrote,
+  not who it is. Usually it is the committer, but any member of the new
+  epoch, or anyone holding one of the client's key packages, can send a
+  Welcome that passes. Authenticate the signer by its signature key, as
+  before any join. Nothing is written, so the key package stays for the
+  join. The ratchet tree and external public key extensions are left out.
+
+### For Contributors
+
+#### Added
+
+- **The package tested inside a real Flutter app, on every platform** —
+  `example/integration_test/` runs every capability of the package in the
+  example app, so it goes through what a consumer's app goes through: the
+  build hook, the platform's way of bundling a native library, the loader,
+  and on the web the wasm module. The families under `capabilities/` cover
+  keys, credentials, key packages, groups, group state, membership,
+  proposals, messages, past-epoch secrets, storage, each of the 13
+  ciphersuites, `SecureBytes`, and the example's seven demos through its UI.
+  Storage is checked for what each platform guarantees: natively a file,
+  refused to a second engine while one has it, and readable by its owner
+  alone wherever files have permissions; on the web an IndexedDB database,
+  shared with a second engine as with a second tab. `make coverage-example` fails on a bridged function no test
+  calls; `scripts/src/example_coverage_policy.dart` excuses only the two
+  `init` functions the package does not export, and
+  `test/scripts/example_coverage_bindings_test.dart` holds the coverage
+  parser to this project's bindings. The example's demo cards are keyed for
+  the tests to find them.
+
+#### Changed
+
+- **The template's integration tests are on (`enable_integration_tests`)** —
+  `integration.yml` runs the example's integration tests on every pull
+  request and push to `main`: Linux x86_64 and ARM64, macOS, Windows, an iOS
+  simulator, Android API 24 and API 36 with 16 KB pages, and the web
+  compiled both ways. CI judges each run by what the app reported, runs again
+  only a run that never got to its tests, and a watchdog fails a run whose
+  app has sent nothing for 8 minutes. **`make release` now waits for them:**
+  when the native build of an `openmls_frb-*` tag succeeds, they run on the
+  released binaries, and `make release` refuses to tag until that run has
+  passed. `publish.yml` runs them again before the upload. New `make`
+  targets: `test-example`, `test-example-web`, `drive-example`,
+  `coverage-example`, `create-consumer`, `package-example-*`. The example
+  depends on `integration_test` and `flutter_driver` for them.
+- **copier template adopted: v4.19.0 -> v4.20.0** — adds target-local native
+  builds, more resilient release downloads, and automatic retries for jobs
+  GitHub never started. `Makefile` builds and stamps cross-target libraries;
+  `hook/build.dart` loads the target-specific output and refuses missing or
+  stale builds, preventing an app from silently using an old release. The hook
+  now retries network failures and 5xx/429 responses up to six times, with a
+  connection timeout; `SECURITY.md` and the hook no longer offer the ineffective
+  `*_ALLOW_UNVERIFIED_DOWNLOAD` override. `test/hook/build_hook_test.dart`
+  covers these hook changes. The new `.github/workflows/rerun-unstarted.yml`
+  retries jobs that failed before running any step, but not test failures or
+  runs superseded by a newer branch run; `.github/rulesets/README.md` explains
+  that distinction. `README.md` and `CLAUDE.md` document the updated build
+  behavior and targets.
+
 ## [3.3.0] - 2026-10-26
 
 ### For Users

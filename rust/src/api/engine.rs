@@ -34,7 +34,7 @@ use super::types::{
     FlexibleCommitOptions, KeyPackageOptions, MlsCapabilities, MlsCiphersuite, MlsExtension,
     MlsGroupContextInfo, MlsLeafNodeInfo, MlsMemberInfo, MlsPendingProposalInfo, MlsProposalType,
     MlsSenderInfo, MlsSenderKind, MlsWireFormatPolicy, ProcessedMessageType, StagedCommitInfo,
-    StagedProposalInfo, WelcomeInspectResult,
+    StagedProposalInfo, WelcomeGroupInfoExtensions, WelcomeInspectResult,
 };
 use crate::snapshot_storage::{SnapshotOpenMlsProvider, SnapshotStorageProvider};
 
@@ -320,6 +320,10 @@ pub struct CommitResult {
     /// Publish it, like the Welcome, only once the delivery service has
     /// accepted `commit`: a party joining by external commit from it would
     /// otherwise enter an epoch that may never happen.
+    ///
+    /// It is not encrypted. With `FlexibleCommitOptions.groupInfoExtensions`
+    /// it carries those extensions, and it is created only when
+    /// `createGroupInfo` asks for it.
     pub group_info: Option<Vec<u8>>,
 }
 
@@ -1065,6 +1069,98 @@ impl MlsEngine {
         processed
             .export_secret(provider.crypto(), &label, &context, key_length as usize)
             .map_err(|e| format!("Failed to export secret from welcome: {}", e))
+    }
+
+    /// The extensions in the GroupInfo of a Welcome
+    /// (`FlexibleCommitOptions.groupInfoExtensions`), and the member that
+    /// signed that GroupInfo, read **without joining the group**.
+    ///
+    /// They are returned only once the Welcome has been staged as
+    /// `joinGroupFromWelcome` stages it. Staging checks:
+    /// - the GroupInfo's signature, against the leaf the GroupInfo names as
+    ///   its signer, in the ratchet tree that came with the Welcome;
+    /// - that tree, against the GroupInfo;
+    /// - the confirmation tag, against the epoch's secrets.
+    ///
+    /// A Welcome that fails a check fails here.
+    ///
+    /// That proves the extensions are what `signer` wrote. It proves nothing
+    /// about who `signer` is. Usually it is the committer, but two other
+    /// parties can produce a Welcome that passes the same checks:
+    /// - any member of the new epoch, under its own signature;
+    /// - anyone who holds one of this client's key packages, from a group of
+    ///   their own.
+    ///
+    /// Before acting on the extensions, authenticate `signer` as before any
+    /// join: by its signature key, which is what the signature binds. A basic
+    /// credential's identity is whatever its owner claims.
+    ///
+    /// Nor are they a secret the newcomer alone holds: the welcome secret
+    /// that encrypts them is derived by every member that processes the
+    /// commit (RFC 9420 §12.4.2).
+    ///
+    /// Writes nothing, like `inspectWelcome` and `exportWelcomeSecret`: the
+    /// key package the Welcome is addressed to is still there for the join.
+    /// Unlike `joinGroupFromWelcomeWithOptions`, leaf lifetimes are always
+    /// checked. A Welcome without a ratchet tree extension needs
+    /// `ratchetTreeBytes`: the tree of the epoch the Welcome is for.
+    ///
+    /// The ratchet tree extension is left out, since it is the group's tree
+    /// rather than something a committer adds. So is the external public key,
+    /// which a Welcome's GroupInfo does not carry.
+    pub async fn welcome_group_info_extensions(
+        &self,
+        config: MlsGroupConfig,
+        welcome_bytes: Vec<u8>,
+        ratchet_tree_bytes: Option<Vec<u8>>,
+    ) -> Result<WelcomeGroupInfoExtensions, String> {
+        let provider = self.load_global().await?;
+
+        let welcome_msg = MlsMessageIn::tls_deserialize_exact_bytes(&welcome_bytes)
+            .map_err(|e| format!("Failed to deserialize welcome: {}", e))?;
+        let welcome = match welcome_msg.extract() {
+            MlsMessageBodyIn::Welcome(w) => w,
+            _ => return Err("Message is not a Welcome".to_string()),
+        };
+
+        let join_config = config.to_join_config();
+        let processed = ProcessedWelcome::new_from_welcome(&provider, &join_config, welcome)
+            .map_err(|e| format!("Failed to process welcome: {}", e))?;
+        // Read before staging consumes it; staging below verifies this very
+        // GroupInfo, so they count only once it succeeds.
+        let extensions = processed.unverified_group_info().extensions().clone();
+
+        let ratchet_tree = ratchet_tree_bytes
+            .map(|bytes| {
+                RatchetTreeIn::tls_deserialize_exact_bytes(&bytes)
+                    .map_err(|e| format!("Failed to deserialize ratchet tree: {}", e))
+            })
+            .transpose()?;
+        let staged = processed
+            .into_staged_welcome(&provider, ratchet_tree)
+            .map_err(|e| format!("Failed to verify welcome: {}", e))?;
+
+        let signer_leaf = staged
+            .welcome_sender()
+            .map_err(|e| format!("Failed to read the welcome's signer: {}", e))?;
+        let signer = MlsMemberInfo {
+            index: staged.welcome_sender_index().u32(),
+            credential: signer_leaf
+                .credential()
+                .tls_serialize_detached()
+                .map_err(|e| format!("Failed to serialize the signer's credential: {}", e))?,
+            signature_key: signer_leaf.signature_key().as_slice().to_vec(),
+        };
+
+        let extensions = extensions
+            .iter()
+            .filter(|ext| {
+                !matches!(ext, Extension::RatchetTree(_) | Extension::ExternalPub(_))
+            })
+            .map(extension_to_mls)
+            .collect::<Result<Vec<_>, _>>()?;
+
+        Ok(WelcomeGroupInfoExtensions { extensions, signer })
     }
 
     #[allow(deprecated)]
@@ -2102,9 +2198,37 @@ impl MlsEngine {
         }
 
         let commit_builder = commit_builder.load_psks(provider.storage()).map_err(|e| format!("Failed to load PSKs: {}", e))?;
-        let commit_builder = commit_builder.create_group_info(options.create_group_info).use_ratchet_tree_extension(options.use_ratchet_tree_extension);
+        let mut commit_builder = commit_builder.create_group_info(options.create_group_info).use_ratchet_tree_extension(options.use_ratchet_tree_extension);
+        // An empty list is the same as none, so the exported GroupInfo is then
+        // created exactly as it is without the option.
+        let group_info_extensions = options
+            .group_info_extensions
+            .as_ref()
+            .filter(|extensions| !extensions.is_empty());
+        if let Some(gi_exts) = group_info_extensions {
+            let ext_vec = extensions_from_mls(gi_exts)?;
+            // Adding them turns the exported GroupInfo on, and so does the
+            // ratchet tree extension. It is not encrypted, so it is created
+            // only when asked for: the Welcome's own GroupInfo carries them
+            // either way.
+            commit_builder = commit_builder
+                .create_group_info_with_extensions(ext_vec)
+                .map_err(|e| format!("Failed to add group info extensions: {}", e))?
+                .create_group_info(options.create_group_info);
+        }
         let commit_builder = commit_builder.build(provider.rand(), provider.crypto(), &signer, |_| true).map_err(|e| format!("Failed to build commit: {}", e))?;
         let bundle = commit_builder.stage_commit(&provider).map_err(|e| format!("Failed to stage commit: {}", e))?;
+        // A commit that adds no member has no Welcome, and without
+        // createGroupInfo no exported GroupInfo either: nothing would carry the
+        // extensions. Refused here, before anything is merged or written,
+        // rather than dropping them in silence.
+        if group_info_extensions.is_some() && bundle.welcome().is_none() && bundle.group_info().is_none() {
+            return Err(
+                "groupInfoExtensions have nothing to carry them: the commit adds \
+                 no member, so it has no Welcome, and createGroupInfo is off"
+                    .to_string(),
+            );
+        }
         if !options.keep_pending {
             group.merge_pending_commit(&provider).map_err(|e| format!("Failed to merge pending commit: {}", e))?;
         }

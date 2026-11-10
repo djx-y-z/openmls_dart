@@ -9,7 +9,10 @@ Guide for updating the openmls native library version in this project.
 
 ## Review Automated PR (Most Common)
 
-When the CI creates an automated PR for openmls update, follow these steps:
+When the CI creates an automated PR for openmls update, follow these steps. Its
+`Integration Tests` run says whether the new upstream code works inside a real app
+on every platform, built from the branch; a red leg there is the first thing to
+read, and `make test-example` reproduces it (see CLAUDE.md, *The example app*).
 
 ### Step 1: Analyze Upstream Changes (IMPORTANT — go beyond release notes)
 

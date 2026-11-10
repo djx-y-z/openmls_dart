@@ -16,6 +16,16 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  # The integration tests under integration_test/: the package inside this
+  # app, on each platform (`make test-example`, `make test-example-web`).
+  integration_test:
+    sdk: flutter
+  flutter_driver:
+    sdk: flutter
+  # For the tests to make the references RFC 9420 §5.2 defines, a key
+  # package's and a proposal's, the way the engine does: it returns none, and
+  # takes them to delete and to withdraw. The package itself depends on it.
+  crypto: ^3.0.7
   flutter_lints: ^6.0.0
 
 flutter:

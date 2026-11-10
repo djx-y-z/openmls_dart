@@ -8,7 +8,7 @@
 # On Windows CI (Git Bash), use cmd to run fvm.bat from PATH:
 # Example: make build ARGS="--target x86_64-pc-windows-msvc" FVM="cmd //c fvm"
 
-.PHONY: help setup setup-fvm setup-rust-tools setup-frb-codegen setup-android setup-web setup-fuzz codegen regen build build-android build-web run-example-web test-web test coverage analyze format format-check get clean version get-version check-new-openmls-version check-upstream-advisories check-exists-openmls-frb-release check-template-updates update-template check-targets check-msrv third-party-notices verify-third-party-notices verify-frb-pins verify-pub-limits verify-feature-graph verify-android-alignment verify-release-artifacts verify-library-loads actionlint rust-audit rust-deny rust-check rust-check-ios rust-test rust-clippy rust-clippy-web rust-doc rust-geiger fuzz fuzz-list fuzz-seed doc publish publish-dry-run rust-update update-changelog update-evidence release-frb release setup-repo-protections
+.PHONY: help setup setup-fvm setup-rust-tools setup-frb-codegen setup-android setup-web setup-fuzz codegen regen build build-android build-ios build-web run-example-web test-web test-example test-example-ci test-example-web doctor drive-example build-example coverage-example create-consumer package-example-android package-example-ios package-example-macos verify-example-coverage verify-example-library test coverage analyze format format-check get clean version get-version check-new-openmls-version check-upstream-advisories check-exists-openmls-frb-release check-template-updates update-template check-targets check-msrv third-party-notices verify-third-party-notices verify-frb-pins verify-pub-limits verify-feature-graph verify-android-alignment verify-release-artifacts verify-library-loads actionlint rust-audit rust-deny rust-check rust-check-ios rust-test rust-clippy rust-clippy-web rust-doc rust-geiger fuzz fuzz-list fuzz-seed doc publish publish-dry-run rust-update update-changelog update-evidence release-frb release setup-repo-protections
 
 # FVM command - can be overridden to provide full path on Windows CI
 FVM ?= fvm
@@ -50,9 +50,35 @@ help:
 	@echo "                                        Example: make build ARGS=\"--target aarch64-apple-darwin\""
 	@echo "    make build-android                - Build for Android (all ABIs)"
 	@echo "                                        Example: make build-android ARGS=\"--target arm64-v8a\""
+	@echo "    make build-ios                    - Build for iOS (device and both simulators)"
+	@echo "                                        Example: make build-ios ARGS=\"--target aarch64-apple-ios-sim\""
 	@echo "    make build-web                    - Build WASM for web platform"
 	@echo "    make run-example-web              - Build WASM and run example/ in Chrome"
 	@echo "                                        Example: make run-example-web ARGS=\"--web-port=5599\""
+	@echo ""
+	@echo "  EXAMPLE APP (the package inside a real Flutter app)"
+	@echo "    make test-example                 - Run the integration tests on a device"
+	@echo "                                        Example: make test-example ARGS=\"-d macos\""
+	@echo "    make test-example-web             - Run them in a real browser"
+	@echo "                                        Example: make test-example-web ARGS=\"--release\""
+	@echo "    make drive-example                - Run them under flutter drive, for profile mode"
+	@echo "                                        Example: make drive-example ARGS=\"--profile -d macos\""
+	@echo "    make test-example-ci              - Either, as CI runs them: a failed test fails at once,"
+	@echo "                                        a run that never got that far runs again"
+	@echo "                                        Example: make test-example-ci ARGS=\"--attempts 3 -- -d <device>\""
+	@echo "    make build-example                - Build the app with the tests in it, without running it"
+	@echo "                                        Example: make build-example ARGS=\"apk --debug\""
+	@echo "    make coverage-example             - Run them, then fail on a bridged function none of them calls"
+	@echo "                                        Example: make coverage-example ARGS=\"-d macos\""
+	@echo "    make create-consumer              - Make a new app that uses the package from pub.dev"
+	@echo "                                        Example: make create-consumer VERSION=9.0.0"
+	@echo "                                        Then:    make test-example EXAMPLE_DIR=build/consumer ARGS=\"-d macos\""
+	@echo "    make package-example-android      - Build the release APK, every ABI, and check its libraries"
+	@echo "    make package-example-ios          - Build for a real iPhone and for both simulators, and check the library"
+	@echo "    make package-example-macos        - Build the universal app, and check both architectures are in it"
+	@echo "    make verify-example-coverage      - That check alone, over the last coverage run"
+	@echo "    make verify-example-library       - Check the tests ran on the library they meant to"
+	@echo "                                        Example: make verify-example-library ARGS=\"--built\""
 	@echo ""
 	@echo "  CI / VERSION CHECKS"
 	@echo "    make check-new-openmls-version  - Check for new upstream openmls version"
@@ -126,6 +152,7 @@ help:
 	@echo "  UTILITIES"
 	@echo "    make get                          - Get dependencies"
 	@echo "    make clean                        - Clean build artifacts"
+	@echo "    make doctor                       - Show the toolchains and devices Flutter finds"
 	@echo "    make version                      - Show current crate version"
 	@echo "    make help                         - Show this help message"
 	@echo ""
@@ -217,6 +244,7 @@ setup-android:
 	@echo ""
 	@echo "Android setup complete!"
 	@echo "Make sure you have Android NDK installed via Android Studio or sdkmanager."
+
 setup-web:
 	@echo "Installing web build tools..."
 	@if ! command -v wasm-pack >/dev/null 2>&1; then \
@@ -259,6 +287,80 @@ regen: codegen
 READ_CRATE_VERSION = grep -m1 -E '^version[[:space:]]*=' rust/Cargo.toml \
 	| sed -E 's/^version[[:space:]]*=[[:space:]]*"([^"]+)".*/\1/'
 
+# Stamp what a build just made, in the directory the build hook reads it from.
+# The hook prefers a local build over the released library, so it refuses one
+# whose stamp is missing or names another crate version — and an upstream update
+# moves the dependencies under an unchanged crate version, so it also compares
+# the copy of the lock file left beside it with rust/Cargo.lock.
+#
+# Each `--target` in ARGS built one directory; with none, `$(1)` lists them. An
+# Android ABI name is what cargo-ndk takes, and the directory is the triple. Only
+# what this run built is stamped: an older build of another target has to go on
+# being refused. So nothing is stamped when the build may have gone elsewhere —
+# `--target-dir`, or cargo's own variables for the directory and the target —
+# since a stale build where the hook looks would then pass for this one.
+stamp_build = stamp() { \
+		[ -d "rust/target/$$1" ] || return 0; \
+		$(READ_CRATE_VERSION) > "rust/target/$$1/.crate-version"; \
+		cp rust/Cargo.lock "rust/target/$$1/.cargo-lock"; \
+	}; \
+	if [ -n "$${CARGO_TARGET_DIR:-}$${CARGO_BUILD_TARGET:-}$${CARGO_NDK_TARGET:-}" ]; then \
+		echo "Not stamped: CARGO_TARGET_DIR, CARGO_BUILD_TARGET or CARGO_NDK_TARGET is set, so the hook would not know this build."; \
+		exit 0; \
+	fi; \
+	stamped=; set -- $(ARGS); \
+	for arg in "$$@"; do \
+		case "$$arg" in \
+			--target-dir|--target-dir=*) \
+				echo "Not stamped: --target-dir puts the build where the hook does not look."; \
+				exit 0 ;; \
+		esac; \
+	done; \
+	while [ $$\# -gt 0 ]; do \
+		target=; \
+		case "$$1" in \
+			--target|-t) target="$$2"; shift ;; \
+			--target=*) target="$${1\#--target=}" ;; \
+		esac; \
+		shift; \
+		case "$$target" in \
+			'') continue ;; \
+			arm64-v8a) target=aarch64-linux-android ;; \
+			armeabi-v7a) target=armv7-linux-androideabi ;; \
+			x86_64) target=x86_64-linux-android ;; \
+			x86) target=i686-linux-android ;; \
+		esac; \
+		stamp "$$target/release"; stamped=1; \
+	done; \
+	if [ -z "$$stamped" ]; then for dir in $(1); do stamp "$$dir"; done; fi
+
+# The app the targets under "The example app" below work on: the example, or the
+# new app `create-consumer` makes.
+EXAMPLE_DIR ?= example
+
+# Forget what was cached about this package's build hook, or the build just made
+# may never be used. When the hook last ran without a local build it downloaded
+# the released library and declared only rust/Cargo.toml — it cannot declare a
+# library that does not exist yet, since hooks_runner re-runs a hook on every
+# build for a missing dependency — so nothing it watches changes now, and `dart
+# test`, `dart run` and an app's next build keep loading the download. The shared
+# download cache stays. The example has a cache of its own, and Flutter a stamp
+# above it that skips the hook altogether; `run-example-web` says more on that.
+#
+# ⚠ `install_code_assets.stamp` as well, and that one is not about a local build.
+# Each build mode has its own stamps, and all of them install into one directory,
+# build/native_assets/<os>/. Measured on 3.38.4 (3.47.4 no longer does it): a
+# simulator build, then a device build, then the simulator build again skips the
+# install and copies the DEVICE's library into the simulator app. Native builds keep
+# their stamps under .dart_tool/flutter_build/, `flutter run -d chrome` under build/.
+#
+# The hook's target is `dart_build` up to Flutter 3.44, and `build_hooks` followed
+# by `link_hooks` from 3.47 (flutter_tools' native_assets.dart): a name missed
+# here is a stamp that survives, and then a hook that does not run again.
+forget_hook_results = rm -rf .dart_tool/hooks_runner/openmls $(EXAMPLE_DIR)/.dart_tool/hooks_runner/openmls; \
+	rm -f $(foreach dir,$(EXAMPLE_DIR)/build $(EXAMPLE_DIR)/.dart_tool/flutter_build, \
+		$(foreach stamp,dart_build build_hooks link_hooks install_code_assets,$(dir)/*/$(stamp).stamp))
+
 # ⚠ Deliberately NOT `--locked`, unlike the release workflow. A project
 # generated from this template has no rust/Cargo.lock until something builds it
 # for the first time — copier's tasks do not create one — and this target is
@@ -269,24 +371,8 @@ READ_CRATE_VERSION = grep -m1 -E '^version[[:space:]]*=' rust/Cargo.toml \
 build:
 	@echo "Building Rust library..."
 	cargo build --release --manifest-path rust/Cargo.toml $(ARGS)
-# Stamp the crate version beside a HOST build, as build-web does beside its
-# module and for the same reason: the hook prefers rust/target/release/ over
-# the released library, so it refuses one whose stamp is missing or names
-# another crate version. A --target build lands in rust/target/<triple>/,
-# which the hook never reads, and gets no stamp.
-	$(if $(findstring --target,$(ARGS)),,@$(READ_CRATE_VERSION) > rust/target/release/.crate-version)
-# Keep a copy of the lock file the build was made from: an upstream update
-# moves the dependencies under an unchanged crate version, and the hook refuses
-# a build whose copy differs from rust/Cargo.lock.
-	$(if $(findstring --target,$(ARGS)),,@cp rust/Cargo.lock rust/target/release/.cargo-lock)
-# Drop the hook's cached result for this package, or the build may never be
-# used. When the hook last ran without a host build here it downloaded the
-# released library and declared only rust/Cargo.toml — it cannot declare a
-# library that does not exist yet, since hooks_runner re-runs a hook on every
-# build for a missing dependency — so nothing it watches changes now, and
-# `dart test` / `dart run` keep loading the download. The shared download
-# cache stays; Flutter's own dart_build stamp in an app is another matter.
-	$(if $(findstring --target,$(ARGS)),,@rm -rf .dart_tool/hooks_runner/openmls)
+	@$(call stamp_build,release)
+	@$(forget_hook_results)
 	@echo ""
 	@echo "Build complete! Library at: rust/target/"
 
@@ -301,8 +387,26 @@ build-android:
 	@echo "Building Rust library for Android..."
 	@PLATFORM=$$(dart scripts/get_android_min_sdk.dart) && \
 		cd rust && cargo ndk --platform $$PLATFORM build --release $(ARGS)
+	@$(call stamp_build,aarch64-linux-android/release armv7-linux-androideabi/release i686-linux-android/release x86_64-linux-android/release)
+	@$(forget_hook_results)
 	@echo ""
 	@echo "Build complete! Library at: rust/target/<arch>/release/"
+
+# The deployment target is what the release builds with, from the same answer
+# `make check-targets` holds everything else to. Rust's own default for these
+# targets is older than the C code Xcode compiles expects: `___chkstk_darwin`
+# and the like, unavailable at link time. IOS_TARGETS is the list `rust-check-ios`
+# below also uses.
+build-ios:
+	@echo "Building Rust library for iOS..."
+	@DEPLOYMENT_TARGET=$$(sed -n "s/^ios_min_version: *'*\([0-9.]*\)'*/\1/p" .copier-answers.yml); \
+		TARGETS="$(if $(filter --target --target=%,$(ARGS)),,$(foreach t,$(IOS_TARGETS),--target $(t)))"; \
+		IPHONEOS_DEPLOYMENT_TARGET=$$DEPLOYMENT_TARGET cargo build --release --manifest-path rust/Cargo.toml $$TARGETS $(ARGS)
+	@$(call stamp_build,$(foreach t,$(IOS_TARGETS),$(t)/release))
+	@$(forget_hook_results)
+	@echo ""
+	@echo "Build complete! Library at: rust/target/<triple>/release/"
+
 build-web:
 	@echo "Building WASM for web..."
 	cd rust && wasm-pack build --target no-modules --release \
@@ -414,6 +518,191 @@ export WASM_BINDGEN_TEST_TIMEOUT
 test-web:
 	cd rust && wasm-pack test --headless --chrome \
 		$(if $(CHROMEDRIVER),--chromedriver "$(CHROMEDRIVER)",) --lib $(ARGS)
+
+# =============================================================================
+# The example app: the package inside a real Flutter app
+# =============================================================================
+
+# Run example/integration_test/ on a device. `make test` runs the library on the
+# Dart VM; this runs it inside an app, so it goes through what a consumer's build
+# goes through: the build hook, the platform's way of bundling a library, the
+# loader. Name the device, or Flutter asks which one:
+#   make test-example ARGS="-d macos"
+#   make test-example ARGS="-d <simulator or emulator id>"
+#
+# ⚠ WHICH LIBRARY IT LOADS is the build hook's choice, the same as in a consumer's
+# app, with a local build first:
+#   the host          `make build`             rust/target/release/
+#   Android           `make build-android`     rust/target/<triple>/release/
+#   iOS               `make build-ios`         rust/target/<triple>/release/
+#   the web           `make build-web`         rust/target/wasm32/
+# With none of those it downloads the release of the crate version in
+# rust/Cargo.toml, which is how CI tests a release. A local build from another
+# crate version or lock file stops the hook (HookException) rather than being
+# loaded, so the failure you get is the instruction to rebuild. One from older
+# Rust sources under the same version and lock file is loaded as it is: rebuild
+# after changing rust/.
+#
+# `flutter test` forces debug mode. `drive-example` below is for the other modes.
+test-example:
+	@$(forget_hook_results)
+	cd $(EXAMPLE_DIR) && $(FVM) flutter test integration_test $(ARGS)
+
+# The same tests under `flutter drive`, which is the one way to run them in
+# profile mode: AOT, what a consumer's release build is compiled to. It needs a
+# driver process and a device that has that mode, and an iOS simulator does not.
+#   make drive-example ARGS="--profile -d macos"
+example_drive = flutter drive --driver=test_driver/integration_test.dart \
+	--target=integration_test/openmls_test.dart
+
+drive-example:
+	@$(forget_hook_results)
+	cd $(EXAMPLE_DIR) && $(FVM) $(example_drive) $(ARGS)
+
+# Either of the two above, the way CI runs them on an emulator or a simulator:
+# each run is judged on what the app reported. A test that failed fails this at
+# once and is never run again; a run that never got that far (the app did not
+# connect, the device or the connection went away) runs again, up to --attempts.
+# An app that sends nothing for 8 minutes into its tests is stopped, and fails the
+# run if it was still running on a device that answered.
+# scripts/test_example_ci.dart lists the options.
+#   make test-example-ci ARGS="--attempts 3 -- -d <device>"
+#   make test-example-ci ARGS="--drive -- --profile -d <device>"
+test-example-ci:
+	@$(FVM) dart scripts/test_example_ci.dart --dir $(EXAMPLE_DIR) $(ARGS)
+
+# Build the app with the tests as its entry point, without running it. CI uses it
+# to build for an emulator before the emulator starts: the first Gradle build of an
+# app is the heaviest, and the two together have been measured to exhaust a runner.
+#   make build-example ARGS="apk --debug --target-platform android-x64"
+build-example:
+	cd $(EXAMPLE_DIR) && $(FVM) flutter build $(ARGS) --target integration_test/openmls_test.dart
+
+# Run them in a real browser. This is the only target here that executes the DART
+# half of the web build against the wasm module: `make test-web` runs the crate's
+# own #[wasm_bindgen_test]s, `make build-web` only compiles, and `flutter test`
+# cannot run integration tests on the web at all.
+#
+# NOT `--wasm`, for the reason `run-example-web` gives. `--release` is the dart2js
+# build a consumer ships, which is a different compiler from the debug default:
+#   make test-example-web ARGS="--release"
+#
+# Pass a chromedriver matching the browser, as for `test-web`; it is never
+# downloaded. `example/web/pkg` goes first so what is served is what the hook
+# provisioned just now.
+CHROMEDRIVER_PORT ?= 4444
+
+test-example-web:
+	@driver="$(or $(CHROMEDRIVER),$(shell command -v chromedriver 2>/dev/null))"; \
+	if [ -z "$$driver" ]; then \
+		echo "No chromedriver: pass CHROMEDRIVER=/path/to/chromedriver, or put one on PATH."; \
+		exit 1; \
+	fi; \
+	rm -rf $(EXAMPLE_DIR)/web/pkg; \
+	$(forget_hook_results); \
+	"$$driver" --port=$(CHROMEDRIVER_PORT) >/dev/null 2>&1 & driver_pid=$$!; \
+	trap 'kill $$driver_pid 2>/dev/null' EXIT; \
+	cd $(EXAMPLE_DIR) && $(FVM) $(example_drive) -d web-server --browser-name=chrome \
+		--driver-port=$(CHROMEDRIVER_PORT) $(ARGS)
+
+# Run them while measuring, then fail on a bridged function that none of them
+# called. That is what keeps "every capability of the library" true as the library
+# grows: a new function in rust/src/api/ without a test here turns this red. It
+# only needs running on one platform, and CI runs it on Linux x86_64.
+#   make coverage-example ARGS="-d macos"
+coverage-example:
+	@$(forget_hook_results)
+	cd $(EXAMPLE_DIR) && $(FVM) flutter test integration_test --coverage \
+		--coverage-package='^openmls$$' $(ARGS)
+	@$(FVM) dart scripts/verify_example_coverage.dart $(EXAMPLE_DIR)/coverage/lcov.info
+
+verify-example-coverage:
+	@$(FVM) dart scripts/verify_example_coverage.dart $(ARGS)
+
+# Make what a new consumer of the published package has on day one: a fresh
+# `flutter create` app with today's Flutter templates, depending on the version on
+# pub.dev, with the example's app and tests copied in. Then run any target above on
+# it, so that what is tested is the package archive and the released binaries, and
+# nothing of this checkout but the tests:
+#   make create-consumer VERSION=9.0.0
+#   make test-example EXAMPLE_DIR=build/consumer ARGS="-d macos"
+#
+# The tests are this checkout's, so they must not be newer than the version: a test
+# can call what was released after it. For an older version, check its tag out
+# first, as the weekly CI run does.
+#
+# The project is named as the example is, because the tests import it by that name.
+# Under build/, which git and the published package both ignore. FVM finds .fvmrc
+# from there, so it runs on the pinned Flutter; FLUTTER_VERSION gives the new app a
+# .fvmrc of its own, and everything that runs in it then uses that one, `flutter
+# create` included, while this repository's tooling stays on the pin:
+#   make create-consumer VERSION=9.0.0 FLUTTER_VERSION=3.47.9
+#
+# `--sdk` rather than a descriptor: on Windows the command goes through cmd, which
+# takes the JSON apart, and the descriptor's form changed between Flutter 3.38
+# (`name:{...}`) and 3.47 (`name@{...}`). `--sdk` is hidden from `pub add --help`
+# on both, and works on both.
+CONSUMER_DIR ?= build/consumer
+
+create-consumer:
+	@[ -n "$(VERSION)" ] || { echo "Usage: make create-consumer VERSION=X.Y.Z"; exit 1; }
+	@rm -rf $(CONSUMER_DIR)
+	@mkdir -p $(CONSUMER_DIR)
+	$(if $(FLUTTER_VERSION),$(FVM) install $(FLUTTER_VERSION))
+	$(if $(FLUTTER_VERSION),@printf '{"flutter": "%s"}\n' "$(FLUTTER_VERSION)" > $(CONSUMER_DIR)/.fvmrc)
+	cd $(CONSUMER_DIR) && $(FVM) flutter create --no-pub --project-name openmls_example \
+		--org com.openmls --platforms=android,ios,linux,macos,windows,web .
+	@rm -rf $(CONSUMER_DIR)/lib $(CONSUMER_DIR)/test
+	@cp -R example/lib example/integration_test example/test_driver $(CONSUMER_DIR)/
+	cd $(CONSUMER_DIR) && $(FVM) flutter pub add openmls:$(VERSION)
+	cd $(CONSUMER_DIR) && $(FVM) flutter pub add dev:integration_test --sdk=flutter
+	cd $(CONSUMER_DIR) && $(FVM) flutter pub add dev:flutter_driver --sdk=flutter
+
+# Build the release app for what no hosted runner can run, and check its native
+# library is in there. It proves those release binaries download, verify and
+# bundle; it cannot prove they work.
+#
+# Android: an APK with every ABI, and each library's ELF segments 16 KB aligned,
+# read from the copy inside the APK (not the APK's own zip alignment). Apple: each
+# build with its architectures, and the platform read from the library's header,
+# since a device and a simulator library share an architecture.
+check_apple_library = library=$(1); \
+	lipo "$$library" -verify_arch $(2) || { echo "$$library lacks one of: $(2)"; lipo -archs "$$library"; exit 1; }; \
+	platforms=$$(vtool -show-build "$$library" | awk '/platform/ {print $$2}' | sort -u); \
+	if [ "$$platforms" != "$(3)" ]; then echo "$$library is for $$platforms, not $(3)"; exit 1; fi; \
+	echo "$$library: $(2), $(3)"
+
+package-example-android:
+	@$(forget_hook_results)
+	cd $(EXAMPLE_DIR) && $(FVM) flutter build apk --release
+	@rm -rf $(EXAMPLE_DIR)/build/apk-libs
+	@unzip -q $(EXAMPLE_DIR)/build/app/outputs/flutter-apk/app-release.apk \
+		'lib/*/libopenmls_frb.so' -d $(EXAMPLE_DIR)/build/apk-libs
+	@python3 scripts/verify_android_alignment.py \
+		$(foreach abi,arm64-v8a armeabi-v7a x86_64,$(EXAMPLE_DIR)/build/apk-libs/lib/$(abi)/libopenmls_frb.so)
+
+package-example-ios:
+	@$(forget_hook_results)
+	cd $(EXAMPLE_DIR) && $(FVM) flutter build ios --release --no-codesign
+	@$(call check_apple_library,$(EXAMPLE_DIR)/build/ios/iphoneos/Runner.app/Frameworks/openmls_frb.framework/openmls_frb,arm64,IOS)
+	@$(forget_hook_results)
+	cd $(EXAMPLE_DIR) && $(FVM) flutter build ios --simulator --debug
+	@$(call check_apple_library,$(EXAMPLE_DIR)/build/ios/iphonesimulator/Runner.app/Frameworks/openmls_frb.framework/openmls_frb,arm64 x86_64,IOSSIMULATOR)
+
+package-example-macos:
+	@$(forget_hook_results)
+	cd $(EXAMPLE_DIR) && $(FVM) flutter build macos --release
+	@$(call check_apple_library,$$(ls -d $(EXAMPLE_DIR)/build/macos/Build/Products/Release/*.app)/Contents/Frameworks/openmls_frb.framework/openmls_frb,arm64 x86_64,MACOS)
+
+# Check that the app the tests ran in loaded the library the run says it tests.
+# The hook chooses, and it can choose quietly: a run meant to test this tree that
+# ended up downloading the release goes green over code the tree has replaced.
+# Run it after the tests.
+#   make verify-example-library ARGS="--built"
+#   make verify-example-library ARGS="--released --web"
+verify-example-library:
+	@$(FVM) dart scripts/verify_example_library.dart --dir $(EXAMPLE_DIR) $(ARGS)
+
 # =============================================================================
 # Rust Quality
 # =============================================================================
@@ -833,9 +1122,15 @@ get:
 	@$(FVM) dart pub get --no-example $(ARGS); ret=$$?; rm -f .skip_openmls_hook; exit $$ret
 
 clean:
-	rm -rf .dart_tool build rust/target
+	rm -rf .dart_tool build rust/target \
+		example/.dart_tool example/build example/coverage example/web/pkg
 	@touch .skip_openmls_hook
 	@$(FVM) dart pub get --no-example; ret=$$?; rm -f .skip_openmls_hook; exit $$ret
+
+# What Flutter makes of this machine: which toolchains it finds, and which devices.
+doctor:
+	$(FVM) flutter doctor -v
+	$(FVM) flutter devices
 
 version:
 	@$(FVM) dart scripts/get_version.dart
