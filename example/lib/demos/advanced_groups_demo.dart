@@ -335,6 +335,7 @@ class _AdvancedGroupsDemoTabState extends State<AdvancedGroupsDemoTab> {
   Widget build(BuildContext context) {
     return SingleChildScrollView(
       child: DemoCard(
+        id: 'advanced-groups',
         title: 'Advanced Groups',
         description:
             'Builder, inspect welcome, welcome options, external commit '

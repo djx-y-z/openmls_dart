@@ -20,12 +20,39 @@
 // and leaves them alone. support/harness.dart is the template's.
 import 'package:openmls/openmls.dart';
 
+import 'capabilities/app.dart';
+import 'capabilities/ciphersuites.dart';
+import 'capabilities/credentials.dart';
+import 'capabilities/groups.dart';
 import 'capabilities/init.dart';
+import 'capabilities/key_packages.dart';
+import 'capabilities/keys.dart';
+import 'capabilities/membership.dart';
+import 'capabilities/messages.dart';
+import 'capabilities/past_epochs.dart';
+import 'capabilities/proposals.dart';
+import 'capabilities/secure_bytes.dart';
+import 'capabilities/state.dart';
+import 'capabilities/storage.dart';
 import 'support/harness.dart';
 
 void main() => declareCapabilities(
   initialize: Openmls.init,
   capabilities: () {
     initCapabilities();
+    keyCapabilities();
+    credentialCapabilities();
+    keyPackageCapabilities();
+    groupCapabilities();
+    stateCapabilities();
+    membershipCapabilities();
+    proposalCapabilities();
+    messageCapabilities();
+    pastEpochCapabilities();
+    storageCapabilities();
+    ciphersuiteCapabilities();
+    secureBytesCapabilities();
+    // Last: the app's `dispose` calls `Openmls.cleanup()`.
+    appCapabilities();
   },
 );
