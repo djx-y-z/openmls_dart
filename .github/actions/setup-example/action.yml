@@ -1,0 +1,80 @@
+name: Setup the app under test
+description: >-
+  Flutter, and the app the integration tests run in: the example, or for a
+  published version a new app that depends on it. Says which library the run
+  has to end up testing, in VERIFY_LIBRARY, for `make verify-example-library`.
+
+inputs:
+  library:
+    description: >-
+      Where the app gets the package and its native library: tree, release or
+      pub. See integration-reusable.yml.
+    required: true
+  package-version:
+    description: The version on pub.dev, for library=pub.
+    required: false
+    default: ''
+  flutter-version:
+    description: >-
+      A Flutter version other than the pinned one, for library=pub. Only the new
+      app gets it: this repository's own tooling stays on the pin.
+    required: false
+    default: ''
+
+runs:
+  using: composite
+  steps:
+    - name: Setup Make
+      if: runner.os == 'Windows'
+      uses: ./.github/actions/setup-make
+
+    - name: Setup FVM and Flutter
+      uses: ./.github/actions/setup-fvm
+
+    - name: Get dependencies
+      run: make get
+      shell: bash
+
+    - name: Resolve the example
+      if: inputs.library != 'pub'
+      run: make get ARGS="--directory=example"
+      shell: bash
+
+    # pub.dev serves a new version a little after accepting it, and the job that
+    # gets here runs straight after the upload.
+    - name: Wait for the version on pub.dev
+      if: inputs.library == 'pub'
+      env:
+        PACKAGE_VERSION: ${{ inputs.package-version }}
+      run: |
+        set -uo pipefail
+        url="https://pub.dev/api/packages/openmls/versions/$PACKAGE_VERSION"
+        for _ in $(seq 1 40); do
+          if curl -fsS -o /dev/null "$url"; then exit 0; fi
+          echo "Not on pub.dev yet; waiting."
+          sleep 15
+        done
+        echo "::error::openmls $PACKAGE_VERSION did not appear on pub.dev in ten minutes."
+        exit 1
+      shell: bash
+
+    - name: Create a new app that uses the published package
+      if: inputs.library == 'pub'
+      env:
+        PACKAGE_VERSION: ${{ inputs.package-version }}
+        FLUTTER_VERSION: ${{ inputs.flutter-version }}
+      run: |
+        make create-consumer VERSION="$PACKAGE_VERSION" FLUTTER_VERSION="$FLUTTER_VERSION"
+        echo "EXAMPLE_DIR=build/consumer" >> "$GITHUB_ENV"
+      shell: bash
+
+    - name: Say which library this run has to test
+      env:
+        LIBRARY: ${{ inputs.library }}
+      run: |
+        case "$LIBRARY" in
+          tree) echo "VERIFY_LIBRARY=--built" >> "$GITHUB_ENV" ;;
+          release|pub) echo "VERIFY_LIBRARY=--released" >> "$GITHUB_ENV" ;;
+          *) echo "::error::Unknown library: $LIBRARY"; exit 1 ;;
+        esac
+      shell: bash

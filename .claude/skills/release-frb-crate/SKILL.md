@@ -105,7 +105,10 @@ prefer the more severe bump.
 
 1. Watch the build: `gh run watch` (or the Actions tab). It creates the GitHub
    Release `openmls_frb-<version>` with all platform archives.
-2. Only then proceed to **stage 2** — the Dart package release
+2. `Integration Tests` then starts by itself on the released binaries, titled
+   `Released binaries of openmls_frb-<version>`, and runs the package in a real
+   app on every platform. `make release` will not tag before it has passed.
+3. Only then proceed to **stage 2** — the Dart package release
    ([release-package](../release-package/SKILL.md)): bump `pubspec.yaml`,
    finalize the CHANGELOG `[Unreleased]` → `[X.Y.Z]`, tag `vX.Y.Z`, push.
 

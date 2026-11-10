@@ -13,7 +13,7 @@ description: Dart wrapper for OpenMLS — a Rust implementation of the Messaging
 enable_claude: true
 enable_freezed: false
 enable_fuzzing: true
-enable_integration_tests: false
+enable_integration_tests: true
 enable_protoc: false
 enable_upstream_advisories: true
 enable_web: true

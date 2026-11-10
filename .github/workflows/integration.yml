@@ -1,0 +1,263 @@
+# When to run the package in a real app, and against what.
+# `integration-reusable.yml` holds the jobs and explains the three sources.
+#
+# - Pull requests and main: `tree`. The library is built from the commit, so the
+#   update bot's pull request runs its new upstream code on every platform before
+#   it merges. Unfiltered on pull requests for the reason `test.yml` gives: these
+#   jobs are to become required checks once they have proved stable, and a
+#   workflow filtered out by path reports nothing.
+# - After the native build of a release tag: `release`. That is stage 1 finishing,
+#   and this run is the automatic form of "run the suite against the released
+#   binary" before stage 2, on every platform instead of one. `make release`
+#   refuses to tag until it has passed, and `publish.yml` runs the same again as a
+#   gate before its upload. A release cut from a line older than these tests
+#   (a maintenance branch cut before them) has none, and the run says so and
+#   stops.
+# - Weekly: `pub`, the current version on pub.dev in a new app on the newest
+#   Flutter. No commit of ours moves anything this looks at. A Flutter release that
+#   breaks consumers of the published package shows up here, not in their issues.
+# - By hand, any of them.
+#
+# `pub` runs a version with its own tests, from its tag `v<version>`, not with
+# main's: a test on main can call what has not been released yet, and every new
+# bridged function brings one (`make coverage-example`). A version older than
+# these tests has none, and gets the tests of the ref this runs on, which the run's
+# summary says. The jobs then run on that tag — its Makefile and actions — while
+# `integration-reusable.yml` is this ref's, exactly as on a release above: a make
+# target or action input that file starts to need has to exist at every tag it
+# tests, or a `pub` run of an older version stops at it.
+
+name: Integration Tests
+
+# `make release` finds the run on the released binaries by this title
+# (`scripts/src/release_integration.dart`): GitHub records main's head as the
+# commit of a `workflow_run`, not the commit the build ran on. A run started by
+# hand says where its library came from. The watchdog's self-test says that
+# first: it is meant to fail, and a title of its own keeps it from counting as a
+# test of the released binaries, either way. The rest keep GitHub's own title,
+# which an empty name gives them.
+run-name: >-
+  ${{ github.event_name == 'workflow_run'
+      && github.event.workflow_run.conclusion == 'success'
+      && startsWith(github.event.workflow_run.head_branch, 'openmls_frb-')
+      && format('Released binaries of {0}', github.event.workflow_run.head_branch)
+    || github.event_name == 'workflow_dispatch' && inputs.hang
+      && format('Watchdog self-test: {0}, on {1}', inputs.library, github.ref_name)
+    || github.event_name == 'workflow_dispatch'
+      && format('By hand: {0}, on {1}', inputs.library, github.ref_name)
+    || '' }}
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+    paths:
+      - 'lib/**'
+      - 'example/**'
+      - 'rust/**'
+      - 'hook/**'
+      - 'scripts/**'
+      - 'Makefile'
+      - 'pubspec.yaml'
+      - '.fvmrc'
+      - '.github/**'
+  workflow_run:
+    workflows: ["Build openmls FRB Libraries"]
+    types:
+      - completed
+  schedule:
+    # Mondays, after the Flutter releases of the week before have landed.
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+    inputs:
+      library:
+        description: 'Where the library comes from'
+        type: choice
+        options: [tree, release, pub]
+        default: tree
+      package-version:
+        description: 'The version on pub.dev, for pub. Empty means the latest. It runs with the tests of its tag, or of this ref when the tag has none.'
+        required: false
+        default: ''
+      flutter-version:
+        description: 'For pub: a Flutter version, or stable. Empty means the pinned one.'
+        required: false
+        default: ''
+      hang:
+        description: "The watchdog's self-test: add a test that blocks the app. The Android and iOS jobs are to fail, saying the app sent nothing for 8 minutes."
+        type: boolean
+        default: false
+
+# Least-privilege default: nothing here writes to the repository.
+permissions:
+  contents: read
+
+# A new push makes a pull request's run pointless, so that one is cancelled.
+# Nothing else may be, and a shared group is not enough for that: GitHub also
+# cancels a run still waiting in a group when a newer one joins it. Every
+# `workflow_run` lands on the default branch's ref, the build workflow's failed
+# and non-release completions included, so one of those could otherwise take the
+# place of a waiting release test. Every other run gets a group of its own.
+concurrency:
+  group: integration-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  # Turns the event into the reusable workflow's inputs, in one place. The native
+  # build runs on `workflow_dispatch` too, as a retry path on any ref, so only a
+  # successful run on a ref named `openmls_frb-*` can mean there is a release to
+  # test. It has the ref's name in `head_branch`, and `head_sha` is the commit that
+  # produced the binaries: this workflow's own checkout would otherwise be main,
+  # which may have moved on. That name is a release only if a tag of that name is
+  # at that commit, which the step below asks GitHub: the build checks a tag
+  # against the crate version, and a branch named so it does not check at all.
+  resolve:
+    runs-on: ubuntu-26.04
+    if: >-
+      github.event_name != 'workflow_run' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       startsWith(github.event.workflow_run.head_branch, 'openmls_frb-'))
+    outputs:
+      run: ${{ steps.resolve.outputs.run }}
+      library: ${{ steps.resolve.outputs.library }}
+      ref: ${{ steps.resolve.outputs.ref }}
+      package-version: ${{ steps.resolve.outputs.package-version }}
+      flutter-version: ${{ steps.resolve.outputs.flutter-version }}
+    steps:
+      - name: Decide what this run tests
+        id: resolve
+        env:
+          EVENT: ${{ github.event_name }}
+          INPUT_LIBRARY: ${{ inputs.library }}
+          INPUT_VERSION: ${{ inputs.package-version }}
+          INPUT_FLUTTER: ${{ inputs.flutter-version }}
+          INPUT_HANG: ${{ inputs.hang }}
+          RELEASE_TAG: ${{ github.event.workflow_run.head_branch }}
+          RELEASE_SHA: ${{ github.event.workflow_run.head_sha }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          # Whether the tree at $1 has these tests. Anything but "it has" or "it
+          # has not" stops the run: a wrong guess here is a run that tests
+          # something else than it says, or nothing at all.
+          has_tests() {
+            status=$(curl -sS --retry 3 -o /dev/null -w '%{http_code}' \
+              -H "Authorization: Bearer $GH_TOKEN" \
+              "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/contents/example/integration_test/openmls_test.dart?ref=$1" ||
+              true)
+            case "$status" in
+              200) return 0 ;;
+              404) return 1 ;;
+              *)
+                echo "::error::Could not tell whether $1 has the integration tests (HTTP $status)."
+                exit 1
+                ;;
+            esac
+          }
+
+          # Whether a tag named $1 is at the commit $2. The commits API takes a
+          # signed tag to its commit, and answers 422 for a name with no tag.
+          # Anything else stops the run, as above.
+          tag_at() {
+            status=$(curl -sS --retry 3 -o "$RUNNER_TEMP/tag.json" -w '%{http_code}' \
+              -H "Authorization: Bearer $GH_TOKEN" \
+              "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/commits/refs/tags/$1" ||
+              true)
+            case "$status" in
+              200)
+                tagged=$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1]))["sha"])' "$RUNNER_TEMP/tag.json") || {
+                  echo "::error::Could not read the commit of the tag $1."
+                  exit 1
+                }
+                [ "$tagged" = "$2" ]
+                ;;
+              404 | 422) return 1 ;;
+              *)
+                echo "::error::Could not tell whether $1 is a tag (HTTP $status)."
+                exit 1
+                ;;
+            esac
+          }
+
+          run=true library=tree ref='' version='' flutter=''
+          case "$EVENT" in
+            workflow_run)
+              library=release
+              ref="$RELEASE_SHA"
+              if ! tag_at "$RELEASE_TAG" "$RELEASE_SHA"; then
+                # A build run by hand on a branch of that name: its title says
+                # a release, and with no test job make release counts it as none.
+                run=false
+                echo "::warning::Not testing $RELEASE_TAG: no tag of that name is at $RELEASE_SHA, the commit the build ran on."
+                echo "Not testing $RELEASE_TAG: no tag of that name is at $RELEASE_SHA, the commit the build ran on." >> "$GITHUB_STEP_SUMMARY"
+              # A release cut from a line older than these tests, a maintenance
+              # branch cut before them, has none to run, and the jobs would fail
+              # at their first step.
+              elif has_tests "$RELEASE_SHA"; then
+                echo "Testing $RELEASE_TAG at $RELEASE_SHA" >> "$GITHUB_STEP_SUMMARY"
+              else
+                run=false
+                echo "Not testing $RELEASE_TAG: its tree ($RELEASE_SHA) predates the integration tests." >> "$GITHUB_STEP_SUMMARY"
+              fi
+              ;;
+            schedule)
+              library=pub
+              flutter=stable
+              ;;
+            workflow_dispatch)
+              library="$INPUT_LIBRARY"
+              version="$INPUT_VERSION"
+              flutter="$INPUT_FLUTTER"
+              # The test that hangs is in this ref's tests, and pub may run a tag's.
+              if [ "$INPUT_HANG" = true ] && [ "$library" = pub ]; then
+                echo "::error::The watchdog's self-test runs this ref's tests, which library=pub need not: take tree or release."
+                exit 1
+              fi
+              ;;
+          esac
+
+          if [ "$library" = pub ] && [ -z "$version" ]; then
+            version=$(curl -fsSL --retry 3 https://pub.dev/api/packages/openmls |
+              python3 -c "import json, sys; print(json.load(sys.stdin)['latest']['version'])")
+          fi
+
+          # Both end up inside make recipes, so they are held to what they name.
+          if ! printf '%s\n' "$version" | grep -Eqx '([0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.-]+)?)?'; then
+            echo "::error::Not a package version: $version"
+            exit 1
+          fi
+          if ! printf '%s\n' "$flutter" | grep -Eqx '(stable|[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.]+)?)?'; then
+            echo "::error::Not a Flutter version: $flutter"
+            exit 1
+          fi
+
+          if [ "$library" = pub ]; then
+            # The version's own tests, when its tag has them: see the top of this file.
+            if has_tests "v$version"; then
+              ref="v$version"
+              echo "Testing openmls $version from pub.dev with the tests of v$version" >> "$GITHUB_STEP_SUMMARY"
+            else
+              echo "Testing openmls $version from pub.dev with the tests of $GITHUB_REF_NAME: v$version has none of its own, or there is no such tag" >> "$GITHUB_STEP_SUMMARY"
+            fi
+          fi
+
+          echo "run=$run library=$library ref=$ref version=$version flutter=$flutter"
+          {
+            echo "run=$run"
+            echo "library=$library"
+            echo "ref=$ref"
+            echo "package-version=$version"
+            echo "flutter-version=$flutter"
+          } >> "$GITHUB_OUTPUT"
+
+  integration:
+    needs: resolve
+    if: needs.resolve.outputs.run == 'true'
+    uses: ./.github/workflows/integration-reusable.yml
+    with:
+      library: ${{ needs.resolve.outputs.library }}
+      ref: ${{ needs.resolve.outputs.ref }}
+      package-version: ${{ needs.resolve.outputs.package-version }}
+      flutter-version: ${{ needs.resolve.outputs.flutter-version }}
+      hang: ${{ inputs.hang == true }}

@@ -15,7 +15,8 @@
 #
 # Left as they are:
 # - a run in which any job failed after it had started, which is for a person
-#   to read;
+#   to read; the jobs that drive a device already retried what the device or
+#   the connection broke;
 # - a cancelled run, which concludes `cancelled` rather than `failure`;
 # - a run a newer one of its branch has replaced. It is not worth a runner, and
 #   in a pull request's concurrency group its re-run would cancel the newer one.
@@ -30,7 +31,7 @@ name: Re-run jobs that got no runner
 
 on:
   workflow_run:
-    workflows: ["Tests"]
+    workflows: ["Tests", "Integration Tests"]
     types: [completed]
 
 # Re-running needs actions: write; the annotations that say why a job never

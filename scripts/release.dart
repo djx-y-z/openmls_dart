@@ -2,7 +2,8 @@
 
 /// Release a new Dart package version (publish to pub.dev).
 ///
-/// Verifies the stage-1 native release exists, validates with `make
+/// Verifies the stage-1 native release exists and passed the integration tests,
+/// validates with `make
 /// publish-dry-run` (clean pre-bump tree), bumps `pubspec.yaml`, finalizes the
 /// CHANGELOG `[Unreleased]` → `[X.Y.Z]`, creates a signed commit + signed tag
 /// `vX.Y.Z`, and pushes (unless `--no-push`). The tag triggers `publish.yml`,
@@ -22,6 +23,7 @@
 ///   make release ARGS="--version X.Y.Z --no-push"
 ///   make release ARGS="--version X.Y.Z --yes"
 ///   make release ARGS="--version X.Y.Z --skip-frb-check"
+///   make release ARGS="--version X.Y.Z --skip-integration-check"
 library;
 
 import 'dart:io';
@@ -45,6 +47,7 @@ void main(List<String> args) async {
   final push = !args.contains('--no-push');
   final assumeYes = args.contains('--yes') || args.contains('-y');
   final skipFrbCheck = args.contains('--skip-frb-check');
+  final skipIntegrationCheck = args.contains('--skip-integration-check');
 
   if (version == null) {
     print('Error: --version X.Y.Z is required');
@@ -65,6 +68,7 @@ void main(List<String> args) async {
       push: push,
       assumeYes: assumeYes,
       skipFrbCheck: skipFrbCheck,
+      skipIntegrationCheck: skipIntegrationCheck,
       date: date,
     );
   } catch (e) {
@@ -87,6 +91,9 @@ Options:
   --yes, -y          Skip the confirmation prompt
   --skip-frb-check   Skip both stage-1 checks in step 2 (only if you have
                      verified the native binary by hand)
+  --skip-integration-check
+                     Skip the integration check in step 2 (only if you have
+                     seen the tests pass on that binary)
   --date <Y-M-D>     CHANGELOG date to stamp (default: today)
   --help, -h         Show this help
 
@@ -96,6 +103,9 @@ What it does:
      on GitHub Releases (the published build hook downloads it), and that
      rust/ (all but rust/fuzz and rust/deny.toml) and lib/src/rust/ at its
      tag equal HEAD's: a commit to them after stage 1 needs a new crate.
+     Then that the integration tests passed on that binary: the run
+     integration.yml starts after its native build, or one started by hand
+     on it at HEAD (gh workflow run integration.yml -f library=release).
   3. Validates the package with `make publish-dry-run` on the clean, pre-bump
      tree (dry-run exits non-zero on any warning, so it runs before the bump).
   4. Bumps the version in pubspec.yaml.

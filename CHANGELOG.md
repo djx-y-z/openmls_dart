@@ -30,6 +30,19 @@
 
 #### Changed
 
+- **The template's integration tests are on (`enable_integration_tests`)** —
+  `integration.yml` runs the example's integration tests on every pull
+  request and push to `main`: Linux x86_64 and ARM64, macOS, Windows, an iOS
+  simulator, Android API 24 and API 36 with 16 KB pages, and the web
+  compiled both ways. CI judges each run by what the app reported, runs again
+  only a run that never got to its tests, and a watchdog fails a run whose
+  app has sent nothing for 8 minutes. **`make release` now waits for them:**
+  when the native build of an `openmls_frb-*` tag succeeds, they run on the
+  released binaries, and `make release` refuses to tag until that run has
+  passed. `publish.yml` runs them again before the upload. New `make`
+  targets: `test-example`, `test-example-web`, `drive-example`,
+  `coverage-example`, `create-consumer`, `package-example-*`. The example
+  depends on `integration_test` and `flutter_driver` for them.
 - **copier template adopted: v4.19.0 -> v4.20.0** — adds target-local native
   builds, more resilient release downloads, and automatic retries for jobs
   GitHub never started. `Makefile` builds and stamps cross-target libraries;
