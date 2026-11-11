@@ -463,13 +463,14 @@ void proposalCapabilities() {
     );
 
     capability(
-      'a custom proposal under a type OpenMLS reads as its own is refused, '
-      'and nothing is stored',
+      "a custom proposal under a type that is not the application's own is "
+      'refused, and nothing is stored',
       () async {
         final alice = await Party.create('alice');
         final group = await alice.createGroup();
-        // Add, Remove, SelfRemove, and a GREASE value (RFC 9420 §13.5).
-        for (final type in [1, 3, 0x000a, 0x0A0A]) {
+        // Add, Remove, one the MLS extensions draft takes that OpenMLS reads
+        // as custom, SelfRemove, and a GREASE value (RFC 9420 §13.5).
+        for (final type in [1, 3, 0x0008, 0x000a, 0x0A0A]) {
           await expectLater(
             alice.engine.proposeCustomProposal(
               groupIdBytes: group,

@@ -68,9 +68,14 @@ fn load_group<P: OpenMlsProvider>(group_id: &[u8], provider: &P) -> Result<MlsGr
         .ok_or_else(|| "No group found in storage".to_string())
 }
 
-/// The binding's name for a proposal's type.
 /// The extension type of last_resort (draft-ietf-mls-extensions).
 const LAST_RESORT_EXTENSION_TYPE: u16 = 0x000a;
+
+/// The highest proposal type MLS keeps for itself: RFC 9420 reserves
+/// `0x0000` and registers `0x0001` to `0x0007`, and the MLS extensions draft
+/// (draft-ietf-mls-extensions) takes `0x0008` to `0x000a` for its own
+/// proposals. None of them is an application's own.
+const LAST_RESERVED_PROPOSAL_TYPE: u16 = 0x000a;
 
 /// The leaf capabilities a key package built from `options` advertises, or
 /// `None` for OpenMLS's defaults.
@@ -114,6 +119,7 @@ fn serialize_proposal_ref(proposal_ref: &ProposalRef) -> Result<Vec<u8>, String>
         .map_err(|e| format!("Failed to serialize proposal ref: {e}"))
 }
 
+/// The binding's name for a proposal's type.
 fn proposal_type_of(proposal: &Proposal) -> MlsProposalType {
     match proposal {
         Proposal::Add(_) => MlsProposalType::Add,
@@ -2075,16 +2081,19 @@ impl MlsEngine {
 
     /// Proposes an application's own proposal: `payload` under `proposalType`.
     ///
-    /// `proposalType` has to be one OpenMLS does not read as a proposal of
-    /// its own — not one RFC 9420 or the MLS extensions register (`0x0001` to
-    /// `0x000a`), and not a GREASE value — or the call is refused. Such a
-    /// number would go out as that proposal with this payload: the other
-    /// members could not decode it ("The content is malformed"), while this
-    /// member kept it pending, and a commit of its pending proposals would
-    /// refer to a proposal no other member has. The private-use range,
-    /// `0xf000` to `0xffff`, is free for an application's own types. A commit
-    /// can carry a custom proposal only when every member's leaf lists its
-    /// type in `MlsCapabilities.proposals`.
+    /// `proposalType` has to be the application's own, or the call is
+    /// refused: not `0x0000` to `0x0007`, which RFC 9420 reserves and
+    /// registers, not `0x0008` to `0x000a`, which the MLS extensions draft
+    /// takes, and not a GREASE value. OpenMLS reads most of those as proposals
+    /// of its own, so such a number would go out as that proposal with this
+    /// payload: the other members could not decode it ("The content is
+    /// malformed"), while this member kept it pending, and a commit of its
+    /// pending proposals would refer to a proposal no other member has.
+    /// `0x0008` and `0x0009` OpenMLS reads as custom unless it is built with
+    /// its draft extensions, but a member whose implementation has them would
+    /// not. The private-use range, `0xf000` to `0xffff`, is free for an
+    /// application's own types. A commit can carry a custom proposal only when
+    /// every member's leaf lists its type in `MlsCapabilities.proposals`.
     pub async fn propose_custom_proposal(
         &self,
         group_id_bytes: Vec<u8>,
@@ -2092,21 +2101,24 @@ impl MlsEngine {
         proposal_type: u16,
         payload: Vec<u8>,
     ) -> Result<ProposalResult, String> {
-        if let other @ (ProposalType::Add
-        | ProposalType::Update
-        | ProposalType::Remove
-        | ProposalType::PreSharedKey
-        | ProposalType::Reinit
-        | ProposalType::ExternalInit
-        | ProposalType::GroupContextExtensions
-        | ProposalType::SelfRemove
-        | ProposalType::Grease(_)) = ProposalType::from(proposal_type)
-        {
-            return Err(format!(
-                "proposalType {proposal_type:#06x} is not a type of the application's own: \
-                 OpenMLS reads it as {other:?}. Use the method for that proposal, or a \
-                 type from the private-use range 0xf000-0xffff."
-            ));
+        // Only what OpenMLS reads as custom passes, so a type it comes to read
+        // as its own, in a later release or with a feature, is refused too.
+        match ProposalType::from(proposal_type) {
+            ProposalType::Custom(_) if proposal_type > LAST_RESERVED_PROPOSAL_TYPE => {}
+            ProposalType::Custom(_) => {
+                return Err(format!(
+                    "proposalType {proposal_type:#06x} is not a type of the application's \
+                     own: it is reserved for MLS (RFC 9420 and the MLS extensions draft). \
+                     Use a type from the private-use range 0xf000-0xffff."
+                ));
+            }
+            other => {
+                return Err(format!(
+                    "proposalType {proposal_type:#06x} is not a type of the application's \
+                     own: OpenMLS reads it as {other:?}. Use the method for that proposal, \
+                     or a type from the private-use range 0xf000-0xffff."
+                ));
+            }
         }
         let signer = signer_from_bytes(signer_bytes)?;
         let provider = self.load_for_group(&group_id_bytes).await?;
