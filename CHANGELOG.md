@@ -23,6 +23,7 @@
   `FlexibleCommitOptions.groupInfoExtensions`, read before joining with
   `MlsEngine.welcomeGroupInfoExtensions`.
 - **openmls v0.9.2** — unchanged this release.
+- **openmls_frb v2.5.0** — Rust FFI bindings
 
 #### Added
 
