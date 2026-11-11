@@ -107,6 +107,13 @@ fn key_package_capabilities(options: &KeyPackageOptions) -> Result<Option<Capabi
     capabilities_to_native(&caps).map(Some)
 }
 
+/// A proposal's reference as `removePendingProposal` reads it.
+fn serialize_proposal_ref(proposal_ref: &ProposalRef) -> Result<Vec<u8>, String> {
+    proposal_ref
+        .tls_serialize_detached()
+        .map_err(|e| format!("Failed to serialize proposal ref: {e}"))
+}
+
 fn proposal_type_of(proposal: &Proposal) -> MlsProposalType {
     match proposal {
         Proposal::Add(_) => MlsProposalType::Add,
@@ -367,6 +374,10 @@ pub struct CommitResult {
 
 pub struct ProposalResult {
     pub proposal_message: Vec<u8>,
+    /// The proposal's reference (RFC 9420 §5.2), serialized: what
+    /// `removePendingProposal` takes to withdraw it from this member's store
+    /// before a commit carries it.
+    pub proposal_ref: Vec<u8>,
 }
 
 pub struct CreateMessageResult {
@@ -1866,13 +1877,16 @@ impl MlsEngine {
         let kp = kp_in.validate(provider.crypto(), ProtocolVersion::Mls10)
             .map_err(|e| format!("Failed to validate key package: {}", e))?;
 
-        let (proposal_out, _) = group.propose_add_member(&provider, &signer, &kp)
+        let (proposal_out, proposal_ref) = group.propose_add_member(&provider, &signer, &kp)
             .map_err(|e| format!("Failed to propose add: {}", e))?;
         let msg_bytes = proposal_out.tls_serialize_detached().map_err(|e| format!("Failed to serialize proposal: {}", e))?;
 
         self.commit(provider, Some(&group_id_bytes)).await?;
 
-        Ok(ProposalResult { proposal_message: msg_bytes })
+        Ok(ProposalResult {
+            proposal_message: msg_bytes,
+            proposal_ref: serialize_proposal_ref(&proposal_ref)?,
+        })
     }
 
     pub async fn propose_remove(
@@ -1885,13 +1899,16 @@ impl MlsEngine {
         let provider = self.load_for_group(&group_id_bytes).await?;
         let mut group = load_group(&group_id_bytes, &provider)?;
 
-        let (proposal_out, _) = group.propose_remove_member(&provider, &signer, LeafNodeIndex::new(member_index))
+        let (proposal_out, proposal_ref) = group.propose_remove_member(&provider, &signer, LeafNodeIndex::new(member_index))
             .map_err(|e| format!("Failed to propose remove: {}", e))?;
         let msg_bytes = proposal_out.tls_serialize_detached().map_err(|e| format!("Failed to serialize proposal: {}", e))?;
 
         self.commit(provider, Some(&group_id_bytes)).await?;
 
-        Ok(ProposalResult { proposal_message: msg_bytes })
+        Ok(ProposalResult {
+            proposal_message: msg_bytes,
+            proposal_ref: serialize_proposal_ref(&proposal_ref)?,
+        })
     }
 
     pub async fn propose_self_update(
@@ -1916,13 +1933,16 @@ impl MlsEngine {
         }
         let leaf_node_params = ln_builder.build();
 
-        let (proposal_out, _) = group.propose_self_update(&provider, &signer, leaf_node_params)
+        let (proposal_out, proposal_ref) = group.propose_self_update(&provider, &signer, leaf_node_params)
             .map_err(|e| format!("Failed to propose self-update: {}", e))?;
         let msg_bytes = proposal_out.tls_serialize_detached().map_err(|e| format!("Failed to serialize proposal: {}", e))?;
 
         self.commit(provider, Some(&group_id_bytes)).await?;
 
-        Ok(ProposalResult { proposal_message: msg_bytes })
+        Ok(ProposalResult {
+            proposal_message: msg_bytes,
+            proposal_ref: serialize_proposal_ref(&proposal_ref)?,
+        })
     }
 
     /// Proposes a self-update that also rotates this member's signature key.
@@ -1991,14 +2011,17 @@ impl MlsEngine {
         }
         let leaf_node_params = ln_builder.build();
 
-        let (proposal_out, _) = group
+        let (proposal_out, proposal_ref) = group
             .propose_self_update_with_new_signer(&provider, &old_signer, new_signer_bundle, leaf_node_params)
             .map_err(|e| format!("Failed to propose self-update with new signer: {}", e))?;
         let msg_bytes = proposal_out.tls_serialize_detached().map_err(|e| format!("Failed to serialize proposal: {}", e))?;
 
         self.commit(provider, Some(&group_id_bytes)).await?;
 
-        Ok(ProposalResult { proposal_message: msg_bytes })
+        Ok(ProposalResult {
+            proposal_message: msg_bytes,
+            proposal_ref: serialize_proposal_ref(&proposal_ref)?,
+        })
     }
 
     pub async fn propose_external_psk(
@@ -2013,13 +2036,16 @@ impl MlsEngine {
         let mut group = load_group(&group_id_bytes, &provider)?;
 
         let psk = PreSharedKeyId::external(psk_id, psk_nonce);
-        let (proposal_out, _) = group.propose_pre_shared_key(&provider, &signer, psk)
+        let (proposal_out, proposal_ref) = group.propose_pre_shared_key(&provider, &signer, psk)
             .map_err(|e| format!("Failed to propose external PSK: {}", e))?;
         let msg_bytes = proposal_out.tls_serialize_detached().map_err(|e| format!("Failed to serialize proposal: {}", e))?;
 
         self.commit(provider, Some(&group_id_bytes)).await?;
 
-        Ok(ProposalResult { proposal_message: msg_bytes })
+        Ok(ProposalResult {
+            proposal_message: msg_bytes,
+            proposal_ref: serialize_proposal_ref(&proposal_ref)?,
+        })
     }
 
     pub async fn propose_group_context_extensions(
@@ -2035,13 +2061,16 @@ impl MlsEngine {
         let ext_vec = extensions_from_mls(&extensions)?;
         let gc_extensions = Extensions::from_vec(ext_vec).map_err(|e| format!("Failed to create extensions: {}", e))?;
 
-        let (proposal_out, _) = group.propose_group_context_extensions(&provider, gc_extensions, &signer)
+        let (proposal_out, proposal_ref) = group.propose_group_context_extensions(&provider, gc_extensions, &signer)
             .map_err(|e| format!("Failed to propose group context extensions: {}", e))?;
         let msg_bytes = proposal_out.tls_serialize_detached().map_err(|e| format!("Failed to serialize proposal: {}", e))?;
 
         self.commit(provider, Some(&group_id_bytes)).await?;
 
-        Ok(ProposalResult { proposal_message: msg_bytes })
+        Ok(ProposalResult {
+            proposal_message: msg_bytes,
+            proposal_ref: serialize_proposal_ref(&proposal_ref)?,
+        })
     }
 
     /// Proposes an application's own proposal: `payload` under `proposalType`.
@@ -2084,13 +2113,16 @@ impl MlsEngine {
         let mut group = load_group(&group_id_bytes, &provider)?;
 
         let custom = CustomProposal::new(proposal_type, payload);
-        let (proposal_out, _) = group.propose_custom_proposal_by_reference(&provider, &signer, custom)
+        let (proposal_out, proposal_ref) = group.propose_custom_proposal_by_reference(&provider, &signer, custom)
             .map_err(|e| format!("Failed to propose custom proposal: {}", e))?;
         let msg_bytes = proposal_out.tls_serialize_detached().map_err(|e| format!("Failed to serialize proposal: {}", e))?;
 
         self.commit(provider, Some(&group_id_bytes)).await?;
 
-        Ok(ProposalResult { proposal_message: msg_bytes })
+        Ok(ProposalResult {
+            proposal_message: msg_bytes,
+            proposal_ref: serialize_proposal_ref(&proposal_ref)?,
+        })
     }
 
     pub async fn propose_remove_member_by_credential(
@@ -2105,13 +2137,16 @@ impl MlsEngine {
 
         let credential = Credential::tls_deserialize_exact_bytes(&credential_bytes)
             .map_err(|e| format!("Failed to deserialize credential: {}", e))?;
-        let (proposal_out, _) = group.propose_remove_member_by_credential(&provider, &signer, &credential)
+        let (proposal_out, proposal_ref) = group.propose_remove_member_by_credential(&provider, &signer, &credential)
             .map_err(|e| format!("Failed to propose remove by credential: {}", e))?;
         let msg_bytes = proposal_out.tls_serialize_detached().map_err(|e| format!("Failed to serialize proposal: {}", e))?;
 
         self.commit(provider, Some(&group_id_bytes)).await?;
 
-        Ok(ProposalResult { proposal_message: msg_bytes })
+        Ok(ProposalResult {
+            proposal_message: msg_bytes,
+            proposal_ref: serialize_proposal_ref(&proposal_ref)?,
+        })
     }
 
     // ═══════════════════════════════════════════════════════════

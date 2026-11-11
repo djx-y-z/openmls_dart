@@ -25,6 +25,12 @@
   Welcome that passes. Authenticate the signer by its signature key, as
   before any join. Nothing is written, so the key package stays for the
   join. The ratchet tree and external public key extensions are left out.
+- **`ProposalResult.proposalRef`** — every `propose*` method now returns its
+  proposal's reference (RFC 9420 §5.2), serialized as
+  `removePendingProposal` takes it. That method had no legitimate input
+  before: the engine discarded the reference OpenMLS returns, and nothing
+  else gave one back, so a pending proposal could only be dropped with all
+  the others (`clearPendingProposals`).
 
 #### Fixed
 

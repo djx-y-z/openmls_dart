@@ -436,7 +436,10 @@ void proposalCapabilities() {
           payload: bytesOf('custom-data'),
         );
 
-        final reference = proposalRef(psk.proposalMessage);
+        // The reference the engine returns is the one RFC 9420 §5.2 makes
+        // from the message.
+        final reference = psk.proposalRef;
+        expect(reference, proposalRef(psk.proposalMessage));
         await alice.engine.removePendingProposal(
           groupIdBytes: group,
           proposalRefBytes: reference,

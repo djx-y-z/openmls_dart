@@ -675,17 +675,19 @@ void main() {
 
   group('ProposalResult equality', () {
     test('equal results', () {
-      final r1 = ProposalResult(proposalMessage: b1);
-      final r2 = ProposalResult(proposalMessage: b1);
+      final r1 = ProposalResult(proposalMessage: b1, proposalRef: b1);
+      final r2 = ProposalResult(proposalMessage: b1, proposalRef: b1);
       expect(r1, equals(r2));
       expect(r1.hashCode, equals(r2.hashCode));
       expect(r1, equals(r1));
     });
 
     test('unequal results', () {
-      final r1 = ProposalResult(proposalMessage: b1);
-      final r2 = ProposalResult(proposalMessage: bOther);
+      final r1 = ProposalResult(proposalMessage: b1, proposalRef: b1);
+      final r2 = ProposalResult(proposalMessage: bOther, proposalRef: b1);
       expect(r1, isNot(equals(r2)));
+      final r3 = ProposalResult(proposalMessage: b1, proposalRef: bOther);
+      expect(r1, isNot(equals(r3)));
     });
   });
 

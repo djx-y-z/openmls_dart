@@ -5419,10 +5419,11 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   ProposalResult dco_decode_proposal_result(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 1)
-      throw Exception('unexpected arr length: expect 1 but see ${arr.length}');
+    if (arr.length != 2)
+      throw Exception('unexpected arr length: expect 2 but see ${arr.length}');
     return ProposalResult(
       proposalMessage: dco_decode_list_prim_u_8_strict(arr[0]),
+      proposalRef: dco_decode_list_prim_u_8_strict(arr[1]),
     );
   }
 
@@ -6453,7 +6454,11 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   ProposalResult sse_decode_proposal_result(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var var_proposalMessage = sse_decode_list_prim_u_8_strict(deserializer);
-    return ProposalResult(proposalMessage: var_proposalMessage);
+    var var_proposalRef = sse_decode_list_prim_u_8_strict(deserializer);
+    return ProposalResult(
+      proposalMessage: var_proposalMessage,
+      proposalRef: var_proposalRef,
+    );
   }
 
   @protected
@@ -7601,6 +7606,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_list_prim_u_8_strict(self.proposalMessage, serializer);
+    sse_encode_list_prim_u_8_strict(self.proposalRef, serializer);
   }
 
   @protected

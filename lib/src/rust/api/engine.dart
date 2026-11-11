@@ -8,7 +8,7 @@ import 'config.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 import 'types.dart';
 
-// These functions are ignored because they are not marked as `pub`: `acquire_locks`, `apply_past_epoch_deletion`, `apply_past_epoch_policy`, `build_credential_with_key`, `commit`, `db`, `key_package_capabilities`, `leaf_node_info`, `load_for_group`, `load_global`, `load_group`, `max_epochs_to_native`, `member_info`, `native_to_past_epoch_policy`, `own_private_message_error`, `process_inspected`, `proposal_info`, `proposal_type_of`, `sender_info`, `staged_commit_info`, `unix_seconds_to_system_time`, `with_cap`
+// These functions are ignored because they are not marked as `pub`: `acquire_locks`, `apply_past_epoch_deletion`, `apply_past_epoch_policy`, `build_credential_with_key`, `commit`, `db`, `key_package_capabilities`, `leaf_node_info`, `load_for_group`, `load_global`, `load_group`, `max_epochs_to_native`, `member_info`, `native_to_past_epoch_policy`, `own_private_message_error`, `process_inspected`, `proposal_info`, `proposal_type_of`, `sender_info`, `serialize_proposal_ref`, `staged_commit_info`, `unix_seconds_to_system_time`, `with_cap`
 // These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `OpLocks`, `OpSession`
 // These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `crypto`, `rand`, `storage`
 
@@ -1213,15 +1213,24 @@ class ProcessedMessageResult {
 class ProposalResult {
   final Uint8List proposalMessage;
 
-  const ProposalResult({required this.proposalMessage});
+  /// The proposal's reference (RFC 9420 §5.2), serialized: what
+  /// `removePendingProposal` takes to withdraw it from this member's store
+  /// before a commit carries it.
+  final Uint8List proposalRef;
+
+  const ProposalResult({
+    required this.proposalMessage,
+    required this.proposalRef,
+  });
 
   @override
-  int get hashCode => proposalMessage.hashCode;
+  int get hashCode => proposalMessage.hashCode ^ proposalRef.hashCode;
 
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       other is ProposalResult &&
           runtimeType == other.runtimeType &&
-          proposalMessage == other.proposalMessage;
+          proposalMessage == other.proposalMessage &&
+          proposalRef == other.proposalRef;
 }

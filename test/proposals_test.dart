@@ -151,6 +151,48 @@ void main() {
       expect(proposal.proposalMessage, isNotEmpty);
     });
 
+    test('a pending proposal is withdrawn by the reference its result '
+        'carries, and only that one', () async {
+      Future<ProposalResult> propose(int type) => alice.proposeCustomProposal(
+        groupIdBytes: groupIdBytes,
+        signerBytes: aliceId.signerBytes,
+        proposalType: type,
+        payload: utf8.encode('custom-$type'),
+      );
+      final first = await propose(0xF001);
+      final second = await propose(0xF002);
+      // A SHA-256 suite's reference, as a variable-length vector: its length,
+      // 32, then the hash.
+      expect(first.proposalRef, hasLength(33));
+      expect(first.proposalRef.first, 0x20);
+      expect(first.proposalRef, isNot(equals(second.proposalRef)));
+
+      await alice.removePendingProposal(
+        groupIdBytes: groupIdBytes,
+        proposalRefBytes: first.proposalRef,
+      );
+      final left = await alice.groupPendingProposals(
+        groupIdBytes: groupIdBytes,
+      );
+      expect(left, hasLength(1));
+      // It is gone: withdrawing it again finds nothing to take.
+      await expectLater(
+        alice.removePendingProposal(
+          groupIdBytes: groupIdBytes,
+          proposalRefBytes: first.proposalRef,
+        ),
+        throwsA(isA<Object>()),
+      );
+      await alice.removePendingProposal(
+        groupIdBytes: groupIdBytes,
+        proposalRefBytes: second.proposalRef,
+      );
+      expect(
+        await alice.groupHasPendingProposals(groupIdBytes: groupIdBytes),
+        isFalse,
+      );
+    });
+
     test('a custom proposal under a type OpenMLS reads as its own is '
         'refused, and nothing is stored', () async {
       // The types RFC 9420 and the MLS extensions register, and a GREASE
