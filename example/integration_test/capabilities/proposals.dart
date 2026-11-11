@@ -460,6 +460,32 @@ void proposalCapabilities() {
     );
 
     capability(
+      'a custom proposal under a type OpenMLS reads as its own is refused, '
+      'and nothing is stored',
+      () async {
+        final alice = await Party.create('alice');
+        final group = await alice.createGroup();
+        // Add, Remove, SelfRemove, and a GREASE value (RFC 9420 §13.5).
+        for (final type in [1, 3, 0x000a, 0x0A0A]) {
+          await expectLater(
+            alice.engine.proposeCustomProposal(
+              groupIdBytes: group,
+              signerBytes: alice.signer,
+              proposalType: type,
+              payload: bytesOf('not really custom'),
+            ),
+            throwsA(anything),
+            reason: 'type $type',
+          );
+        }
+        expect(
+          await alice.engine.groupHasPendingProposals(groupIdBytes: group),
+          isFalse,
+        );
+      },
+    );
+
+    capability(
       'a commit kept pending changes nothing until mergePendingCommit applies '
       'it',
       () async {

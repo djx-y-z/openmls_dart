@@ -151,6 +151,32 @@ void main() {
       expect(proposal.proposalMessage, isNotEmpty);
     });
 
+    test('a custom proposal under a type OpenMLS reads as its own is '
+        'refused, and nothing is stored', () async {
+      // The types RFC 9420 and the MLS extensions register, and a GREASE
+      // value (RFC 9420 §13.5).
+      for (final type in [1, 2, 3, 4, 5, 6, 7, 0x000a, 0x0A0A]) {
+        await expectLater(
+          alice.proposeCustomProposal(
+            groupIdBytes: groupIdBytes,
+            signerBytes: aliceId.signerBytes,
+            proposalType: type,
+            payload: utf8.encode('not really custom'),
+          ),
+          throwsA(
+            predicate(
+              (e) => '$e'.contains("not a type of the application's own"),
+            ),
+          ),
+          reason: 'type $type',
+        );
+      }
+      expect(
+        await alice.groupHasPendingProposals(groupIdBytes: groupIdBytes),
+        isFalse,
+      );
+    });
+
     test('propose self-update with a new signer', () async {
       final rotated = TestIdentity.create('alice-rotated');
 

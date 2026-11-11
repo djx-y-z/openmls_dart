@@ -69,6 +69,44 @@ fn load_group<P: OpenMlsProvider>(group_id: &[u8], provider: &P) -> Result<MlsGr
 }
 
 /// The binding's name for a proposal's type.
+/// The extension type of last_resort (draft-ietf-mls-extensions).
+const LAST_RESORT_EXTENSION_TYPE: u16 = 0x000a;
+
+/// The leaf capabilities a key package built from `options` advertises, or
+/// `None` for OpenMLS's defaults.
+///
+/// A last-resort key package carries a last_resort extension, and a key
+/// package's extensions have to be among its leaf's capabilities (RFC 9420
+/// §10.1). OpenMLS's default capabilities list no extension, so the type is
+/// added here, to the defaults or to the caller's list: without it, whoever
+/// adds the key package refuses it ("A key package extension is not supported
+/// in the leaf's capabilities").
+fn key_package_capabilities(options: &KeyPackageOptions) -> Result<Option<Capabilities>, String> {
+    if !options.last_resort {
+        return options.capabilities.as_ref().map(capabilities_to_native).transpose();
+    }
+    let mut caps = match &options.capabilities {
+        Some(given) => MlsCapabilities {
+            versions: given.versions.clone(),
+            ciphersuites: given.ciphersuites.clone(),
+            extensions: given.extensions.clone(),
+            proposals: given.proposals.clone(),
+            credentials: given.credentials.clone(),
+        },
+        None => MlsCapabilities {
+            versions: Vec::new(),
+            ciphersuites: Vec::new(),
+            extensions: Vec::new(),
+            proposals: Vec::new(),
+            credentials: Vec::new(),
+        },
+    };
+    if !caps.extensions.contains(&LAST_RESORT_EXTENSION_TYPE) {
+        caps.extensions.push(LAST_RESORT_EXTENSION_TYPE);
+    }
+    capabilities_to_native(&caps).map(Some)
+}
+
 fn proposal_type_of(proposal: &Proposal) -> MlsProposalType {
     match proposal {
         Proposal::Add(_) => MlsProposalType::Add,
@@ -748,8 +786,8 @@ impl MlsEngine {
         if options.last_resort {
             builder = builder.mark_as_last_resort();
         }
-        if let Some(ref caps) = options.capabilities {
-            builder = builder.leaf_node_capabilities(capabilities_to_native(caps)?);
+        if let Some(caps) = key_package_capabilities(&options)? {
+            builder = builder.leaf_node_capabilities(caps);
         }
         if let Some(ref leaf_exts) = options.leaf_node_extensions {
             let extensions = Extensions::from_vec(extensions_from_mls(leaf_exts)?)
@@ -1776,6 +1814,22 @@ impl MlsEngine {
         Ok(LeaveGroupResult { message: msg_bytes })
     }
 
+    /// Leaves the group with a SelfRemove proposal (draft-ietf-mls-extensions),
+    /// which any member may commit without proposing the removal itself.
+    ///
+    /// Two things have to hold, or a step fails:
+    /// - The group sends its handshake messages in the clear
+    ///   (`MlsWireFormatPolicy.plaintext`): OpenMLS refuses to send a
+    ///   SelfRemove encrypted.
+    /// - Every member's leaf lists the proposal type `0x000a` in
+    ///   `MlsCapabilities.proposals`, through `createGroupWithBuilder` and
+    ///   `KeyPackageOptions.capabilities`; OpenMLS's default capabilities do
+    ///   not. Otherwise the proposal is sent, and the commit that would carry
+    ///   it is refused: "The proposal type is not supported by all group
+    ///   members".
+    ///
+    /// `leaveGroup` needs neither: it proposes an ordinary Remove of this
+    /// member.
     pub async fn leave_group_via_self_remove(
         &self,
         group_id_bytes: Vec<u8>,
@@ -1990,6 +2044,18 @@ impl MlsEngine {
         Ok(ProposalResult { proposal_message: msg_bytes })
     }
 
+    /// Proposes an application's own proposal: `payload` under `proposalType`.
+    ///
+    /// `proposalType` has to be one OpenMLS does not read as a proposal of
+    /// its own — not one RFC 9420 or the MLS extensions register (`0x0001` to
+    /// `0x000a`), and not a GREASE value — or the call is refused. Such a
+    /// number would go out as that proposal with this payload: the other
+    /// members could not decode it ("The content is malformed"), while this
+    /// member kept it pending, and a commit of its pending proposals would
+    /// refer to a proposal no other member has. The private-use range,
+    /// `0xf000` to `0xffff`, is free for an application's own types. A commit
+    /// can carry a custom proposal only when every member's leaf lists its
+    /// type in `MlsCapabilities.proposals`.
     pub async fn propose_custom_proposal(
         &self,
         group_id_bytes: Vec<u8>,
@@ -1997,6 +2063,22 @@ impl MlsEngine {
         proposal_type: u16,
         payload: Vec<u8>,
     ) -> Result<ProposalResult, String> {
+        if let other @ (ProposalType::Add
+        | ProposalType::Update
+        | ProposalType::Remove
+        | ProposalType::PreSharedKey
+        | ProposalType::Reinit
+        | ProposalType::ExternalInit
+        | ProposalType::GroupContextExtensions
+        | ProposalType::SelfRemove
+        | ProposalType::Grease(_)) = ProposalType::from(proposal_type)
+        {
+            return Err(format!(
+                "proposalType {proposal_type:#06x} is not a type of the application's own: \
+                 OpenMLS reads it as {other:?}. Use the method for that proposal, or a \
+                 type from the private-use range 0xf000-0xffff."
+            ));
+        }
         let signer = signer_from_bytes(signer_bytes)?;
         let provider = self.load_for_group(&group_id_bytes).await?;
         let mut group = load_group(&group_id_bytes, &provider)?;

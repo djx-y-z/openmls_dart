@@ -8370,6 +8370,22 @@ class MlsEngineImpl extends RustOpaque implements MlsEngine {
     signerBytes: signerBytes,
   );
 
+  /// Leaves the group with a SelfRemove proposal (draft-ietf-mls-extensions),
+  /// which any member may commit without proposing the removal itself.
+  ///
+  /// Two things have to hold, or a step fails:
+  /// - The group sends its handshake messages in the clear
+  ///   (`MlsWireFormatPolicy.plaintext`): OpenMLS refuses to send a
+  ///   SelfRemove encrypted.
+  /// - Every member's leaf lists the proposal type `0x000a` in
+  ///   `MlsCapabilities.proposals`, through `createGroupWithBuilder` and
+  ///   `KeyPackageOptions.capabilities`; OpenMLS's default capabilities do
+  ///   not. Otherwise the proposal is sent, and the commit that would carry
+  ///   it is refused: "The proposal type is not supported by all group
+  ///   members".
+  ///
+  /// `leaveGroup` needs neither: it proposes an ordinary Remove of this
+  /// member.
   Future<LeaveGroupResult> leaveGroupViaSelfRemove({
     required List<int> groupIdBytes,
     required List<int> signerBytes,
@@ -8426,6 +8442,18 @@ class MlsEngineImpl extends RustOpaque implements MlsEngine {
     keyPackageBytes: keyPackageBytes,
   );
 
+  /// Proposes an application's own proposal: `payload` under `proposalType`.
+  ///
+  /// `proposalType` has to be one OpenMLS does not read as a proposal of
+  /// its own — not one RFC 9420 or the MLS extensions register (`0x0001` to
+  /// `0x000a`), and not a GREASE value — or the call is refused. Such a
+  /// number would go out as that proposal with this payload: the other
+  /// members could not decode it ("The content is malformed"), while this
+  /// member kept it pending, and a commit of its pending proposals would
+  /// refer to a proposal no other member has. The private-use range,
+  /// `0xf000` to `0xffff`, is free for an application's own types. A commit
+  /// can carry a custom proposal only when every member's leaf lists its
+  /// type in `MlsCapabilities.proposals`.
   Future<ProposalResult> proposeCustomProposal({
     required List<int> groupIdBytes,
     required List<int> signerBytes,

@@ -26,6 +26,30 @@
   before any join. Nothing is written, so the key package stays for the
   join. The ratchet tree and external public key extensions are left out.
 
+#### Fixed
+
+- **A last-resort key package is no longer refused by whoever adds it** —
+  `createKeyPackageWithOptions` with `lastResort: true` put a last_resort
+  extension in the key package without listing that type among its leaf's
+  capabilities, which RFC 9420 (§10.1) requires of every key package
+  extension, so adding it failed with "A key package extension is not
+  supported in the leaf's capabilities". The type (`0x000a`) is now added to
+  the capabilities given, or to the defaults when none are.
+- **`proposeCustomProposal` refuses a type OpenMLS reads as its own** — one
+  that RFC 9420 or the MLS extensions register (`0x0001` to `0x000a`), or a
+  GREASE value. Such a proposal went out as that type with the custom
+  payload: other members could not decode it ("The content is malformed"),
+  while the proposer kept it pending, so a commit of the proposer's pending
+  proposals referred to a proposal no other member had. The private-use
+  range, `0xf000` to `0xffff`, is free for an application's own types.
+
+#### Documentation
+
+- **`leaveGroupViaSelfRemove` says what it needs** — a group that sends its
+  handshake messages as plaintext, and the proposal type `0x000a` in every
+  member's leaf capabilities, which OpenMLS's defaults do not list.
+  Otherwise the commit that would carry the proposal is refused.
+
 ### For Contributors
 
 #### Added
