@@ -2372,6 +2372,11 @@ class RustLibWire implements BaseWire {
     group_id_bytes,
   );
 
+  void wire__crate__api__engine__MlsEngine_group_ids(
+    NativePortType port_,
+    int that,
+  ) => wasmModule.wire__crate__api__engine__MlsEngine_group_ids(port_, that);
+
   void wire__crate__api__engine__MlsEngine_group_is_active(
     NativePortType port_,
     int that,
@@ -3353,6 +3358,11 @@ extension type RustLibWasmModule._(JSObject _) implements JSObject {
     NativePortType port_,
     int that,
     JSAny group_id_bytes,
+  );
+
+  external void wire__crate__api__engine__MlsEngine_group_ids(
+    NativePortType port_,
+    int that,
   );
 
   external void wire__crate__api__engine__MlsEngine_group_is_active(

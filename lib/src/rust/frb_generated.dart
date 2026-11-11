@@ -69,7 +69,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.13.0';
 
   @override
-  int get rustContentHash => -541303569;
+  int get rustContentHash => -1609538643;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -325,6 +325,10 @@ abstract class RustLibApi extends BaseApi {
   Future<Uint8List> crateApiEngineMlsEngineGroupId({
     required MlsEngine that,
     required List<int> groupIdBytes,
+  });
+
+  Future<List<Uint8List>> crateApiEngineMlsEngineGroupIds({
+    required MlsEngine that,
   });
 
   Future<bool> crateApiEngineMlsEngineGroupIsActive({
@@ -2398,6 +2402,36 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         debugName: "MlsEngine_group_id",
         argNames: ["that", "groupIdBytes"],
       );
+
+  @override
+  Future<List<Uint8List>> crateApiEngineMlsEngineGroupIds({
+    required MlsEngine that,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          var arg0 =
+              cst_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsEngine(
+                that,
+              );
+          return wire.wire__crate__api__engine__MlsEngine_group_ids(
+            port_,
+            arg0,
+          );
+        },
+        codec: DcoCodec(
+          decodeSuccessData: dco_decode_list_list_prim_u_8_strict,
+          decodeErrorData: dco_decode_String,
+        ),
+        constMeta: kCrateApiEngineMlsEngineGroupIdsConstMeta,
+        argValues: [that],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiEngineMlsEngineGroupIdsConstMeta =>
+      const TaskConstMeta(debugName: "MlsEngine_group_ids", argNames: ["that"]);
 
   @override
   Future<bool> crateApiEngineMlsEngineGroupIsActive({
@@ -8246,6 +8280,21 @@ class MlsEngineImpl extends RustOpaque implements MlsEngine {
       .instance
       .api
       .crateApiEngineMlsEngineGroupId(that: this, groupIdBytes: groupIdBytes);
+
+  /// The ID of every group this engine stores, in no particular order.
+  ///
+  /// These are the groups the other methods can load, and the IDs that
+  /// `createGroup` and `joinGroupFromWelcome` refuse as already in use, as
+  /// do the external joins unless told to replace the group. A group this
+  /// client has left or been removed from stays listed until `deleteGroup`
+  /// removes it; `groupIsActive` tells the two apart.
+  ///
+  /// Only storage keys are read, never the group state behind them, so the
+  /// cost grows with the number of groups and not with their size. What an
+  /// application shows for a group — a title, the last message — is not
+  /// MLS state and is not stored here.
+  Future<List<Uint8List>> groupIds() =>
+      RustLib.instance.api.crateApiEngineMlsEngineGroupIds(that: this);
 
   Future<bool> groupIsActive({required List<int> groupIdBytes}) =>
       RustLib.instance.api.crateApiEngineMlsEngineGroupIsActive(

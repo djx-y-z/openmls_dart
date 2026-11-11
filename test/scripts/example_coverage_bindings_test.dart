@@ -12,8 +12,8 @@ void main() {
   // test compares the abstract class with the bodies, and a generator that
   // wrote part of the bindings in another shape in both places would pass it,
   // leaving `make coverage-example` measuring the rest. So this one holds the
-  // parser to ours: more than 90 functions, the engine's constructor and the
-  // newest function the engine has.
+  // parser to ours: more than 90 functions, the engine's constructor and two
+  // of its later ones.
   test("the parser reads every one of this project's bridged functions", () {
     final functions = bridgedFunctions(
       File(generatedBindings).readAsStringSync(),
@@ -21,5 +21,6 @@ void main() {
     expect(functions.length, greaterThan(90));
     expect(functions, contains('EngineMlsEngineCreate'));
     expect(functions, contains('EngineMlsEngineWelcomeGroupInfoExtensions'));
+    expect(functions, contains('EngineMlsEngineGroupIds'));
   });
 }

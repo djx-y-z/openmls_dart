@@ -418,6 +418,20 @@ abstract class MlsEngine implements RustOpaqueInterface {
 
   Future<Uint8List> groupId({required List<int> groupIdBytes});
 
+  /// The ID of every group this engine stores, in no particular order.
+  ///
+  /// These are the groups the other methods can load, and the IDs that
+  /// `createGroup` and `joinGroupFromWelcome` refuse as already in use, as
+  /// do the external joins unless told to replace the group. A group this
+  /// client has left or been removed from stays listed until `deleteGroup`
+  /// removes it; `groupIsActive` tells the two apart.
+  ///
+  /// Only storage keys are read, never the group state behind them, so the
+  /// cost grows with the number of groups and not with their size. What an
+  /// application shows for a group — a title, the last message — is not
+  /// MLS state and is not stored here.
+  Future<List<Uint8List>> groupIds();
+
   Future<bool> groupIsActive({required List<int> groupIdBytes});
 
   Future<MlsMemberInfo?> groupMemberAt({

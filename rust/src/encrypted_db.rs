@@ -373,6 +373,31 @@ impl EncryptedDb {
         Ok(result)
     }
 
+    /// The key of every entry whose key starts with `prefix`, in key order.
+    /// Values are not read.
+    pub async fn keys_with_prefix(&self, prefix: &[u8]) -> Result<Vec<Vec<u8>>, String> {
+        let conn = self.conn.lock().unwrap();
+        // Keys are BLOBs, which SQLite orders bytewise: every key that starts
+        // with `prefix` sorts at or after it, and the run ends at the first
+        // key that does not. The primary-key index answers this without
+        // touching a value.
+        let mut stmt = conn
+            .prepare("SELECT key FROM mls_storage WHERE key >= ?1 ORDER BY key")
+            .map_err(|e| format!("Failed to prepare keys_with_prefix: {e}"))?;
+        let mut rows = stmt
+            .query(rusqlite::params![prefix])
+            .map_err(|e| format!("Failed to query keys_with_prefix: {e}"))?;
+        let mut keys = Vec::new();
+        while let Some(row) = rows.next().map_err(|e| format!("Row error: {e}"))? {
+            let key: Vec<u8> = row.get(0).map_err(|e| format!("Row error: {e}"))?;
+            if !key.starts_with(prefix) {
+                break;
+            }
+            keys.push(key);
+        }
+        Ok(keys)
+    }
+
     /// Every row's key with the group it is stored under — for tests that
     /// hold the Web build's key-based grouping against this column.
     #[cfg(test)]
@@ -901,6 +926,17 @@ impl EncryptedDb {
             result.push((k, v));
         }
         Ok(result)
+    }
+
+    /// The key of every entry whose key starts with `prefix`. Values are not
+    /// read, so none is decrypted: IDB keys are stored in the clear.
+    pub async fn keys_with_prefix(&self, prefix: &[u8]) -> Result<Vec<Vec<u8>>, String> {
+        Ok(self
+            .idb_get_all_keys()
+            .await?
+            .into_iter()
+            .filter(|key| key.starts_with(prefix))
+            .collect())
     }
 
     /// Save updates (upserts + deletes).

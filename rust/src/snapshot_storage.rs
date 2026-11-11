@@ -103,6 +103,30 @@ pub(crate) fn key_belongs_to_group(key: &[u8], group_id: &[u8]) -> bool {
     })
 }
 
+/// The prefix of the one entry every stored group has exactly once: its join
+/// configuration, keyed by the group ID alone.
+///
+/// OpenMLS cannot load a group without that entry, and creating, joining
+/// and deleting a group write or remove it in the same transaction as the
+/// rest of the group's state — so listing these keys lists the stored
+/// groups, without reading any value.
+pub(crate) const STORED_GROUP_KEY_PREFIX: &[u8] = JOIN_CONFIG_LABEL;
+
+/// The group ID in a key that starts with `STORED_GROUP_KEY_PREFIX`.
+///
+/// `None` for any other key, and for one written under another storage
+/// version than the current one: this provider never reads such an entry,
+/// so its group would not load either.
+pub(crate) fn stored_group_id(key: &[u8]) -> Option<Vec<u8>> {
+    let rest = key.strip_prefix(STORED_GROUP_KEY_PREFIX)?;
+    let (json, version) = rest.split_at_checked(rest.len().checked_sub(2)?)?;
+    if version != CURRENT_VERSION.to_be_bytes().as_slice() {
+        return None;
+    }
+    let group_id: openmls::prelude::GroupId = serde_json::from_slice(json).ok()?;
+    Some(group_id.as_slice().to_vec())
+}
+
 // ═══════════════════════════════════════════════════════════════
 // SNAPSHOT STORAGE PROVIDER
 // ═══════════════════════════════════════════════════════════════

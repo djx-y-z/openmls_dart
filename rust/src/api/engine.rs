@@ -37,7 +37,9 @@ use super::types::{
     MlsSenderInfo, MlsSenderKind, MlsWireFormatPolicy, ProcessedMessageType, StagedCommitInfo,
     StagedProposalInfo, WelcomeGroupInfoExtensions, WelcomeInspectResult,
 };
-use crate::snapshot_storage::{SnapshotOpenMlsProvider, SnapshotStorageProvider};
+use crate::snapshot_storage::{
+    stored_group_id, SnapshotOpenMlsProvider, SnapshotStorageProvider, STORED_GROUP_KEY_PREFIX,
+};
 
 // ═══════════════════════════════════════════════════════════════
 // HELPERS
@@ -1554,6 +1556,28 @@ impl MlsEngine {
     // ═══════════════════════════════════════════════════════════
     // STATE QUERIES (read-only)
     // ═══════════════════════════════════════════════════════════
+
+    /// The ID of every group this engine stores, in no particular order.
+    ///
+    /// These are the groups the other methods can load, and the IDs that
+    /// `createGroup` and `joinGroupFromWelcome` refuse as already in use, as
+    /// do the external joins unless told to replace the group. A group this
+    /// client has left or been removed from stays listed until `deleteGroup`
+    /// removes it; `groupIsActive` tells the two apart.
+    ///
+    /// Only storage keys are read, never the group state behind them, so the
+    /// cost grows with the number of groups and not with their size. What an
+    /// application shows for a group — a title, the last message — is not
+    /// MLS state and is not stored here.
+    pub async fn group_ids(&self) -> Result<Vec<Vec<u8>>, String> {
+        // Under the operation locks like every other call, so the list
+        // reflects exactly the calls that took them before this one.
+        let _locks = self.acquire_locks().await?;
+        let keys = self.db()?.keys_with_prefix(STORED_GROUP_KEY_PREFIX).await?;
+        let mut group_ids: Vec<Vec<u8>> = keys.iter().filter_map(|key| stored_group_id(key)).collect();
+        group_ids.sort();
+        Ok(group_ids)
+    }
 
     pub async fn group_id(
         &self,
@@ -3704,6 +3728,7 @@ mod group_scope_tests {
         deleting_a_group_leaves_every_other_group => deleting_leaves_the_other_groups;
         an_external_join_replaces_a_stored_group_only_when_told_and_whole => external_join_into_a_stored_group_id;
         an_external_join_replaces_a_stored_group_that_does_not_load => external_join_into_a_group_that_does_not_load;
+        group_ids_lists_exactly_the_stored_groups => group_ids_lists_the_stored_groups;
     }
 
     /// The Web build finds a group's rows by their keys alone; the host
@@ -4306,5 +4331,62 @@ mod group_scope_tests {
             .await
             .expect("alice takes bob's commit");
         assert_eq!(bob.epoch(&group).await, alice.epoch(&group).await, "the group loads again");
+    }
+
+    /// `groupIds` lists what the engine stores, no more and no less, and
+    /// agrees with the check `createGroup` and `joinGroupFromWelcome` make:
+    /// every ID it lists loads and is refused as already in use, a group
+    /// stays listed while inactive, and an ID drops out exactly when
+    /// `deleteGroup` frees it.
+    async fn group_ids_lists_the_stored_groups() {
+        let alice = Party::new("alice").await;
+        let bob = Party::new("bob").await;
+        assert_eq!(alice.engine.group_ids().await, Ok(vec![]), "a fresh engine");
+
+        let short: &[u8] = b"group";
+        let long: &[u8] = b"group-2";
+        alice.create_group(Some(short)).await.expect("short ID");
+        alice.create_group(Some(long)).await.expect("long ID");
+        let other = alice.create_group(None).await.expect("random ID");
+        // Stored as well, and not groups: a key package and the signature
+        // key every call above stored.
+        alice.key_package().await;
+
+        let mut stored = vec![short.to_vec(), long.to_vec(), other.clone()];
+        stored.sort();
+        assert_eq!(alice.engine.group_ids().await, Ok(stored.clone()));
+        for id in &stored {
+            assert!(alice.epoch(id).await.is_ok(), "a listed group loads");
+            assert_refused(alice.create_group(Some(id)).await, "createGroup");
+        }
+
+        // The joiner lists a group it joined from a Welcome, and keeps it
+        // listed once it has been removed — inactive, until deleted.
+        let welcome = alice.invite(long, &bob).await;
+        bob.join(&welcome).await.expect("bob joins");
+        assert_eq!(bob.engine.group_ids().await, Ok(vec![long.to_vec()]));
+        let removal = alice
+            .engine
+            .remove_members(long.to_vec(), alice.signer.clone(), vec![1])
+            .await
+            .expect("bob is removed")
+            .commit;
+        bob.engine
+            .process_message(long.to_vec(), removal)
+            .await
+            .expect("bob processes his removal");
+        assert_eq!(bob.engine.group_is_active(long.to_vec()).await, Ok(false));
+        assert_eq!(bob.engine.group_ids().await, Ok(vec![long.to_vec()]), "an inactive group");
+        let again = alice.invite(long, &bob).await;
+        assert_refused(bob.join(&again).await, "joinGroupFromWelcome");
+
+        bob.engine.delete_group(long.to_vec()).await.expect("bob deletes it");
+        assert_eq!(bob.engine.group_ids().await, Ok(vec![]), "a deleted group");
+        bob.join(&again).await.expect("the ID is free again");
+        assert_eq!(bob.engine.group_ids().await, Ok(vec![long.to_vec()]));
+
+        alice.engine.delete_group(short.to_vec()).await.expect("alice deletes one");
+        stored.retain(|id| id != short);
+        assert_eq!(alice.engine.group_ids().await, Ok(stored), "only the deleted one drops out");
     }
 }

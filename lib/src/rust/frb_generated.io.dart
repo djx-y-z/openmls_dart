@@ -3566,6 +3566,18 @@ class RustLibWire implements BaseWire {
             void Function(int, int, ffi.Pointer<wire_cst_list_prim_u_8_loose>)
           >();
 
+  void wire__crate__api__engine__MlsEngine_group_ids(int port_, int that) {
+    return _wire__crate__api__engine__MlsEngine_group_ids(port_, that);
+  }
+
+  late final _wire__crate__api__engine__MlsEngine_group_idsPtr =
+      _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Int64, ffi.UintPtr)>>(
+        'frbgen_openmls_wire__crate__api__engine__MlsEngine_group_ids',
+      );
+  late final _wire__crate__api__engine__MlsEngine_group_ids =
+      _wire__crate__api__engine__MlsEngine_group_idsPtr
+          .asFunction<void Function(int, int)>();
+
   void wire__crate__api__engine__MlsEngine_group_is_active(
     int port_,
     int that,

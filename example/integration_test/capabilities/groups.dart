@@ -384,6 +384,38 @@ void groupCapabilities() {
       );
     });
 
+    capability('the engine lists every group it stores, an inactive one '
+        'too, until it is deleted', () async {
+      final alice = await Party.create('alice');
+      final bob = await Party.create('bob');
+      expect(await alice.engine.groupIds(), isEmpty);
+
+      final first = await alice.createGroup();
+      final second = await alice.createGroup();
+      final bobs = await groupOf(bob, [alice]);
+      expect(
+        await alice.engine.groupIds(),
+        unorderedEquals([first, second, bobs]),
+      );
+
+      // Removed from Bob's group, Alice still stores it, inactive.
+      final removal = await bob.engine.removeMembers(
+        groupIdBytes: bobs,
+        signerBytes: bob.signer,
+        memberIndices: [1],
+      );
+      await alice.receive(bobs, removal.commit);
+      expect(await alice.engine.groupIsActive(groupIdBytes: bobs), isFalse);
+      expect(
+        await alice.engine.groupIds(),
+        unorderedEquals([first, second, bobs]),
+      );
+
+      await alice.engine.deleteGroup(groupIdBytes: bobs);
+      expect(await alice.engine.groupIds(), unorderedEquals([first, second]));
+      expect(await bob.engine.groupIds(), [bobs]);
+    });
+
     capability('a group ID this engine already stores is refused, to a '
         'create and to a Welcome, and the refusal writes nothing', () async {
       final alice = await Party.create('alice');

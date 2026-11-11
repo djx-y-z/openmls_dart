@@ -33,6 +33,16 @@
   the others (`clearPendingProposals`). Withdrawing is local, so it suits a
   proposal whose message has not been sent: the other members keep theirs,
   and a commit of theirs can still carry it.
+- **`MlsEngine.groupIds`** — the ID of every group the engine stores, in no
+  particular order: the groups its other methods can load, and the IDs
+  `createGroup` and `joinGroupFromWelcome` refuse as already in use, as do
+  the external joins unless told to replace the group. A group this client
+  has left or been removed from stays listed until `deleteGroup` removes it;
+  `groupIsActive` tells the two apart. Only storage keys are read, never the
+  group state behind them, so the cost grows with the number of groups and
+  not with their size. Until now an application had to record every group
+  ID itself to find its groups again after a restart
+  ([#79](https://github.com/djx-y-z/openmls_dart/issues/79)).
 
 #### Changed
 
