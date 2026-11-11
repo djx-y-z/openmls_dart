@@ -46,8 +46,59 @@
   platform, in the example app too, and passed `cargo audit` and
   `cargo deny`. Takes effect with the next `openmls_frb` release.
 
+#### Security
+
+- **A Welcome can no longer replace a group this client is in** —
+  `joinGroupFromWelcome` and `joinGroupFromWelcomeWithOptions` accepted a
+  Welcome whose group ID this engine already stored, and wrote the group it
+  describes over the stored one. Anyone who could hand the client a Welcome
+  and knew the ID of a group it is in — the delivery service sees every
+  group's ID, and every member knows its own group's — could create a group
+  of their own under that ID and invite the client, and from then on the
+  client's state for that ID was theirs: the members it shows, and the epoch
+  its next messages to the group are encrypted in. RFC 9420 (§12.4.3.1) has
+  a joiner check that the group ID is unique among the groups it is in, and
+  OpenMLS does, against storage — but the join showed it only the global part
+  of storage, where no group lives, so the check always passed. The join now
+  also loads the stored group of the Welcome's ID, and the check refuses it:
+  the call fails and writes nothing, the key package the Welcome is addressed
+  to included. `joinGroupExternalCommit` and `joinGroupExternalCommitV2`
+  wrote over a stored group as well, and kept the proposals it had pending:
+  OpenMLS refused the client's application messages while they were, and
+  its next commit took them up, failing with "Duplicate signature key in
+  proposals and group" when the group had applied one already. OpenMLS has
+  no ID check for an external join, which is how a client resyncs, so the
+  engine now refuses one into a stored group unless the new
+  `replaceStoredGroup` is true, and then deletes every entry stored under
+  the group ID, in the write that stores the new group. It cannot tell the
+  same group from another under the same ID: replace only from a GroupInfo
+  whose source speaks for that group. **Action required:** a client that
+  has left or been removed from a group and is invited back is refused the
+  same way while it still stores the old state; once the application has
+  made sure the client is no longer in that group, it deletes that state
+  with `deleteGroup` before joining (`inspectWelcome` reads a Welcome's
+  group ID without joining). A client that resyncs a group it stores, by
+  external commit, passes `replaceStoredGroup: true`. Every release before
+  this one is affected, back to `openmls_frb` 1.0.0 (package 1.0.0);
+  `SECURITY.md` (Known Limitations #17) covers them.
+
 #### Fixed
 
+- **On the Web, `deleteGroup` deleted every group** — once OpenMLS has
+  deleted a group's state, the engine purges whatever entries of the group
+  are left, and on the Web it took every entry that was not global for one of
+  them: IndexedDB keys carry no group column to filter on. Deleting one group
+  lost the state of every other group in the database; key packages and
+  signature keys stayed. It now finds the group's entries by the group ID
+  inside their keys, so even a group whose ID starts with the deleted one's
+  keeps all of its own. Native platforms, which store a group column, were
+  not affected. Every release before this one is affected on the Web, back to
+  package 1.0.0; `SECURITY.md` (Known Limitations #18) covers them.
+- **`createGroup` and `createGroupWithBuilder` no longer write a new group
+  over a stored one** — given a `groupId` this engine already stored, they
+  replaced that group, for the reason the Welcome entry above gives: OpenMLS's
+  check looked at a snapshot without it. They now fail; to reuse the ID,
+  delete the group with `deleteGroup` first.
 - **A last-resort key package is no longer refused by whoever adds it** —
   `createKeyPackageWithOptions` with `lastResort: true` put a last_resort
   extension in the key package without listing that type among its leaf's
@@ -108,6 +159,19 @@
   `test/scripts/example_coverage_bindings_test.dart` holds the coverage
   parser to this project's bindings. The example's demo cards are keyed for
   the tests to find them.
+- **Tests for stored group IDs that run on the host and in the browser**
+  (`rust/src/api/engine.rs`, `group_scope_tests`) — a Welcome, a create and
+  an external join under a stored ID, a replacing join that fails, a stored
+  group that no longer loads, and deleting one group out of several, rows
+  OpenMLS's own delete does not know of included, as host tests and as
+  browser tests (`make test-web`): the two targets scope a group's rows
+  differently, SQLite by a column and IndexedDB by key, so each needs its own
+  run. A host-only test holds the key-based grouping the Web build uses
+  against the host's group column, row by row, and another reads every
+  storage label from the source and requires it to be global or a group's.
+  `test/stored_group_id_test.dart` checks on the Dart VM that each refusal
+  names what to do, and the example's integration tests check them all in
+  the app, on every platform (`capabilities/groups.dart`).
 - **The message fuzz targets start from what a real group sends** —
   `make fuzz-seed` gave `mls_message` and `wire_decode` one empty input.
   `rust/fuzz/examples/gen_corpus.rs` now runs the engine: two members on

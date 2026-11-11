@@ -2535,6 +2535,7 @@ fn wire__crate__api__engine__MlsEngine_join_group_external_commit_impl(
     credential_identity: impl CstDecode<Vec<u8>>,
     signer_public_key: impl CstDecode<Vec<u8>>,
     credential_bytes: impl CstDecode<Option<Vec<u8>>>,
+    replace_stored_group: impl CstDecode<Option<bool>>,
 ) {
     FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::DcoCodec, _, _, _>(
         flutter_rust_bridge::for_generated::TaskInfo {
@@ -2551,6 +2552,7 @@ fn wire__crate__api__engine__MlsEngine_join_group_external_commit_impl(
             let api_credential_identity = credential_identity.cst_decode();
             let api_signer_public_key = signer_public_key.cst_decode();
             let api_credential_bytes = credential_bytes.cst_decode();
+            let api_replace_stored_group = replace_stored_group.cst_decode();
             move |context| async move {
                 transform_result_dco::<_, _, String>(
                     (move || async move {
@@ -2580,6 +2582,7 @@ fn wire__crate__api__engine__MlsEngine_join_group_external_commit_impl(
                             api_credential_identity,
                             api_signer_public_key,
                             api_credential_bytes,
+                            api_replace_stored_group,
                         )
                         .await?;
                         std::result::Result::Ok(output_ok)
@@ -2604,6 +2607,7 @@ fn wire__crate__api__engine__MlsEngine_join_group_external_commit_v2_impl(
     aad: impl CstDecode<Option<Vec<u8>>>,
     skip_lifetime_validation: impl CstDecode<bool>,
     credential_bytes: impl CstDecode<Option<Vec<u8>>>,
+    replace_stored_group: impl CstDecode<Option<bool>>,
 ) {
     FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::DcoCodec, _, _, _>(
         flutter_rust_bridge::for_generated::TaskInfo {
@@ -2622,6 +2626,7 @@ fn wire__crate__api__engine__MlsEngine_join_group_external_commit_v2_impl(
             let api_aad = aad.cst_decode();
             let api_skip_lifetime_validation = skip_lifetime_validation.cst_decode();
             let api_credential_bytes = credential_bytes.cst_decode();
+            let api_replace_stored_group = replace_stored_group.cst_decode();
             move |context| async move {
                 transform_result_dco::<_, _, String>(
                     (move || async move {
@@ -2654,6 +2659,7 @@ fn wire__crate__api__engine__MlsEngine_join_group_external_commit_v2_impl(
                                 api_aad,
                                 api_skip_lifetime_validation,
                                 api_credential_bytes,
+                                api_replace_stored_group,
                             )
                             .await?;
                         std::result::Result::Ok(output_ok)
@@ -5266,6 +5272,17 @@ impl SseDecode for Option<String> {
     }
 }
 
+impl SseDecode for Option<bool> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        if (<bool>::sse_decode(deserializer)) {
+            return Some(<bool>::sse_decode(deserializer));
+        } else {
+            return None;
+        }
+    }
+}
+
 impl SseDecode for Option<crate::api::types::MlsCapabilities> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -6967,6 +6984,16 @@ impl SseEncode for Option<String> {
     }
 }
 
+impl SseEncode for Option<bool> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <bool>::sse_encode(self.is_some(), serializer);
+        if let Some(value) = self {
+            <bool>::sse_encode(value, serializer);
+        }
+    }
+}
+
 impl SseEncode for Option<crate::api::types::MlsCapabilities> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -7349,6 +7376,12 @@ mod io {
                 welcome: self.welcome.cst_decode(),
                 group_info: self.group_info.cst_decode(),
             }
+        }
+    }
+    impl CstDecode<bool> for *mut bool {
+        // Codec=Cst (C-struct based), see doc to use other codecs
+        fn cst_decode(self) -> bool {
+            unsafe { *flutter_rust_bridge::for_generated::box_from_leak_ptr(self) }
         }
     }
     impl CstDecode<crate::api::types::FlexibleCommitOptions> for *mut wire_cst_flexible_commit_options {
@@ -8988,6 +9021,7 @@ mod io {
         credential_identity: *mut wire_cst_list_prim_u_8_loose,
         signer_public_key: *mut wire_cst_list_prim_u_8_loose,
         credential_bytes: *mut wire_cst_list_prim_u_8_strict,
+        replace_stored_group: *mut bool,
     ) {
         wire__crate__api__engine__MlsEngine_join_group_external_commit_impl(
             port_,
@@ -8999,6 +9033,7 @@ mod io {
             credential_identity,
             signer_public_key,
             credential_bytes,
+            replace_stored_group,
         )
     }
 
@@ -9015,6 +9050,7 @@ mod io {
         aad: *mut wire_cst_list_prim_u_8_strict,
         skip_lifetime_validation: bool,
         credential_bytes: *mut wire_cst_list_prim_u_8_strict,
+        replace_stored_group: *mut bool,
     ) {
         wire__crate__api__engine__MlsEngine_join_group_external_commit_v2_impl(
             port_,
@@ -9028,6 +9064,7 @@ mod io {
             aad,
             skip_lifetime_validation,
             credential_bytes,
+            replace_stored_group,
         )
     }
 
@@ -9664,6 +9701,11 @@ mod io {
         unsafe {
             StdArc::<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<MlsSignatureKeyPair>>::decrement_strong_count(ptr as _);
         }
+    }
+
+    #[unsafe(no_mangle)]
+    pub extern "C" fn frbgen_openmls_cst_new_box_autoadd_bool(value: bool) -> *mut bool {
+        flutter_rust_bridge::for_generated::new_leak_box_ptr(value)
     }
 
     #[unsafe(no_mangle)]
@@ -11874,6 +11916,7 @@ mod web {
         credential_identity: Box<[u8]>,
         signer_public_key: Box<[u8]>,
         credential_bytes: Option<Box<[u8]>>,
+        replace_stored_group: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
     ) {
         wire__crate__api__engine__MlsEngine_join_group_external_commit_impl(
             port_,
@@ -11885,6 +11928,7 @@ mod web {
             credential_identity,
             signer_public_key,
             credential_bytes,
+            replace_stored_group,
         )
     }
 
@@ -11901,6 +11945,7 @@ mod web {
         aad: Option<Box<[u8]>>,
         skip_lifetime_validation: bool,
         credential_bytes: Option<Box<[u8]>>,
+        replace_stored_group: flutter_rust_bridge::for_generated::wasm_bindgen::JsValue,
     ) {
         wire__crate__api__engine__MlsEngine_join_group_external_commit_v2_impl(
             port_,
@@ -11914,6 +11959,7 @@ mod web {
             aad,
             skip_lifetime_validation,
             credential_bytes,
+            replace_stored_group,
         )
     }
 

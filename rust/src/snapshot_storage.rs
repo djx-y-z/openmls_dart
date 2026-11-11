@@ -47,6 +47,62 @@ const EPOCH_SECRETS_LABEL: &[u8] = b"EpochSecrets";
 const RESUMPTION_PSK_STORE_LABEL: &[u8] = b"ResumptionPsk";
 const MESSAGE_SECRETS_LABEL: &[u8] = b"MessageSecrets";
 
+/// The labels of entries that belong to one group: every label above except
+/// the four `encrypted_db::GLOBAL_LABELS`.
+const GROUP_LABELS: &[&[u8]] = &[
+    EPOCH_KEY_PAIRS_LABEL,
+    TREE_LABEL,
+    GROUP_CONTEXT_LABEL,
+    INTERIM_TRANSCRIPT_HASH_LABEL,
+    CONFIRMATION_TAG_LABEL,
+    JOIN_CONFIG_LABEL,
+    OWN_LEAF_NODES_LABEL,
+    GROUP_STATE_LABEL,
+    QUEUED_PROPOSAL_LABEL,
+    PROPOSAL_QUEUE_REFS_LABEL,
+    OWN_LEAF_NODE_INDEX_LABEL,
+    EPOCH_SECRETS_LABEL,
+    RESUMPTION_PSK_STORE_LABEL,
+    MESSAGE_SECRETS_LABEL,
+];
+
+/// Whether `key` is an entry this provider writes for `group_id`.
+///
+/// A group's key is its label, then the group ID as serde_json writes it,
+/// then whatever else tells its entries apart (epoch and leaf for epoch key
+/// pairs). A queued proposal is the exception: its key is the pair
+/// (group ID, proposal ref), so the ID comes after the `[` that opens it. A
+/// serialized ID ends in a closing bracket and is therefore never a prefix
+/// of another one: `group` does not match the keys of `group-2`, nor the
+/// other way round.
+///
+/// IndexedDB keys carry no group column, so on the Web this is how
+/// `deleteGroup` finds the rows OpenMLS leaves behind. On both targets it is
+/// how an external join that replaces a stored group finds that group's rows
+/// in its snapshot, which keeps no column either. A key it does not recognise
+/// is kept rather than deleted — a stray row can be cleaned up later, another
+/// group's state cannot be brought back.
+pub(crate) fn key_belongs_to_group(key: &[u8], group_id: &[u8]) -> bool {
+    let group_id = openmls::prelude::GroupId::from_slice(group_id);
+    // Serialized exactly as the writers below do: through `build_key_serde`
+    // for a plain group key, through `serde_json::to_value` first inside the
+    // proposal pair.
+    let (Ok(plain), Ok(in_pair)) = (
+        serde_json::to_vec(&group_id),
+        serde_json::to_value(&group_id).and_then(|value| serde_json::to_vec(&value)),
+    ) else {
+        return false;
+    };
+    GROUP_LABELS.iter().any(|label| match key.strip_prefix(*label) {
+        Some(rest) if *label == QUEUED_PROPOSAL_LABEL => rest
+            .strip_prefix(b"[")
+            .and_then(|rest| rest.strip_prefix(in_pair.as_slice()))
+            .is_some_and(|rest| rest.starts_with(b",")),
+        Some(rest) => rest.starts_with(&plain),
+        None => false,
+    })
+}
+
 // ═══════════════════════════════════════════════════════════════
 // SNAPSHOT STORAGE PROVIDER
 // ═══════════════════════════════════════════════════════════════
@@ -75,6 +131,22 @@ impl SnapshotStorageProvider {
         let initial: HashMap<Vec<u8>, Vec<u8>> = entries.into_iter().collect();
         let current = Mutex::new(initial.clone());
         Self { initial, current }
+    }
+
+    /// Takes every entry of the group `group_id` out of the snapshot, wiping
+    /// what it held. An entry that was loaded and is no longer here is a
+    /// delete when the snapshot is written back, so the write that stores
+    /// what replaces the group also deletes all of it — the entries OpenMLS
+    /// itself would not delete included.
+    pub(crate) fn forget_group(&self, group_id: &[u8]) {
+        self.current.lock().retain(|key, value| {
+            if key_belongs_to_group(key, group_id) {
+                value.zeroize();
+                false
+            } else {
+                true
+            }
+        });
     }
 
     /// Diff initial vs current to produce StorageUpdates.
@@ -974,6 +1046,57 @@ impl OpenMlsProvider for SnapshotOpenMlsProvider {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Every label this provider writes under is global or a group's, never
+    /// both and never neither. A label in neither list would be kept by the
+    /// Web `deleteGroup` and by a replacing external join for good, and
+    /// nothing else would notice. Read from this file's source, so a label
+    /// added later is checked without anyone listing it here.
+    #[test]
+    fn every_label_is_global_or_a_groups() {
+        let labels: Vec<&[u8]> = include_str!("snapshot_storage.rs")
+            .lines()
+            .map(str::trim_start)
+            .filter(|line| {
+                ["const ", "pub const ", "pub(crate) const "].iter().any(|start| line.starts_with(start))
+                    && line.contains("_LABEL: &[u8] = b\"")
+            })
+            .filter_map(|line| line.split('"').nth(1))
+            .map(str::as_bytes)
+            .collect();
+        assert!(labels.len() >= GROUP_LABELS.len() + 4, "found {} labels", labels.len());
+        for label in labels {
+            let global = crate::encrypted_db::is_global_key(label);
+            let group = GROUP_LABELS.contains(&label);
+            assert!(global != group, "{}: global {global}, group {group}", String::from_utf8_lossy(label));
+        }
+    }
+
+    /// `forget_group` takes every entry of the group out, wipes nothing
+    /// else, and the snapshot written back deletes exactly what it took.
+    #[test]
+    fn forgetting_a_group_deletes_its_entries_alone() {
+        let key = |label: &[u8], id: &[u8]| {
+            let mut key = label.to_vec();
+            key.extend(serde_json::to_vec(&openmls::prelude::GroupId::from_slice(id)).unwrap());
+            key.extend(CURRENT_VERSION.to_be_bytes());
+            key
+        };
+        let group_key = key(EPOCH_KEY_PAIRS_LABEL, b"group");
+        let longer_key = key(EPOCH_KEY_PAIRS_LABEL, b"group-2");
+        let global_key = key(SIGNATURE_KEY_PAIR_LABEL, b"group");
+        let provider = SnapshotStorageProvider::from_entries(vec![
+            (group_key.clone(), b"a".to_vec()),
+            (longer_key.clone(), b"b".to_vec()),
+            (global_key.clone(), b"c".to_vec()),
+        ]);
+
+        provider.forget_group(b"group");
+
+        let updates = provider.into_updates();
+        assert!(updates.upserts.is_empty());
+        assert_eq!(updates.deletes, vec![group_key]);
+    }
 
     #[test]
     fn unchanged_snapshot_has_no_updates() {

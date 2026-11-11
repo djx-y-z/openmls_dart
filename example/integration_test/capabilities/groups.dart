@@ -12,6 +12,23 @@ const _appExtensionType = 0xff0a;
 /// The self_remove proposal type (draft-ietf-mls-extensions).
 const _selfRemoveProposal = 0x000a;
 
+/// The refusal of a create or a Welcome under a group ID the engine stores:
+/// that one, and not any failure on the way.
+final _storedIdRefused = throwsA(
+  predicate(
+    (e) => '$e'.contains('already exists') && '$e'.contains('deleteGroup'),
+  ),
+);
+
+/// The refusal of an external join into a group the engine stores, unless
+/// told to replace it: that one, and not a stored group that fails to load.
+final _externalJoinRefused = throwsA(
+  predicate(
+    (e) =>
+        '$e'.contains('already exists') && '$e'.contains('replaceStoredGroup'),
+  ),
+);
+
 void groupCapabilities() {
   group('groups', () {
     capability('a new group holds its creator alone, at epoch 0', () async {
@@ -323,22 +340,216 @@ void groupCapabilities() {
       );
     });
 
-    capability('a deleted group is gone from its engine', () async {
+    capability('a deleted group takes only its own state with it', () async {
       final alice = await Party.create('alice');
-      final group = await alice.createGroup();
+      final bob = await Party.create('bob');
+      final deleted = bytesOf('group');
+      // An ID that starts with the deleted one's: a purge that matched keys
+      // by prefix would take this one too.
+      final kept = bytesOf('group-and-more');
+      for (final id in [deleted, kept]) {
+        await alice.engine.createGroup(
+          config: alice.config,
+          signerBytes: alice.signer,
+          credentialIdentity: alice.identity,
+          signerPublicKey: alice.publicKey,
+          groupId: id,
+        );
+      }
+      final added = await alice.engine.addMembers(
+        groupIdBytes: kept,
+        signerBytes: alice.signer,
+        keyPackagesBytes: [await bob.keyPackage()],
+      );
+      expect(await bob.join(added.welcome), kept);
 
-      await alice.engine.deleteGroup(groupIdBytes: group);
+      await alice.engine.deleteGroup(groupIdBytes: deleted);
 
       await expectLater(
-        alice.engine.groupIsActive(groupIdBytes: group),
+        alice.engine.groupIsActive(groupIdBytes: deleted),
         throwsA(anything),
       );
       await expectLater(
-        alice.engine.deleteGroup(groupIdBytes: group),
+        alice.engine.deleteGroup(groupIdBytes: deleted),
         throwsA(anything),
         reason: 'there is nothing left to delete',
       );
+      // The other group is whole, and goes on working.
+      expect(await alice.epochOf(kept), BigInt.one);
+      expect(await alice.engine.groupMembers(groupIdBytes: kept), hasLength(2));
+      final hello = await alice.send(kept, 'still here');
+      expect(
+        textOf((await bob.receive(kept, hello)).applicationMessage!),
+        'still here',
+      );
     });
+
+    capability('a group ID this engine already stores is refused, to a '
+        'create and to a Welcome, and the refusal writes nothing', () async {
+      final alice = await Party.create('alice');
+      final bob = await Party.create('bob');
+      final id = bytesOf('a group ID in use');
+      await alice.engine.createGroup(
+        config: alice.config,
+        signerBytes: alice.signer,
+        credentialIdentity: alice.identity,
+        signerPublicKey: alice.publicKey,
+        groupId: id,
+      );
+
+      await expectLater(
+        alice.engine.createGroup(
+          config: alice.config,
+          signerBytes: alice.signer,
+          credentialIdentity: alice.identity,
+          signerPublicKey: alice.publicKey,
+          groupId: id,
+        ),
+        _storedIdRefused,
+      );
+      await expectLater(
+        alice.engine.createGroupWithBuilder(
+          config: alice.config,
+          signerBytes: alice.signer,
+          credentialIdentity: alice.identity,
+          signerPublicKey: alice.publicKey,
+          groupId: id,
+        ),
+        _storedIdRefused,
+      );
+
+      // Bob makes a group of his own under the same ID and invites Alice.
+      final package = await alice.keyPackage();
+      final bobs = (await bob.engine.createGroup(
+        config: bob.config,
+        signerBytes: bob.signer,
+        credentialIdentity: bob.identity,
+        signerPublicKey: bob.publicKey,
+        groupId: id,
+      )).groupId;
+      final invitation = await bob.engine.addMembers(
+        groupIdBytes: bobs,
+        signerBytes: bob.signer,
+        keyPackagesBytes: [package],
+      );
+      // Reading the Welcome checks nothing against storage, as documented:
+      // the reads go through, and the join after them is still refused.
+      final inspected = await alice.engine.inspectWelcome(
+        config: alice.config,
+        welcomeBytes: invitation.welcome,
+      );
+      expect(inspected.groupId, id);
+      await alice.engine.welcomeGroupInfoExtensions(
+        config: alice.config,
+        welcomeBytes: invitation.welcome,
+      );
+      await expectLater(alice.join(invitation.welcome), _storedIdRefused);
+      await expectLater(
+        alice.engine.joinGroupFromWelcomeWithOptions(
+          config: alice.config,
+          welcomeBytes: invitation.welcome,
+          signerBytes: alice.signer,
+          skipLifetimeValidation: true,
+        ),
+        _storedIdRefused,
+      );
+
+      // Her group is as it was.
+      expect(await alice.epochOf(id), BigInt.zero);
+      final members = await alice.engine.groupMembers(groupIdBytes: id);
+      expect(members.single.signatureKey, alice.publicKey);
+      // And the key package the refused Welcome was addressed to is still
+      // there: a Welcome to it into another group joins.
+      final other = await bob.createGroup();
+      final second = await bob.engine.addMembers(
+        groupIdBytes: other,
+        signerBytes: bob.signer,
+        keyPackagesBytes: [package],
+      );
+      expect(await alice.join(second.welcome), other);
+    });
+
+    for (final v2 in [false, true]) {
+      capability(
+        'an external join${v2 ? ' (v2)' : ''} into a group this '
+        'engine stores is refused, and replaces it only when told to',
+        () async {
+          final alice = await Party.create('alice');
+          final bob = await Party.create('bob');
+          final carol = await Party.create('carol');
+          final group = await groupOf(alice, [bob]);
+
+          // Bob stores a proposal and misses the commit that applies it.
+          final proposal = await alice.engine.proposeAdd(
+            groupIdBytes: group,
+            signerBytes: alice.signer,
+            keyPackageBytes: await carol.keyPackage(),
+          );
+          await bob.receive(group, proposal.proposalMessage);
+          await alice.engine.commitToPendingProposals(
+            groupIdBytes: group,
+            signerBytes: alice.signer,
+          );
+          await alice.engine.mergePendingCommit(groupIdBytes: group);
+          final groupInfo = await alice.engine.exportGroupInfo(
+            groupIdBytes: group,
+            signerBytes: alice.signer,
+          );
+          final tree = await alice.engine.exportRatchetTree(
+            groupIdBytes: group,
+          );
+
+          Future<ExternalJoinResult> rejoin({bool? replace}) => v2
+              ? bob.engine.joinGroupExternalCommitV2(
+                  config: bob.config,
+                  groupInfoBytes: groupInfo,
+                  ratchetTreeBytes: tree,
+                  signerBytes: bob.signer,
+                  credentialIdentity: bob.identity,
+                  signerPublicKey: bob.publicKey,
+                  skipLifetimeValidation: false,
+                  replaceStoredGroup: replace,
+                )
+              : bob.engine.joinGroupExternalCommit(
+                  config: bob.config,
+                  groupInfoBytes: groupInfo,
+                  ratchetTreeBytes: tree,
+                  signerBytes: bob.signer,
+                  credentialIdentity: bob.identity,
+                  signerPublicKey: bob.publicKey,
+                  replaceStoredGroup: replace,
+                );
+
+          await expectLater(rejoin(), _externalJoinRefused);
+          await expectLater(rejoin(replace: false), _externalJoinRefused);
+          // Nothing was written: Bob's group is where he left it.
+          expect(await bob.epochOf(group), BigInt.one);
+          expect(
+            await bob.engine.groupPendingProposals(groupIdBytes: group),
+            hasLength(1),
+          );
+
+          final joined = await rejoin(replace: true);
+          expect(joined.groupId, group);
+          if (!v2) {
+            await bob.engine.mergePendingCommit(groupIdBytes: group);
+          }
+          await alice.receive(group, joined.commit);
+          expect(await bob.epochOf(group), await alice.epochOf(group));
+          // No proposal of the old group is left pending (OpenMLS refuses to
+          // send a message while one is), and the group works.
+          expect(
+            await bob.engine.groupPendingProposals(groupIdBytes: group),
+            isEmpty,
+          );
+          final hello = await bob.send(group, 'back in');
+          expect(
+            textOf((await alice.receive(group, hello)).applicationMessage!),
+            'back in',
+          );
+        },
+      );
+    }
 
     capability('a closed engine refuses work, and says why', () async {
       final alice = await Party.create('alice');
