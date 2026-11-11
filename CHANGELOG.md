@@ -2,6 +2,28 @@
 
 ### For Users
 
+#### ✨ Highlights
+
+- **A group ID this client stores is refused** **(breaking)** — to a
+  Welcome, to a new group, and to an external join unless it is told to
+  replace the stored group; see *Changed (Breaking)* and *Security*.
+- **On the Web, deleting a group deletes that group alone** — it used to take
+  every other group's state with it; see *Fixed*.
+- **List the groups an engine stores** — `MlsEngine.groupIds`, so an
+  application finds its groups again after a restart.
+- **Withdraw one pending proposal** — every `propose*` method returns the
+  proposal's reference, `ProposalResult.proposalRef`, which
+  `removePendingProposal` takes.
+- **Reserved types refused as custom proposals** **(breaking)** —
+  `proposeCustomProposal` takes only an application's own types; see
+  *Changed (Breaking)*.
+- **Last-resort key packages can be added** — whoever added one refused
+  it; see *Fixed*.
+- **Extensions for the members a commit adds** —
+  `FlexibleCommitOptions.groupInfoExtensions`, read before joining with
+  `MlsEngine.welcomeGroupInfoExtensions`.
+- **openmls v0.9.2** — unchanged this release.
+
 #### Added
 
 - **`FlexibleCommitOptions.groupInfoExtensions`** — puts an application's
@@ -43,6 +65,55 @@
   not with their size. Until now an application had to record every group
   ID itself to find its groups again after a restart
   ([#79](https://github.com/djx-y-z/openmls_dart/issues/79)).
+- **`replaceStoredGroup` for `joinGroupExternalCommit` and
+  `joinGroupExternalCommitV2`** — lets an external join replace the group
+  this engine stores under the GroupInfo's group ID, which it otherwise
+  refuses (see *Changed (Breaking)*): every entry stored under that ID is
+  deleted in the write that stores the joined group, so a join that fails
+  keeps them all, and a stored group that no longer loads can be replaced
+  too. That is how a client resyncs a group whose state it lost track of.
+  The engine cannot tell a later epoch of the stored group from another
+  group under the same ID, which anyone can create: replace only from a
+  GroupInfo whose source the application trusts to speak for that group.
+
+#### Changed (Breaking)
+
+- **A Welcome under a group ID this engine stores is refused** —
+  `joinGroupFromWelcome` and `joinGroupFromWelcomeWithOptions` fail and
+  write nothing, the key package the Welcome is addressed to included. They
+  used to write the group the Welcome describes over the stored one; see
+  *Security*. **Action required:** a client that has left or been removed
+  from a group and is invited back is refused while it still stores the old
+  state. Make sure it is no longer in that group — `groupIsActive` is false
+  once it has processed its removal, or the application's own record says
+  it left — and then delete that state with `deleteGroup` before joining;
+  `inspectWelcome` reads a Welcome's group ID without joining. Never delete
+  a group just to make room for a Welcome: that is the attack the
+  *Security* entry describes.
+- **`createGroup` and `createGroupWithBuilder` refuse a `groupId` this engine
+  stores** — they used to replace the stored group, for the reason the
+  Welcome entry under *Security* gives: OpenMLS's check looked at a
+  snapshot without it. **Action required:** to reuse an ID, delete its
+  group with `deleteGroup` first.
+- **An external join into a group this engine stores is refused, unless
+  told to replace it** — `joinGroupExternalCommit` and
+  `joinGroupExternalCommitV2` fail and write nothing unless
+  `replaceStoredGroup` is true (see *Added*). They used to write over the
+  stored group and keep the proposals it had pending; see *Security*.
+  **Action required:** a client that resyncs a group it stores, by external
+  commit, passes `replaceStoredGroup: true`, and only for a GroupInfo whose
+  source it trusts to speak for that group.
+- **`proposeCustomProposal` refuses a type that is not the application's
+  own** — `0x0000` to `0x0007`, which RFC 9420 reserves and registers,
+  `0x0008` to `0x000a`, which the MLS extensions draft takes, and the GREASE
+  values. OpenMLS reads most of those as proposals of its own, so such a
+  proposal went out as that type with the custom payload: other members
+  could not decode it ("The content is malformed"), while the proposer kept
+  it pending, so a commit of the proposer's pending proposals referred to a
+  proposal no other member had. `0x0008` and `0x0009` OpenMLS reads as
+  custom unless built with its draft extensions, but an implementation that
+  has them would not. **Action required:** take an application's own types
+  from the private-use range, `0xf000` to `0xffff`, which is free for them.
 
 #### Changed
 
@@ -55,6 +126,15 @@
   SQLCipher and OpenSSL. CI built and tested the library with them on every
   platform, in the example app too, and passed `cargo audit` and
   `cargo deny`. Takes effect with the next `openmls_frb` release.
+- **The build hook waits longer for GitHub** (`hook/build.dart`) — the
+  native library and its checksums file are each tried six times, after
+  pauses of 2, 4, 8, 16 and 30 seconds, where three tries used to span six
+  seconds of pauses, and an attempt waits at most 20 seconds to connect. Only
+  a network failure and a 5xx or 429 answer are tried again: a 404 and any
+  other answer still fail at once, a file the hook cannot write now does
+  too, where it used to be tried again, and a 200 that is not a checksums
+  file — a proxy's or a captive portal's page — is reported as that. From
+  copier template v4.20.0.
 
 #### Security
 
@@ -70,27 +150,36 @@
   a joiner check that the group ID is unique among the groups it is in, and
   OpenMLS does, against storage — but the join showed it only the global part
   of storage, where no group lives, so the check always passed. The join now
-  also loads the stored group of the Welcome's ID, and the check refuses it:
-  the call fails and writes nothing, the key package the Welcome is addressed
-  to included. `joinGroupExternalCommit` and `joinGroupExternalCommitV2`
-  wrote over a stored group as well, and kept the proposals it had pending:
-  OpenMLS refused the client's application messages while they were, and
-  its next commit took them up, failing with "Duplicate signature key in
-  proposals and group" when the group had applied one already. OpenMLS has
-  no ID check for an external join, which is how a client resyncs, so the
-  engine now refuses one into a stored group unless the new
-  `replaceStoredGroup` is true, and then deletes every entry stored under
-  the group ID, in the write that stores the new group. It cannot tell the
-  same group from another under the same ID: replace only from a GroupInfo
-  whose source speaks for that group. **Action required:** a client that
-  has left or been removed from a group and is invited back is refused the
-  same way while it still stores the old state; once the application has
-  made sure the client is no longer in that group, it deletes that state
-  with `deleteGroup` before joining (`inspectWelcome` reads a Welcome's
-  group ID without joining). A client that resyncs a group it stores, by
-  external commit, passes `replaceStoredGroup: true`. Every release before
-  this one is affected, back to `openmls_frb` 1.0.0 (package 1.0.0);
-  `SECURITY.md` (Known Limitations #17) covers them.
+  also loads the stored group of the Welcome's ID, and the check refuses it.
+  `createGroup` and `createGroupWithBuilder` replaced a stored group for the
+  same reason, and `joinGroupExternalCommit` and `joinGroupExternalCommitV2`,
+  for which OpenMLS has no such check, wrote over it as well. A join that
+  wrote over a stored group kept the proposals it had pending: OpenMLS
+  refused the client's application messages while they were, and its next
+  commit took them up, failing with "Duplicate signature key in proposals
+  and group" when the group had applied one already. All six
+  now refuse a stored group ID, the external joins unless told to replace
+  the group; see *Changed (Breaking)*. Every release before this one is
+  affected, back to `openmls_frb` 1.0.0 (package 1.0.0); `SECURITY.md` (Known
+  Limitations #17) covers them, and how to recover a group one of them
+  joined over.
+- **The build hook no longer mentions `OPENMLS_ALLOW_UNVERIFIED_DOWNLOAD`**
+  (`hook/build.dart`, `SECURITY.md`) — the variable never took effect: Dart's
+  and Flutter's hook runners give a hook only a fixed list of environment
+  variables, so the hook never saw it, and the messages that told users to
+  set it sent them nowhere. The checksum check has no override. From copier
+  template v4.20.0.
+- **RUSTSEC-2026-0459 (CVE-2026-119375) does not reach this package** — before
+  3.54.0, SQLite leaves part of a page buffer uninitialized when it reads a
+  WAL frame smaller than the database's page. The SQLCipher the native
+  library bundles is on SQLite 3.46.1, and no release of the crates this
+  package builds moves it past the fix yet. A `-wal` file planted next to the
+  database is read as the database opens, but SQLCipher keeps each page's IV
+  and HMAC at its end, in the part such a frame leaves stale, so the page
+  fails authentication and the database does not open; a test measures it.
+  What is left is that a planted file keeps the database from opening until
+  it is removed, for someone who can already write next to it. The web build
+  has no SQLite.
 
 #### Fixed
 
@@ -104,11 +193,6 @@
   keeps all of its own. Native platforms, which store a group column, were
   not affected. Every release before this one is affected on the Web, back to
   package 1.0.0; `SECURITY.md` (Known Limitations #18) covers them.
-- **`createGroup` and `createGroupWithBuilder` no longer write a new group
-  over a stored one** — given a `groupId` this engine already stored, they
-  replaced that group, for the reason the Welcome entry above gives: OpenMLS's
-  check looked at a snapshot without it. They now fail; to reuse the ID,
-  delete the group with `deleteGroup` first.
 - **A last-resort key package is no longer refused by whoever adds it** —
   `createKeyPackageWithOptions` with `lastResort: true` put a last_resort
   extension in the key package without listing that type among its leaf's
@@ -116,17 +200,25 @@
   extension, so adding it failed with "A key package extension is not
   supported in the leaf's capabilities". The type (`0x000a`) is now added to
   the capabilities given, or to the defaults when none are.
-- **`proposeCustomProposal` refuses a type that is not the application's
-  own** — `0x0000` to `0x0007`, which RFC 9420 reserves and registers,
-  `0x0008` to `0x000a`, which the MLS extensions draft takes, and the GREASE
-  values. OpenMLS reads most of those as proposals of its own, so such a
-  proposal went out as that type with the custom payload: other members
-  could not decode it ("The content is malformed"), while the proposer kept
-  it pending, so a commit of the proposer's pending proposals referred to a
-  proposal no other member had. `0x0008` and `0x0009` OpenMLS reads as
-  custom unless built with its draft extensions, but an implementation that
-  has them would not. The private-use range, `0xf000` to `0xffff`, is free
-  for an application's own types.
+- **The web build downloads again a module an interrupted download cut
+  short** (`hook/build.dart`) — the hook kept the files it found in an
+  incomplete download cache and fetched only the missing ones, so a module
+  an interrupted extraction had left truncated was copied into the app's
+  `web/pkg/` and never replaced. An incomplete entry is now downloaded again
+  whole, as the native libraries' cache already was. From copier template
+  v4.21.0.
+- **A web app's build no longer runs the build hook every time**
+  (`hook/build.dart`) — the hook declared the files of a local WebAssembly
+  build as its inputs whether they existed or not, and a missing input
+  counts as changed: in an app that gets the package from pub.dev, which has
+  no `rust/target/`, every web build ran the hook again. It now declares
+  them only while they exist. From copier template v4.21.0.
+- **Windows on Arm gets a build error instead of a library it cannot load**
+  (`hook/build.dart`) — only x86_64 is released for Windows, and the hook
+  handed that library to every Windows architecture, so an arm64 app built
+  and then could not load it at its first call. The hook now refuses a
+  Windows architecture other than x86_64 ("Unsupported Windows
+  architecture"). From copier template v4.21.0.
 
 #### Documentation
 
@@ -163,9 +255,10 @@
   Storage is checked for what each platform guarantees: natively a file,
   refused to a second engine while one has it, and readable by its owner
   alone wherever files have permissions; on the web an IndexedDB database,
-  shared with a second engine as with a second tab. `make coverage-example` fails on a bridged function no test
-  calls; `scripts/src/example_coverage_policy.dart` excuses only the two
-  `init` functions the package does not export, and
+  shared with a second engine as with a second tab. `make coverage-example`
+  fails on a bridged function no test calls;
+  `scripts/src/example_coverage_policy.dart` excuses only the two `init`
+  functions the package does not export, and
   `test/scripts/example_coverage_bindings_test.dart` holds the coverage
   parser to this project's bindings. The example's demo cards are keyed for
   the tests to find them.
@@ -199,27 +292,22 @@
 
 #### Changed
 
-- **copier template adopted: v4.20.0 -> v4.21.0** — updates the generated
-  workflows, build hook and contributor tooling. `.github/workflows/check-openmls-updates.yml`
-  now closes superseded update pull requests, subject to the template’s age,
-  label, commit-trailer and author vetoes; it also handles the idempotency-gate
-  skip path. The workflow and composite-action changes pin GitHub actions to
-  commits, including checkout v7.0.1, upload-artifact v7.0.2,
-  download-artifact v8.0.2, cache v6.1.0, create-github-app-token v3.3.0 and
-  attest-build-provenance v4.2.2. `scripts/src/update_changelog.dart` changes
-  how it describes modified code in crates the package builds: it focuses on
-  whether the behavior changed, rather than excluding a change because a symbol
-  is not named on the exposed surface. `hook/build.dart` retries incomplete
-  WebAssembly cache entries, avoids rerunning the hook for absent local build
-  inputs, and refuses unsupported Windows architectures. `Makefile` and
-  `build-openmls.yml` pin release builds to wasm-pack 0.15.0; `make setup-web`
-  replaces a different installed version. The example test scripts now resolve
-  Flutter from the consumer app’s FVM configuration. The integration workflows
-  skip pub.dev versions without integration tests and validate the resolved
-  `stable` version; `fuzz.yml` bounds fuzz runs and uses the crate’s lockfile.
-  `rerun-unstarted.yml` distinguishes runs by title or by branch and repository,
-  so unrelated runs do not prevent retries.
-
+- **Copier template v4.20.0 → v4.21.0** — GitHub's own actions are pinned
+  by commit, like every other action: checkout v7.0.1, upload-artifact
+  v7.0.2, download-artifact v8.0.2, cache v6.1.0, create-github-app-token
+  v3.3.0 and attest-build-provenance v4.2.2. The release builds the web
+  module with wasm-pack 0.15.0, which `WASM_PACK_VERSION` in the `Makefile`
+  names and `make setup-web` installs, where it took whatever version
+  resolved that day. `check-openmls-updates.yml` closes the update pull
+  requests a newer one replaces, and `scripts/src/update_changelog.dart`
+  no longer lets a model call a changed body in a bound crate out of reach
+  by its name. The weekly integration run of the version on pub.dev skips
+  one whose tag has no integration tests, the Flutter `stable` resolves to
+  is checked to be a version, and `make test-example-ci` runs a consumer
+  app on that app's Flutter. `fuzz.yml` has time limits and fuzzes the
+  dependency versions of `rust/Cargo.lock`, and `rerun-unstarted.yml`
+  re-runs a run of released binaries although a later native build came
+  after it. The hook's fixes are under For Users.
 - **The template's integration tests are on (`enable_integration_tests`)** —
   `integration.yml` runs the example's integration tests on every pull
   request and push to `main`: Linux x86_64 and ARM64, macOS, Windows, an iOS
@@ -233,19 +321,22 @@
   targets: `test-example`, `test-example-web`, `drive-example`,
   `coverage-example`, `create-consumer`, `package-example-*`. The example
   depends on `integration_test` and `flutter_driver` for them.
-- **copier template adopted: v4.19.0 -> v4.20.0** — adds target-local native
-  builds, more resilient release downloads, and automatic retries for jobs
-  GitHub never started. `Makefile` builds and stamps cross-target libraries;
-  `hook/build.dart` loads the target-specific output and refuses missing or
-  stale builds, preventing an app from silently using an old release. The hook
-  now retries network failures and 5xx/429 responses up to six times, with a
-  connection timeout; `SECURITY.md` and the hook no longer offer the ineffective
-  `*_ALLOW_UNVERIFIED_DOWNLOAD` override. `test/hook/build_hook_test.dart`
-  covers these hook changes. The new `.github/workflows/rerun-unstarted.yml`
-  retries jobs that failed before running any step, but not test failures or
-  runs superseded by a newer branch run; `.github/rulesets/README.md` explains
-  that distinction. `README.md` and `CLAUDE.md` document the updated build
-  behavior and targets.
+- **Copier template v4.19.0 → v4.20.0** — a local build for a device, a
+  simulator or an emulator is used: `make build ARGS="--target <triple>"`,
+  `make build-android` and the new `make build-ios` stamp what they built, and
+  `hook/build.dart` reads `rust/target/<triple>/release/` for a target other
+  than the host, refusing a build whose crate stamp or lock-file copy is
+  missing or out of date. `.github/workflows/rerun-unstarted.yml` re-runs the
+  failed jobs of a run, twice at most, when none of them got a runner, and
+  `.github/rulesets/README.md` says such a leg is not a flake. The hook's
+  download changes are under For Users.
+- **RUSTSEC-2026-0459 accepted in `cargo audit` and `cargo deny`**
+  (`.cargo/audit.toml`, `rust/deny.toml`) — with the measurement above as the
+  reason, and a test that holds it
+  (`a_planted_wal_with_smaller_pages_fails_authentication`). The release the
+  advisory calls patched, `libsqlite3-sys` 0.39, still builds SQLCipher on an
+  affected SQLite, so both files say to delete the entry only with one on
+  SQLCipher 4.20.0 (SQLite 3.54.1) or later.
 
 ## [3.3.0] - 2026-10-26
 
