@@ -144,7 +144,7 @@ that one too.
 
 **Past Epoch Secrets**: `pastEpochDeletionPolicy`, `setPastEpochDeletionPolicyMaxEpochs`, `setPastEpochDeletionPolicyKeepAll`, `deleteAllPastEpochSecrets`, `deletePastEpochSecretsOlderThan`, `deletePastEpochSecretsBefore`, `deletePastEpochSecretsWithoutTimestamps`
 
-**Engine & Storage**: `close`, `isClosed`, `schemaVersion`, `deleteGroup`, `deleteKeyPackage`
+**Engine & Storage**: `close`, `isClosed`, `schemaVersion`, `groupIds`, `deleteGroup`, `deleteKeyPackage`
 
 </details>
 

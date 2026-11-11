@@ -49,6 +49,9 @@ void storageCapabilities() {
       await engine.close();
 
       engine = await _open(path, key);
+      // The groups are found again from storage alone, which is what an
+      // application needs after a restart.
+      expect(await engine.groupIds(), [group]);
       expect(await engine.groupEpoch(groupIdBytes: group), BigInt.one);
       expect(await engine.groupMembers(groupIdBytes: group), hasLength(2));
       final received = await engine.processMessage(

@@ -196,4 +196,32 @@ void main() {
       expect(secret, hasLength(32));
     });
   });
+
+  group('groupIds', () {
+    Future<Uint8List> create({Uint8List? groupId}) async =>
+        (await alice.createGroup(
+          config: defaultConfig(),
+          signerBytes: aliceId.signerBytes,
+          credentialIdentity: aliceId.credentialIdentity,
+          signerPublicKey: aliceId.publicKey,
+          groupId: groupId,
+        )).groupId;
+
+    // Compared as text: Uint8List equality is identity, not content.
+    Future<Set<String>> listed() async =>
+        (await alice.groupIds()).map(base64Encode).toSet();
+
+    test('a fresh engine stores no group', () async {
+      expect(await alice.groupIds(), isEmpty);
+    });
+
+    test('lists every stored group, and drops a deleted one', () async {
+      final random = await create();
+      final named = await create(groupId: utf8.encode('named'));
+      expect(await listed(), {base64Encode(random), base64Encode(named)});
+
+      await alice.deleteGroup(groupIdBytes: random);
+      expect(await listed(), {base64Encode(named)});
+    });
+  });
 }

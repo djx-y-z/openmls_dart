@@ -99,6 +99,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   bool dco_decode_bool(dynamic raw);
 
   @protected
+  bool dco_decode_box_autoadd_bool(dynamic raw);
+
+  @protected
   FlexibleCommitOptions dco_decode_box_autoadd_flexible_commit_options(
     dynamic raw,
   );
@@ -258,6 +261,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   String? dco_decode_opt_String(dynamic raw);
 
   @protected
+  bool? dco_decode_opt_box_autoadd_bool(dynamic raw);
+
+  @protected
   MlsCapabilities? dco_decode_opt_box_autoadd_mls_capabilities(dynamic raw);
 
   @protected
@@ -405,6 +411,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   bool sse_decode_bool(SseDeserializer deserializer);
+
+  @protected
+  bool sse_decode_box_autoadd_bool(SseDeserializer deserializer);
 
   @protected
   FlexibleCommitOptions sse_decode_box_autoadd_flexible_commit_options(
@@ -616,6 +625,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   String? sse_decode_opt_String(SseDeserializer deserializer);
 
   @protected
+  bool? sse_decode_opt_box_autoadd_bool(SseDeserializer deserializer);
+
+  @protected
   MlsCapabilities? sse_decode_opt_box_autoadd_mls_capabilities(
     SseDeserializer deserializer,
   );
@@ -727,6 +739,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   ffi.Pointer<wire_cst_list_prim_u_8_strict> cst_encode_String(String raw) {
     // Codec=Cst (C-struct based), see doc to use other codecs
     return cst_encode_list_prim_u_8_strict(utf8.encoder.convert(raw));
+  }
+
+  @protected
+  ffi.Pointer<ffi.Bool> cst_encode_box_autoadd_bool(bool raw) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return wire.cst_new_box_autoadd_bool(cst_encode_bool(raw));
   }
 
   @protected
@@ -970,6 +988,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   ) {
     // Codec=Cst (C-struct based), see doc to use other codecs
     return raw == null ? ffi.nullptr : cst_encode_String(raw);
+  }
+
+  @protected
+  ffi.Pointer<ffi.Bool> cst_encode_opt_box_autoadd_bool(bool? raw) {
+    // Codec=Cst (C-struct based), see doc to use other codecs
+    return raw == null ? ffi.nullptr : cst_encode_box_autoadd_bool(raw);
   }
 
   @protected
@@ -1720,6 +1744,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_bool(bool self, SseSerializer serializer);
 
   @protected
+  void sse_encode_box_autoadd_bool(bool self, SseSerializer serializer);
+
+  @protected
   void sse_encode_box_autoadd_flexible_commit_options(
     FlexibleCommitOptions self,
     SseSerializer serializer,
@@ -1994,6 +2021,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_opt_String(String? self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_opt_box_autoadd_bool(bool? self, SseSerializer serializer);
 
   @protected
   void sse_encode_opt_box_autoadd_mls_capabilities(
@@ -3536,6 +3566,18 @@ class RustLibWire implements BaseWire {
             void Function(int, int, ffi.Pointer<wire_cst_list_prim_u_8_loose>)
           >();
 
+  void wire__crate__api__engine__MlsEngine_group_ids(int port_, int that) {
+    return _wire__crate__api__engine__MlsEngine_group_ids(port_, that);
+  }
+
+  late final _wire__crate__api__engine__MlsEngine_group_idsPtr =
+      _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Int64, ffi.UintPtr)>>(
+        'frbgen_openmls_wire__crate__api__engine__MlsEngine_group_ids',
+      );
+  late final _wire__crate__api__engine__MlsEngine_group_ids =
+      _wire__crate__api__engine__MlsEngine_group_idsPtr
+          .asFunction<void Function(int, int)>();
+
   void wire__crate__api__engine__MlsEngine_group_is_active(
     int port_,
     int that,
@@ -3848,6 +3890,7 @@ class RustLibWire implements BaseWire {
     ffi.Pointer<wire_cst_list_prim_u_8_loose> credential_identity,
     ffi.Pointer<wire_cst_list_prim_u_8_loose> signer_public_key,
     ffi.Pointer<wire_cst_list_prim_u_8_strict> credential_bytes,
+    ffi.Pointer<ffi.Bool> replace_stored_group,
   ) {
     return _wire__crate__api__engine__MlsEngine_join_group_external_commit(
       port_,
@@ -3859,6 +3902,7 @@ class RustLibWire implements BaseWire {
       credential_identity,
       signer_public_key,
       credential_bytes,
+      replace_stored_group,
     );
   }
 
@@ -3875,6 +3919,7 @@ class RustLibWire implements BaseWire {
             ffi.Pointer<wire_cst_list_prim_u_8_loose>,
             ffi.Pointer<wire_cst_list_prim_u_8_loose>,
             ffi.Pointer<wire_cst_list_prim_u_8_strict>,
+            ffi.Pointer<ffi.Bool>,
           )
         >
       >(
@@ -3893,6 +3938,7 @@ class RustLibWire implements BaseWire {
               ffi.Pointer<wire_cst_list_prim_u_8_loose>,
               ffi.Pointer<wire_cst_list_prim_u_8_loose>,
               ffi.Pointer<wire_cst_list_prim_u_8_strict>,
+              ffi.Pointer<ffi.Bool>,
             )
           >();
 
@@ -3908,6 +3954,7 @@ class RustLibWire implements BaseWire {
     ffi.Pointer<wire_cst_list_prim_u_8_strict> aad,
     bool skip_lifetime_validation,
     ffi.Pointer<wire_cst_list_prim_u_8_strict> credential_bytes,
+    ffi.Pointer<ffi.Bool> replace_stored_group,
   ) {
     return _wire__crate__api__engine__MlsEngine_join_group_external_commit_v2(
       port_,
@@ -3921,6 +3968,7 @@ class RustLibWire implements BaseWire {
       aad,
       skip_lifetime_validation,
       credential_bytes,
+      replace_stored_group,
     );
   }
 
@@ -3939,6 +3987,7 @@ class RustLibWire implements BaseWire {
             ffi.Pointer<wire_cst_list_prim_u_8_strict>,
             ffi.Bool,
             ffi.Pointer<wire_cst_list_prim_u_8_strict>,
+            ffi.Pointer<ffi.Bool>,
           )
         >
       >(
@@ -3959,6 +4008,7 @@ class RustLibWire implements BaseWire {
               ffi.Pointer<wire_cst_list_prim_u_8_strict>,
               bool,
               ffi.Pointer<wire_cst_list_prim_u_8_strict>,
+              ffi.Pointer<ffi.Bool>,
             )
           >();
 
@@ -5504,6 +5554,17 @@ class RustLibWire implements BaseWire {
   late final _rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsSignatureKeyPair =
       _rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerMlsSignatureKeyPairPtr
           .asFunction<void Function(ffi.Pointer<ffi.Void>)>();
+
+  ffi.Pointer<ffi.Bool> cst_new_box_autoadd_bool(bool value) {
+    return _cst_new_box_autoadd_bool(value);
+  }
+
+  late final _cst_new_box_autoadd_boolPtr =
+      _lookup<ffi.NativeFunction<ffi.Pointer<ffi.Bool> Function(ffi.Bool)>>(
+        'frbgen_openmls_cst_new_box_autoadd_bool',
+      );
+  late final _cst_new_box_autoadd_bool = _cst_new_box_autoadd_boolPtr
+      .asFunction<ffi.Pointer<ffi.Bool> Function(bool)>();
 
   ffi.Pointer<wire_cst_flexible_commit_options>
   cst_new_box_autoadd_flexible_commit_options() {

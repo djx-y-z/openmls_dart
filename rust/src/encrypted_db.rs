@@ -373,6 +373,45 @@ impl EncryptedDb {
         Ok(result)
     }
 
+    /// The key of every entry whose key starts with `prefix`, in key order.
+    /// Values are not read.
+    pub async fn keys_with_prefix(&self, prefix: &[u8]) -> Result<Vec<Vec<u8>>, String> {
+        let conn = self.conn.lock().unwrap();
+        // Keys are BLOBs, which SQLite orders bytewise: every key that starts
+        // with `prefix` sorts at or after it, and the run ends at the first
+        // key that does not. The primary-key index answers this without
+        // touching a value.
+        let mut stmt = conn
+            .prepare("SELECT key FROM mls_storage WHERE key >= ?1 ORDER BY key")
+            .map_err(|e| format!("Failed to prepare keys_with_prefix: {e}"))?;
+        let mut rows = stmt
+            .query(rusqlite::params![prefix])
+            .map_err(|e| format!("Failed to query keys_with_prefix: {e}"))?;
+        let mut keys = Vec::new();
+        while let Some(row) = rows.next().map_err(|e| format!("Row error: {e}"))? {
+            let key: Vec<u8> = row.get(0).map_err(|e| format!("Row error: {e}"))?;
+            if !key.starts_with(prefix) {
+                break;
+            }
+            keys.push(key);
+        }
+        Ok(keys)
+    }
+
+    /// Every row's key with the group it is stored under — for tests that
+    /// hold the Web build's key-based grouping against this column.
+    #[cfg(test)]
+    pub(crate) fn rows_with_group_column(&self) -> Vec<(Vec<u8>, Option<Vec<u8>>)> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn
+            .prepare("SELECT key, group_id FROM mls_storage")
+            .expect("rows query prepares");
+        let rows = stmt
+            .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))
+            .expect("rows query runs");
+        rows.map(|row| row.expect("row reads")).collect()
+    }
+
     /// Save updates (upserts + deletes) in a transaction.
     pub async fn save_updates(
         &self,
@@ -889,6 +928,17 @@ impl EncryptedDb {
         Ok(result)
     }
 
+    /// The key of every entry whose key starts with `prefix`. Values are not
+    /// read, so none is decrypted: IDB keys are stored in the clear.
+    pub async fn keys_with_prefix(&self, prefix: &[u8]) -> Result<Vec<Vec<u8>>, String> {
+        Ok(self
+            .idb_get_all_keys()
+            .await?
+            .into_iter()
+            .filter(|key| key.starts_with(prefix))
+            .collect())
+    }
+
     /// Save updates (upserts + deletes).
     pub async fn save_updates(
         &self,
@@ -901,12 +951,14 @@ impl EncryptedDb {
     /// Save updates *and* drop every remaining row of the group, in one
     /// transaction — a crash cannot leave a deleted group half-purged.
     ///
-    /// As in `delete_group`, "the group's rows" means every non-global entry:
-    /// IDB keys carry no group column to filter on.
+    /// IDB keys carry no group column to filter on, so the group's rows are
+    /// found by key: `key_belongs_to_group` recognises the group ID inside
+    /// every key this crate writes for a group. Every other group's rows,
+    /// and the global ones, stay.
     pub async fn save_updates_and_purge_group(
         &self,
         updates: StorageUpdates,
-        _group_id: &[u8],
+        group_id: &[u8],
     ) -> Result<(), String> {
         // Collected before the write transaction opens: an IDB transaction
         // auto-commits as soon as the event loop goes idle, so no await may
@@ -915,7 +967,10 @@ impl EncryptedDb {
             .idb_get_all_keys()
             .await?
             .into_iter()
-            .filter(|key| !is_global_key(key))
+            .filter(|key| {
+                !is_global_key(key)
+                    && crate::snapshot_storage::key_belongs_to_group(key, group_id)
+            })
             .collect();
         self.write_all(updates, purge).await
     }
