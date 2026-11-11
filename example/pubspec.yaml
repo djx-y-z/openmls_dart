@@ -23,8 +23,9 @@ dev_dependencies:
   flutter_driver:
     sdk: flutter
   # For the tests to make the references RFC 9420 §5.2 defines, a key
-  # package's and a proposal's, the way the engine does: it returns none, and
-  # takes them to delete and to withdraw. The package itself depends on it.
+  # package's and a proposal's, the way the engine does: it takes them to
+  # delete and to withdraw, and the tests check the one it returns with a
+  # proposal against their own. The package itself depends on it.
   crypto: ^3.0.7
   flutter_lints: ^6.0.0
 

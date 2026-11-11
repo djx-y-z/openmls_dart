@@ -30,14 +30,28 @@
   `removePendingProposal` takes it. That method had no legitimate input
   before: the engine discarded the reference OpenMLS returns, and nothing
   else gave one back, so a pending proposal could only be dropped with all
-  the others (`clearPendingProposals`).
+  the others (`clearPendingProposals`). Withdrawing is local, so it suits a
+  proposal whose message has not been sent: the other members keep theirs,
+  and a commit of theirs can still carry it.
+
+#### Changed
+
+- **The native library's dependencies move to their latest compatible
+  releases** (`rust/Cargo.lock`, #81) — Dependabot's 14 updates, none of them
+  an openmls crate: among them `ctutils` 0.4.5 → 0.4.8, under `digest` and
+  the ML-KEM and ML-DSA crates, and `module-lattice` 0.2.3 → 0.2.4, which
+  those two rest on; `openssl-sys` 0.9.117 → 0.9.118, through which SQLCipher
+  reaches OpenSSL; and `cc` 1.10.0 → 1.11.1, which compiles the bundled
+  SQLCipher and OpenSSL. CI built and tested the library with them on every
+  platform, in the example app too, and passed `cargo audit` and
+  `cargo deny`. Takes effect with the next `openmls_frb` release.
 
 #### Fixed
 
 - **A last-resort key package is no longer refused by whoever adds it** —
   `createKeyPackageWithOptions` with `lastResort: true` put a last_resort
   extension in the key package without listing that type among its leaf's
-  capabilities, which RFC 9420 (§10.1) requires of every key package
+  capabilities, which RFC 9420 (§10) requires of every key package
   extension, so adding it failed with "A key package extension is not
   supported in the leaf's capabilities". The type (`0x000a`) is now added to
   the capabilities given, or to the defaults when none are.
@@ -59,6 +73,19 @@
   handshake messages as plaintext, and the proposal type `0x000a` in every
   member's leaf capabilities, which OpenMLS's defaults do not list.
   Otherwise the commit that would carry the proposal is refused.
+- **`removePendingProposal` says what withdrawing does** — it takes only this
+  member's copy, so it suits a proposal whose message has not been sent:
+  the other members keep theirs, a commit of theirs can still carry it, and
+  this member then cannot process that commit. SECURITY.md (Known
+  Limitations #8) no longer offers it for rejecting a received proposal,
+  which has no reference here: inspect the message before processing it, or
+  drop every pending proposal with `clearPendingProposals`.
+- **Smaller corrections** — `KeyPackageOptions.lastResort` says that the
+  last_resort type is added to the capabilities; `WelcomeGroupInfoExtensions`
+  that the external public key extension is left out as well as the ratchet
+  tree; the `Openmls` class no longer tells a Dart command-line app to build
+  the library with cargo, which the hook refuses, or that `dart pub get` runs
+  the hook; SECURITY.md #15 holds for the `ctutils` this release carries.
 
 ### For Contributors
 
@@ -92,7 +119,9 @@
   libFuzzer finds the wire format quickly by itself: after ten minutes, a
   run from the seeds reaches 2539 and 2792 coverage edges, one from the
   empty input 2459 and 2786. The seeds also bring inputs above 4096 bytes,
-  libFuzzer's default limit without them; an X-Wing Welcome is 5471.
+  libFuzzer's default limit without them; an X-Wing Welcome is 5471. A
+  group whose calls fail, panic or wait a minute is skipped with a message,
+  and the others still write their seeds.
 
 #### Changed
 

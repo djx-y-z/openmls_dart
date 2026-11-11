@@ -12,10 +12,10 @@ Uint8List keyPackageRef(List<int> keyPackage) =>
 /// The reference to the proposal [message] carries: `MakeProposalRef` over
 /// its AuthenticatedContent (RFC 9420 §5.2), on a SHA-256 suite.
 ///
-/// The engine returns no reference with a proposal, so whoever needs one makes
-/// it from the message, and that takes a message in the clear: a
-/// PublicMessage, from a member, of a group that sends its handshake messages
-/// as plaintext.
+/// The engine returns one with each of this member's proposals
+/// (`ProposalResult.proposalRef`); this makes it independently, to check that
+/// one against. It takes a message in the clear: a PublicMessage, from a
+/// member, of a group that sends its handshake messages as plaintext.
 Uint8List proposalRef(List<int> message) {
   // An MLSMessage is its version, 2 bytes, then the PublicMessage. Of that,
   // the wire format, the FramedContent and the FramedContentAuthData are the

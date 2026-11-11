@@ -252,8 +252,12 @@ void main() {
           reason: 'type 0x${extension.extensionType.toRadixString(16)}',
         );
       }
-      // Nothing of either attempt was kept.
+      // Nothing of either attempt was kept: the group is at its epoch, and no
+      // commit is pending, for one would refuse the next (flexibleCommit
+      // does not replace a pending commit).
       expect(await alice.groupEpoch(groupIdBytes: groupIdBytes), BigInt.zero);
+      final added = await commit(keyPackages: [bobKp]);
+      expect(added.welcome, isNotNull);
     });
 
     // The last byte is in encrypted_group_info, which is also the HPKE context

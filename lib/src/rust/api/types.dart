@@ -148,6 +148,11 @@ class KeyPackageOptions {
   final BigInt? lifetimeSeconds;
 
   /// Mark as last-resort key package.
+  ///
+  /// The key package then carries the last_resort extension (`0x000a`), and
+  /// RFC 9420 (§10) requires every extension of a key package to be listed
+  /// among its leaf's capabilities: that type is added to `capabilities`, or
+  /// to the defaults when none are given.
   final bool lastResort;
 
   /// Custom capabilities. None = defaults.
@@ -766,8 +771,8 @@ class StagedProposalInfo {
 
 /// What `welcomeGroupInfoExtensions` read from a Welcome.
 class WelcomeGroupInfoExtensions {
-  /// The extensions in the Welcome's GroupInfo, the ratchet tree extension
-  /// aside.
+  /// The extensions in the Welcome's GroupInfo, the ratchet tree and
+  /// external public key extensions aside.
   final List<MlsExtension> extensions;
 
   /// The member that signed the GroupInfo, as the ratchet tree that came

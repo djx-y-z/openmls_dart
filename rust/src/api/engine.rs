@@ -82,7 +82,7 @@ const LAST_RESERVED_PROPOSAL_TYPE: u16 = 0x000a;
 ///
 /// A last-resort key package carries a last_resort extension, and a key
 /// package's extensions have to be among its leaf's capabilities (RFC 9420
-/// §10.1). OpenMLS's default capabilities list no extension, so the type is
+/// §10). OpenMLS's default capabilities list no extension, so the type is
 /// added here, to the defaults or to the caller's list: without it, whoever
 /// adds the key package refuses it ("A key package extension is not supported
 /// in the leaf's capabilities").
@@ -383,6 +383,11 @@ pub struct ProposalResult {
     /// The proposal's reference (RFC 9420 §5.2), serialized: what
     /// `removePendingProposal` takes to withdraw it from this member's store
     /// before a commit carries it.
+    ///
+    /// Withdrawing is local. The other members keep the proposal they
+    /// received, a commit of theirs can still carry it by reference, and this
+    /// member then cannot process that commit. So withdraw only a proposal
+    /// whose message has not been sent.
     pub proposal_ref: Vec<u8>,
 }
 
@@ -1886,12 +1891,13 @@ impl MlsEngine {
         let (proposal_out, proposal_ref) = group.propose_add_member(&provider, &signer, &kp)
             .map_err(|e| format!("Failed to propose add: {}", e))?;
         let msg_bytes = proposal_out.tls_serialize_detached().map_err(|e| format!("Failed to serialize proposal: {}", e))?;
+        let proposal_ref = serialize_proposal_ref(&proposal_ref)?;
 
         self.commit(provider, Some(&group_id_bytes)).await?;
 
         Ok(ProposalResult {
             proposal_message: msg_bytes,
-            proposal_ref: serialize_proposal_ref(&proposal_ref)?,
+            proposal_ref,
         })
     }
 
@@ -1908,12 +1914,13 @@ impl MlsEngine {
         let (proposal_out, proposal_ref) = group.propose_remove_member(&provider, &signer, LeafNodeIndex::new(member_index))
             .map_err(|e| format!("Failed to propose remove: {}", e))?;
         let msg_bytes = proposal_out.tls_serialize_detached().map_err(|e| format!("Failed to serialize proposal: {}", e))?;
+        let proposal_ref = serialize_proposal_ref(&proposal_ref)?;
 
         self.commit(provider, Some(&group_id_bytes)).await?;
 
         Ok(ProposalResult {
             proposal_message: msg_bytes,
-            proposal_ref: serialize_proposal_ref(&proposal_ref)?,
+            proposal_ref,
         })
     }
 
@@ -1942,12 +1949,13 @@ impl MlsEngine {
         let (proposal_out, proposal_ref) = group.propose_self_update(&provider, &signer, leaf_node_params)
             .map_err(|e| format!("Failed to propose self-update: {}", e))?;
         let msg_bytes = proposal_out.tls_serialize_detached().map_err(|e| format!("Failed to serialize proposal: {}", e))?;
+        let proposal_ref = serialize_proposal_ref(&proposal_ref)?;
 
         self.commit(provider, Some(&group_id_bytes)).await?;
 
         Ok(ProposalResult {
             proposal_message: msg_bytes,
-            proposal_ref: serialize_proposal_ref(&proposal_ref)?,
+            proposal_ref,
         })
     }
 
@@ -2021,12 +2029,13 @@ impl MlsEngine {
             .propose_self_update_with_new_signer(&provider, &old_signer, new_signer_bundle, leaf_node_params)
             .map_err(|e| format!("Failed to propose self-update with new signer: {}", e))?;
         let msg_bytes = proposal_out.tls_serialize_detached().map_err(|e| format!("Failed to serialize proposal: {}", e))?;
+        let proposal_ref = serialize_proposal_ref(&proposal_ref)?;
 
         self.commit(provider, Some(&group_id_bytes)).await?;
 
         Ok(ProposalResult {
             proposal_message: msg_bytes,
-            proposal_ref: serialize_proposal_ref(&proposal_ref)?,
+            proposal_ref,
         })
     }
 
@@ -2045,12 +2054,13 @@ impl MlsEngine {
         let (proposal_out, proposal_ref) = group.propose_pre_shared_key(&provider, &signer, psk)
             .map_err(|e| format!("Failed to propose external PSK: {}", e))?;
         let msg_bytes = proposal_out.tls_serialize_detached().map_err(|e| format!("Failed to serialize proposal: {}", e))?;
+        let proposal_ref = serialize_proposal_ref(&proposal_ref)?;
 
         self.commit(provider, Some(&group_id_bytes)).await?;
 
         Ok(ProposalResult {
             proposal_message: msg_bytes,
-            proposal_ref: serialize_proposal_ref(&proposal_ref)?,
+            proposal_ref,
         })
     }
 
@@ -2070,12 +2080,13 @@ impl MlsEngine {
         let (proposal_out, proposal_ref) = group.propose_group_context_extensions(&provider, gc_extensions, &signer)
             .map_err(|e| format!("Failed to propose group context extensions: {}", e))?;
         let msg_bytes = proposal_out.tls_serialize_detached().map_err(|e| format!("Failed to serialize proposal: {}", e))?;
+        let proposal_ref = serialize_proposal_ref(&proposal_ref)?;
 
         self.commit(provider, Some(&group_id_bytes)).await?;
 
         Ok(ProposalResult {
             proposal_message: msg_bytes,
-            proposal_ref: serialize_proposal_ref(&proposal_ref)?,
+            proposal_ref,
         })
     }
 
@@ -2128,12 +2139,13 @@ impl MlsEngine {
         let (proposal_out, proposal_ref) = group.propose_custom_proposal_by_reference(&provider, &signer, custom)
             .map_err(|e| format!("Failed to propose custom proposal: {}", e))?;
         let msg_bytes = proposal_out.tls_serialize_detached().map_err(|e| format!("Failed to serialize proposal: {}", e))?;
+        let proposal_ref = serialize_proposal_ref(&proposal_ref)?;
 
         self.commit(provider, Some(&group_id_bytes)).await?;
 
         Ok(ProposalResult {
             proposal_message: msg_bytes,
-            proposal_ref: serialize_proposal_ref(&proposal_ref)?,
+            proposal_ref,
         })
     }
 
@@ -2152,12 +2164,13 @@ impl MlsEngine {
         let (proposal_out, proposal_ref) = group.propose_remove_member_by_credential(&provider, &signer, &credential)
             .map_err(|e| format!("Failed to propose remove by credential: {}", e))?;
         let msg_bytes = proposal_out.tls_serialize_detached().map_err(|e| format!("Failed to serialize proposal: {}", e))?;
+        let proposal_ref = serialize_proposal_ref(&proposal_ref)?;
 
         self.commit(provider, Some(&group_id_bytes)).await?;
 
         Ok(ProposalResult {
             proposal_message: msg_bytes,
-            proposal_ref: serialize_proposal_ref(&proposal_ref)?,
+            proposal_ref,
         })
     }
 
@@ -2666,6 +2679,18 @@ impl MlsEngine {
     // ADDITIONAL STATE QUERIES / MUTATING
     // ═══════════════════════════════════════════════════════════
 
+    /// Withdraws one pending proposal from this member's store: the one whose
+    /// reference is `proposalRefBytes`, as `ProposalResult.proposalRef`
+    /// returns it for a proposal of this member's.
+    ///
+    /// Only this member's copy goes. The other members keep a proposal they
+    /// received, a commit of theirs can still carry it by reference, and this
+    /// member then fails to process that commit, having nothing it refers to.
+    /// So withdraw only a proposal whose message has not been sent. The engine
+    /// reports no reference for a received proposal: to keep one out of this
+    /// member's next commit, inspect the message before processing it
+    /// (`inspectMessage`), or drop every pending proposal with
+    /// `clearPendingProposals`.
     pub async fn remove_pending_proposal(
         &self,
         group_id_bytes: Vec<u8>,

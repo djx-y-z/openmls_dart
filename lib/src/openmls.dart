@@ -51,12 +51,10 @@ const _nativeAssetId = 'package:openmls/openmls';
 ///
 /// ### For pure Dart CLI apps
 ///
-/// Option 1: Build locally
-/// ```bash
-/// cargo build --release --manifest-path rust/Cargo.toml
-/// ```
-///
-/// Option 2: Run `dart pub get` to trigger the build hook (requires Dart 3.10+)
+/// The build hook provides the library here too: `dart run`, `dart test` and
+/// `dart build` run it (Dart 3.10+), and it downloads the released library for
+/// the package's version. `dart pub get` does not run it. To load a library
+/// built elsewhere, pass its path as `libraryPath` to [Openmls.init].
 class Openmls {
   // coverage:ignore-start
   Openmls._();

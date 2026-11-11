@@ -215,7 +215,12 @@ fn main() {
     for (suite_name, suite) in suites {
         for plaintext in [false, true] {
             let wire = if plaintext { "public" } else { "private" };
-            match group_objects(suite, plaintext) {
+            // A panic skips its group as an error does, and the other groups
+            // still write their seeds. This crate turns debug assertions on
+            // for every dependency, so an assertion upstream can fire here.
+            let made = std::panic::catch_unwind(|| group_objects(suite, plaintext))
+                .unwrap_or_else(|_| Err("it panicked".to_string()));
+            match made {
                 Ok(objects) => {
                     for (name, bytes, is_message) in objects {
                         let seed = format!("{suite_name}_{wire}_{name}");
