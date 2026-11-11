@@ -66,7 +66,7 @@ jobs:
       openmls_version: ${{ steps.check.outputs.openmls_version }}
       skip: ${{ steps.check.outputs.skip }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Setup FVM and Flutter
         uses: ./.github/actions/setup-fvm
@@ -127,7 +127,7 @@ jobs:
             rust_target: aarch64-unknown-linux-gnu
     runs-on: ${{ matrix.runner }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Setup Rust
         uses: ./.github/actions/setup-rust
@@ -149,7 +149,7 @@ jobs:
         shell: bash
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: openmls-linux-${{ matrix.arch }}
           path: rust/target/${{ matrix.rust_target }}/release/libopenmls_frb.so
@@ -171,7 +171,7 @@ jobs:
             rust_target: x86_64-apple-darwin
     runs-on: ${{ matrix.runner }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Setup Rust
         uses: ./.github/actions/setup-rust
@@ -198,7 +198,7 @@ jobs:
         shell: bash
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: openmls-macos-${{ matrix.arch }}
           path: rust/target/${{ matrix.rust_target }}/release/libopenmls_frb.dylib
@@ -226,7 +226,7 @@ jobs:
             rust_target: x86_64-apple-ios
     runs-on: ${{ matrix.runner }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Setup Rust
         uses: ./.github/actions/setup-rust
@@ -244,7 +244,7 @@ jobs:
           cargo build --release --locked --target ${{ matrix.rust_target }}
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: openmls-ios-${{ matrix.target }}-${{ matrix.arch }}
           path: rust/target/${{ matrix.rust_target }}/release/libopenmls_frb.dylib
@@ -266,7 +266,7 @@ jobs:
           - abi: x86_64
             rust_target: x86_64-linux-android
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Setup Rust
         uses: ./.github/actions/setup-rust
@@ -339,7 +339,7 @@ jobs:
         run: make verify-android-alignment
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: openmls-android-${{ matrix.abi }}
           path: rust/target/${{ matrix.rust_target }}/release/libopenmls_frb.so
@@ -352,7 +352,7 @@ jobs:
     if: needs.check-release.outputs.skip != 'true'
     runs-on: windows-2025-vs2026
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Setup Rust
         uses: ./.github/actions/setup-rust
@@ -388,7 +388,7 @@ jobs:
         shell: pwsh
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: openmls-windows-x86_64
           path: rust/target/x86_64-pc-windows-msvc/release/openmls_frb.dll
@@ -401,21 +401,24 @@ jobs:
     if: needs.check-release.outputs.skip != 'true'
     runs-on: ubuntu-26.04
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Setup Rust
         uses: ./.github/actions/setup-rust
         with:
           targets: wasm32-unknown-unknown
 
+      # The version the Makefile pins (WASM_PACK_VERSION), from its own lock
+      # file: wasm-pack runs wasm-opt over the module this job ships, and an
+      # unpinned install took whatever its dependencies resolved to that day.
       - name: Install wasm-pack
-        run: cargo install wasm-pack
+        run: make setup-web
 
       - name: Build for WASM
         run: make build-web
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: openmls-wasm32
           path: |
@@ -440,10 +443,10 @@ jobs:
       - build-wasm
     runs-on: ubuntu-26.04
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Download all artifacts
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           path: artifacts
 
@@ -485,10 +488,10 @@ jobs:
       id-token: write       # Sigstore OIDC identity for build provenance
       attestations: write   # store the attestation in the repo
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Download all artifacts
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           path: artifacts
 
@@ -576,7 +579,7 @@ jobs:
       # verify fully offline (see SECURITY.md → Authenticity).
       - name: Attest build provenance
         id: attest
-        uses: actions/attest-build-provenance@v4
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-checksums: release-archives/openmls_frb-${{ env.VERSION }}-checksums.sha256
 

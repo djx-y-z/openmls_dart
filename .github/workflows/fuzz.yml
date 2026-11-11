@@ -45,7 +45,7 @@ jobs:
     outputs:
       targets: ${{ steps.list.outputs.targets }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       # cargo-fuzz derives its target list from the `[[bin]]` entries of
       # rust/fuzz/Cargo.toml, so reading them here is equivalent to
@@ -79,7 +79,7 @@ jobs:
       matrix:
         target: ${{ fromJson(needs.discover.outputs.targets) }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Setup nightly Rust
         # SHA-pinned; the tag normally selects the toolchain, so it is passed
@@ -126,11 +126,19 @@ jobs:
           fi
 
       # Seeds give libFuzzer structurally-correct starting inputs; tolerate a
-      # deleted generator so projects can opt out by removing the file.
+      # deleted generator so projects can opt out by removing the file. A
+      # generator that does not build fails the job: that is code nobody
+      # compiled. One that builds and then fails leaves a warning and whatever
+      # it wrote: a seed is a head start, never a requirement, and the fuzzing
+      # below matters more. The fuzz crate gets the crate's own lock file
+      # before it is built, here and in `make fuzz-seed`.
       - name: Generate seed corpus
+        timeout-minutes: 45
         run: |
           if [ -f rust/fuzz/examples/gen_corpus.rs ]; then
-            make fuzz-seed
+            cp rust/Cargo.lock rust/fuzz/Cargo.lock
+            (cd rust/fuzz && cargo build --release --example gen_corpus)
+            make fuzz-seed || echo "::warning::The seed generator failed; fuzzing from the seeds it wrote, if any"
           else
             echo "No rust/fuzz/examples/gen_corpus.rs — running with an empty corpus"
           fi
@@ -140,11 +148,20 @@ jobs:
           TARGET: ${{ matrix.target }}
           SECONDS_TOTAL: ${{ steps.duration.outputs.seconds }}
         run: |
+          # The fuzz crate resolves against the crate's own lock file, so the
+          # parsers fuzzed here are the versions that ship. It is not a member
+          # of the crate's workspace and keeps no lock of its own.
+          cp rust/Cargo.lock rust/fuzz/Cargo.lock
           cd rust
           # -timeout gives libFuzzer a per-input watchdog so a single hanging
           # input is aborted and reported rather than running until the job's
           # hard timeout (-max_total_time only bounds the loop between inputs).
-          cargo +nightly fuzz run "$TARGET" -- \
+          # `timeout` bounds the whole step, the build included: a dispatched
+          # run sets its own duration, which no fixed timeout-minutes could
+          # follow, and a hang outside an input is otherwise held for GitHub's
+          # six hours.
+          timeout --kill-after=60 "$((SECONDS_TOTAL + 3600))" \
+            cargo +nightly fuzz run "$TARGET" -- \
             -max_total_time="$SECONDS_TOTAL" \
             -timeout=30 \
             -rss_limit_mb=4096
@@ -153,7 +170,7 @@ jobs:
       # fails; capture it so the exact input can be replayed.
       - name: Upload crash artifacts
         if: failure()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: fuzz-artifacts-${{ matrix.target }}
           path: rust/fuzz/artifacts/${{ matrix.target }}/

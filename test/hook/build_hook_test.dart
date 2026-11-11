@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:code_assets/code_assets.dart';
+import 'package:crypto/crypto.dart';
 import 'package:test/test.dart';
 
 import '../../hook/build.dart' as build_hook;
@@ -94,6 +95,36 @@ void main() {
         ),
         '1.5.0-android-arm64-v8a',
       );
+      expect(
+        build_hook.downloadCacheSubdir(
+          version: '1.5.0',
+          targetOS: OS.windows,
+          targetArchitecture: Architecture.x64,
+        ),
+        '1.5.0-windows-x86_64',
+      );
+    });
+
+    test('refuses a Windows architecture with no release', () {
+      // Only x86_64 is released for Windows. Handing that library to an arm64
+      // app on Windows on Arm made the build pass and the app fail to load it.
+      for (final architecture in [Architecture.arm64, Architecture.ia32]) {
+        expect(
+          () => build_hook.downloadCacheSubdir(
+            version: '1.5.0',
+            targetOS: OS.windows,
+            targetArchitecture: architecture,
+          ),
+          throwsA(
+            isA<build_hook.HookException>().having(
+              (e) => e.message,
+              'message',
+              contains('Unsupported Windows architecture'),
+            ),
+          ),
+          reason: '$architecture',
+        );
+      }
     });
   });
 
@@ -473,6 +504,130 @@ void main() {
           failsWith('Refusing to use an unverified native library'),
         );
         expect(requests, equals(6));
+      });
+    });
+  });
+
+  group('the web build', () {
+    late Directory dir;
+
+    setUp(() => dir = Directory.systemTemp.createTempSync('hook_web'));
+    tearDown(() => dir.deleteSync(recursive: true));
+
+    group('depends on a local build', () {
+      Uri local(String name) => dir.uri.resolve('rust/target/wasm32/$name');
+      void make(String name) =>
+          File.fromUri(local(name)).createSync(recursive: true);
+
+      test('not at all when there is none', () {
+        // A consumer's package, from pub.dev, has no rust/target/: a missing
+        // file declared made every web build of the app run the hook again.
+        expect(build_hook.existingLocalWasmBuildFiles(dir.uri), isEmpty);
+      });
+
+      test('only on the files that are there', () {
+        make(build_hook.localBuildStampName);
+        expect(build_hook.existingLocalWasmBuildFiles(dir.uri), [
+          local(build_hook.localBuildStampName),
+        ]);
+        make(build_hook.localBuildLockName);
+        expect(build_hook.existingLocalWasmBuildFiles(dir.uri), [
+          local(build_hook.localBuildStampName),
+          local(build_hook.localBuildLockName),
+        ]);
+      });
+    });
+
+    group('download cache', () {
+      const files = ['module.js', 'module_bg.wasm'];
+      HttpServer? server;
+      late String url;
+      late String checksum;
+      late int requests;
+
+      File cached(String name) => File('${dir.path}/cache/$name');
+
+      Future<void> provision({Future<String> Function()? expected}) =>
+          build_hook.provisionWasmCache(
+            cacheDir: Directory('${dir.path}/cache/').uri,
+            url: url,
+            archiveFileName: 'module.tar.gz',
+            expectedChecksum: expected ?? () async => checksum,
+            files: files,
+          );
+
+      // A release's archive of [files], served from this machine.
+      setUp(() async {
+        final source = Directory('${dir.path}/source')..createSync();
+        File('${source.path}/module.js').writeAsStringSync('loader');
+        File('${source.path}/module_bg.wasm').writeAsStringSync('the module');
+        final archive = File('${dir.path}/module.tar.gz');
+        final tar = await Process.run('tar', [
+          '-czf',
+          archive.path,
+          '-C',
+          source.path,
+          ...files,
+        ]);
+        expect(tar.exitCode, equals(0), reason: '${tar.stderr}');
+        final bytes = archive.readAsBytesSync();
+        checksum = sha256.convert(bytes).toString();
+
+        requests = 0;
+        final s = server = await HttpServer.bind(
+          InternetAddress.loopbackIPv4,
+          0,
+        );
+        url = 'http://${s.address.address}:${s.port}/module.tar.gz';
+        s.listen((request) async {
+          requests++;
+          request.response.add(bytes);
+          await request.response.close();
+        });
+      });
+      tearDown(() async {
+        await server?.close(force: true);
+        server = null;
+      });
+
+      test('replaces what an interrupted extraction left', () async {
+        // Every file there, the module cut short, and no completeness marker:
+        // only the files that were missing used to be downloaded, so this one
+        // went to web/pkg/ under the version's marker and stayed.
+        cached('module.js')
+          ..createSync(recursive: true)
+          ..writeAsStringSync('loader');
+        cached('module_bg.wasm').writeAsStringSync('the mod');
+
+        await provision();
+
+        expect(cached('module_bg.wasm').readAsStringSync(), 'the module');
+        expect(requests, equals(1));
+      });
+
+      test('reuses a complete one, without asking for a checksum', () async {
+        await provision();
+        await provision(expected: () => fail('asked for a checksum'));
+        expect(requests, equals(1));
+      });
+
+      test('fails when the archive lacks a file', () async {
+        await expectLater(
+          build_hook.provisionWasmCache(
+            cacheDir: Directory('${dir.path}/cache/').uri,
+            url: url,
+            archiveFileName: 'module.tar.gz',
+            expectedChecksum: () async => checksum,
+            files: [...files, 'module.d.ts'],
+          ),
+          throwsA(
+            isA<build_hook.HookException>().having(
+              (e) => e.message,
+              'message',
+              contains('Failed to download WASM file: module.d.ts'),
+            ),
+          ),
+        );
       });
     });
   });

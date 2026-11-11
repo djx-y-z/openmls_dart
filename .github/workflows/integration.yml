@@ -21,8 +21,10 @@
 # `pub` runs a version with its own tests, from its tag `v<version>`, not with
 # main's: a test on main can call what has not been released yet, and every new
 # bridged function brings one (`make coverage-example`). A version older than
-# these tests has none, and gets the tests of the ref this runs on, which the run's
-# summary says. The jobs then run on that tag — its Makefile and actions — while
+# these tests has none, and is not run: the tests of the ref this runs on would
+# fail to compile against it as soon as one of them calls something it lacks,
+# which turns the weekly check red until a release that has tests ships, and
+# tests nothing. The run's summary says so. The jobs then run on that tag — its Makefile and actions — while
 # `integration-reusable.yml` is this ref's, exactly as on a release above: a make
 # target or action input that file starts to need has to exist at every tag it
 # tests, or a `pub` run of an older version stops at it.
@@ -76,7 +78,7 @@ on:
         options: [tree, release, pub]
         default: tree
       package-version:
-        description: 'The version on pub.dev, for pub. Empty means the latest. It runs with the tests of its tag, or of this ref when the tag has none.'
+        description: 'The version on pub.dev, for pub. Empty means the latest. It runs with the tests of its tag; a version whose tag has none is not run.'
         required: false
         default: ''
       flutter-version:
@@ -238,7 +240,11 @@ jobs:
               ref="v$version"
               echo "Testing openmls $version from pub.dev with the tests of v$version" >> "$GITHUB_STEP_SUMMARY"
             else
-              echo "Testing openmls $version from pub.dev with the tests of $GITHUB_REF_NAME: v$version has none of its own, or there is no such tag" >> "$GITHUB_STEP_SUMMARY"
+              # Not this ref's tests instead: they can call what $version does
+              # not have, and would fail to compile rather than test it.
+              run=false
+              echo "::notice::Not testing openmls $version from pub.dev: v$version has no integration tests of its own, or there is no such tag."
+              echo "Not testing openmls $version from pub.dev: v$version has no integration tests of its own, or there is no such tag. The first release that has them is the first this tests." >> "$GITHUB_STEP_SUMMARY"
             fi
           fi
 

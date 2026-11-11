@@ -889,7 +889,7 @@ jobs:
           echo "$RUN_ID" > "$RUNNER_TEMP/rerun/run_id.txt"
 
       - name: Keep the marker
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: repair-rerun-${{ matrix.run_id }}
           path: ${{ runner.temp }}/rerun/run_id.txt
@@ -937,7 +937,7 @@ jobs:
       surface_disagreed: ${{ steps.surface.outputs.disagreed }}
 
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ needs.detect.outputs.sha }}
           # Deliberately the default, read-only GITHUB_TOKEN. Checking out with
@@ -2064,7 +2064,7 @@ jobs:
 
       - name: Upload the patch
         if: steps.verdict.outputs.status == 'fixed'
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: repair-patch
           path: |
@@ -2079,7 +2079,7 @@ jobs:
       # `repair-patch` and still gets exactly the two files it always got.
       - name: Upload the verdict
         if: steps.verdict.outputs.status == 'cannot-fix'
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: repair-verdict
           path: ${{ runner.temp }}/verdict.json
@@ -2205,7 +2205,7 @@ jobs:
     steps:
       - name: Generate GitHub App Token
         id: app-token
-        uses: actions/create-github-app-token@v3
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         with:
           client-id: ${{ vars.APP_CLIENT_ID }}
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
@@ -2223,12 +2223,12 @@ jobs:
       # If main really did move and the patch no longer applies, `git apply`
       # below fails loudly — the correct outcome, since the fix was reasoned
       # about against a tree that no longer exists.
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           token: ${{ steps.app-token.outputs.token }}
           ref: main
 
-      - uses: actions/download-artifact@v8
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: repair-patch
           path: ${{ runner.temp }}/repair
@@ -2366,7 +2366,7 @@ jobs:
     steps:
       - name: Generate GitHub App Token
         id: app-token
-        uses: actions/create-github-app-token@v3
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         with:
           client-id: ${{ vars.APP_CLIENT_ID }}
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
@@ -2379,12 +2379,12 @@ jobs:
       # `persist-credentials: false` although no agent runs here — nothing in
       # this job needs a credential in `.git/config`, because the commit is
       # made through the API rather than by pushing.
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ needs.detect.outputs.sha }}
           persist-credentials: false
 
-      - uses: actions/download-artifact@v8
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: repair-patch
           path: ${{ runner.temp }}/repair
@@ -2477,12 +2477,13 @@ jobs:
             WROTE="Written by \`${ENGINE}\` / \`${MODEL}\`, unreviewed. Read it as a proposal."
           fi
 
-          # The marker the deduplication reads, and the one a future
-          # auto-close-superseded-pull-requests job has to read too: a commit
-          # made with the App token is authored by the same bot as the branch's
-          # own commits, so "every commit here is the bot's" stays true and
-          # cannot distinguish a branch an agent has worked on. This line, and
-          # the `agent-repaired` label below, are what can.
+          # The marker the deduplication reads, and the one the auto-close of
+          # superseded update pull requests reads too (both update workflows'
+          # "Close superseded ..." steps): a commit made with the App token is
+          # authored by the same bot as the branch's own commits, so "every
+          # commit here is the bot's" stays true and cannot distinguish a branch
+          # an agent has worked on. This line, and the `agent-repaired` label
+          # below, are what can.
           BODY=$(printf '%s\n\nRepairing the failure recorded against %s.\n\nrepair-build: %s (%s)\n' \
                    "$WROTE" "$EXPECTED" "$EXPECTED" "$KIND")
 
@@ -2714,10 +2715,10 @@ jobs:
           set -euo pipefail
 
           ADD=()
-          # Always, and it is not decoration. A future job that closes bot pull
-          # requests superseded by a newer one is planned to gate on "every
-          # commit here is the bot's" — which a commit made with the App token
-          # satisfies, because it IS the bot's. This label is how that job can
+          # Always, and it is not decoration. The steps that close bot pull
+          # requests superseded by a newer one (both update workflows) gate on
+          # "every commit here is the bot's" — which a commit made with the App
+          # token satisfies, because it IS the bot's. This label is how they
           # tell a branch an agent has worked on from one it has not, and an
           # agent-repaired branch carries reasoning nobody has confirmed: it is
           # exactly the one that must not close itself.
@@ -2811,12 +2812,12 @@ jobs:
     steps:
       - name: Generate GitHub App Token
         id: app-token
-        uses: actions/create-github-app-token@v3
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         with:
           client-id: ${{ vars.APP_CLIENT_ID }}
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
 
-      - uses: actions/download-artifact@v8
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: repair-verdict
           path: ${{ runner.temp }}/verdict
@@ -2936,12 +2937,12 @@ jobs:
     steps:
       - name: Generate GitHub App Token
         id: app-token
-        uses: actions/create-github-app-token@v3
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         with:
           client-id: ${{ vars.APP_CLIENT_ID }}
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
 
-      - uses: actions/download-artifact@v8
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: repair-verdict
           path: ${{ runner.temp }}/verdict
@@ -3067,7 +3068,7 @@ jobs:
           echo "::warning::The repair of ${SHA:0:12} stopped before any verdict (${RESULTS}). That is attempt ${COUNT} of ${UNFINISHED_CAP} for this commit."
 
       - name: Keep the count
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: repair-unfinished-${{ needs.detect.outputs.sha }}
           path: ${{ runner.temp }}/unfinished/attempt.txt
@@ -3080,7 +3081,7 @@ jobs:
       - name: Generate GitHub App Token
         id: app-token
         if: steps.count.outputs.exhausted == 'true'
-        uses: actions/create-github-app-token@v3
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         with:
           client-id: ${{ vars.APP_CLIENT_ID }}
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
@@ -3233,7 +3234,7 @@ jobs:
       - name: Generate GitHub App Token
         id: app-token
         if: steps.find.outputs.close != ''
-        uses: actions/create-github-app-token@v3
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         with:
           client-id: ${{ vars.APP_CLIENT_ID }}
           private-key: ${{ secrets.APP_PRIVATE_KEY }}

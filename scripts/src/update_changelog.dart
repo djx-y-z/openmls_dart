@@ -1670,8 +1670,9 @@ String readChangelogScope({Directory? packageDir}) {
   const surface =
       'Exposed surface: not stated — this project has not written its scope\n'
       'file yet, so nothing here names what it re-exports. Treat any upstream\n'
-      "change you cannot tie to a symbol this package exposes as INVISIBLE to\n"
-      "this package's users, and say so rather than guessing.";
+      "API you cannot tie to a symbol this package exposes as INVISIBLE to\n"
+      "this package's users, and say so rather than guessing. A changed body\n"
+      'in a crate it builds is still described by what it now does (rule 2).';
 
   if (boundCrates.isEmpty) {
     return 'This package wraps a SUBSET of what it binds.\n$surface';
@@ -1999,10 +2000,15 @@ ${upstreamPatches.isEmpty ? '' : '''
 $upstreamPatches
 
 These are the changes themselves. Describe them from what they show — a type or
-function gained, removed or altered, a body changed, a test added — and then
-say whether any of it reaches an item named under "Exposed surface" above. Go
-no further than a patch shows: a file with no patch, or a hunk that is cut, is
-named and not explained.'''}
+function gained, removed or altered, a body changed, a test added — and then,
+for a body that changed, say whether it still gives the same result for every
+input or now returns, accepts or refuses something else. Tie a change to an
+item named under "Exposed surface" where the scope section maps its file to
+one. Never write that a changed body is out of this package's reach unless the
+scope section names its file as out of reach: these patches show no callers,
+and the surface runs through code it never names (rule 2). Go no further than a
+patch shows: a file with no patch, or a hunk that is cut, is named and not
+explained.'''}
 ${lockChanges.isEmpty ? '' : '''
 
 ## How the resolved dependency graph moved (`rust/Cargo.lock`, before → after — a real result of this run)
@@ -2031,9 +2037,10 @@ Return a JSON object with EXACTLY two string fields:
 
 ## Rules for "openmls_highlight"
 1. Format exactly: "**openmls $shown** — <brief 3-7 word description>".
-2. If nothing in this update touches our exposed surface (the common case), and
-   the line yours replaces is absent or is itself this default (at any
-   version), use:
+2. If nothing in this update changes what our exposed surface does (the common
+   case: no API moved, and every changed body gives the same results as
+   before), and the line yours replaces is absent or is itself this default (at
+   any version), use:
    "${defaultHighlightFor(shown)}".
 3. Return the line WITHOUT a leading "- ". The list marker is added when the
    line is written into the file; one in your answer makes it "- - **…".
@@ -2055,19 +2062,32 @@ Return a JSON object with EXACTLY two string fields:
 2. Classify EVERY upstream change against the scope section above:
    - A change earns its own bullet only when BOTH hold: (a) it lands in a crate
      we bind, AND (b) it changes something named under "Exposed surface" above.
-     Landing in a bound crate is NOT sufficient on its own — most of what those
-     crates contain is never reached from this package. If you cannot name the
-     specific item from "Exposed surface" that the change touches, it is out of
-     scope.
+     Landing in a bound crate is NOT sufficient on its own — an upstream API
+     this package never calls is not reached, however public it is. If you
+     cannot name the specific item from "Exposed surface" that the change
+     touches, it gets no bullet of its own.
+   - A BODY that changed inside a crate we bind is not out of reach unless the
+     scope section names its file as out of reach. The material shows no
+     callers, and the exposed items run through internals whose names appear
+     on no surface — a check, a cipher, an encoder, a private helper. "Not on
+     the exposed surface", said of one, is a claim nothing here can check, and
+     it has been written of an encoder that a public display string runs
+     through. Say instead what the patch shows the body does now: the same
+     result for every input (a rewrite: a let-chain for a nested `if`, a
+     library call for an operator, another walk over the same data), or a
+     different one, and then what it now returns, accepts or refuses. That is
+     checkable from the patch, and it is what a reader needs.
    - Out-of-scope work is excluded BY MECHANISM, never by caption. Do not name
      the areas and append a verdict — "none of which this library exposes", "not
      relevant here", "internal only". A verdict reads the same whatever the
      release contains, so it gives a reader nothing to check, and it is the one
      failure this prompt exists to prevent. Say instead WHERE the change landed
      (the crate, module or bridge) and WHY that place is out of reach: the crate
-     is absent from this package's dependency graph, or the symbol is not on the
-     exposed surface. Both halves are required — a location with no reason is
-     still a caption.
+     is absent from this package's dependency graph, the item is an upstream
+     API this package never calls, or the scope section names the file as out
+     of reach — the only one of the three a changed body inside a crate we bind
+     can have (see above). Both halves are required — a location with no reason
+     is still a caption.
    - Group rather than enumerate: areas that miss for the SAME reason belong in
      one sentence that gives that reason once. Length is not the goal; a reader
      being able to verify the exclusion is.
@@ -2078,8 +2098,12 @@ Return a JSON object with EXACTLY two string fields:
      something genuinely broke, the update by definition DOES affect this
      package's public API, and that sentence must be omitted.
 3. When the crates we bind had no change reaching our exposed surface, say so
-   explicitly. Default wording, which is true whenever (b) in rule 2 failed:
+   explicitly. Default wording, which is true when (b) in rule 2 failed AND no
+   body changed in those crates outside the files the scope section names as
+   out of reach:
    "The crates we bind${crateNames.isEmpty ? '' : ' ($crateNames)'} have no changes reaching the surface this package exposes".
+   Where a body did change, that sentence is not yours to write: say what the
+   body does now instead (rule 2).
    Use the STRONGER "are unchanged apart from version strings" ONLY when those
    crates genuinely had no code change at all. Those are different claims, and
    the strong one is checkable: if a bound crate lost or altered any symbol —
