@@ -47,6 +47,18 @@
   `test/scripts/example_coverage_bindings_test.dart` holds the coverage
   parser to this project's bindings. The example's demo cards are keyed for
   the tests to find them.
+- **The message fuzz targets start from what a real group sends** —
+  `make fuzz-seed` gave `mls_message` and `wire_decode` one empty input.
+  `rust/fuzz/examples/gen_corpus.rs` now runs the engine: two members on
+  an in-memory database, on X25519, P-256 and X-Wing, with the handshakes
+  encrypted and in the clear. Each group gives a key package, bare and in
+  an MLSMessage, a Welcome, a GroupInfo, the ratchet tree, an Add and an
+  Update commit, an application message and a Remove proposal: 42 seeds
+  for `mls_message` and 54 for `wire_decode`. The gain is small, because
+  libFuzzer finds the wire format quickly by itself: after ten minutes, a
+  run from the seeds reaches 2539 and 2792 coverage edges, one from the
+  empty input 2459 and 2786. The seeds also bring inputs above 4096 bytes,
+  libFuzzer's default limit without them; an X-Wing Welcome is 5471.
 
 #### Changed
 

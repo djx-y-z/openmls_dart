@@ -21,9 +21,17 @@
 //! If a target dispatches on a selector byte (`match data[0] % N`), prefix
 //! each seed with the selector the payload corresponds to.
 
+use openmls_frb::api::config::MlsGroupConfig;
 use openmls_frb::api::credential::MlsCredential;
+use openmls_frb::api::engine::MlsEngine;
+use openmls_frb::api::keys::{MlsSignatureKeyPair, serialize_signer};
+use openmls_frb::api::types::{MlsCiphersuite, MlsWireFormatPolicy};
 use std::fs;
+use std::future::Future;
 use std::path::Path;
+use std::pin::pin;
+use std::task::{Context, Poll, Waker};
+use std::time::{Duration, Instant};
 
 fn write_seed(dir: &Path, name: &str, bytes: &[u8]) {
     if let Err(e) = fs::create_dir_all(dir) {
@@ -36,6 +44,139 @@ fn write_seed(dir: &Path, name: &str, bytes: &[u8]) {
     } else {
         println!("wrote {} ({} bytes)", path.display(), bytes.len());
     }
+}
+
+/// Runs one of the engine's calls to completion.
+///
+/// Natively the engine never waits on anything outside its own call: SQLCipher
+/// is synchronous, and nothing else holds its locks here. So polling until the
+/// future is ready is all an executor has to do, and this needs none.
+///
+/// Should that ever change, the call fails after a minute rather than spinning
+/// on: the Fuzz workflow runs this with no time limit of its own but GitHub's,
+/// six hours.
+fn block_on<T>(future: impl Future<Output = Result<T, String>>) -> Result<T, String> {
+    let deadline = Instant::now() + Duration::from_secs(60);
+    let mut future = pin!(future);
+    let mut context = Context::from_waker(Waker::noop());
+    loop {
+        if let Poll::Ready(output) = future.as_mut().poll(&mut context) {
+            return output;
+        }
+        if Instant::now() >= deadline {
+            return Err("the engine's call was still waiting after a minute".to_string());
+        }
+        std::thread::yield_now();
+    }
+}
+
+/// One participant of a seed group: an engine on an in-memory database, and
+/// a signer on the group's suite.
+struct Member {
+    engine: MlsEngine,
+    signer: Vec<u8>,
+    public_key: Vec<u8>,
+    identity: Vec<u8>,
+}
+
+impl Member {
+    fn new(name: &str, suite: fn() -> MlsCiphersuite) -> Result<Self, String> {
+        let keys = MlsSignatureKeyPair::generate(suite())?;
+        let signer = serialize_signer(suite(), keys.private_key(), keys.public_key())?;
+        let engine = block_on(MlsEngine::create(":memory:".to_string(), vec![7; 32]))?;
+        Ok(Self {
+            engine,
+            signer,
+            public_key: keys.public_key(),
+            identity: name.as_bytes().to_vec(),
+        })
+    }
+}
+
+fn config(suite: fn() -> MlsCiphersuite, plaintext: bool) -> MlsGroupConfig {
+    let mut config = MlsGroupConfig::default_config(suite());
+    config.wire_format_policy = if plaintext {
+        MlsWireFormatPolicy::Plaintext
+    } else {
+        MlsWireFormatPolicy::Ciphertext
+    };
+    config
+}
+
+/// A key package as the network carries one: in an MLSMessage (RFC 9420 §6),
+/// version mls10 (`0x0001`), wire format mls_key_package (`0x0005`). The
+/// engine returns the bare KeyPackage.
+fn mls_message_of_key_package(key_package: &[u8]) -> Vec<u8> {
+    let mut message = vec![0x00, 0x01, 0x00, 0x05];
+    message.extend_from_slice(key_package);
+    message
+}
+
+/// The objects a two-member group produces on `suite`, as the targets parse
+/// them: `(name, bytes, is an MLSMessage)`.
+///
+/// With `plaintext`, handshake messages travel as PublicMessages; otherwise as
+/// PrivateMessages. Application messages are PrivateMessages either way.
+fn group_objects(
+    suite: fn() -> MlsCiphersuite,
+    plaintext: bool,
+) -> Result<Vec<(&'static str, Vec<u8>, bool)>, String> {
+    let alice = Member::new("alice", suite)?;
+    let bob = Member::new("bob", suite)?;
+    let group = block_on(alice.engine.create_group(
+        config(suite, plaintext),
+        alice.signer.clone(),
+        alice.identity.clone(),
+        alice.public_key.clone(),
+        None,
+        None,
+    ))?
+    .group_id;
+    let key_package = block_on(bob.engine.create_key_package(
+        suite(),
+        bob.signer.clone(),
+        bob.identity.clone(),
+        bob.public_key.clone(),
+        None,
+    ))?
+    .key_package_bytes;
+    let added = block_on(alice.engine.add_members(
+        group.clone(),
+        alice.signer.clone(),
+        vec![key_package.clone()],
+    ))?;
+    block_on(bob.engine.join_group_from_welcome(
+        config(suite, plaintext),
+        added.welcome.clone(),
+        None,
+        bob.signer.clone(),
+    ))?;
+    let tree = block_on(alice.engine.export_ratchet_tree(group.clone()))?;
+    let group_info = block_on(alice.engine.export_group_info(group.clone(), alice.signer.clone()))?;
+    let application = block_on(alice.engine.create_message(
+        group.clone(),
+        alice.signer.clone(),
+        b"a seed".to_vec(),
+        Some(b"with additional data".to_vec()),
+    ))?
+    .ciphertext;
+    let update = block_on(bob.engine.self_update(group.clone(), bob.signer.clone()))?.commit;
+    block_on(alice.engine.process_message(group.clone(), update.clone()))?;
+    // Last: a pending proposal would ride along in any later commit.
+    let proposal = block_on(alice.engine.propose_remove(group.clone(), alice.signer.clone(), 1))?
+        .proposal_message;
+
+    Ok(vec![
+        ("key_package", mls_message_of_key_package(&key_package), true),
+        ("key_package_bare", key_package, false),
+        ("welcome", added.welcome, true),
+        ("add_commit", added.commit, true),
+        ("group_info", group_info, true),
+        ("ratchet_tree", tree, false),
+        ("application", application, true),
+        ("update_commit", update, true),
+        ("remove_proposal", proposal, true),
+    ])
 }
 
 fn main() {
@@ -57,23 +198,39 @@ fn main() {
         }
     }
 
-    // --- mls_message target (fuzz_targets/mls_message.rs) ---
-    // A structurally-valid MLS protocol message requires full group state to
-    // construct (signer + ratchet tree + epoch secrets), which is out of scope
-    // for a standalone generator. Seed with an empty input and let libFuzzer
-    // explore the MlsMessageIn TLS structure from there. For high-value seeds,
-    // drop real serialized messages captured from a running group (e.g. the
-    // bytes an integration test hands to process_message) into
-    // corpus/mls_message/.
+    // --- mls_message and wire_decode (fuzz_targets/mls_message.rs, wire_decode.rs) ---
+    // What a real group sends, made by the engine itself: two members on an
+    // in-memory database, on three suites (the mandatory one, P-256, and the
+    // post-quantum X-Wing, whose keys are much larger), with handshakes sent
+    // encrypted and in the clear. `mls_message` parses MLSMessages;
+    // `wire_decode` tries each input as an MLSMessage, a ratchet tree and a key
+    // package, so it gets everything. An empty input stays as a seed of each.
     write_seed(&base.join("mls_message"), "empty", b"");
-
-    // --- wire_decode target (fuzz_targets/wire_decode.rs) ---
-    // Same constraint as mls_message: a valid ratchet tree or key package needs
-    // a provider, a signer and real group state to produce. Seed empty and let
-    // libFuzzer explore. High-value seeds here are the `ratchetTreeBytes` and
-    // key-package bytes an integration test passes to joinGroupFromWelcome /
-    // addMembers — drop them into corpus/wire_decode/.
     write_seed(&base.join("wire_decode"), "empty", b"");
+    let suites: [(&str, fn() -> MlsCiphersuite); 3] = [
+        ("x25519", || MlsCiphersuite::Mls128DhkemX25519Aes128gcmSha256Ed25519),
+        ("p256", || MlsCiphersuite::Mls128DhkemP256Aes128gcmSha256P256),
+        ("xwing", || MlsCiphersuite::Mls256XwingChacha20poly1305Sha256Ed25519),
+    ];
+    for (suite_name, suite) in suites {
+        for plaintext in [false, true] {
+            let wire = if plaintext { "public" } else { "private" };
+            match group_objects(suite, plaintext) {
+                Ok(objects) => {
+                    for (name, bytes, is_message) in objects {
+                        let seed = format!("{suite_name}_{wire}_{name}");
+                        if is_message {
+                            write_seed(&base.join("mls_message"), &seed, &bytes);
+                        }
+                        write_seed(&base.join("wire_decode"), &seed, &bytes);
+                    }
+                }
+                // A seed is a head start, never a requirement: the fuzzers
+                // still run from what was written.
+                Err(e) => eprintln!("skip the {suite_name} {wire} group: {e}"),
+            }
+        }
+    }
 
     println!("Seed corpus generation complete.");
 }
