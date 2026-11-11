@@ -41,7 +41,7 @@ help:
 	@echo "    make setup-rust-tools             - Install Rust tools (cargo-audit, frb codegen)"
 	@echo "    make setup-frb-codegen            - Install pinned flutter_rust_bridge_codegen"
 	@echo "    make setup-android                - Install Android build tools (cargo-ndk)"
-	@echo "    make setup-web                    - Install web build tools (wasm-pack)"
+	@echo "    make setup-web                    - Install web build tools (wasm-pack $(WASM_PACK_VERSION))"
 	@echo "    make setup-repo-protections       - Apply GitHub rulesets + both release environments (needs gh admin)"
 	@echo ""
 	@echo "  BUILD & CODEGEN"
@@ -245,13 +245,23 @@ setup-android:
 	@echo "Android setup complete!"
 	@echo "Make sure you have Android NDK installed via Android Studio or sdkmanager."
 
+# wasm-pack builds the WASM module a release ships and runs wasm-opt over it,
+# so it is pinned, and built from its own lock file, like cargo-ndk. This is
+# the one place the version is named: every CI job that builds for the web,
+# the release build included, installs it through this target. A wasm-pack of
+# another version is replaced, not kept. Dependabot does not read it; it
+# moves by hand. The wasm-bindgen-cli and binaryen that wasm-pack downloads
+# are not verified by it: the first follows the wasm-bindgen version in
+# rust/Cargo.lock, the second this version.
+WASM_PACK_VERSION := 0.15.0
+
 setup-web:
 	@echo "Installing web build tools..."
-	@if ! command -v wasm-pack >/dev/null 2>&1; then \
-		echo "Installing wasm-pack..."; \
-		cargo install wasm-pack; \
+	@if [ "$$(wasm-pack --version 2>/dev/null)" = "wasm-pack $(WASM_PACK_VERSION)" ]; then \
+		echo "wasm-pack $(WASM_PACK_VERSION) already installed"; \
 	else \
-		echo "wasm-pack already installed"; \
+		echo "Installing wasm-pack $(WASM_PACK_VERSION)..."; \
+		cargo install wasm-pack --locked --version $(WASM_PACK_VERSION); \
 	fi
 	rustup target add wasm32-unknown-unknown
 	@echo ""
@@ -337,6 +347,10 @@ stamp_build = stamp() { \
 # The app the targets under "The example app" below work on: the example, or the
 # new app `create-consumer` makes.
 EXAMPLE_DIR ?= example
+
+# The flutter `test-example` and `drive-example` run in it: `$(FVM) flutter`,
+# unless `test-example-ci` hands in the app's own (see there).
+EXAMPLE_FLUTTER ?= flutter
 
 # Forget what was cached about this package's build hook, or the build just made
 # may never be used. When the hook last ran without a local build it downloaded
@@ -425,6 +439,10 @@ build-web:
 # And the lock file it was made from, which the hook compares with
 # rust/Cargo.lock: the dependencies move without the crate version.
 	@cp rust/Cargo.lock rust/target/wasm32/.cargo-lock
+# The web path of the hook declares these files only while they exist, as the
+# native path does its library, so a hook that last ran without them would not
+# run again for them (see forget_hook_results).
+	@$(forget_hook_results)
 	@echo ""
 	@echo "Build complete! WASM files at: rust/target/wasm32/ (crate $$(cat rust/target/wasm32/.crate-version))"
 
@@ -546,13 +564,13 @@ test-web:
 # `flutter test` forces debug mode. `drive-example` below is for the other modes.
 test-example:
 	@$(forget_hook_results)
-	cd $(EXAMPLE_DIR) && $(FVM) flutter test integration_test $(ARGS)
+	cd $(EXAMPLE_DIR) && $(FVM) "$(EXAMPLE_FLUTTER)" test integration_test $(ARGS)
 
 # The same tests under `flutter drive`, which is the one way to run them in
 # profile mode: AOT, what a consumer's release build is compiled to. It needs a
 # driver process and a device that has that mode, and an iOS simulator does not.
 #   make drive-example ARGS="--profile -d macos"
-example_drive = flutter drive --driver=test_driver/integration_test.dart \
+example_drive = "$(EXAMPLE_FLUTTER)" drive --driver=test_driver/integration_test.dart \
 	--target=integration_test/openmls_test.dart
 
 drive-example:
@@ -568,8 +586,15 @@ drive-example:
 # scripts/test_example_ci.dart lists the options.
 #   make test-example-ci ARGS="--attempts 3 -- -d <device>"
 #   make test-example-ci ARGS="--drive -- --profile -d <device>"
+#
+# ⚠ The app's flutter is resolved here, by fvm in the app's directory, and handed
+# in. The script runs under `fvm dart`, which puts this project's pinned Flutter
+# first on PATH, and fvm cannot run again under it. So an app whose .fvmrc names
+# another Flutter, as `create-consumer FLUTTER_VERSION=…` writes for the newest
+# one, ran on the pinned one and stopped at its first `pub get`.
 test-example-ci:
-	@$(FVM) dart scripts/test_example_ci.dart --dir $(EXAMPLE_DIR) $(ARGS)
+	@flutter=$$(cd $(EXAMPLE_DIR) && $(if $(FVM),$(FVM) exec )sh -c 'command -v flutter') && \
+		$(FVM) dart scripts/test_example_ci.dart --dir $(EXAMPLE_DIR) --flutter "$$flutter" $(ARGS)
 
 # Build the app with the tests as its entry point, without running it. CI uses it
 # to build for an emulator before the emulator starts: the first Gradle build of an
@@ -873,11 +898,19 @@ fuzz:
 		cd rust && cargo +nightly fuzz list; \
 		exit 1; \
 	fi
+	cp rust/Cargo.lock rust/fuzz/Cargo.lock
 	cd rust && cargo +nightly fuzz run $(ARGS)
 
 # Generate the seed corpus (valid inputs) under rust/fuzz/corpus/<target>/.
 # Extend rust/fuzz/examples/gen_corpus.rs as you add fuzz targets.
+#
+# Both targets give the fuzz crate the crate's own lock file first: it is not
+# a member of the crate's workspace and keeps no lock of its own (rust/fuzz/
+# ignores it), so it would otherwise resolve every shared dependency to its
+# newest version and fuzz parsers other than the ones that ship. Cargo adds
+# the fuzz-only crates to the copy.
 fuzz-seed:
+	cp rust/Cargo.lock rust/fuzz/Cargo.lock
 	cd rust/fuzz && cargo run --release --example gen_corpus
 
 # =============================================================================

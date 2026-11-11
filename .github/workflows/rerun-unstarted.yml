@@ -18,8 +18,14 @@
 #   to read; the jobs that drive a device already retried what the device or
 #   the connection broke;
 # - a cancelled run, which concludes `cancelled` rather than `failure`;
-# - a run a newer one of its branch has replaced. It is not worth a runner, and
-#   in a pull request's concurrency group its re-run would cancel the newer one.
+# - a run a newer one has replaced. It is not worth a runner, and in a pull
+#   request's concurrency group its re-run would cancel the newer one. "Newer"
+#   means of the same branch from the same repository: two forks' `main` are
+#   not one branch. A run another workflow's completion started is different:
+#   they are all recorded on the default branch, and each tests what its title
+#   names (the binaries of one release), so only a newer run with the same
+#   title replaces it. Without that, any later native build would leave the
+#   run a release waits for unrepaired.
 #
 # `workflow_run` takes this file from the default branch, so it acts only once
 # it is on main, and then on pull request runs as well as main's. It checks out
@@ -57,14 +63,25 @@ jobs:
           WORKFLOW_ID: ${{ github.event.workflow_run.workflow_id }}
           BRANCH: ${{ github.event.workflow_run.head_branch }}
           EVENT: ${{ github.event.workflow_run.event }}
+          HEAD_REPO: ${{ github.event.workflow_run.head_repository.full_name }}
+          TITLE: ${{ github.event.workflow_run.display_title }}
         run: |
           set -euo pipefail
 
-          newest=$(gh api -X GET "repos/$REPO/actions/workflows/$WORKFLOW_ID/runs" \
-            -f branch="$BRANCH" -f event="$EVENT" -f per_page=1 \
-            --jq '.workflow_runs[0].id')
+          # The newest run this one competes with (see the top of this file).
+          # The repository and the title, which a fork controls, are compared
+          # inside jq, read from the environment.
+          if [ "$EVENT" = workflow_run ]; then
+            newest=$(gh api -X GET "repos/$REPO/actions/workflows/$WORKFLOW_ID/runs" \
+              -f event="$EVENT" -f per_page=50 \
+              --jq '[.workflow_runs[] | select(.display_title == env.TITLE)][0].id // empty')
+          else
+            newest=$(gh api -X GET "repos/$REPO/actions/workflows/$WORKFLOW_ID/runs" \
+              -f branch="$BRANCH" -f event="$EVENT" -f per_page=50 \
+              --jq '[.workflow_runs[] | select(.head_repository.full_name == env.HEAD_REPO)][0].id // empty')
+          fi
           if [ "$newest" != "$RUN_ID" ]; then
-            echo "Run $RUN_ID is no longer the newest of its branch (run $newest is), so it is left as it is."
+            echo "Run $RUN_ID is no longer the newest of its kind (run ${newest:-none of the last 50} is), so it is left as it is."
             exit 0
           fi
 

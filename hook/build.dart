@@ -439,17 +439,11 @@ Future<void> _handleWebBuild(
   Uri packageRoot,
 ) async {
   // Declare the local WASM build outputs and the web/pkg version marker as
-  // dependencies so a `make build-web` rebuild (which only changes
-  // rust/target/wasm32/*) or a manual web/pkg/ wipe (which removes the marker)
-  // invalidates a cached hook result instead of keeping web/pkg/ stale.
-  for (final fileName in _wasmFiles) {
-    output.dependencies.add(
-      packageRoot.resolve('rust/target/wasm32/$fileName'),
-    );
-  }
-  output.dependencies
-    ..add(packageRoot.resolve('rust/target/wasm32/$localBuildStampName'))
-    ..add(packageRoot.resolve('rust/target/wasm32/$localBuildLockName'));
+  // dependencies so a rebuild or a deletion of the local build, or a manual
+  // web/pkg/ wipe (which removes the marker), invalidates a cached hook result
+  // instead of keeping web/pkg/ stale. The local build's files only while they
+  // exist: see existingLocalWasmBuildFiles.
+  output.dependencies.addAll(existingLocalWasmBuildFiles(packageRoot));
 
   // Find the Flutter app root first
   final appRoot = _findAppRoot(input.outputDirectoryShared);
@@ -537,48 +531,71 @@ Future<void> _handleWebBuild(
 
   // Download WASM files to cache
   final archiveFileName = '$_crateName-$version-wasm32.tar.gz';
-
-  final cacheReady =
-      _isCacheComplete(cacheDir) &&
-      _wasmFiles.every((f) => File.fromUri(cacheDir.resolve(f)).existsSync());
-
-  // Only touch the network when the version-keyed cache is not already a
-  // complete, verified provisioning. This lets an offline re-provision of
-  // web/pkg/ (e.g. after a manual wipe) reuse the warm cache instead of failing
-  // on an unreachable checksums file.
-  if (!cacheReady) {
-    // SECURITY: resolve the expected SHA256 up front (fail-closed, see the
-    // native path above). The WASM assets are shipped in a single archive, so
-    // one checksum covers every file extracted from it.
-    final expectedChecksum = await resolveExpectedChecksum(
-      baseUrl,
-      version,
-      archiveFileName,
-    );
-
-    for (final fileName in _wasmFiles) {
-      final file = File.fromUri(cacheDir.resolve(fileName));
-
-      if (!file.existsSync()) {
-        await _downloadAndExtract(
-          '$baseUrl/$archiveFileName',
-          cacheDir,
-          archiveFileName,
-          fileName,
-          expectedChecksum: expectedChecksum,
-        );
-      }
-
-      if (!file.existsSync()) {
-        throw HookException('Failed to download WASM file: $fileName');
-      }
-    }
-  }
+  await provisionWasmCache(
+    cacheDir: cacheDir,
+    url: '$baseUrl/$archiveFileName',
+    archiveFileName: archiveFileName,
+    // SECURITY: resolved before the download (fail-closed, see the native path
+    // above). The WASM assets are shipped in a single archive, so one checksum
+    // covers every file extracted from it.
+    expectedChecksum: () =>
+        resolveExpectedChecksum(baseUrl, version, archiveFileName),
+  );
 
   // Copy WASM files to web/pkg/ and record the version so the next build can
   // detect an upgrade and refresh instead of serving stale binaries.
   await _copyWasmFilesToAppRoot(cacheDir, webPkgDir);
   _writeWasmVersionMarker(webPkgDir, version);
+}
+
+/// The files of a local WASM build that exist now, for the hook to declare as
+/// its dependencies.
+///
+/// Only those that exist: a hook runner counts a declared file that is missing
+/// as changed. Declaring them all made every web build of a consumer run the
+/// hook again, since the package it gets from pub.dev has no rust/target/.
+/// A local build made after the hook last ran is still seen, because
+/// `make build-web` drops the hook's cached result, as `make build` does.
+List<Uri> existingLocalWasmBuildFiles(Uri packageRoot) => [
+  for (final name in [..._wasmFiles, localBuildStampName, localBuildLockName])
+    packageRoot.resolve('rust/target/wasm32/$name'),
+].where((file) => File.fromUri(file).existsSync()).toList();
+
+/// Makes [cacheDir] hold every one of [files] from the archive at [url],
+/// unless it already holds them all, complete.
+///
+/// Complete means the completeness marker is there: it is written only after a
+/// verified extraction. Nothing in an entry without it is reused, a file that
+/// exists included, since an interrupted extraction can leave a truncated one.
+/// Downloading only the files that were missing kept such a file: it went to
+/// web/pkg/ under this version's marker and was never replaced. The native
+/// path re-provisions an incomplete entry the same way.
+///
+/// [expectedChecksum] is asked only when there is something to download, so a
+/// complete cache re-provisions web/pkg/ offline, after a manual wipe of it.
+Future<void> provisionWasmCache({
+  required Uri cacheDir,
+  required String url,
+  required String archiveFileName,
+  required Future<String> Function() expectedChecksum,
+  List<String> files = _wasmFiles,
+}) async {
+  bool present(String file) =>
+      File.fromUri(cacheDir.resolve(file)).existsSync();
+  if (_isCacheComplete(cacheDir) && files.every(present)) return;
+
+  await _downloadAndExtract(
+    url,
+    cacheDir,
+    archiveFileName,
+    files.first,
+    expectedChecksum: await expectedChecksum(),
+  );
+  for (final file in files) {
+    if (!present(file)) {
+      throw HookException('Failed to download WASM file: $file');
+    }
+  }
 }
 
 /// Finds the Flutter application root by searching parent directories from shared output.
@@ -820,6 +837,13 @@ String _getPlatformArchName(
     case OS.macOS:
       return 'macos-${_archName(targetArch)}';
     case OS.windows:
+      // Only x86_64 is released for Windows. Flutter builds an arm64 app on
+      // Windows on Arm, which cannot load that library: refuse the build here,
+      // as the other systems refuse an architecture they have no release for,
+      // rather than let the running app fail to load it.
+      if (targetArch != Architecture.x64) {
+        throw HookException('Unsupported Windows architecture: $targetArch');
+      }
       return 'windows-x86_64';
     case OS.android:
       return 'android-${_androidAbi(targetArch)}';

@@ -96,6 +96,27 @@
 
 #### Changed
 
+- **copier template adopted: v4.20.0 -> v4.21.0** — updates the generated
+  workflows, build hook and contributor tooling. `.github/workflows/check-openmls-updates.yml`
+  now closes superseded update pull requests, subject to the template’s age,
+  label, commit-trailer and author vetoes; it also handles the idempotency-gate
+  skip path. The workflow and composite-action changes pin GitHub actions to
+  commits, including checkout v7.0.1, upload-artifact v7.0.2,
+  download-artifact v8.0.2, cache v6.1.0, create-github-app-token v3.3.0 and
+  attest-build-provenance v4.2.2. `scripts/src/update_changelog.dart` changes
+  how it describes modified code in crates the package builds: it focuses on
+  whether the behavior changed, rather than excluding a change because a symbol
+  is not named on the exposed surface. `hook/build.dart` retries incomplete
+  WebAssembly cache entries, avoids rerunning the hook for absent local build
+  inputs, and refuses unsupported Windows architectures. `Makefile` and
+  `build-openmls.yml` pin release builds to wasm-pack 0.15.0; `make setup-web`
+  replaces a different installed version. The example test scripts now resolve
+  Flutter from the consumer app’s FVM configuration. The integration workflows
+  skip pub.dev versions without integration tests and validate the resolved
+  `stable` version; `fuzz.yml` bounds fuzz runs and uses the crate’s lockfile.
+  `rerun-unstarted.yml` distinguishes runs by title or by branch and repository,
+  so unrelated runs do not prevent retries.
+
 - **The template's integration tests are on (`enable_integration_tests`)** —
   `integration.yml` runs the example's integration tests on every pull
   request and push to `main`: Linux x86_64 and ARM64, macOS, Windows, an iOS

@@ -30,6 +30,11 @@
 ///                       answers has failed the run, and its threads go to the
 ///                       log when the device gives them; with the app or the
 ///                       device gone, the run did not finish.
+///   --flutter <path>    The flutter the app runs on. The Makefile passes the
+///                       one fvm resolves in the app's directory: this script
+///                       runs under `fvm dart`, which puts the project's pinned
+///                       Flutter first on PATH, so an app whose .fvmrc names
+///                       another would run on the pinned one.
 library;
 
 import 'dart:async';
@@ -50,6 +55,7 @@ Future<void> main(List<String> args) async {
     '--verdict',
     '--dir',
     '--stall-after',
+    '--flutter',
   };
   final values = <String, String>{};
   var drive = false;
@@ -81,8 +87,15 @@ Future<void> main(List<String> args) async {
   final simulator = values['--simulator'];
   void record(Verdict value) => _writeVerdict(verdict, value);
 
+  final flutter = switch (values['--flutter']) {
+    null || '' => null,
+    final path => path,
+  };
+  if (flutter != null) stdout.writeln('The app runs on $flutter.');
+
   final run = _Run(
     app: values['--dir'] ?? 'example',
+    flutter: flutter,
     flutterArgs: flutterArgs,
     drive: drive,
     android: values['--android'],
@@ -150,6 +163,7 @@ Future<void> main(List<String> args) async {
 class _Run {
   _Run({
     required this.app,
+    required this.flutter,
     required this.flutterArgs,
     required this.drive,
     required this.android,
@@ -161,6 +175,9 @@ class _Run {
   });
 
   final String app;
+
+  /// The flutter the app runs on, when the Makefile resolved its own.
+  final String? flutter;
   final List<String> flutterArgs;
   final bool drive;
   final String? android;
@@ -207,6 +224,7 @@ class _Run {
         'test-example',
         app: app,
         args: [...flutterArgs, '--file-reporter', 'json:${file.path}'],
+        flutter: flutter,
       ),
       mode: ProcessStartMode.inheritStdio,
     );
@@ -233,7 +251,12 @@ class _Run {
   Future<(int, RunOutcome Function(bool crashed))> _drive() async {
     final process = await Process.start(
       'make',
-      makeArguments('drive-example', app: app, args: flutterArgs),
+      makeArguments(
+        'drive-example',
+        app: app,
+        args: flutterArgs,
+        flutter: flutter,
+      ),
     );
     final output = StringBuffer();
     const decoder = Utf8Decoder(allowMalformed: true);
@@ -470,7 +493,7 @@ class _Run {
   Future<int> _make(String target, List<String> args) async {
     final process = await Process.start(
       'make',
-      makeArguments(target, app: app, args: args),
+      makeArguments(target, app: app, args: args, flutter: flutter),
       mode: ProcessStartMode.inheritStdio,
     );
     return process.exitCode;

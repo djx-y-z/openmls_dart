@@ -48,7 +48,7 @@ jobs:
     name: Security Audit (Rust)
     runs-on: ubuntu-26.04
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Setup Rust tools
         run: make setup-rust-tools
@@ -63,7 +63,7 @@ jobs:
     name: Dependency Policy (cargo-deny)
     runs-on: ubuntu-26.04
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Setup Rust tools
         run: make setup-rust-tools
@@ -84,7 +84,7 @@ jobs:
     name: MSRV (rust-version from Cargo.toml)
     runs-on: ubuntu-26.04
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Read rust-version
         id: msrv
@@ -121,7 +121,7 @@ jobs:
     name: Workflow Lint (actionlint)
     runs-on: ubuntu-26.04
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       # Pinned by version AND by checksum: this fetches an executable from a
       # third-party release and then runs it over the repository, which is a
@@ -204,7 +204,7 @@ jobs:
           - abi: x86_64
             rust_target: x86_64-linux-android
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Setup Rust
         uses: ./.github/actions/setup-rust
@@ -281,7 +281,7 @@ jobs:
     name: Type-check (iOS)
     runs-on: macos-26
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Setup Rust
         uses: ./.github/actions/setup-rust
@@ -320,7 +320,7 @@ jobs:
       coverage: ${{ steps.coverage.outputs.percentage }}
 
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       # Install make (Windows only, pre-installed on Linux/macOS)
       - name: Setup Make

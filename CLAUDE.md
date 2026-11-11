@@ -262,7 +262,8 @@ the next use throws `DroppableDisposedException`. Pass a clone or use it last.
 **CI:** `integration.yml` runs `integration-reusable.yml` on every pull request and
 push to main (from the tree), after the native build of a release tag (on the
 released binaries), and weekly (from pub.dev, on the newest Flutter, with the
-tests of that version's tag when it has them). `make release` will not tag before
+tests of that version's tag; a version whose tag has none is not run).
+`make release` will not tag before
 the run on the released binaries has passed, and `publish.yml` runs it as a gate
 before its upload and twice more after it. What no hosted runner can execute —
 Android on ARM, an iOS device, x86_64 on anything Apple — is only checked to
@@ -723,9 +724,12 @@ described as our features.
 - SHA256 checksums verify downloaded libraries
 - Pin to specific upstream releases
 - Tools that shape or inspect the shipped binary are pinned by version, and by
-  checksum where CI downloads them (`cargo-ndk`, `actionlint`). Neither pin is
-  moved by Dependabot — it does not read `cargo install` or `curl` lines — so
-  both move by hand
+  checksum where CI downloads them (`cargo-ndk`, `wasm-pack`, `actionlint`). None of
+  these pins is moved by Dependabot — it does not read `cargo install` or
+  `curl` lines, nor a make variable — so they move by hand. wasm-pack's is
+  `WASM_PACK_VERSION` in the `Makefile`, the one place it is named: every job
+  that builds for the web installs it through `make setup-web`, built from its
+  own lock file
 - Runner images are named by version too: every Ubuntu job runs on
   `ubuntu-26.04` (`ubuntu-26.04-arm` for arm64), every macOS job on
   `macos-26` and every Windows job on `windows-2025-vs2026`, never on a

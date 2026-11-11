@@ -418,6 +418,59 @@ $_start$_loaded{"testID":1,"error":"Failed to load \\"/repo/example/integration_
         ],
       );
     });
+
+    test("runs it on the app's own flutter when it is given one", () {
+      expect(
+        makeArguments(
+          'drive-example',
+          app: 'build/consumer',
+          args: ['--profile', '-d', 'emulator-5554'],
+          flutter: '/fvm/versions/3.47.9/bin/flutter',
+        ),
+        [
+          'FVM=',
+          'EXAMPLE_FLUTTER=/fvm/versions/3.47.9/bin/flutter',
+          'drive-example',
+          'EXAMPLE_DIR=build/consumer',
+          'ARGS=--profile -d emulator-5554',
+        ],
+      );
+    });
+
+    group('the Makefile', () {
+      // As checked out: CRLF on the Windows runner, and these match across lines.
+      final makefile = _readLf('Makefile');
+
+      String recipe(String target) => RegExp(
+        '^${RegExp.escape(target)}:\\n((?:\\t.*\\n)+)',
+        multiLine: true,
+      ).firstMatch(makefile)!.group(1)!;
+
+      test("resolves the app's flutter with fvm, in the app's directory", () {
+        // Before the script starts: under `fvm dart` fvm cannot run again.
+        final ci = recipe('test-example-ci');
+        expect(
+          ci,
+          contains(
+            r'cd $(EXAMPLE_DIR) && $(if $(FVM),$(FVM) exec )sh -c '
+            "'command -v flutter'",
+          ),
+        );
+        expect(ci, contains(r'--flutter "$$flutter"'));
+      });
+
+      test('runs the tests on the flutter it is handed', () {
+        expect(makefile, contains('EXAMPLE_FLUTTER ?= flutter\n'));
+        expect(
+          recipe('test-example'),
+          contains(r'$(FVM) "$(EXAMPLE_FLUTTER)" test integration_test'),
+        );
+        expect(
+          makefile,
+          contains(r'example_drive = "$(EXAMPLE_FLUTTER)" drive '),
+        );
+      });
+    });
   });
 
   group('Android', () {

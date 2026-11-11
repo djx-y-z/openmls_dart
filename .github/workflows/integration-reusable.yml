@@ -24,8 +24,9 @@
 #            preferred over the release, and test nothing but itself.
 #   pub      Same binaries, and now the package archive too: a new app made with
 #            `flutter create`, which depends on the version on pub.dev. The tests
-#            are the commit's under test, so `ref` has to be that version's tag
-#            when it has them: integration.yml says why and does it.
+#            are the commit's under test, so `ref` has to be that version's tag,
+#            and a version whose tag has none is not run: integration.yml says
+#            why and does it.
 #
 # `make verify-example-library` then checks, after every run, that the app really
 # loaded what the run says. The hook chooses, and a wrong choice is otherwise a
@@ -101,6 +102,13 @@ jobs:
           print(next(r['version'] for r in releases['releases'] if r['hash'] == stable))
           ")
           fi
+          # What goes out ends up inside make recipes, as shell: held to what a
+          # Flutter version looks like whatever named it, the release list
+          # included, as integration.yml holds what it is given.
+          if ! printf '%s\n' "$version" | grep -Eqx '([0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.]+)?)?'; then
+            echo "::error::Not a Flutter version: $version"
+            exit 1
+          fi
           echo "Flutter: ${version:-the pinned one}" | tee -a "$GITHUB_STEP_SUMMARY"
           echo "version=$version" >> "$GITHUB_OUTPUT"
 
@@ -138,7 +146,7 @@ jobs:
     # Setup, a cold Rust build on Windows included, then two test steps of 30.
     timeout-minutes: 90
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.ref }}
 
@@ -222,7 +230,7 @@ jobs:
     # Setup, a cold wasm build included, then two test steps of 15.
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.ref }}
 
@@ -304,7 +312,7 @@ jobs:
     # it all.
     timeout-minutes: 100
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.ref }}
 
@@ -441,7 +449,7 @@ jobs:
       HANG_TEST: ${{ inputs.hang && !matrix.profile && '--dart-define=OPENMLS_EXAMPLE_HANG=true' || '' }}
       HANG_DRIVE: ${{ inputs.hang && matrix.profile && '--dart-define=OPENMLS_EXAMPLE_HANG=true' || '' }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.ref }}
 
@@ -682,7 +690,7 @@ jobs:
     # Setup, then the build step's 60, which has room for its three tries.
     timeout-minutes: 80
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.ref }}
 
