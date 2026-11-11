@@ -200,6 +200,11 @@ pub struct KeyPackageOptions {
     /// Lifetime in seconds. None = default (84 days).
     pub lifetime_seconds: Option<u64>,
     /// Mark as last-resort key package.
+    ///
+    /// The key package then carries the last_resort extension (`0x000a`), and
+    /// RFC 9420 (§10) requires every extension of a key package to be listed
+    /// among its leaf's capabilities: that type is added to `capabilities`, or
+    /// to the defaults when none are given.
     pub last_resort: bool,
     /// Custom capabilities. None = defaults.
     pub capabilities: Option<MlsCapabilities>,
@@ -223,8 +228,8 @@ pub struct WelcomeInspectResult {
 
 /// What `welcomeGroupInfoExtensions` read from a Welcome.
 pub struct WelcomeGroupInfoExtensions {
-    /// The extensions in the Welcome's GroupInfo, the ratchet tree extension
-    /// aside.
+    /// The extensions in the Welcome's GroupInfo, the ratchet tree and
+    /// external public key extensions aside.
     pub extensions: Vec<MlsExtension>,
     /// The member that signed the GroupInfo, as the ratchet tree that came
     /// with the Welcome has it: its leaf index, credential and signature key.

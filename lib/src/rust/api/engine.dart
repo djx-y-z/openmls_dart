@@ -680,6 +680,18 @@ abstract class MlsEngine implements RustOpaqueInterface {
     required List<int> memberIndices,
   });
 
+  /// Withdraws one pending proposal from this member's store: the one whose
+  /// reference is `proposalRefBytes`, as `ProposalResult.proposalRef`
+  /// returns it for a proposal of this member's.
+  ///
+  /// Only this member's copy goes. The other members keep a proposal they
+  /// received, a commit of theirs can still carry it by reference, and this
+  /// member then fails to process that commit, having nothing it refers to.
+  /// So withdraw only a proposal whose message has not been sent. The engine
+  /// reports no reference for a received proposal: to keep one out of this
+  /// member's next commit, inspect the message before processing it
+  /// (`inspectMessage`), or drop every pending proposal with
+  /// `clearPendingProposals`.
   Future<void> removePendingProposal({
     required List<int> groupIdBytes,
     required List<int> proposalRefBytes,
@@ -1219,6 +1231,11 @@ class ProposalResult {
   /// The proposal's reference (RFC 9420 §5.2), serialized: what
   /// `removePendingProposal` takes to withdraw it from this member's store
   /// before a commit carries it.
+  ///
+  /// Withdrawing is local. The other members keep the proposal they
+  /// received, a commit of theirs can still carry it by reference, and this
+  /// member then cannot process that commit. So withdraw only a proposal
+  /// whose message has not been sent.
   final Uint8List proposalRef;
 
   const ProposalResult({
