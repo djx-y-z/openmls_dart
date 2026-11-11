@@ -1,4 +1,4 @@
-## [Unreleased]
+## [4.0.0] - 2026-11-12
 
 ### For Users
 
@@ -2718,7 +2718,8 @@
 [om-2116]: https://github.com/openmls/openmls/issues/2116
 [frb2575]: https://github.com/fzyzcjy/flutter_rust_bridge/issues/2575
 [frb3182]: https://github.com/fzyzcjy/flutter_rust_bridge/pull/3182
-[Unreleased]: https://github.com/djx-y-z/openmls_dart/compare/v3.3.0...HEAD
+[Unreleased]: https://github.com/djx-y-z/openmls_dart/compare/v4.0.0...HEAD
+[4.0.0]: https://github.com/djx-y-z/openmls_dart/compare/v3.3.0...v4.0.0
 [3.3.0]: https://github.com/djx-y-z/openmls_dart/compare/v3.2.2...v3.3.0
 [3.2.2]: https://github.com/djx-y-z/openmls_dart/compare/v3.2.1...v3.2.2
 [3.2.1]: https://github.com/djx-y-z/openmls_dart/compare/v3.2.0...v3.2.1
