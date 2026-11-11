@@ -5480,8 +5480,10 @@ impl SseDecode for crate::api::engine::ProposalResult {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
         let mut var_proposalMessage = <Vec<u8>>::sse_decode(deserializer);
+        let mut var_proposalRef = <Vec<u8>>::sse_decode(deserializer);
         return crate::api::engine::ProposalResult {
             proposal_message: var_proposalMessage,
+            proposal_ref: var_proposalRef,
         };
     }
 }
@@ -6369,7 +6371,11 @@ impl flutter_rust_bridge::IntoIntoDart<crate::api::types::ProcessedMessageType>
 // Codec=Dco (DartCObject based), see doc to use other codecs
 impl flutter_rust_bridge::IntoDart for crate::api::engine::ProposalResult {
     fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
-        [self.proposal_message.into_into_dart().into_dart()].into_dart()
+        [
+            self.proposal_message.into_into_dart().into_dart(),
+            self.proposal_ref.into_into_dart().into_dart(),
+        ]
+        .into_dart()
     }
 }
 impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
@@ -7130,6 +7136,7 @@ impl SseEncode for crate::api::engine::ProposalResult {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
         <Vec<u8>>::sse_encode(self.proposal_message, serializer);
+        <Vec<u8>>::sse_encode(self.proposal_ref, serializer);
     }
 }
 
@@ -7817,6 +7824,7 @@ mod io {
         fn cst_decode(self) -> crate::api::engine::ProposalResult {
             crate::api::engine::ProposalResult {
                 proposal_message: self.proposal_message.cst_decode(),
+                proposal_ref: self.proposal_ref.cst_decode(),
             }
         }
     }
@@ -8242,6 +8250,7 @@ mod io {
         fn new_with_null_ptr() -> Self {
             Self {
                 proposal_message: core::ptr::null_mut(),
+                proposal_ref: core::ptr::null_mut(),
             }
         }
     }
@@ -10160,6 +10169,7 @@ mod io {
     #[derive(Clone, Copy)]
     pub struct wire_cst_proposal_result {
         proposal_message: *mut wire_cst_list_prim_u_8_strict,
+        proposal_ref: *mut wire_cst_list_prim_u_8_strict,
     }
     #[repr(C)]
     #[derive(Clone, Copy)]
@@ -10898,12 +10908,13 @@ mod web {
                 .unwrap();
             assert_eq!(
                 self_.length(),
-                1,
-                "Expected 1 elements, got {}",
+                2,
+                "Expected 2 elements, got {}",
                 self_.length()
             );
             crate::api::engine::ProposalResult {
                 proposal_message: self_.get(0).cst_decode(),
+                proposal_ref: self_.get(1).cst_decode(),
             }
         }
     }

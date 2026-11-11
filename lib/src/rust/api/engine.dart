@@ -8,7 +8,7 @@ import 'config.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 import 'types.dart';
 
-// These functions are ignored because they are not marked as `pub`: `acquire_locks`, `apply_past_epoch_deletion`, `apply_past_epoch_policy`, `build_credential_with_key`, `commit`, `db`, `leaf_node_info`, `load_for_group`, `load_global`, `load_group`, `max_epochs_to_native`, `member_info`, `native_to_past_epoch_policy`, `own_private_message_error`, `process_inspected`, `proposal_info`, `proposal_type_of`, `sender_info`, `staged_commit_info`, `unix_seconds_to_system_time`, `with_cap`
+// These functions are ignored because they are not marked as `pub`: `acquire_locks`, `apply_past_epoch_deletion`, `apply_past_epoch_policy`, `build_credential_with_key`, `commit`, `db`, `key_package_capabilities`, `leaf_node_info`, `load_for_group`, `load_global`, `load_group`, `max_epochs_to_native`, `member_info`, `native_to_past_epoch_policy`, `own_private_message_error`, `process_inspected`, `proposal_info`, `proposal_type_of`, `sender_info`, `serialize_proposal_ref`, `staged_commit_info`, `unix_seconds_to_system_time`, `with_cap`
 // These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `OpLocks`, `OpSession`
 // These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `crypto`, `rand`, `storage`
 
@@ -530,6 +530,22 @@ abstract class MlsEngine implements RustOpaqueInterface {
     required List<int> signerBytes,
   });
 
+  /// Leaves the group with a SelfRemove proposal (draft-ietf-mls-extensions),
+  /// which any member may commit without proposing the removal itself.
+  ///
+  /// Two things have to hold, or a step fails:
+  /// - The group sends its handshake messages in the clear
+  ///   (`MlsWireFormatPolicy.plaintext`): OpenMLS refuses to send a
+  ///   SelfRemove encrypted.
+  /// - Every member's leaf lists the proposal type `0x000a` in
+  ///   `MlsCapabilities.proposals`, through `createGroupWithBuilder` and
+  ///   `KeyPackageOptions.capabilities`; OpenMLS's default capabilities do
+  ///   not. Otherwise the proposal is sent, and the commit that would carry
+  ///   it is refused: "The proposal type is not supported by all group
+  ///   members".
+  ///
+  /// `leaveGroup` needs neither: it proposes an ordinary Remove of this
+  /// member.
   Future<LeaveGroupResult> leaveGroupViaSelfRemove({
     required List<int> groupIdBytes,
     required List<int> signerBytes,
@@ -562,6 +578,21 @@ abstract class MlsEngine implements RustOpaqueInterface {
     required List<int> keyPackageBytes,
   });
 
+  /// Proposes an application's own proposal: `payload` under `proposalType`.
+  ///
+  /// `proposalType` has to be the application's own, or the call is
+  /// refused: not `0x0000` to `0x0007`, which RFC 9420 reserves and
+  /// registers, not `0x0008` to `0x000a`, which the MLS extensions draft
+  /// takes, and not a GREASE value. OpenMLS reads most of those as proposals
+  /// of its own, so such a number would go out as that proposal with this
+  /// payload: the other members could not decode it ("The content is
+  /// malformed"), while this member kept it pending, and a commit of its
+  /// pending proposals would refer to a proposal no other member has.
+  /// `0x0008` and `0x0009` OpenMLS reads as custom unless it is built with
+  /// its draft extensions, but a member whose implementation has them would
+  /// not. The private-use range, `0xf000` to `0xffff`, is free for an
+  /// application's own types. A commit can carry a custom proposal only when
+  /// every member's leaf lists its type in `MlsCapabilities.proposals`.
   Future<ProposalResult> proposeCustomProposal({
     required List<int> groupIdBytes,
     required List<int> signerBytes,
@@ -1185,15 +1216,24 @@ class ProcessedMessageResult {
 class ProposalResult {
   final Uint8List proposalMessage;
 
-  const ProposalResult({required this.proposalMessage});
+  /// The proposal's reference (RFC 9420 §5.2), serialized: what
+  /// `removePendingProposal` takes to withdraw it from this member's store
+  /// before a commit carries it.
+  final Uint8List proposalRef;
+
+  const ProposalResult({
+    required this.proposalMessage,
+    required this.proposalRef,
+  });
 
   @override
-  int get hashCode => proposalMessage.hashCode;
+  int get hashCode => proposalMessage.hashCode ^ proposalRef.hashCode;
 
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       other is ProposalResult &&
           runtimeType == other.runtimeType &&
-          proposalMessage == other.proposalMessage;
+          proposalMessage == other.proposalMessage &&
+          proposalRef == other.proposalRef;
 }

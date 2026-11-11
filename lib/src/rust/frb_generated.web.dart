@@ -1219,7 +1219,10 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   JSAny cst_encode_proposal_result(ProposalResult raw) {
     // Codec=Cst (C-struct based), see doc to use other codecs
-    return [cst_encode_list_prim_u_8_strict(raw.proposalMessage)].jsify()!;
+    return [
+      cst_encode_list_prim_u_8_strict(raw.proposalMessage),
+      cst_encode_list_prim_u_8_strict(raw.proposalRef),
+    ].jsify()!;
   }
 
   @protected

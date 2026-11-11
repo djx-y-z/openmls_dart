@@ -68,6 +68,57 @@ fn load_group<P: OpenMlsProvider>(group_id: &[u8], provider: &P) -> Result<MlsGr
         .ok_or_else(|| "No group found in storage".to_string())
 }
 
+/// The extension type of last_resort (draft-ietf-mls-extensions).
+const LAST_RESORT_EXTENSION_TYPE: u16 = 0x000a;
+
+/// The highest proposal type MLS keeps for itself: RFC 9420 reserves
+/// `0x0000` and registers `0x0001` to `0x0007`, and the MLS extensions draft
+/// (draft-ietf-mls-extensions) takes `0x0008` to `0x000a` for its own
+/// proposals. None of them is an application's own.
+const LAST_RESERVED_PROPOSAL_TYPE: u16 = 0x000a;
+
+/// The leaf capabilities a key package built from `options` advertises, or
+/// `None` for OpenMLS's defaults.
+///
+/// A last-resort key package carries a last_resort extension, and a key
+/// package's extensions have to be among its leaf's capabilities (RFC 9420
+/// §10.1). OpenMLS's default capabilities list no extension, so the type is
+/// added here, to the defaults or to the caller's list: without it, whoever
+/// adds the key package refuses it ("A key package extension is not supported
+/// in the leaf's capabilities").
+fn key_package_capabilities(options: &KeyPackageOptions) -> Result<Option<Capabilities>, String> {
+    if !options.last_resort {
+        return options.capabilities.as_ref().map(capabilities_to_native).transpose();
+    }
+    let mut caps = match &options.capabilities {
+        Some(given) => MlsCapabilities {
+            versions: given.versions.clone(),
+            ciphersuites: given.ciphersuites.clone(),
+            extensions: given.extensions.clone(),
+            proposals: given.proposals.clone(),
+            credentials: given.credentials.clone(),
+        },
+        None => MlsCapabilities {
+            versions: Vec::new(),
+            ciphersuites: Vec::new(),
+            extensions: Vec::new(),
+            proposals: Vec::new(),
+            credentials: Vec::new(),
+        },
+    };
+    if !caps.extensions.contains(&LAST_RESORT_EXTENSION_TYPE) {
+        caps.extensions.push(LAST_RESORT_EXTENSION_TYPE);
+    }
+    capabilities_to_native(&caps).map(Some)
+}
+
+/// A proposal's reference as `removePendingProposal` reads it.
+fn serialize_proposal_ref(proposal_ref: &ProposalRef) -> Result<Vec<u8>, String> {
+    proposal_ref
+        .tls_serialize_detached()
+        .map_err(|e| format!("Failed to serialize proposal ref: {e}"))
+}
+
 /// The binding's name for a proposal's type.
 fn proposal_type_of(proposal: &Proposal) -> MlsProposalType {
     match proposal {
@@ -329,6 +380,10 @@ pub struct CommitResult {
 
 pub struct ProposalResult {
     pub proposal_message: Vec<u8>,
+    /// The proposal's reference (RFC 9420 §5.2), serialized: what
+    /// `removePendingProposal` takes to withdraw it from this member's store
+    /// before a commit carries it.
+    pub proposal_ref: Vec<u8>,
 }
 
 pub struct CreateMessageResult {
@@ -748,8 +803,8 @@ impl MlsEngine {
         if options.last_resort {
             builder = builder.mark_as_last_resort();
         }
-        if let Some(ref caps) = options.capabilities {
-            builder = builder.leaf_node_capabilities(capabilities_to_native(caps)?);
+        if let Some(caps) = key_package_capabilities(&options)? {
+            builder = builder.leaf_node_capabilities(caps);
         }
         if let Some(ref leaf_exts) = options.leaf_node_extensions {
             let extensions = Extensions::from_vec(extensions_from_mls(leaf_exts)?)
@@ -1776,6 +1831,22 @@ impl MlsEngine {
         Ok(LeaveGroupResult { message: msg_bytes })
     }
 
+    /// Leaves the group with a SelfRemove proposal (draft-ietf-mls-extensions),
+    /// which any member may commit without proposing the removal itself.
+    ///
+    /// Two things have to hold, or a step fails:
+    /// - The group sends its handshake messages in the clear
+    ///   (`MlsWireFormatPolicy.plaintext`): OpenMLS refuses to send a
+    ///   SelfRemove encrypted.
+    /// - Every member's leaf lists the proposal type `0x000a` in
+    ///   `MlsCapabilities.proposals`, through `createGroupWithBuilder` and
+    ///   `KeyPackageOptions.capabilities`; OpenMLS's default capabilities do
+    ///   not. Otherwise the proposal is sent, and the commit that would carry
+    ///   it is refused: "The proposal type is not supported by all group
+    ///   members".
+    ///
+    /// `leaveGroup` needs neither: it proposes an ordinary Remove of this
+    /// member.
     pub async fn leave_group_via_self_remove(
         &self,
         group_id_bytes: Vec<u8>,
@@ -1812,13 +1883,16 @@ impl MlsEngine {
         let kp = kp_in.validate(provider.crypto(), ProtocolVersion::Mls10)
             .map_err(|e| format!("Failed to validate key package: {}", e))?;
 
-        let (proposal_out, _) = group.propose_add_member(&provider, &signer, &kp)
+        let (proposal_out, proposal_ref) = group.propose_add_member(&provider, &signer, &kp)
             .map_err(|e| format!("Failed to propose add: {}", e))?;
         let msg_bytes = proposal_out.tls_serialize_detached().map_err(|e| format!("Failed to serialize proposal: {}", e))?;
 
         self.commit(provider, Some(&group_id_bytes)).await?;
 
-        Ok(ProposalResult { proposal_message: msg_bytes })
+        Ok(ProposalResult {
+            proposal_message: msg_bytes,
+            proposal_ref: serialize_proposal_ref(&proposal_ref)?,
+        })
     }
 
     pub async fn propose_remove(
@@ -1831,13 +1905,16 @@ impl MlsEngine {
         let provider = self.load_for_group(&group_id_bytes).await?;
         let mut group = load_group(&group_id_bytes, &provider)?;
 
-        let (proposal_out, _) = group.propose_remove_member(&provider, &signer, LeafNodeIndex::new(member_index))
+        let (proposal_out, proposal_ref) = group.propose_remove_member(&provider, &signer, LeafNodeIndex::new(member_index))
             .map_err(|e| format!("Failed to propose remove: {}", e))?;
         let msg_bytes = proposal_out.tls_serialize_detached().map_err(|e| format!("Failed to serialize proposal: {}", e))?;
 
         self.commit(provider, Some(&group_id_bytes)).await?;
 
-        Ok(ProposalResult { proposal_message: msg_bytes })
+        Ok(ProposalResult {
+            proposal_message: msg_bytes,
+            proposal_ref: serialize_proposal_ref(&proposal_ref)?,
+        })
     }
 
     pub async fn propose_self_update(
@@ -1862,13 +1939,16 @@ impl MlsEngine {
         }
         let leaf_node_params = ln_builder.build();
 
-        let (proposal_out, _) = group.propose_self_update(&provider, &signer, leaf_node_params)
+        let (proposal_out, proposal_ref) = group.propose_self_update(&provider, &signer, leaf_node_params)
             .map_err(|e| format!("Failed to propose self-update: {}", e))?;
         let msg_bytes = proposal_out.tls_serialize_detached().map_err(|e| format!("Failed to serialize proposal: {}", e))?;
 
         self.commit(provider, Some(&group_id_bytes)).await?;
 
-        Ok(ProposalResult { proposal_message: msg_bytes })
+        Ok(ProposalResult {
+            proposal_message: msg_bytes,
+            proposal_ref: serialize_proposal_ref(&proposal_ref)?,
+        })
     }
 
     /// Proposes a self-update that also rotates this member's signature key.
@@ -1937,14 +2017,17 @@ impl MlsEngine {
         }
         let leaf_node_params = ln_builder.build();
 
-        let (proposal_out, _) = group
+        let (proposal_out, proposal_ref) = group
             .propose_self_update_with_new_signer(&provider, &old_signer, new_signer_bundle, leaf_node_params)
             .map_err(|e| format!("Failed to propose self-update with new signer: {}", e))?;
         let msg_bytes = proposal_out.tls_serialize_detached().map_err(|e| format!("Failed to serialize proposal: {}", e))?;
 
         self.commit(provider, Some(&group_id_bytes)).await?;
 
-        Ok(ProposalResult { proposal_message: msg_bytes })
+        Ok(ProposalResult {
+            proposal_message: msg_bytes,
+            proposal_ref: serialize_proposal_ref(&proposal_ref)?,
+        })
     }
 
     pub async fn propose_external_psk(
@@ -1959,13 +2042,16 @@ impl MlsEngine {
         let mut group = load_group(&group_id_bytes, &provider)?;
 
         let psk = PreSharedKeyId::external(psk_id, psk_nonce);
-        let (proposal_out, _) = group.propose_pre_shared_key(&provider, &signer, psk)
+        let (proposal_out, proposal_ref) = group.propose_pre_shared_key(&provider, &signer, psk)
             .map_err(|e| format!("Failed to propose external PSK: {}", e))?;
         let msg_bytes = proposal_out.tls_serialize_detached().map_err(|e| format!("Failed to serialize proposal: {}", e))?;
 
         self.commit(provider, Some(&group_id_bytes)).await?;
 
-        Ok(ProposalResult { proposal_message: msg_bytes })
+        Ok(ProposalResult {
+            proposal_message: msg_bytes,
+            proposal_ref: serialize_proposal_ref(&proposal_ref)?,
+        })
     }
 
     pub async fn propose_group_context_extensions(
@@ -1981,15 +2067,33 @@ impl MlsEngine {
         let ext_vec = extensions_from_mls(&extensions)?;
         let gc_extensions = Extensions::from_vec(ext_vec).map_err(|e| format!("Failed to create extensions: {}", e))?;
 
-        let (proposal_out, _) = group.propose_group_context_extensions(&provider, gc_extensions, &signer)
+        let (proposal_out, proposal_ref) = group.propose_group_context_extensions(&provider, gc_extensions, &signer)
             .map_err(|e| format!("Failed to propose group context extensions: {}", e))?;
         let msg_bytes = proposal_out.tls_serialize_detached().map_err(|e| format!("Failed to serialize proposal: {}", e))?;
 
         self.commit(provider, Some(&group_id_bytes)).await?;
 
-        Ok(ProposalResult { proposal_message: msg_bytes })
+        Ok(ProposalResult {
+            proposal_message: msg_bytes,
+            proposal_ref: serialize_proposal_ref(&proposal_ref)?,
+        })
     }
 
+    /// Proposes an application's own proposal: `payload` under `proposalType`.
+    ///
+    /// `proposalType` has to be the application's own, or the call is
+    /// refused: not `0x0000` to `0x0007`, which RFC 9420 reserves and
+    /// registers, not `0x0008` to `0x000a`, which the MLS extensions draft
+    /// takes, and not a GREASE value. OpenMLS reads most of those as proposals
+    /// of its own, so such a number would go out as that proposal with this
+    /// payload: the other members could not decode it ("The content is
+    /// malformed"), while this member kept it pending, and a commit of its
+    /// pending proposals would refer to a proposal no other member has.
+    /// `0x0008` and `0x0009` OpenMLS reads as custom unless it is built with
+    /// its draft extensions, but a member whose implementation has them would
+    /// not. The private-use range, `0xf000` to `0xffff`, is free for an
+    /// application's own types. A commit can carry a custom proposal only when
+    /// every member's leaf lists its type in `MlsCapabilities.proposals`.
     pub async fn propose_custom_proposal(
         &self,
         group_id_bytes: Vec<u8>,
@@ -1997,18 +2101,40 @@ impl MlsEngine {
         proposal_type: u16,
         payload: Vec<u8>,
     ) -> Result<ProposalResult, String> {
+        // Only what OpenMLS reads as custom passes, so a type it comes to read
+        // as its own, in a later release or with a feature, is refused too.
+        match ProposalType::from(proposal_type) {
+            ProposalType::Custom(_) if proposal_type > LAST_RESERVED_PROPOSAL_TYPE => {}
+            ProposalType::Custom(_) => {
+                return Err(format!(
+                    "proposalType {proposal_type:#06x} is not a type of the application's \
+                     own: it is reserved for MLS (RFC 9420 and the MLS extensions draft). \
+                     Use a type from the private-use range 0xf000-0xffff."
+                ));
+            }
+            other => {
+                return Err(format!(
+                    "proposalType {proposal_type:#06x} is not a type of the application's \
+                     own: OpenMLS reads it as {other:?}. Use the method for that proposal, \
+                     or a type from the private-use range 0xf000-0xffff."
+                ));
+            }
+        }
         let signer = signer_from_bytes(signer_bytes)?;
         let provider = self.load_for_group(&group_id_bytes).await?;
         let mut group = load_group(&group_id_bytes, &provider)?;
 
         let custom = CustomProposal::new(proposal_type, payload);
-        let (proposal_out, _) = group.propose_custom_proposal_by_reference(&provider, &signer, custom)
+        let (proposal_out, proposal_ref) = group.propose_custom_proposal_by_reference(&provider, &signer, custom)
             .map_err(|e| format!("Failed to propose custom proposal: {}", e))?;
         let msg_bytes = proposal_out.tls_serialize_detached().map_err(|e| format!("Failed to serialize proposal: {}", e))?;
 
         self.commit(provider, Some(&group_id_bytes)).await?;
 
-        Ok(ProposalResult { proposal_message: msg_bytes })
+        Ok(ProposalResult {
+            proposal_message: msg_bytes,
+            proposal_ref: serialize_proposal_ref(&proposal_ref)?,
+        })
     }
 
     pub async fn propose_remove_member_by_credential(
@@ -2023,13 +2149,16 @@ impl MlsEngine {
 
         let credential = Credential::tls_deserialize_exact_bytes(&credential_bytes)
             .map_err(|e| format!("Failed to deserialize credential: {}", e))?;
-        let (proposal_out, _) = group.propose_remove_member_by_credential(&provider, &signer, &credential)
+        let (proposal_out, proposal_ref) = group.propose_remove_member_by_credential(&provider, &signer, &credential)
             .map_err(|e| format!("Failed to propose remove by credential: {}", e))?;
         let msg_bytes = proposal_out.tls_serialize_detached().map_err(|e| format!("Failed to serialize proposal: {}", e))?;
 
         self.commit(provider, Some(&group_id_bytes)).await?;
 
-        Ok(ProposalResult { proposal_message: msg_bytes })
+        Ok(ProposalResult {
+            proposal_message: msg_bytes,
+            proposal_ref: serialize_proposal_ref(&proposal_ref)?,
+        })
     }
 
     // ═══════════════════════════════════════════════════════════

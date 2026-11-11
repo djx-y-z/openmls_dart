@@ -5419,10 +5419,11 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   ProposalResult dco_decode_proposal_result(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 1)
-      throw Exception('unexpected arr length: expect 1 but see ${arr.length}');
+    if (arr.length != 2)
+      throw Exception('unexpected arr length: expect 2 but see ${arr.length}');
     return ProposalResult(
       proposalMessage: dco_decode_list_prim_u_8_strict(arr[0]),
+      proposalRef: dco_decode_list_prim_u_8_strict(arr[1]),
     );
   }
 
@@ -6453,7 +6454,11 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   ProposalResult sse_decode_proposal_result(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var var_proposalMessage = sse_decode_list_prim_u_8_strict(deserializer);
-    return ProposalResult(proposalMessage: var_proposalMessage);
+    var var_proposalRef = sse_decode_list_prim_u_8_strict(deserializer);
+    return ProposalResult(
+      proposalMessage: var_proposalMessage,
+      proposalRef: var_proposalRef,
+    );
   }
 
   @protected
@@ -7601,6 +7606,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_list_prim_u_8_strict(self.proposalMessage, serializer);
+    sse_encode_list_prim_u_8_strict(self.proposalRef, serializer);
   }
 
   @protected
@@ -8370,6 +8376,22 @@ class MlsEngineImpl extends RustOpaque implements MlsEngine {
     signerBytes: signerBytes,
   );
 
+  /// Leaves the group with a SelfRemove proposal (draft-ietf-mls-extensions),
+  /// which any member may commit without proposing the removal itself.
+  ///
+  /// Two things have to hold, or a step fails:
+  /// - The group sends its handshake messages in the clear
+  ///   (`MlsWireFormatPolicy.plaintext`): OpenMLS refuses to send a
+  ///   SelfRemove encrypted.
+  /// - Every member's leaf lists the proposal type `0x000a` in
+  ///   `MlsCapabilities.proposals`, through `createGroupWithBuilder` and
+  ///   `KeyPackageOptions.capabilities`; OpenMLS's default capabilities do
+  ///   not. Otherwise the proposal is sent, and the commit that would carry
+  ///   it is refused: "The proposal type is not supported by all group
+  ///   members".
+  ///
+  /// `leaveGroup` needs neither: it proposes an ordinary Remove of this
+  /// member.
   Future<LeaveGroupResult> leaveGroupViaSelfRemove({
     required List<int> groupIdBytes,
     required List<int> signerBytes,
@@ -8426,6 +8448,21 @@ class MlsEngineImpl extends RustOpaque implements MlsEngine {
     keyPackageBytes: keyPackageBytes,
   );
 
+  /// Proposes an application's own proposal: `payload` under `proposalType`.
+  ///
+  /// `proposalType` has to be the application's own, or the call is
+  /// refused: not `0x0000` to `0x0007`, which RFC 9420 reserves and
+  /// registers, not `0x0008` to `0x000a`, which the MLS extensions draft
+  /// takes, and not a GREASE value. OpenMLS reads most of those as proposals
+  /// of its own, so such a number would go out as that proposal with this
+  /// payload: the other members could not decode it ("The content is
+  /// malformed"), while this member kept it pending, and a commit of its
+  /// pending proposals would refer to a proposal no other member has.
+  /// `0x0008` and `0x0009` OpenMLS reads as custom unless it is built with
+  /// its draft extensions, but a member whose implementation has them would
+  /// not. The private-use range, `0xf000` to `0xffff`, is free for an
+  /// application's own types. A commit can carry a custom proposal only when
+  /// every member's leaf lists its type in `MlsCapabilities.proposals`.
   Future<ProposalResult> proposeCustomProposal({
     required List<int> groupIdBytes,
     required List<int> signerBytes,

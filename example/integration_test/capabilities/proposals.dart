@@ -436,7 +436,10 @@ void proposalCapabilities() {
           payload: bytesOf('custom-data'),
         );
 
-        final reference = proposalRef(psk.proposalMessage);
+        // The reference the engine returns is the one RFC 9420 §5.2 makes
+        // from the message.
+        final reference = psk.proposalRef;
+        expect(reference, proposalRef(psk.proposalMessage));
         await alice.engine.removePendingProposal(
           groupIdBytes: group,
           proposalRefBytes: reference,
@@ -456,6 +459,33 @@ void proposalCapabilities() {
           throwsA(anything),
         );
         expect(await alice.epochOf(group), BigInt.zero);
+      },
+    );
+
+    capability(
+      "a custom proposal under a type that is not the application's own is "
+      'refused, and nothing is stored',
+      () async {
+        final alice = await Party.create('alice');
+        final group = await alice.createGroup();
+        // Add, Remove, one the MLS extensions draft takes that OpenMLS reads
+        // as custom, SelfRemove, and a GREASE value (RFC 9420 §13.5).
+        for (final type in [1, 3, 0x0008, 0x000a, 0x0A0A]) {
+          await expectLater(
+            alice.engine.proposeCustomProposal(
+              groupIdBytes: group,
+              signerBytes: alice.signer,
+              proposalType: type,
+              payload: bytesOf('not really custom'),
+            ),
+            throwsA(anything),
+            reason: 'type $type',
+          );
+        }
+        expect(
+          await alice.engine.groupHasPendingProposals(groupIdBytes: group),
+          isFalse,
+        );
       },
     );
 

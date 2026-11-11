@@ -151,6 +151,106 @@ void main() {
       expect(proposal.proposalMessage, isNotEmpty);
     });
 
+    test('a pending proposal is withdrawn by the reference its result '
+        'carries, and only that one', () async {
+      Future<ProposalResult> propose(int type) => alice.proposeCustomProposal(
+        groupIdBytes: groupIdBytes,
+        signerBytes: aliceId.signerBytes,
+        proposalType: type,
+        payload: utf8.encode('custom-$type'),
+      );
+      final first = await propose(0xF001);
+      final second = await propose(0xF002);
+      // A SHA-256 suite's reference, as a variable-length vector: its length,
+      // 32, then the hash.
+      expect(first.proposalRef, hasLength(33));
+      expect(first.proposalRef.first, 0x20);
+      expect(first.proposalRef, isNot(equals(second.proposalRef)));
+
+      await alice.removePendingProposal(
+        groupIdBytes: groupIdBytes,
+        proposalRefBytes: first.proposalRef,
+      );
+      final left = await alice.groupPendingProposals(
+        groupIdBytes: groupIdBytes,
+      );
+      expect(left, hasLength(1));
+      // It is gone: withdrawing it again finds nothing to take.
+      await expectLater(
+        alice.removePendingProposal(
+          groupIdBytes: groupIdBytes,
+          proposalRefBytes: first.proposalRef,
+        ),
+        throwsA(isA<Object>()),
+      );
+      await alice.removePendingProposal(
+        groupIdBytes: groupIdBytes,
+        proposalRefBytes: second.proposalRef,
+      );
+      expect(
+        await alice.groupHasPendingProposals(groupIdBytes: groupIdBytes),
+        isFalse,
+      );
+    });
+
+    test("a custom proposal under a type that is not the application's own "
+        'is refused, and nothing is stored', () async {
+      Future<void> refused(List<int> types, String why) async {
+        for (final type in types) {
+          await expectLater(
+            alice.proposeCustomProposal(
+              groupIdBytes: groupIdBytes,
+              signerBytes: aliceId.signerBytes,
+              proposalType: type,
+              payload: utf8.encode('not really custom'),
+            ),
+            throwsA(
+              predicate(
+                (e) =>
+                    '$e'.contains("not a type of the application's own") &&
+                    '$e'.contains(why),
+              ),
+            ),
+            reason: 'type $type',
+          );
+        }
+      }
+
+      // What OpenMLS reads as its own: the types RFC 9420 registers, the
+      // SelfRemove of the MLS extensions draft, and a GREASE value (RFC 9420
+      // §13.5).
+      await refused([
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        0x000a,
+        0x0A0A,
+      ], 'OpenMLS reads it as');
+      // What it reads as custom, and MLS keeps for itself: 0x0000, which RFC
+      // 9420 reserves, and 0x0008 and 0x0009, which the MLS extensions draft
+      // takes. OpenMLS reads those two as its own only with its draft
+      // extensions: should that change, this fails, and the documentation
+      // has to follow.
+      await refused([0, 8, 9], 'reserved for MLS');
+      expect(
+        await alice.groupHasPendingProposals(groupIdBytes: groupIdBytes),
+        isFalse,
+      );
+
+      // The first number past them is the application's.
+      final accepted = await alice.proposeCustomProposal(
+        groupIdBytes: groupIdBytes,
+        signerBytes: aliceId.signerBytes,
+        proposalType: 0x000b,
+        payload: utf8.encode('custom'),
+      );
+      expect(accepted.proposalMessage, isNotEmpty);
+    });
+
     test('propose self-update with a new signer', () async {
       final rotated = TestIdentity.create('alice-rotated');
 

@@ -1489,6 +1489,7 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
     wireObj.proposal_message = cst_encode_list_prim_u_8_strict(
       apiObj.proposalMessage,
     );
+    wireObj.proposal_ref = cst_encode_list_prim_u_8_strict(apiObj.proposalRef);
   }
 
   @protected
@@ -6265,6 +6266,8 @@ final class wire_cst_processed_message_result extends ffi.Struct {
 
 final class wire_cst_proposal_result extends ffi.Struct {
   external ffi.Pointer<wire_cst_list_prim_u_8_strict> proposal_message;
+
+  external ffi.Pointer<wire_cst_list_prim_u_8_strict> proposal_ref;
 }
 
 final class wire_cst_welcome_group_info_extensions extends ffi.Struct {

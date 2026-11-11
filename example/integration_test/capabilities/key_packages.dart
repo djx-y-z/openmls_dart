@@ -7,9 +7,6 @@ import '../support/harness.dart';
 import '../support/party.dart';
 import '../support/refs.dart';
 
-/// The last_resort extension type (draft-ietf-mls-extensions).
-const _lastResortExtension = 0x000a;
-
 void keyPackageCapabilities() {
   group('key packages', () {
     capability('a key package carries the lifetime it was asked for, and '
@@ -64,19 +61,10 @@ void keyPackageCapabilities() {
         signerBytes: carol.signer,
         credentialIdentity: carol.identity,
         signerPublicKey: carol.publicKey,
-        options: KeyPackageOptions(
-          lastResort: true,
-          // A key package's extensions have to be among its leaf's
-          // capabilities (RFC 9420 §10.1), and the default ones do not list
-          // last_resort: without this, whoever adds Carol refuses the package.
-          capabilities: MlsCapabilities(
-            versions: Uint16List(0),
-            ciphersuites: Uint16List(0),
-            extensions: Uint16List.fromList([_lastResortExtension]),
-            proposals: Uint16List(0),
-            credentials: Uint16List(0),
-          ),
-        ),
+        // Nothing else: the engine lists last_resort among the leaf's
+        // capabilities itself, as RFC 9420 §10.1 requires of a key package's
+        // extensions.
+        options: KeyPackageOptions(lastResort: true),
       )).keyPackageBytes;
 
       // Each of them joins two different groups of Alice's on the same key

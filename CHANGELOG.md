@@ -25,6 +25,40 @@
   Welcome that passes. Authenticate the signer by its signature key, as
   before any join. Nothing is written, so the key package stays for the
   join. The ratchet tree and external public key extensions are left out.
+- **`ProposalResult.proposalRef`** — every `propose*` method now returns its
+  proposal's reference (RFC 9420 §5.2), serialized as
+  `removePendingProposal` takes it. That method had no legitimate input
+  before: the engine discarded the reference OpenMLS returns, and nothing
+  else gave one back, so a pending proposal could only be dropped with all
+  the others (`clearPendingProposals`).
+
+#### Fixed
+
+- **A last-resort key package is no longer refused by whoever adds it** —
+  `createKeyPackageWithOptions` with `lastResort: true` put a last_resort
+  extension in the key package without listing that type among its leaf's
+  capabilities, which RFC 9420 (§10.1) requires of every key package
+  extension, so adding it failed with "A key package extension is not
+  supported in the leaf's capabilities". The type (`0x000a`) is now added to
+  the capabilities given, or to the defaults when none are.
+- **`proposeCustomProposal` refuses a type that is not the application's
+  own** — `0x0000` to `0x0007`, which RFC 9420 reserves and registers,
+  `0x0008` to `0x000a`, which the MLS extensions draft takes, and the GREASE
+  values. OpenMLS reads most of those as proposals of its own, so such a
+  proposal went out as that type with the custom payload: other members
+  could not decode it ("The content is malformed"), while the proposer kept
+  it pending, so a commit of the proposer's pending proposals referred to a
+  proposal no other member had. `0x0008` and `0x0009` OpenMLS reads as
+  custom unless built with its draft extensions, but an implementation that
+  has them would not. The private-use range, `0xf000` to `0xffff`, is free
+  for an application's own types.
+
+#### Documentation
+
+- **`leaveGroupViaSelfRemove` says what it needs** — a group that sends its
+  handshake messages as plaintext, and the proposal type `0x000a` in every
+  member's leaf capabilities, which OpenMLS's defaults do not list.
+  Otherwise the commit that would carry the proposal is refused.
 
 ### For Contributors
 

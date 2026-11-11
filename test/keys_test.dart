@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:openmls/openmls.dart';
 import 'package:test/test.dart';
 
@@ -74,6 +76,70 @@ void main() {
         options: options,
       );
       expect(result.keyPackageBytes, isNotEmpty);
+    });
+  });
+
+  group('last-resort key packages', () {
+    /// The last_resort extension type (draft-ietf-mls-extensions).
+    const lastResort = 0x000a;
+
+    /// Bob's last-resort key package, added by Alice, and the extension types
+    /// his leaf advertises once he has joined.
+    Future<List<int>> joinOnLastResort(MlsCapabilities? capabilities) async {
+      final bob = await createTestEngine();
+      final bobId = TestIdentity.create('bob');
+      final package = await bob.createKeyPackageWithOptions(
+        ciphersuite: ciphersuite,
+        signerBytes: bobId.signerBytes,
+        credentialIdentity: bobId.credentialIdentity,
+        signerPublicKey: bobId.publicKey,
+        options: KeyPackageOptions(
+          lastResort: true,
+          capabilities: capabilities,
+        ),
+      );
+      final group = (await alice.createGroup(
+        config: defaultConfig(),
+        signerBytes: aliceId.signerBytes,
+        credentialIdentity: aliceId.credentialIdentity,
+        signerPublicKey: aliceId.publicKey,
+      )).groupId;
+      final added = await alice.addMembers(
+        groupIdBytes: group,
+        signerBytes: aliceId.signerBytes,
+        keyPackagesBytes: [package.keyPackageBytes],
+      );
+      await bob.joinGroupFromWelcome(
+        config: defaultConfig(),
+        welcomeBytes: added.welcome,
+        signerBytes: bobId.signerBytes,
+      );
+      return (await bob.groupOwnLeafNode(
+        groupIdBytes: group,
+      )).capabilities.extensions;
+    }
+
+    test(
+      'is accepted by whoever adds it, with no capabilities given',
+      () async {
+        // A key package's extensions have to be among its leaf's capabilities
+        // (RFC 9420 §10.1); the engine lists last_resort itself.
+        expect(await joinOnLastResort(null), contains(lastResort));
+      },
+    );
+
+    test('keeps the capabilities it is given, and adds last_resort to '
+        'them', () async {
+      final extensions = await joinOnLastResort(
+        MlsCapabilities(
+          versions: Uint16List(0),
+          ciphersuites: Uint16List(0),
+          extensions: Uint16List.fromList([0xff0a]),
+          proposals: Uint16List(0),
+          credentials: Uint16List(0),
+        ),
+      );
+      expect(extensions, containsAll([0xff0a, lastResort]));
     });
   });
 
