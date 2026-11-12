@@ -1,11 +1,20 @@
 # When to run the package in a real app, and against what.
 # `integration-reusable.yml` holds the jobs and explains the three sources.
 #
-# - Pull requests and main: `tree`. The library is built from the commit, so the
-#   update bot's pull request runs its new upstream code on every platform before
-#   it merges. Unfiltered on pull requests for the reason `test.yml` gives: these
-#   jobs are to become required checks once they have proved stable, and a
-#   workflow filtered out by path reports nothing.
+# - Pull requests and main: `tree`, when they change what these runs read. The
+#   library is built from the commit, so the update bot's pull request runs its
+#   new upstream code on every platform before it merges. The paths are the
+#   library and its build hook, the example, the tooling the jobs run, the two
+#   answers `make build-ios` and `make build-android` read, and this workflow, its
+#   reusable half and the actions they use; the same list on both triggers, which
+#   a test holds them to. A change to anything else, the documentation or another
+#   workflow, runs none of this: in a project generated from this template, these
+#   runs took a median 15 minutes, and one in four of those on a pull request or
+#   main went green only when an emulator or a simulator job was run again.
+#   ⚠ A workflow its paths leave out reports nothing at all, so its jobs cannot be
+#   required checks while the filter is here: a required check that never reports
+#   holds the pull request forever. `.github/rulesets/README.md` says what that
+#   takes.
 # - After the native build of a release tag: `release`. That is stage 1 finishing,
 #   and this run is the automatic form of "run the suite against the released
 #   binary" before stage 2, on every platform instead of one. `make release`
@@ -50,19 +59,38 @@ run-name: >-
     || '' }}
 
 on:
+  # The same paths on both, for the reasons at the top.
   pull_request:
+    paths:
+      - 'hook/**'
+      - 'lib/**'
+      - 'rust/**'
+      - 'example/**'
+      - 'scripts/**'
+      - 'Makefile'
+      - 'pubspec.*'
+      - '.fvmrc'
+      # `ios_min_version` and `android_min_sdk`, which the iOS and Android
+      # builds of the library read from it.
+      - '.copier-answers.yml'
+      - '.github/workflows/integration*.yml'
+      - '.github/actions/**'
   push:
     branches: [main]
     paths:
-      - 'lib/**'
-      - 'example/**'
-      - 'rust/**'
       - 'hook/**'
+      - 'lib/**'
+      - 'rust/**'
+      - 'example/**'
       - 'scripts/**'
       - 'Makefile'
-      - 'pubspec.yaml'
+      - 'pubspec.*'
       - '.fvmrc'
-      - '.github/**'
+      # `ios_min_version` and `android_min_sdk`, which the iOS and Android
+      # builds of the library read from it.
+      - '.copier-answers.yml'
+      - '.github/workflows/integration*.yml'
+      - '.github/actions/**'
   workflow_run:
     workflows: ["Build openmls FRB Libraries"]
     types:

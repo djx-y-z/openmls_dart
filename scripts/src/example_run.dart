@@ -34,6 +34,10 @@
 //   of the app ([stalledRun]): still running on a device that answers, the app
 //   stopped itself, and the run has failed; with either gone, it did not
 //   finish.
+// - A run that has not started a test [launchLimit] after flutter said the app
+//   was built, or, with no such line, [startLimit] after it started, has
+//   stopped short of the tests and did not finish ([StartWatch]): the install,
+//   the launch or the connection, which only CI's own limits used to end.
 //
 // Measured with Flutter 3.38.4 on macOS: a run that passed, a capability that
 // failed, and an app that exited in the middle of the suite; and in CI, an iOS
@@ -391,6 +395,85 @@ class StallWatch {
       return null;
     }
     return now.difference(_since!) >= limit ? position.test : null;
+  }
+}
+
+/// How long a run may go from the line saying the app was built to its first
+/// test: installing the app, launching it and connecting to it.
+///
+/// Measured in CI, in a project generated from this template, over 204 runs:
+/// 3 to 13 seconds on an Android emulator, 10 to 95 on an iOS simulator. The 17
+/// runs that never got there stood still after that line until something ended
+/// them: 11 iOS apps that never connected, until flutter gave up 12 minutes on;
+/// Android profile installs that hung, two of them until the step's limit 28
+/// minutes on; and an iOS install or launch that hung for 54, until the step's
+/// limit took the time of the two runs that would have followed it.
+const launchLimit = Duration(minutes: 5);
+
+/// How long a run may go from its start to its first test while flutter has
+/// not said the app was built: the limit when that line never comes, flutter
+/// having worded it otherwise or hung before it.
+///
+/// The build is inside it, and a simulator's first run builds with nothing
+/// cached: flutter's iOS tools, the pods and Xcode took a run up to 9 minutes
+/// and 14 seconds to its first test, in the same measurement.
+const startLimit = Duration(minutes: 20);
+
+/// Whether flutter's [line] says the app has been built: `Xcode build done.` for
+/// iOS, `✓ Built build/…` for Android. Flutter 3.38.4 and 3.47.9 word them so
+/// (`ios/mac.dart`, `android/gradle.dart`), and a terminal can colour them.
+bool isBuildLine(String line) => _buildLine.hasMatch(line);
+
+final _buildLine = RegExp(r'Xcode build done\.|\bBuilt build[/\\]');
+
+/// Tells a run that has stopped before its first test from one still on its
+/// way there: no test [afterBuild] after the line saying the app was built, or,
+/// while that line has not come, [fromStart] after the run started.
+class StartWatch {
+  StartWatch(
+    this.started, {
+    this.afterBuild = launchLimit,
+    this.fromStart = startLimit,
+  });
+
+  /// When the run started.
+  final DateTime started;
+
+  /// [launchLimit] unless told otherwise.
+  final Duration afterBuild;
+
+  /// [startLimit] unless told otherwise.
+  final Duration fromStart;
+
+  DateTime? _built;
+  var _tested = false;
+
+  /// Notes that flutter said, at [at], that the app was built. A later line
+  /// starts the count again.
+  void built(DateTime at) => _built = at;
+
+  /// What the run comes to, once it has stopped short of its tests by [now],
+  /// [position] being where it stands: null while it may still get there, and
+  /// for good once a test has started.
+  RunOutcome? check(RunPosition? position, DateTime now) {
+    if (position != null) _tested = true;
+    if (_tested) return null;
+    if (_built case final built?) {
+      if (now.difference(built) < afterBuild) return null;
+      return RunOutcome(
+        Verdict.unfinished,
+        reason:
+            'no test had started ${_span(afterBuild)} after the app was '
+            'built: the install, the launch or the connection',
+      );
+    }
+    if (now.difference(started) < fromStart) return null;
+    return RunOutcome(
+      Verdict.unfinished,
+      reason:
+          'no test had started ${_span(fromStart)} after the run did, and '
+          'flutter had not said the app was built',
+    );
   }
 }
 

@@ -252,7 +252,8 @@ make build-web && make test-example-web CHROMEDRIVER=/path/to/chromedriver
 **A new function in `rust/src/api/` needs a test there too.** Add it under
 `capabilities/`, with `capability(...)` rather than `test(...)`.
 `make coverage-example ARGS="-d <device>"` measures every bridged function from the
-running app and fails on one nothing called, and CI runs it on every pull request.
+running app and fails on one nothing called, and CI runs it on every pull request
+that changes the library, the example or the tooling around them.
 A function the tests are not meant to call goes in
 `scripts/src/example_coverage_policy.dart`, with the reason.
 

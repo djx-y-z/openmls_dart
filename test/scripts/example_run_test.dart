@@ -470,6 +470,23 @@ $_start$_loaded{"testID":1,"error":"Failed to load \\"/repo/example/integration_
           contains(r'example_drive = "$(EXAMPLE_FLUTTER)" drive '),
         );
       });
+
+      test("forgets Gradle's record of the build, or a retry is not checked", () {
+        // Each run forgets what the last one left, and then reads what the hook
+        // registered: a build Gradle skips registers nothing.
+        // The definition, continued lines and all.
+        final forget = RegExp(
+          r'^forget_hook_results = ((?:[^\n]*\\\n)*[^\n]*)',
+          multiLine: true,
+        ).firstMatch(makefile)!.group(1)!;
+        expect(
+          forget,
+          contains(r'$(EXAMPLE_DIR)/build/app/intermediates/flutter'),
+        );
+        for (final target in ['test-example', 'drive-example']) {
+          expect(recipe(target), startsWith('\t@\$(forget_hook_results)\n'));
+        }
+      });
     });
   });
 
@@ -727,6 +744,115 @@ $_start$_loaded{"testID":1,"error":"Failed to load \\"/repo/example/integration_
     test('waits 8 minutes unless told otherwise', () {
       expect(StallWatch().limit, stallLimit);
       expect(stallLimit, const Duration(minutes: 8));
+    });
+  });
+
+  group('isBuildLine', () {
+    test('the lines flutter prints once the app is built', () {
+      for (final line in [
+        // Flutter 3.38.4 in CI, iOS and Android.
+        'Xcode build done.                                           183.4s',
+        '✓ Built build/app/outputs/flutter-apk/app-debug.apk',
+        '✓ Built build/app/outputs/flutter-apk/app-profile.apk (31.5MB)',
+        // A terminal's colours around the mark.
+        '\x1B[1m\x1B[32m✓\x1B[39m\x1B[22m Built build/app/outputs/flutter-apk/app-debug.apk',
+        r'✓ Built build\app\outputs\flutter-apk\app-debug.apk',
+      ]) {
+        expect(isBuildLine(line), isTrue, reason: line);
+      }
+    });
+
+    test('and none of the lines around them', () {
+      for (final line in [
+        'Running Xcode build...',
+        'Xcode build failed due to concurrent builds, will retry in 2 seconds.',
+        "Running Gradle task 'assembleDebug'...                             28.4s",
+        'Installing build/app/outputs/flutter-apk/app-debug.apk...        1,909ms',
+        '00:00 +0: loading /work/example/integration_test/app_test.dart',
+        'I/flutter ( 2938): 00:00 +0: Built builds a built thing',
+      ]) {
+        expect(isBuildLine(line), isFalse, reason: line);
+      }
+    });
+  });
+
+  group('StartWatch', () {
+    final start = DateTime.utc(2026, 11, 12, 12);
+    DateTime at(int seconds) => start.add(Duration(seconds: seconds));
+    const one = RunPosition(5, 'a test');
+
+    StartWatch watch() => StartWatch(
+      start,
+      afterBuild: const Duration(seconds: 60),
+      fromStart: const Duration(seconds: 600),
+    );
+
+    test('until the app is built, the run has its start limit', () {
+      final w = watch();
+      expect(w.check(null, at(599)), isNull);
+      final outcome = w.check(null, at(600))!;
+      expect(outcome.verdict, Verdict.unfinished);
+      expect(
+        outcome.describe(),
+        'No test failed, and the run did not finish: no test had started 10 '
+        'minutes after the run did, and flutter had not said the app was '
+        'built.',
+      );
+    });
+
+    test('once it is built, the launch limit, however late that was', () {
+      final w = watch()..built(at(590));
+      expect(w.check(null, at(600)), isNull);
+      expect(w.check(null, at(649)), isNull);
+      final outcome = w.check(null, at(650))!;
+      expect(outcome.verdict, Verdict.unfinished);
+      expect(
+        outcome.reason,
+        'no test had started 1 minute after the app was built: the install, '
+        'the launch or the connection',
+      );
+    });
+
+    test('a build line after another starts the count again', () {
+      final w = watch()
+        ..built(at(100))
+        ..built(at(150));
+      expect(w.check(null, at(200)), isNull);
+      expect(w.check(null, at(210)), isNotNull);
+    });
+
+    test('a test that has started ends it for good', () {
+      final w = watch()..built(at(0));
+      expect(w.check(one, at(10)), isNull);
+      // No position after the suite either, and that is no reason to stop.
+      expect(w.check(null, at(10000)), isNull);
+    });
+
+    test(
+      '5 minutes after the build, 20 from the start, unless told otherwise',
+      () {
+        final w = StartWatch(start);
+        expect(w.afterBuild, launchLimit);
+        expect(w.fromStart, startLimit);
+        expect(launchLimit, const Duration(minutes: 5));
+        expect(startLimit, const Duration(minutes: 20));
+        // Short of flutter's own 12 minutes for a connection, or it would never
+        // be this that ends a run whose app does not connect.
+        expect(launchLimit, lessThan(const Duration(minutes: 12)));
+      },
+    );
+
+    test('a run stopped short of its tests runs again, and says why', () {
+      final stop = watch().check(null, at(600))!;
+      // Ended while it loaded: the suite had started, and no test of it.
+      final own = judgeTestRun(exitCode: 2, results: _start);
+      expect(own.verdict, Verdict.unfinished);
+      expect(withStall(own, stop), same(stop));
+      // Or flutter gave up first, as the stop began.
+      expect(
+        withStall(judgeTestRun(exitCode: 1, results: _neverConnected), stop),
+        same(stop),
+      );
     });
   });
 
@@ -993,6 +1119,61 @@ $_start$_loaded{"testID":1,"error":"Failed to load \\"/repo/example/integration_
       expect(
         workflow,
         contains(r'if [ "$INPUT_HANG" = true ] && [ "$library" = pub ]; then'),
+      );
+    });
+  });
+
+  group('the Android builds', () {
+    test('install their NDKs and CMake the same way in both jobs', () {
+      final reusable = _readLf('.github/workflows/integration-reusable.yml');
+      const name = '      - name: Install the NDKs and CMake the builds use\n';
+      final runs = [
+        for (final step in reusable.split(name).skip(1))
+          // From the script on, to the end of the step.
+          step.substring(step.indexOf('        run: |\n')).split('\n\n').first,
+      ];
+      // The emulator job's, and the package job's.
+      expect(runs, hasLength(2));
+      expect(runs.first, runs.last);
+      expect(runs.first, contains(r'sdkmanager --install "${packages[@]}"'));
+    });
+  });
+
+  group('when a pull request or main runs them', () {
+    final workflow = _readLf('.github/workflows/integration.yml');
+
+    /// The paths under [trigger], the lines that open it given in full.
+    List<String> paths(String trigger) {
+      final start = workflow.indexOf('$trigger\n    paths:\n');
+      expect(start, isNot(-1), reason: 'no paths under $trigger');
+      final list = <String>[];
+      for (final line
+          in workflow.substring(start + trigger.length).split('\n').skip(2)) {
+        if (line.startsWith('      #')) continue;
+        final path = RegExp(r"^      - '(.+)'$").firstMatch(line)?.group(1);
+        if (path == null) break;
+        list.add(path);
+      }
+      return list;
+    }
+
+    test('a pull request and a push to main run on the same paths', () {
+      final pullRequest = paths('  pull_request:');
+      expect(pullRequest, paths('  push:\n    branches: [main]'));
+      // What the jobs build, what they run, and what tells them how.
+      expect(
+        pullRequest,
+        containsAll([
+          'hook/**',
+          'lib/**',
+          'rust/**',
+          'example/**',
+          'scripts/**',
+          'Makefile',
+          '.copier-answers.yml',
+          '.github/workflows/integration*.yml',
+          '.github/actions/**',
+        ]),
       );
     });
   });

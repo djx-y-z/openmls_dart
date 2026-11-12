@@ -131,6 +131,82 @@ void main() {
       expect('#### Changed\n'.allMatches(unreleased).length, 1);
     });
 
+    test('adds no blank line to a list whose items have none between them', () {
+      // A blank line there makes a loose list of it, every item a paragraph.
+      final result = insertContributorChangelogEntry(
+        currentChangelog: changelog(
+          unreleasedBody: '''
+### For Contributors
+
+#### Changed
+
+- **An existing entry** — stays,
+  over two lines.
+- **Another** — stays too.
+
+''',
+        ),
+        entry: entry,
+      );
+      expect(
+        result,
+        contains('#### Changed\n\n$entry\n- **An existing entry** — stays,\n'),
+      );
+    });
+
+    test('keeps a list whose items have blank lines between them so', () {
+      final result = insertContributorChangelogEntry(
+        currentChangelog: changelog(
+          unreleasedBody: '''
+### For Contributors
+
+#### Changed
+
+- **An existing entry** — stays.
+
+- **Another** — stays too.
+
+''',
+        ),
+        entry: entry,
+      );
+      expect(
+        result,
+        contains('$entry\n\n- **An existing entry** — stays.\n\n- **Another**'),
+      );
+    });
+
+    test('takes none above a single item, as the upstream update writes', () {
+      final result = insertContributorChangelogEntry(
+        currentChangelog: changelog(
+          unreleasedBody: '''
+### For Contributors
+
+#### Changed
+
+- **The only entry** — stays.
+
+''',
+        ),
+        entry: entry,
+      );
+      expect(result, contains('$entry\n- **The only entry** — stays.\n'));
+    });
+
+    test('keeps a blank line between the entry and a heading after it', () {
+      final result = insertContributorChangelogEntry(
+        currentChangelog: changelog(
+          unreleasedBody: '''
+### For Contributors
+
+#### Changed
+''',
+        ),
+        entry: entry,
+      );
+      expect(result, contains('#### Changed\n\n$entry\n\n## [2.0.0]'));
+    });
+
     test('creates a missing Changed subsection inside For Contributors', () {
       final result = insertContributorChangelogEntry(
         currentChangelog: changelog(
@@ -578,6 +654,182 @@ void main() {
       expect(merge.exitCode, isNot(0), reason: 'the merge has to conflict');
 
       expect(await modifiedPaths(workingDirectory: repo.path), ['README.md']);
+    });
+  });
+
+  group('describeUpdateDiff', () {
+    test('the paths, then each patch, the conflicted ones first', () {
+      final text = describeUpdateDiff(
+        status: ' M Makefile\nUU ci.yml\n?? NEW.md',
+        patches: {
+          'Makefile': '--- a/Makefile\n+++ b/Makefile\n+pinned',
+          'ci.yml': '--- a/ci.yml\n+++ b/ci.yml\n+both sides',
+          'NEW.md': newFilePatch('NEW.md', 'brand new\n'),
+        },
+        conflicts: ['ci.yml'],
+      );
+      expect(
+        text,
+        startsWith(
+          'Paths the update touched (`git status --porcelain`):\n'
+          ' M Makefile\nUU ci.yml\n?? NEW.md\n',
+        ),
+      );
+      final conflicted = text.indexOf(
+        '### ci.yml (conflicted: both sides between the markers)\n```diff\n',
+      );
+      expect(conflicted, greaterThan(0));
+      expect(conflicted, lessThan(text.indexOf('### Makefile\n')));
+      expect(
+        text.indexOf('### Makefile\n'),
+        lessThan(text.indexOf('### NEW.md\n')),
+      );
+      expect(text, contains('+++ b/NEW.md\n+brand new\n```'));
+    });
+
+    test('cuts a long patch at a line, and says so', () {
+      final text = describeUpdateDiff(
+        status: ' M big.dart',
+        patches: {'big.dart': List.generate(10, (i) => '+line $i').join('\n')},
+        perFile: 30,
+      );
+      expect(text, contains('+line 0\n+line 1\n+line 2\n```'));
+      expect(text, isNot(contains('+line 4')));
+      expect(text, contains('(cut at 30 characters; the rest is not shown)'));
+    });
+
+    test('shows the shortest first, and names the longest past the total', () {
+      final text = describeUpdateDiff(
+        status: ' M a\n M b\n M c\n M d',
+        patches: {
+          'a': '+${'a' * 30}',
+          'b': '+${'b' * 50}',
+          'c': '+ccc',
+          'd': '+ddd',
+        },
+        total: 20,
+      );
+      // Equal lengths keep git's order.
+      expect(text.indexOf('### c\n'), lessThan(text.indexOf('### d\n')));
+      expect(text.indexOf('### d\n'), lessThan(text.indexOf('### a\n')));
+      expect(text, isNot(contains('### b')));
+      expect(
+        text,
+        endsWith('(1 more changed file(s), their patches not shown: b)'),
+      );
+    });
+  });
+
+  group('splitPatches', () {
+    test("each file's patch by its path, a deleted file's by its old one", () {
+      final patches = splitPatches(
+        'diff --git a/kept.txt b/kept.txt\n'
+        'index 1..2 100644\n'
+        '--- a/kept.txt\n'
+        '+++ b/kept.txt\n'
+        '@@ -1 +1 @@\n'
+        '-old\n'
+        '+new\n'
+        'diff --git a/gone.txt b/gone.txt\n'
+        'deleted file mode 100644\n'
+        '--- a/gone.txt\n'
+        '+++ /dev/null\n'
+        '@@ -1 +0,0 @@\n'
+        '-bye\n',
+      );
+      expect(patches.keys, ['kept.txt', 'gone.txt']);
+      expect(patches['kept.txt'], endsWith('-old\n+new'));
+      expect(
+        patches['gone.txt'],
+        endsWith('+++ /dev/null\n@@ -1 +0,0 @@\n-bye'),
+      );
+    });
+  });
+
+  group('collectUpdateDiff', () {
+    late Directory repo;
+
+    Future<ProcessResult> git(List<String> args, {bool check = true}) async {
+      final result = await Process.run('git', [
+        '-c',
+        'user.name=test',
+        '-c',
+        'user.email=test@example.com',
+        '-c',
+        'commit.gpgsign=false',
+        ...args,
+      ], workingDirectory: repo.path);
+      if (check && result.exitCode != 0) fail('git $args: ${result.stderr}');
+      return result;
+    }
+
+    void write(String name, String content) => File('${repo.path}/$name')
+      ..createSync(recursive: true)
+      ..writeAsStringSync(content);
+
+    setUp(() async {
+      repo = Directory.systemTemp.createTempSync('update_diff');
+      await git(['init', '-q', '-b', 'main']);
+      write('Makefile', 'a\nb\nc\n');
+      write('README.md', '# Title\n');
+      await git(['add', '-A']);
+      await git(['commit', '-q', '-m', 'base']);
+    });
+
+    tearDown(() => repo.deleteSync(recursive: true));
+
+    test(
+      'a change, both sides of a conflict and an added file whole',
+      () async {
+        // An unmerged file, as copier leaves one: the template's side on a
+        // branch, this project's on main.
+        await git(['checkout', '-q', '-b', 'template']);
+        write('README.md', '# The template\n');
+        await git(['commit', '-q', '-am', 'template']);
+        await git(['checkout', '-q', 'main']);
+        write('README.md', '# This project\n');
+        await git(['commit', '-q', '-am', 'project']);
+        final merge = await git(['merge', 'template'], check: false);
+        expect(merge.exitCode, isNot(0), reason: 'the merge has to conflict');
+        write('Makefile', 'a\nb2\nc\n');
+        write('docs/NEW.md', 'brand new\n');
+
+        final text = await collectUpdateDiff(
+          workingDirectory: repo.path,
+          conflicts: ['README.md'],
+        );
+        expect(text, contains('UU README.md'));
+        expect(text, contains('?? docs/NEW.md'));
+        final readme = text.indexOf('### README.md (conflicted');
+        expect(readme, greaterThan(0));
+        expect(readme, lessThan(text.indexOf('### Makefile')));
+        // Both sides: this project's as it was, the template's added.
+        expect(text, contains('\n # This project\n'));
+        expect(text, contains('\n+# The template\n'));
+        expect(text, contains('\n-b\n+b2\n'));
+        expect(text, contains('+++ b/docs/NEW.md\n+brand new\n'));
+      },
+    );
+  });
+
+  group('templateEntryPrompt', () {
+    test('gives the patches, and the versions with an arrow', () {
+      final prompt = templateEntryPrompt(
+        fromVersion: 'v4.21.0',
+        toVersion: 'v4.22.0',
+        templateChangelog: 'THE TEMPLATE CHANGELOG',
+        updateDiff: 'THE PATCHES',
+        currentChangelog: '# Changelog',
+      );
+      expect(
+        prompt,
+        contains('"- **copier template adopted: v4.21.0 → v4.22.0** — "'),
+      );
+      // As the entries before it have it: "->" was written by hand to "→".
+      expect(prompt, isNot(contains('->')));
+      expect(prompt, contains('THE PATCHES'));
+      expect(prompt, contains('THE TEMPLATE CHANGELOG'));
+      expect(prompt, contains('"<<<<<<< before updating"'));
     });
   });
 

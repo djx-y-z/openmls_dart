@@ -259,8 +259,9 @@ in a loop with a deadline instead, under
 opaque type by value, not by reference, disposes the Dart object it is given, and
 the next use throws `DroppableDisposedException`. Pass a clone or use it last.
 
-**CI:** `integration.yml` runs `integration-reusable.yml` on every pull request and
-push to main (from the tree), after the native build of a release tag (on the
+**CI:** `integration.yml` runs `integration-reusable.yml` on pull requests and
+pushes to main that change what it reads (from the tree; the paths are in
+`integration.yml`), after the native build of a release tag (on the
 released binaries), and weekly (from pub.dev, on the newest Flutter, with the
 tests of that version's tag; a version whose tag has none is not run).
 `make release` will not tag before
@@ -295,6 +296,17 @@ when the app answers, so keep `writeResponseOnFailure` in
 `test_driver/integration_test.dart`. The 3-minute limit inside each capability is
 a test's failure too: a slow emulator can turn one red, and that is the side to
 err on.
+
+⚠ **A run that has not started a test 5 minutes after the app was built did not
+finish, and is ended there** (`launchLimit`, from the line flutter prints, `Xcode
+build done.` or `✓ Built build/…`; `startLimit`, 20 minutes from the run's start,
+when that line never comes). Measured over 204 runs in CI: the first test came 3
+to 13 seconds after that line on an emulator and 10 to 95 on a simulator, and the
+17 runs that never got there stood still after it — iOS apps that never
+connected until flutter gave up 12 minutes on, installs that hung until the
+step's limit, once for 54 minutes. A first run on a fresh simulator takes up to 9
+minutes to its first test, nearly all of it the build, which is why the limit
+counts from the build's end.
 
 ⚠ **A hang in the app fails the run after 8 minutes, and the watchdog behind it is
 the host's, not the app's.** Both of a test's own limits, the 3 minutes and the

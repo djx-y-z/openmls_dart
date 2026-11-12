@@ -371,7 +371,19 @@ EXAMPLE_FLUTTER ?= flutter
 # The hook's target is `dart_build` up to Flutter 3.44, and `build_hooks` followed
 # by `link_hooks` from 3.47 (flutter_tools' native_assets.dart): a name missed
 # here is a stamp that survives, and then a hook that does not run again.
-forget_hook_results = rm -rf .dart_tool/hooks_runner/openmls $(EXAMPLE_DIR)/.dart_tool/hooks_runner/openmls; \
+#
+# ⚠ And Gradle's own record of an Android build, build/app/intermediates/flutter/,
+# which sits above all of that. Gradle runs Flutter's build of the Dart half, and
+# with it the hook, only when the inputs it was told of or the outputs it keeps
+# there have changed. The hook's results are neither, so after a build with the
+# same arguments Gradle reports the task UP-TO-DATE and nothing below runs: the
+# app keeps the library it was built with, and nothing says which one that was.
+# `make verify-example-library` then failed a run in which every test had passed,
+# a profile run under `flutter drive` repeated after the try before it was killed;
+# measured on 3.38.4 with two identical `flutter build apk --profile`. With the
+# outputs gone the task runs again, a few seconds' work.
+forget_hook_results = rm -rf .dart_tool/hooks_runner/openmls $(EXAMPLE_DIR)/.dart_tool/hooks_runner/openmls \
+	$(EXAMPLE_DIR)/build/app/intermediates/flutter; \
 	rm -f $(foreach dir,$(EXAMPLE_DIR)/build $(EXAMPLE_DIR)/.dart_tool/flutter_build, \
 		$(foreach stamp,dart_build build_hooks link_hooks install_code_assets,$(dir)/*/$(stamp).stamp))
 
@@ -582,7 +594,9 @@ drive-example:
 # once and is never run again; a run that never got that far (the app did not
 # connect, the device or the connection went away) runs again, up to --attempts.
 # An app that sends nothing for 8 minutes into its tests is stopped, and fails the
-# run if it was still running on a device that answered.
+# run if it was still running on a device that answered. A run with no test
+# started 5 minutes after flutter said the app was built, or 20 after it began
+# when flutter never said so, is stopped as one that did not finish.
 # scripts/test_example_ci.dart lists the options.
 #   make test-example-ci ARGS="--attempts 3 -- -d <device>"
 #   make test-example-ci ARGS="--drive -- --profile -d <device>"

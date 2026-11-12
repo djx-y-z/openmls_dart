@@ -270,13 +270,32 @@ jobs:
       # `continue-on-error` is deliberately absent, so a genuine failure — the
       # output write itself — still fails the step. Do not "fix" the `if`s into
       # bare commands.
+      #
+      # A gate make cannot get to is reported as not run, rather than as failed.
+      # copier can leave the Makefile itself conflicted, and make reads no file
+      # with conflict markers in it, so each gate stopped on make before it ran
+      # anything: the table said **fail** three times over an update whose code
+      # was fine. `make -n` reads the Makefile and plans the target without
+      # running it, which tells the two apart.
       - name: Run quality gates
         id: gates
         if: steps.check.outputs.needs_update == 'true' && steps.existing.outputs.skip != 'true'
         run: |
-          if make format-check; then echo "format=true" >> "$GITHUB_OUTPUT"; else echo "format=false" >> "$GITHUB_OUTPUT"; fi
-          if make rust-check;   then echo "rust=true"   >> "$GITHUB_OUTPUT"; else echo "rust=false"   >> "$GITHUB_OUTPUT"; fi
-          if make analyze ARGS="--fatal-infos"; then echo "analyze=true" >> "$GITHUB_OUTPUT"; else echo "analyze=false" >> "$GITHUB_OUTPUT"; fi
+          gate() {
+            name=$1
+            shift
+            if ! plan=$(make -n "$@" 2>&1); then
+              echo "make cannot get to $*: $(printf '%s\n' "$plan" | tail -n 1)"
+              echo "$name=blocked" >> "$GITHUB_OUTPUT"
+            elif make "$@"; then
+              echo "$name=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "$name=false" >> "$GITHUB_OUTPUT"
+            fi
+          }
+          gate format format-check
+          gate rust rust-check
+          gate analyze analyze ARGS="--fatal-infos"
 
       - name: Create Pull Request
         id: cpr
@@ -304,7 +323,7 @@ jobs:
             | Template  | ${{ steps.check.outputs.current_version }} | ${{ steps.check.outputs.latest_version }} |
 
             ${{ steps.update.outputs.has_conflicts == 'true' && '> [!WARNING]' || '' }}
-            ${{ steps.update.outputs.has_conflicts == 'true' && '> **Conflicts — this PR is a draft.** Copier could not merge the files below and left both sides in them. Do not rely on the gates above to catch this: conflicts can land in files none of them read, so the branch would otherwise look mergeable.' || '' }}
+            ${{ steps.update.outputs.has_conflicts == 'true' && '> **Conflicts — this PR is a draft.** Copier could not merge the files below and left both sides in them. Do not rely on the gates further down to catch this: conflicts can land in files none of them read, so the branch would otherwise look mergeable.' || '' }}
 
             ${{ steps.update.outputs.conflict_files }}
 
@@ -323,9 +342,9 @@ jobs:
             | `_commit` bumped | ${{ steps.update.outputs.commit_landed == 'true' && 'yes' || '**NO**' }} |
             | Conflicts | ${{ steps.update.outputs.has_conflicts == 'true' && format('**{0}**', steps.update.outputs.conflict_count) || 'none' }} |
             | Text merged in twice | ${{ steps.update.outputs.duplicates_checked != 'true' && '**not checked** (see the run log)' || (steps.update.outputs.has_duplicates == 'true' && format('**{0}**', steps.update.outputs.duplicate_count) || 'none') }} |
-            | `make format-check` | ${{ steps.gates.outputs.format == 'true' && 'pass' || '**fail**' }} |
-            | `make rust-check` | ${{ steps.gates.outputs.rust == 'true' && 'pass' || '**fail**' }} |
-            | `make analyze --fatal-infos` | ${{ steps.gates.outputs.analyze == 'true' && 'pass' || '**fail**' }} |
+            | `make format-check` | ${{ steps.gates.outputs.format == 'true' && 'pass' || steps.gates.outputs.format == 'blocked' && 'not run: `make` cannot read the `Makefile`' || '**fail**' }} |
+            | `make rust-check` | ${{ steps.gates.outputs.rust == 'true' && 'pass' || steps.gates.outputs.rust == 'blocked' && 'not run: `make` cannot read the `Makefile`' || '**fail**' }} |
+            | `make analyze --fatal-infos` | ${{ steps.gates.outputs.analyze == 'true' && 'pass' || steps.gates.outputs.analyze == 'blocked' && 'not run: `make` cannot read the `Makefile`' || '**fail**' }} |
             | CHANGELOG entry | ${{ steps.update.outputs.changelog_updated == 'true' && format('written by `{0}`', steps.update.outputs.ai_provider) || format('**not written** ({0})', steps.update.outputs.changelog_error) }} |
 
             ### Template changelog for this range
