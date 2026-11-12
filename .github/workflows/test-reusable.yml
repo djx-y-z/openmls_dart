@@ -316,6 +316,11 @@ jobs:
 
     name: Test (${{ matrix.name }})
     runs-on: ${{ matrix.os }}
+    # Measured in a generated project, over its last 40 runs: 15 minutes at the
+    # most, on Windows with a cold Rust cache, and 13 on Linux. Without a limit of
+    # its own a job gets GitHub's six hours, and a runner whose apt hung on its DNS
+    # held this required check for tens of minutes with nothing to end it sooner.
+    timeout-minutes: 60
     outputs:
       coverage: ${{ steps.coverage.outputs.percentage }}
 
@@ -493,9 +498,15 @@ jobs:
         shell: bash
 
       # Coverage only on Linux x86_64 when enabled
+      #
+      # The runner's apt has gone on for tens of minutes when the runner could not
+      # resolve the Ubuntu mirrors, then failed. Each download now gets three tries
+      # and 30 seconds to connect and to answer (the https mirrors take the http
+      # setting), and the step 10 minutes, where it takes under 20 seconds.
       - name: Install lcov
         if: matrix.coverage == true && inputs.run-coverage
-        run: sudo apt-get install -y lcov
+        timeout-minutes: 10
+        run: sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 install -y lcov
 
       - name: Run tests with coverage
         if: matrix.coverage == true && inputs.run-coverage

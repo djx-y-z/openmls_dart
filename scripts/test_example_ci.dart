@@ -30,6 +30,13 @@
 ///                       answers has failed the run, and its threads go to the
 ///                       log when the device gives them; with the app or the
 ///                       device gone, the run did not finish.
+///   --launch-within <s> Stop a run that has not started a test this many
+///                       seconds after flutter said the app was built: 300 by
+///                       default (`launchLimit`). The run did not finish.
+///   --start-within <s>  The same, counted from the start of the run, for when
+///                       that line never comes: 1200 by default (`startLimit`).
+///                       CI passes neither, nor any option a tag made before them
+///                       would refuse: a `pub` run runs the tag's own script.
 ///   --flutter <path>    The flutter the app runs on. The Makefile passes the
 ///                       one fvm resolves in the app's directory: this script
 ///                       runs under `fvm dart`, which puts the project's pinned
@@ -55,6 +62,8 @@ Future<void> main(List<String> args) async {
     '--verdict',
     '--dir',
     '--stall-after',
+    '--launch-within',
+    '--start-within',
     '--flutter',
   };
   final values = <String, String>{};
@@ -76,12 +85,17 @@ Future<void> main(List<String> args) async {
   if (attempts == null || attempts < 1) {
     _usage('--attempts takes a whole number from 1.');
   }
-  final stallSeconds = int.tryParse(
-    values['--stall-after'] ?? '${stallLimit.inSeconds}',
-  );
-  if (stallSeconds == null || stallSeconds < 1) {
-    _usage('--stall-after takes a whole number of seconds from 1.');
+  Duration seconds(String option, Duration byDefault) {
+    final value = int.tryParse(values[option] ?? '${byDefault.inSeconds}');
+    if (value == null || value < 1) {
+      _usage('$option takes a whole number of seconds from 1.');
+    }
+    return Duration(seconds: value);
   }
+
+  final stallAfter = seconds('--stall-after', stallLimit);
+  final launchWithin = seconds('--launch-within', launchLimit);
+  final startWithin = seconds('--start-within', startLimit);
 
   final verdict = values['--verdict'];
   final simulator = values['--simulator'];
@@ -103,7 +117,9 @@ Future<void> main(List<String> args) async {
     verify: verify,
     results: Directory.systemTemp.createTempSync('example-run-'),
     record: record,
-    stallLimit: Duration(seconds: stallSeconds),
+    stallLimit: stallAfter,
+    launchLimit: launchWithin,
+    startLimit: startWithin,
   );
 
   final outcome = await runAttempts(
@@ -172,6 +188,8 @@ class _Run {
     required this.results,
     required this.record,
     required this.stallLimit,
+    required this.launchLimit,
+    required this.startLimit,
   });
 
   final String app;
@@ -190,6 +208,11 @@ class _Run {
 
   /// How long the app may send nothing, once its tests have started.
   final Duration stallLimit;
+
+  /// How long a run may take to its first test, after flutter said the app
+  /// was built, and after the run started.
+  final Duration launchLimit;
+  final Duration startLimit;
 
   /// Whether a run has already said, while it went, that a test failed.
   bool failureAnnounced = false;
@@ -218,39 +241,37 @@ class _Run {
   Future<(int, RunOutcome Function(bool crashed))> _test(int attempt) async {
     final file = File('${results.absolute.path}/run-$attempt.json');
     if (file.existsSync()) file.deleteSync();
-    final process = await Process.start(
-      'make',
+    final run = await _start(
       makeArguments(
         'test-example',
         app: app,
         args: [...flutterArgs, '--file-reporter', 'json:${file.path}'],
         flutter: flutter,
       ),
-      mode: ProcessStartMode.inheritStdio,
     );
     // CI stops a try that runs out of time without asking it, and one stopped
     // after a test had failed must not read as one that did not finish. So the
     // results are read while the run goes, and a failure recorded at once.
-    final watched = _watch(process, () {
+    final watched = _watch(run, () {
       final text = _read(file) ?? '';
       _announce(failedSoFar(text));
       return testRunPosition(text);
     });
-    final code = await process.exitCode;
-    final stall = await watched();
+    final code = await run.process.exitCode;
+    final stop = await watched();
+    await run.drained();
     final text = _read(file);
     return (
       code,
       (bool crashed) => withStall(
         judgeTestRun(exitCode: code, results: text, crashed: crashed),
-        stall,
+        stop,
       ),
     );
   }
 
   Future<(int, RunOutcome Function(bool crashed))> _drive() async {
-    final process = await Process.start(
-      'make',
+    final run = await _start(
       makeArguments(
         'drive-example',
         app: app,
@@ -258,39 +279,54 @@ class _Run {
         flutter: flutter,
       ),
     );
-    final output = StringBuffer();
-    const decoder = Utf8Decoder(allowMalformed: true);
-    final copied = [
-      process.stdout.transform(decoder).forEach((text) {
-        stdout.write(text);
-        output.write(text);
-      }),
-      process.stderr.transform(decoder).forEach((text) {
-        stderr.write(text);
-        output.write(text);
-      }),
-    ];
     // The app prints a line as each test starts and as one fails, and the
     // driver passes them on as they come.
-    final watched = _watch(process, () {
-      final text = output.toString();
+    final watched = _watch(run, () {
+      final text = run.output.toString();
       _announce(driveFailedSoFar(text));
       return driveRunPosition(text);
     });
-    final code = await process.exitCode;
-    final stall = await watched();
-    // A process flutter left behind can hold the output open.
-    await Future.wait(
-      copied,
-    ).timeout(const Duration(minutes: 1), onTimeout: () => const <void>[]);
-    final text = output.toString();
+    final code = await run.process.exitCode;
+    final stop = await watched();
+    await run.drained();
+    final text = run.output.toString();
     return (
       code,
       (bool crashed) => withStall(
         judgeDriveRun(exitCode: code, output: text, crashed: crashed),
-        stall,
+        stop,
       ),
     );
+  }
+
+  /// Starts `make` with [arguments], its output passed on as it comes. What it
+  /// printed is kept, and a line saying the app was built starts the count
+  /// towards [launchLimit].
+  Future<_Started> _start(List<String> arguments) async {
+    final starts = StartWatch(
+      DateTime.now(),
+      afterBuild: launchLimit,
+      fromStart: startLimit,
+    );
+    final process = await Process.start('make', arguments);
+    final output = StringBuffer();
+    const decoder = Utf8Decoder(allowMalformed: true);
+    Future<void> copy(Stream<List<int>> from, IOSink to) {
+      // A line can come in two pieces: the end of one is held for the next.
+      var partial = '';
+      return from.transform(decoder).forEach((text) {
+        to.write(text);
+        output.write(text);
+        final lines = '$partial$text'.split('\n');
+        partial = lines.removeLast();
+        if (lines.any(isBuildLine)) starts.built(DateTime.now());
+      });
+    }
+
+    return _Started(process, output, starts, [
+      copy(process.stdout, stdout),
+      copy(process.stderr, stderr),
+    ]);
   }
 
   /// Writes down and says, once, that tests have failed in a run that is
@@ -306,20 +342,28 @@ class _Run {
     );
   }
 
-  /// Reads the run through [look] every 2 seconds while [process] goes, and
-  /// stops it once it has stood still for [stallLimit]. The function it gives
-  /// stops the reading, and gives what stopping the run came to, if it was
-  /// stopped.
+  /// Reads the run through [look] every 2 seconds while it goes, and stops it
+  /// once it has stood still for [stallLimit] in its tests, or has not got to
+  /// them in time ([StartWatch]). The function it gives stops the reading, and
+  /// gives what stopping the run came to, if it was stopped.
   Future<RunOutcome?> Function() _watch(
-    Process process,
+    _Started run,
     RunPosition? Function() look,
   ) {
     final stalls = StallWatch(stallLimit);
     Future<RunOutcome>? stopping;
     final timer = Timer.periodic(const Duration(seconds: 2), (_) {
       if (stopping != null) return;
-      final test = stalls.check(look(), DateTime.now());
-      if (test != null) stopping = _stop(process, test);
+      final now = DateTime.now();
+      final position = look();
+      if (stalls.check(position, now) case final test?) {
+        stopping = _stop(
+          run.process,
+          (app) => stalledRun(test, app, limit: stallLimit),
+        );
+      } else if (run.starts.check(position, now) case final outcome?) {
+        stopping = _stop(run.process, (_) => outcome);
+      }
     });
     return () async {
       timer.cancel();
@@ -327,14 +371,17 @@ class _Run {
     };
   }
 
-  /// Stops a run that has stood still, [test] the last one it started. The
-  /// device is asked what became of the app, and the verdict written down at
-  /// once, ahead of anything a time limit could cut short. Then the app's
-  /// threads go to the log, the app is ended, and flutter too if it does not
-  /// end with it.
-  Future<RunOutcome> _stop(Process process, String test) async {
+  /// Stops a run that has stood still, or never got to its tests, [judge]
+  /// saying what that comes to given what became of the app. The device is
+  /// asked that, and the verdict written down at once, ahead of anything a
+  /// time limit could cut short. Then the app's threads go to the log, the app
+  /// is ended, and flutter too if it does not end with it.
+  Future<RunOutcome> _stop(
+    Process process,
+    RunOutcome Function(AppState app) judge,
+  ) async {
     final probe = await _probe();
-    final outcome = stalledRun(test, probe.state, limit: stallLimit);
+    final outcome = judge(probe.state);
     final failed = outcome.verdict == Verdict.failed;
     if (failed) {
       record(Verdict.failed);
@@ -618,6 +665,23 @@ class _Run {
   }
 }
 
+/// A run of flutter under `make`: the process, what it has printed so far,
+/// and the watch on how long it takes to its first test.
+class _Started {
+  _Started(this.process, this.output, this.starts, this._copies);
+
+  final Process process;
+  final StringBuffer output;
+  final StartWatch starts;
+  final List<Future<void>> _copies;
+
+  /// Waits for the output to end, a minute at most: a process flutter left
+  /// behind can hold it open.
+  Future<void> drained() => Future.wait(
+    _copies,
+  ).timeout(const Duration(minutes: 1), onTimeout: () => const <void>[]);
+}
+
 /// What the device showed of the app, and the app's process when it was there.
 class _Probe {
   const _Probe(this.state, {this.pid, this.app});
@@ -743,7 +807,8 @@ Never _usage(String problem) {
   stderr.writeln(
     'Usage: make test-example-ci ARGS="[--drive] [--attempts <n>] '
     '[--simulator <udid>] [--android <serial>] [--verify=<args>] '
-    '[--verdict <file>] [--stall-after <seconds>] -- <arguments for flutter>"',
+    '[--verdict <file>] [--stall-after <seconds>] [--launch-within <seconds>] '
+    '[--start-within <seconds>] -- <arguments for flutter>"',
   );
   exit(2);
 }

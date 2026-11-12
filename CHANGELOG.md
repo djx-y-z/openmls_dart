@@ -1,3 +1,23 @@
+## [Unreleased]
+
+### For Contributors
+
+#### Changed
+
+- **copier template adopted: v4.21.0 -> v4.22.0** — integration CI now filters
+  pull-request and main-push runs to changes the tests read, with the matching
+  guidance in `.github/rulesets/README.md`, `CLAUDE.md` and `CONTRIBUTING.md`.
+  `.github/actions/setup-example/action.yml` waits for the uploaded version to
+  appear in pub's package listing, and the Android integration workflow installs
+  its NDK and CMake before building. The example runner now ends runs that never
+  start a test and retries them; `Makefile` also clears Gradle's Flutter
+  intermediates so a retry reruns the build hook. `scripts/src/update_template.dart`
+  now supplies file patches to the adoption-entry generator, and the update tests
+  cover that input; `.github/workflows/check-template-updates.yml` reports gates
+  as not run when a conflicted `Makefile` cannot be read. `test-reusable.yml`
+  and `integration-reusable.yml` also change their apt handling, and the test job
+  now has a time limit, so mirror failures cannot occupy a runner indefinitely.
+
 ## [4.0.0] - 2026-11-12
 
 ### For Users

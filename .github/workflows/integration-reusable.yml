@@ -150,11 +150,17 @@ jobs:
         with:
           ref: ${{ inputs.ref }}
 
+      # When the runner could not resolve the Ubuntu mirrors, apt went on for 35
+      # minutes before it failed. Each download now gets three tries and 30
+      # seconds to connect and to answer (the https mirrors take the http
+      # setting), and the step 15 minutes, where it takes 2 at the most.
       - name: Install the Linux desktop toolchain
         if: runner.os == 'Linux'
+        timeout-minutes: 15
         run: |
-          sudo apt-get update
-          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev xvfb
+          apt=(sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30)
+          "${apt[@]}" update
+          "${apt[@]}" install -y clang cmake ninja-build pkg-config libgtk-3-dev xvfb
 
       - name: Setup the app under test
         uses: ./.github/actions/setup-example
@@ -306,10 +312,11 @@ jobs:
     name: Integration (iOS simulator)
     runs-on: macos-26
     # Booting, the migration included, has taken up to 6 minutes, and its step has
-    # 15. A run that never connects takes about 14 (an Xcode build, then the
-    # 12-minute timeout) and one that passes 4 to 9, so the test step has 60 for
-    # its three, the reboot before the third included, and the job has to outlast
-    # it all.
+    # 15. A run that never connects took about 14 (an Xcode build, then flutter's
+    # 12-minute timeout), and `make test-example-ci` now ends it 5 minutes after
+    # the build; one that passes takes 4 to 9. So the test step has 60 for its
+    # three, the reboot before the third included, and a tag's own script without
+    # that limit still fits; the job has to outlast it all.
     timeout-minutes: 100
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -402,7 +409,8 @@ jobs:
   # ⚠ So each run is judged on what the app reported (`make test-example-ci`), and
   # only a run that never got that far is tried again, on a new emulator, up to
   # three tries in all: the device went away, the app never connected or never
-  # started the tests, the install did not finish. A test that failed fails the
+  # started the tests, the install did not finish — none of which may now hold a
+  # try past 5 minutes after the app was built. A test that failed fails the
   # job at once and is never run again, and so does an app that crashed: Android's
   # crash log names it. So does an app that has sent nothing for 8 minutes into
   # its tests while the emulator answers and the app still runs, its threads
@@ -489,18 +497,61 @@ jobs:
         with:
           packages: platform-tools
 
+      # Every NDK and CMake the builds below use, before them, each try starting
+      # from nothing. Flutter has Gradle fetch the NDK its plugin names
+      # (`ndkVersion`, 28.2.13676358 from Flutter 3.38 to 3.47) and the CMake AGP
+      # picks (3.22.1) for every app, one with no C of its own included, and this
+      # image has neither. Gradle fetched them in the middle of the app's build,
+      # once: an archive that came back broken failed a job there ("Archive is not
+      # a ZIP archive", six seconds into the NDK's download). The version is read
+      # from the Flutter the app runs on; where it cannot be, Gradle fetches it as
+      # before. From the tree, the NDK the release builds the library with too, as
+      # in `Cross-compile (Android)`: a test of a library built differently is a
+      # test of that one. All of it is here, in this ref's workflow, so that a `pub`
+      # run of a tag made before it has it as well.
+      - name: Install the NDKs and CMake the builds use
+        timeout-minutes: 20
+        env:
+          LIBRARY: ${{ inputs.library }}
+        run: |
+          # Not -e, which GitHub runs this with: a try that fails is what the
+          # loop is for.
+          set +e -uo pipefail
+          packages=()
+          flutter=$(cd "${EXAMPLE_DIR:-example}" && fvm exec sh -c 'command -v flutter')
+          plugin="$(dirname "$(dirname "$flutter")")/packages/flutter_tools/gradle/src/main/kotlin/FlutterExtension.kt"
+          ndk=$(sed -n 's/^ *val ndkVersion: String = "\([0-9.]*\)".*/\1/p' "$plugin" 2>/dev/null | head -n 1)
+          if printf '%s\n' "$ndk" | grep -Eqx '[0-9]+(\.[0-9]+)+'; then
+            packages+=("ndk;$ndk" "cmake;3.22.1")
+          else
+            echo "::warning::No NDK version in $plugin: Gradle fetches the one Flutter asks for during the build, as before."
+          fi
+          if [ "$LIBRARY" = tree ] && [ "$ndk" != "28.2.13676358" ]; then
+            packages+=("ndk;28.2.13676358")
+          fi
+          [ -n "${packages[*]:-}" ] || exit 0
+          for try in 1 2 3; do
+            sdkmanager --install "${packages[@]}"
+            missing=()
+            for package in "${packages[@]}"; do
+              [ -f "$ANDROID_SDK_ROOT/${package//;//}/source.properties" ] || missing+=("$package")
+            done
+            [ -n "${missing[*]:-}" ] || exit 0
+            echo "::warning::Not installed in try $try of 3: ${missing[*]}. Their directories and the SDK manager's downloads go, and it starts again."
+            for package in "${missing[@]}"; do rm -rf "${ANDROID_SDK_ROOT:?}/${package//;//}"; done
+            rm -rf "${ANDROID_SDK_ROOT:?}/.temp"
+            [ "$try" = 3 ] || sleep 30
+          done
+          echo "::error::sdkmanager could not install ${missing[*]} in three tries."
+          exit 1
+
       - name: Setup Rust
         if: inputs.library == 'tree'
         uses: ./.github/actions/setup-rust
         with:
           targets: x86_64-linux-android
 
-      # The NDK and cargo-ndk the release builds with, as in `Cross-compile
-      # (Android)`: a test of a library built differently is a test of that one.
-      - name: Install NDK
-        if: inputs.library == 'tree'
-        run: sdkmanager --install "ndk;28.2.13676358"
-
+      # The cargo-ndk the release builds with, for the reason above.
       - name: Setup cargo-ndk
         if: inputs.library == 'tree'
         run: cargo install cargo-ndk --locked --version 4.1.2
@@ -710,6 +761,45 @@ jobs:
         uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd # v4.0.4
         with:
           packages: platform-tools
+
+      # The same step as in the Android job above, and for the same reason: the
+      # release app's build fetched the NDK and CMake too.
+      - name: Install the NDKs and CMake the builds use
+        if: matrix.platform == 'android'
+        timeout-minutes: 20
+        env:
+          LIBRARY: ${{ inputs.library }}
+        run: |
+          # Not -e, which GitHub runs this with: a try that fails is what the
+          # loop is for.
+          set +e -uo pipefail
+          packages=()
+          flutter=$(cd "${EXAMPLE_DIR:-example}" && fvm exec sh -c 'command -v flutter')
+          plugin="$(dirname "$(dirname "$flutter")")/packages/flutter_tools/gradle/src/main/kotlin/FlutterExtension.kt"
+          ndk=$(sed -n 's/^ *val ndkVersion: String = "\([0-9.]*\)".*/\1/p' "$plugin" 2>/dev/null | head -n 1)
+          if printf '%s\n' "$ndk" | grep -Eqx '[0-9]+(\.[0-9]+)+'; then
+            packages+=("ndk;$ndk" "cmake;3.22.1")
+          else
+            echo "::warning::No NDK version in $plugin: Gradle fetches the one Flutter asks for during the build, as before."
+          fi
+          if [ "$LIBRARY" = tree ] && [ "$ndk" != "28.2.13676358" ]; then
+            packages+=("ndk;28.2.13676358")
+          fi
+          [ -n "${packages[*]:-}" ] || exit 0
+          for try in 1 2 3; do
+            sdkmanager --install "${packages[@]}"
+            missing=()
+            for package in "${packages[@]}"; do
+              [ -f "$ANDROID_SDK_ROOT/${package//;//}/source.properties" ] || missing+=("$package")
+            done
+            [ -n "${missing[*]:-}" ] || exit 0
+            echo "::warning::Not installed in try $try of 3: ${missing[*]}. Their directories and the SDK manager's downloads go, and it starts again."
+            for package in "${missing[@]}"; do rm -rf "${ANDROID_SDK_ROOT:?}/${package//;//}"; done
+            rm -rf "${ANDROID_SDK_ROOT:?}/.temp"
+            [ "$try" = 3 ] || sleep 30
+          done
+          echo "::error::sdkmanager could not install ${missing[*]} in three tries."
+          exit 1
 
       # The build hook downloads the release, and tries six times over a minute;
       # a runner's DNS has failed for longer than that. Its message then starts

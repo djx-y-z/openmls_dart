@@ -795,41 +795,164 @@ Future<({List<DuplicatedText> found, String error})> checkDuplicatedText({
 /// Reads the template version currently recorded in `.copier-answers.yml`.
 String readRecordedTemplateVersion() => readCopierAnswers()['_commit']!;
 
-/// A compact description of what the update changed, for the AI prompt.
+/// What the update changed in this project, for the AI prompt: every path it
+/// touched, as `git status` gives them, then each file's patch.
 ///
-/// Both halves matter and neither substitutes for the other: the name-status
-/// list names files copier *added*, which a diffstat of tracked changes does
-/// not show, while the diffstat carries the size of each change.
-Future<String> collectUpdateDiff({String? workingDirectory}) async {
+/// The patches are what the entry is written from. Given the paths and
+/// `git diff --stat` alone, a model wrote the rest from the template's
+/// changelog: on a real adoption it credited the update with changes two of
+/// its files had received a release earlier, where this update only pinned
+/// their actions by commit, and left out a tool pin the patches would have
+/// shown. A file copier left conflicted shows both sides between its markers,
+/// compared with `HEAD` whatever its index holds, and a file copier added
+/// shows whole. [conflicts] go first, the update's own count of them.
+Future<String> collectUpdateDiff({
+  String? workingDirectory,
+  List<String> conflicts = const [],
+}) async {
   final dir = workingDirectory ?? getPackageDir().path;
-  final buffer = StringBuffer();
 
+  // `-z`, because git quotes a path with unusual characters otherwise.
   final status = await Process.run('git', [
     'status',
     '--porcelain',
+    '--untracked-files=all',
+    '-z',
   ], workingDirectory: dir);
-  if (status.exitCode == 0) {
-    buffer
-      ..writeln('Working tree status:')
-      ..writeln((status.stdout as String).trim());
+  final entries = status.exitCode == 0
+      ? (status.stdout as String).split('\x00').where((e) => e.isNotEmpty)
+      : const <String>[];
+
+  // One line of context, not three: most of an update is one-line changes,
+  // and three lines around each made the release workflow's patch of a real
+  // update too long to show whole, with the change the entry then left out
+  // in the part cut off.
+  final diff = await Process.run('git', [
+    'diff',
+    'HEAD',
+    '--unified=1',
+    '--no-color',
+    '--no-ext-diff',
+  ], workingDirectory: dir);
+  final patches = diff.exitCode == 0
+      ? splitPatches(diff.stdout as String)
+      : <String, String>{};
+
+  for (final entry in entries) {
+    if (!entry.startsWith('?? ')) continue;
+    final path = entry.substring(3);
+    final file = File('$dir/$path');
+    final text = file.existsSync() ? _asText(file.readAsBytesSync()) : null;
+    patches[path] = text == null
+        ? '(a new file, and not text)'
+        : newFilePatch(path, text);
   }
 
-  final stat = await Process.run('git', [
-    'diff',
-    '--stat',
-  ], workingDirectory: dir);
-  if (stat.exitCode == 0 && (stat.stdout as String).trim().isNotEmpty) {
+  return describeUpdateDiff(
+    status: entries.join('\n'),
+    patches: patches,
+    conflicts: conflicts,
+  );
+}
+
+/// The patch of each file in [diff], the output of `git diff`, by its path:
+/// the new one, or the old one for a file the diff deletes. Pure; exposed for
+/// testing.
+Map<String, String> splitPatches(String diff) {
+  final patches = <String, String>{};
+  final header = RegExp(r'^diff --git a/(.*) b/(.*)$');
+  String? path;
+  final lines = <String>[];
+  void flush() {
+    if (path != null) patches[path!] = lines.join('\n').trimRight();
+    lines.clear();
+  }
+
+  for (final line in const LineSplitter().convert(diff)) {
+    if (header.firstMatch(line) case final match?) {
+      flush();
+      path = match.group(2);
+    }
+    lines.add(line);
+  }
+  flush();
+  return patches;
+}
+
+/// [text], a file the update added at [path], as a patch that adds it. Pure;
+/// exposed for testing.
+String newFilePatch(String path, String text) => [
+  'new file $path',
+  '--- /dev/null',
+  '+++ b/$path',
+  for (final line in const LineSplitter().convert(text)) '+$line',
+].join('\n');
+
+/// [status] and [patches] as the prompt reads them: the paths first, then each
+/// patch, the [conflicts] ahead of the rest and the rest from the shortest. A
+/// patch longer than [perFile] characters is cut at a line, and once [total]
+/// characters of patches are in, the files left are named without theirs: the
+/// longest, so that what does not fit is as few files as it can be. Pure;
+/// exposed for testing.
+String describeUpdateDiff({
+  required String status,
+  required Map<String, String> patches,
+  List<String> conflicts = const [],
+  int perFile = 8000,
+  int total = 80000,
+}) {
+  final buffer = StringBuffer()
+    ..writeln('Paths the update touched (`git status --porcelain`):')
+    ..writeln(status.trim().isEmpty ? '(none)' : status.trimRight());
+
+  final paths = patches.keys.toList();
+  final rest =
+      [
+        for (final path in paths)
+          if (!conflicts.contains(path)) path,
+      ]..sort((a, b) {
+        final shorter = patches[a]!.length.compareTo(patches[b]!.length);
+        // Patches of one length keep git's order: Dart's sort is not stable.
+        return shorter != 0 ? shorter : paths.indexOf(a) - paths.indexOf(b);
+      });
+  final order = [...conflicts.where(patches.containsKey), ...rest];
+  var used = 0;
+  final notShown = <String>[];
+  for (final path in order) {
+    if (used >= total) {
+      notShown.add(path);
+      continue;
+    }
+    var body = patches[path]!;
+    var cut = false;
+    if (body.length > perFile) {
+      final at = body.lastIndexOf('\n', perFile);
+      body = body.substring(0, at > 0 ? at : perFile);
+      cut = true;
+    }
+    used += body.length;
     buffer
       ..writeln()
-      ..writeln('Diffstat of modified tracked files:')
-      ..writeln((stat.stdout as String).trim());
+      ..writeln(
+        '### $path${conflicts.contains(path) ? ' (conflicted: both sides '
+                  'between the markers)' : ''}',
+      )
+      ..writeln('```diff')
+      ..writeln(body)
+      ..writeln('```');
+    if (cut) {
+      buffer.writeln('(cut at $perFile characters; the rest is not shown)');
+    }
   }
-
-  const maxChars = 6000;
-  final text = buffer.toString();
-  return text.length > maxChars
-      ? '${text.substring(0, maxChars)}\n... (truncated)'
-      : text;
+  if (notShown.isNotEmpty) {
+    buffer
+      ..writeln()
+      ..writeln(
+        '(${notShown.length} more changed file(s), their patches not shown: '
+        '${notShown.join(', ')})',
+      );
+  }
+  return buffer.toString().trimRight();
 }
 
 /// Inserts [entry] under `### For Contributors` → `#### Changed` in
@@ -917,12 +1040,35 @@ String insertContributorChangelogEntry({
     )..insertAll(at, ['', '#### Changed', '', entry])).join('\n');
   }
 
-  // Insert at the top of the existing subsection, ahead of older entries.
+  // Insert at the top of the existing subsection, ahead of older entries,
+  // spaced as they are: a blank line after the entry where they have one
+  // between them, and where no item follows it at all. A blank line in a list
+  // whose items have none makes it a loose list, each item a paragraph, and the
+  // line was taken out by hand after an adoption.
   var at = changedIdx + 1;
   while (at < contributorsEnd && lines[at].trim().isEmpty) {
     at++;
   }
-  return (List<String>.from(lines)..insertAll(at, [entry, ''])).join('\n');
+  final spaced =
+      at >= contributorsEnd ||
+      !lines[at].startsWith('- ') ||
+      _itemsSpaced(lines, at, contributorsEnd);
+  return (List<String>.from(
+    lines,
+  )..insertAll(at, [entry, if (spaced) ''])).join('\n');
+}
+
+/// Whether the items of the list that starts at [start] are set apart by
+/// blank lines, going by the first item that follows another before [end]:
+/// false for a list of one, as the upstream update writes its entries.
+bool _itemsSpaced(List<String> lines, int start, int end) {
+  for (var i = start + 1; i < end && i < lines.length; i++) {
+    final line = lines[i];
+    if (line.startsWith('- ')) return lines[i - 1].trim().isEmpty;
+    // A blank or an indented line belongs to the item above.
+    if (line.trim().isNotEmpty && !line.startsWith(' ')) return false;
+  }
+  return false;
 }
 
 /// Index of the first line in `[start, end)` satisfying [test], or -1.
@@ -1001,50 +1147,18 @@ Future<({String entry, AiModel model})> generateTemplateChangelogEntry({
   required String currentChangelog,
   required List<ResolvedAiModel> models,
 }) async {
-  final styleContext = currentChangelog.split('\n').take(200).join('\n');
   final compareUrl =
       'https://github.com/$templateRepo/compare/$fromVersion...$toVersion';
 
-  final prompt =
-      '''
-You are writing one CHANGELOG.md entry for a Dart package that is generated
-from a copier template. The project just adopted template $fromVersion -> $toVersion.
-
-## The template's own changelog for this range:
-$templateChangelog
-
-## The diff this update actually produced in THIS project:
-$updateDiff
-
-## Existing CHANGELOG.md, for tone and formatting:
-$styleContext
-
-## Your task
-Return a JSON object with EXACTLY ONE string field, "entry": a single Markdown
-list item to file under "### For Contributors" -> "#### Changed".
-
-## Rules
-1. The first line must start exactly with:
-   "- **copier template adopted: $fromVersion -> $toVersion** — "
-   using a real em-dash, then a short summary of what the adoption changes here.
-2. Wrap lines at 80 characters. Continuation lines are indented by two spaces.
-3. Describe ONLY what appears in the diff above. A template release covers every
-   project generated from it; anything that did not land here is not a change
-   here. This is the single most common failure of this step.
-4. When a part of the release arrives byte-identical because this project
-   already had it, say so plainly instead of claiming it as new.
-5. Name concrete files and settings, in backticks. Explain WHY a change matters,
-   not just what moved — match the density of the existing entries above.
-6. No headings, no nested bullet list, no trailing blank line. One list item.
-7. Do not invent verification you did not see, and do not use the words
-   "verified" or "tested" about anything not visible in the diff.
-
-Return ONLY valid JSON, no markdown code fences.
-''';
-
   final response = await callAi(
     models: models,
-    prompt: prompt,
+    prompt: templateEntryPrompt(
+      fromVersion: fromVersion,
+      toVersion: toVersion,
+      templateChangelog: templateChangelog,
+      updateDiff: updateDiff,
+      currentChangelog: currentChangelog,
+    ),
     jsonFields: _templateEntryFields,
   );
 
@@ -1065,6 +1179,65 @@ Return ONLY valid JSON, no markdown code fences.
         'entry was not generated automatically and needs writing.',
     model: response.model,
   );
+}
+
+/// What the model is asked for the adoption's CHANGELOG entry: the template's
+/// changelog for the range, [updateDiff] as [collectUpdateDiff] gives it, and
+/// the head of [currentChangelog] for its style. Pure; exposed for testing.
+String templateEntryPrompt({
+  required String fromVersion,
+  required String toVersion,
+  required String templateChangelog,
+  required String updateDiff,
+  required String currentChangelog,
+}) {
+  final styleContext = currentChangelog.split('\n').take(200).join('\n');
+  return '''
+You are writing one CHANGELOG.md entry for a Dart package that is generated
+from a copier template. The project just adopted template $fromVersion → $toVersion.
+
+## The template's own changelog for this range:
+$templateChangelog
+
+## What this update changed in THIS project: the paths, then each file's patch
+$updateDiff
+
+## Existing CHANGELOG.md, for tone and formatting:
+$styleContext
+
+## Your task
+Return a JSON object with EXACTLY ONE string field, "entry": a single Markdown
+list item to file under "### For Contributors" → "#### Changed".
+
+## Rules
+1. The first line must start exactly with:
+   "- **copier template adopted: $fromVersion → $toVersion** — "
+   using a real em-dash, then a short summary of what the adoption changes here.
+2. Wrap lines at 80 characters. Continuation lines are indented by two spaces.
+3. Say only what a patch above shows. The template's changelog describes the
+   template, for every project generated from it: use it to explain WHY a
+   change was made, never as evidence that it was made here. A change it names
+   that no patch above shows did not land here — this project had it already,
+   or does not render that file — so leave it out, or say plainly that it was
+   already here. A change a patch shows is described from the patch, whether
+   the template's changelog mentions it or not. Claiming what did not land here
+   is the single most common failure of this step.
+4. A file whose patch is cut short or not shown is described only as far as
+   its patch goes, or named as changed and no more.
+5. A file marked conflicted holds both sides between copier's markers: this
+   project's lines between "<<<<<<< before updating" and "=======", the
+   template's between "=======" and ">>>>>>> after updating". Neither side is
+   the outcome: a person resolves the file before this merges. Name it as
+   conflicted and say what the template's side offers; do not describe either
+   side as adopted.
+6. Name concrete files and settings, in backticks. Explain WHY a change matters,
+   not just what moved — match the density of the existing entries above.
+7. No headings, no nested bullet list, no trailing blank line. One list item.
+8. Do not invent verification you did not see, and do not use the words
+   "verified" or "tested" about anything not visible in the patches.
+
+Return ONLY valid JSON, no markdown code fences.
+''';
 }
 
 /// Applies the update end to end and returns what happened.
@@ -1188,7 +1361,10 @@ Future<TemplateUpdateResult> applyTemplateUpdate({
     logWarn('CHANGELOG.md is conflicted — leaving it alone.');
   } else {
     try {
-      final updateDiff = await collectUpdateDiff(workingDirectory: packageDir);
+      final updateDiff = await collectUpdateDiff(
+        workingDirectory: packageDir,
+        conflicts: conflicts,
+      );
       final changelogFile = File('$packageDir/CHANGELOG.md');
       final currentChangelog = changelogFile.readAsStringSync();
 

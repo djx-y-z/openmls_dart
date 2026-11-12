@@ -158,10 +158,16 @@ requests, so it would be satisfied without asserting anything.
 `integration / Integration (…)`, from `integration.yml`, runs the package inside
 the example app on every platform, and is the check the update bot's pull request
 most needs. Not required yet: an emulator job has to prove itself stable first, by
-the count above. Once it has, add its contexts here and to `protect-main.json`.
-`integration.yml`'s `pull_request` trigger already carries no `paths:` filter, for
-that day. `integration / Package (…)` belongs in neither list: it runs on a release
-only, so it would be skipped on every pull request.
+the count above. Once it has, add its contexts here and to `protect-main.json`,
+but not while `integration.yml` filters its `pull_request` trigger by path. A
+workflow its paths leave out reports nothing, and a required context with no
+report holds the pull request forever, with nothing to fix. A job-level `if:` is
+no way around it here: the jobs are a reusable workflow's, and a skipped call
+reports one `integration` context, not the `integration / Integration (…)` ones a
+ruleset would require. So the filter goes first, or a job that runs whenever it
+would skip reports each of those contexts as passed. `integration / Package (…)`
+belongs in neither list: it runs on a release only, so it would be skipped on
+every pull request.
 
 #### Field notes
 
